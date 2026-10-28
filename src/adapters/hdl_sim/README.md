@@ -11,6 +11,7 @@ Verified against iverilog 14.0 + vvp on counter fixtures
 comes from parsed output, never the exit code alone.
 
 Tool resolution is PATH plus an explicit job `tool_dir`; where the
-tools live is B10 scope. Engine wiring note: when `run_hdl_test` is
-registered, `run()` translation must carry file/line locations (today
-it only maps bbox keys).
+tools live is B10 scope. Pass `runner=` (a `BwrapRunner`) to confine
+compile and sim runs: tool roots bind read-only, the workdir stays
+read-write, output is bounded and sanitized. No Engine registration
+yet (deploy-time config).

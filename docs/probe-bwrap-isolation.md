@@ -63,6 +63,13 @@ bwrap --unshare-user --die-with-parent \
 - Full `--unshare-net` proof and the setuid-vs-userns decision ride
   with B10 on target Ubuntu.
 
+## Addendum: workdir binds at its own path (2026-10-28)
+
+The probe recipe above binds the work tree at `/work`, which only fits
+relative argv. `BwrapRunner` instead binds it at its own host path and
+chdirs there, so absolute argv (resolved tool and source paths) works
+unchanged inside. Proven by the sandboxed sim suite.
+
 ## Addendum: oss-cad-suite bundles its own bwrap (2026-10-28)
 
 `~/tools/oss-cad-suite/bin/bwrap` exists and SHADOWS the system bwrap

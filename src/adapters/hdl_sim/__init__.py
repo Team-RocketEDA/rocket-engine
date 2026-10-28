@@ -16,6 +16,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from ...execution.errors import ExecutionError
+from ...execution.runner import tool_roots
 from ...interfaces import ToolAdapter
 from ..errors import AdapterError
 
@@ -68,6 +70,9 @@ def _parse_sim(text):
 
 
 class HdlSimAdapter(ToolAdapter):
+    def __init__(self, runner=None):
+        self._runner = runner
+
     def capabilities(self, target):
         return {"operations": [OPERATION], "tool": "icarus", "sim": "vvp"}
 
@@ -92,12 +97,18 @@ class HdlSimAdapter(ToolAdapter):
             raise AdapterError(
                 "invalid_reference", f"Sources not found: {missing or sources}."
             )
-        return {
+        checked = {
             "iverilog": self._resolve(job, "iverilog"),
             "vvp": self._resolve(job, "vvp"),
             "sources": list(sources),
             "timeout_s": timeout,
         }
+        if self._runner is not None:
+            try:
+                self._runner.preflight()
+            except ExecutionError as exc:
+                raise AdapterError(exc.code, str(exc)) from exc
+        return checked
 
     def execute(self, job):
         checked = self.preflight(job)
@@ -106,10 +117,12 @@ class HdlSimAdapter(ToolAdapter):
             raise AdapterError(
                 "invalid_reference", f"Workdir not found: {workdir}."
             )
+        roots = tool_roots([checked["iverilog"], checked["vvp"]])
         build = self._run(
             [checked["iverilog"], "-o", "sim.vvp", *checked["sources"]],
             workdir,
             checked["timeout_s"],
+            roots,
         )
         if build.returncode != 0:
             return {
@@ -118,7 +131,7 @@ class HdlSimAdapter(ToolAdapter):
                 "run": None,
             }
         run = self._run(
-            [checked["vvp"], "sim.vvp"], workdir, checked["timeout_s"]
+            [checked["vvp"], "sim.vvp"], workdir, checked["timeout_s"], roots
         )
         return {
             "exit_code": run.returncode,
@@ -179,8 +192,12 @@ class HdlSimAdapter(ToolAdapter):
             )
         return found
 
-    @staticmethod
-    def _run(argv, workdir, timeout_s):
+    def _run(self, argv, workdir, timeout_s, extra_binds=()):
+        if self._runner is not None:
+            try:
+                return self._runner.run(argv, workdir, timeout_s, extra_binds)
+            except ExecutionError as exc:
+                raise AdapterError(exc.code, str(exc)) from exc
         try:
             return subprocess.run(
                 argv,

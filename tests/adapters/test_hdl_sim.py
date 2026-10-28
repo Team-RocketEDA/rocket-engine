@@ -252,12 +252,28 @@ needs_sandbox = pytest.mark.skipif(
 )
 
 
+def _which_all(binary):
+    found = []
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        cand = Path(directory) / binary
+        if cand.is_file() and str(cand) not in found:
+            found.append(str(cand))
+    return found
+
+
 def _sandboxed_adapter():
     from rocket_engine.adapters.hdl_sim import HdlSimAdapter
-    from rocket_engine.execution.runner import BwrapRunner, default_profile  # RED
+    from rocket_engine.execution.runner import BwrapRunner, default_profile
 
     tools = [shutil.which("iverilog"), shutil.which("vvp")]
-    return HdlSimAdapter(runner=BwrapRunner(default_profile(tools)))
+    for candidate in _which_all("bwrap"):
+        runner = BwrapRunner(default_profile(tools), binary=candidate)
+        try:
+            runner.preflight()
+        except Exception:
+            continue
+        return HdlSimAdapter(runner=runner)
+    pytest.skip("no provable bwrap on PATH")
 
 
 @needs_sandbox
