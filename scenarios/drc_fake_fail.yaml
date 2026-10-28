@@ -1,0 +1,12 @@
+name: drc fake-adapter fail path
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-drc-1, operation: run_drc, target: amplifier}
+  - dispatch_fake:
+      exit_code: 0
+      findings:
+        - {severity: error, rule: M1.min_width, message: "width 0.09 < 0.14"}
+        - {severity: error, rule: M1.min_width, message: "width 0.11 < 0.14"}
+        - {severity: warning, rule: density.advisory, message: "near threshold"}
+  - assert_verdict: FAIL
+  - assert_event: job_queued
