@@ -1,0 +1,11 @@
+schema: rocketeda/v0.1
+kind: component
+id: heater_arm
+revision: "r1"
+scope: project
+description: Depends on a project-local helper (closure fixture).
+domains: [photonic]
+ports:
+  o1: {domain: optical, direction: passive, width: 1}
+dependencies:
+  - {scope: project, id: heater_helper, revision: "r1"}

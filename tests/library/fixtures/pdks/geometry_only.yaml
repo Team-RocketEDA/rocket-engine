@@ -1,0 +1,15 @@
+schema: rocketeda/v0.1
+kind: pdk
+id: example_process
+revision: "r1"
+scope: global
+description: Geometry and SPICE only; no DRC deck (test fixture).
+domains: [analog]
+source: {kind: file, path: installation/manifest.yaml, format: yaml}
+objects:
+  devices.nfet:
+    description: Example transistor.
+    models: {spice: devices.nfet}
+models:
+  spice: {kind: file, path: installation/models/tt.spice, format: spice}
+decks: {}

@@ -1,0 +1,11 @@
+schema: rocketeda/v0.1
+kind: pdk
+id: example_process
+revision: "r2"
+scope: global
+description: Same id as r1, different revision (isolation fixture).
+domains: [analog]
+source: {kind: file, path: installation_r2/manifest.yaml, format: yaml}
+objects: {}
+models: {}
+decks: {}
