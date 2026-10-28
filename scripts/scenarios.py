@@ -39,6 +39,7 @@ from rocket_engine.composition import Engine
 ROOT = Path(__file__).resolve().parent.parent
 DRC_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc"
 DRC_KL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc_kl"
+HDL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "hdl"
 KL_RULES = {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0}
 
 _BACKENDS = {
@@ -117,6 +118,36 @@ def _require_ack(ctx, label):
         raise AssertionError(f"{label}: no submitted ack to dispatch")
 
 
+def _run_live_hdl(ctx, label, sub):
+    sources = sub.get("sources")
+    if not sources:
+        raise AssertionError(f"{label}: hdl run_live needs sources")
+    workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
+    ctx["tmpdirs"].append(workdir)
+    staged = []
+    for name in sources:
+        fixture = HDL_FIXTURES / name
+        if not fixture.is_file():
+            raise AssertionError(f"{label}: no fixture for source {name}")
+        dest = workdir / fixture.name
+        shutil.copy(fixture, dest)
+        staged.append(str(dest))
+    out = ctx["engine"].run(
+        {
+            "project_id": ctx["project_id"],
+            "operation": ctx["operation"],
+            "arguments": {
+                "sources": staged,
+                "workdir": str(workdir),
+                "deck": {"tool": "icarus"},
+            },
+            "snapshot_id": ctx["ack"]["snapshot_id"],
+        }
+    )
+    ctx["verdict"] = out["verdict"]
+    return None
+
+
 def _run_step(ctx, num, step):
     label = f"step {num} ({next(iter(step))})"
     if "submit" in step:
@@ -154,6 +185,8 @@ def _run_step(ctx, num, step):
         _require_ack(ctx, label)
         sub = step["run_live"]
         backend = sub.get("backend", "magic")
+        if backend == "hdl":
+            return _run_live_hdl(ctx, label, sub)
         try:
             table = _BACKENDS[backend]
         except KeyError:

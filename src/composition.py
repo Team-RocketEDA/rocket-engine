@@ -19,6 +19,7 @@ from ruamel.yaml import YAML
 from .adapters.drc import MagicDrcAdapter
 from .adapters.drc_kl import KlayoutDrcAdapter
 from .adapters.errors import AdapterError
+from .adapters.hdl_sim import HdlSimAdapter
 from .execution.service import ExecutionService
 from .interfaces.vocabulary import OPERATIONS, QUERIES
 from .library.catalog import Catalog
@@ -47,7 +48,8 @@ class Engine:
         self._execution = ExecutionService(project_id)
         self._catalog = Catalog(catalog_root)
         self._solvers = {
-            "run_drc": {"magic": MagicDrcAdapter(), "klayout": KlayoutDrcAdapter()}
+            "run_drc": {"magic": MagicDrcAdapter(), "klayout": KlayoutDrcAdapter()},
+            "run_hdl_test": {"icarus": HdlSimAdapter()},
         }
         self._yaml = YAML(typ="safe")
 
