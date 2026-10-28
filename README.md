@@ -46,6 +46,7 @@ I am just assuming you cloned all of Team Rocket's repos under one folder, such 
 | Process order and check plans | `src/workflows/README.md` |
 | PRD amendments from this repo | `docs/prd-feedforward.md` |
 | Product requirements (upstream) | `../PRD/README.md` |
+| Engine API for frontend devs | `docs/engine-api.md` |
 
 One-way references: module READMEs point up (here, the PRD). Rules
 live once — here or in the owning module, never both.
@@ -130,7 +131,63 @@ Each module ships `README.md` plus `tests/` (unit + contract tests,
 fixtures under `tests/fixtures/`). A module boundary is an import
 boundary, enforced in review.
 
-## Coding rules
+## Tool & dependency decisions
+
+<details>
+<summary>Decided tool per verification job (click to expand). Rule: one tool per job; a second only on proven unique verification value.</summary>
+
+### Engine-side (bundled or qualified by the engine)
+
+| Job | Tool | Install |
+|---|---|---|
+| HDL regression, coverage, lint | Verilator | native (OSS-CAD-Suite) |
+| SDF/timing GLS, X-prop sim | Icarus | native (OSS-CAD-Suite) |
+| VHDL sim + synth frontend | GHDL | native (OSS-CAD-Suite) |
+| Python testbenches | cocotb | pip `hdl` |
+| Synthesis (+SMT backend) | Yosys/ABC | native (OSS-CAD-Suite) |
+| SV parse/elaborate, style lint | Slang, Verible | native (OSS-CAD-Suite) |
+| Formal proofs / equiv / mutation | sby, eqy, mcy (+yices/Z3) | native (OSS-CAD-Suite) |
+| ASIC flow, STA, power | LibreLane closure | native pack (B10) |
+| Analog sim (DC/AC/tran/noise/corners/MC) | ngspice (+PySpice binding) | native + pip `analog` |
+| Analog characterization | CACE (drives ngspice+physical) | native |
+| Schematic capture/netlists | Xschem (batch use) | native |
+| Photonic freq circuits | SAX | pip `photonic` |
+| Photonic transient/active/HB | Circulax | pip `photonic` |
+| Eigenmode expansion + modes | MEOW | pip `photonic` |
+| Layout-to-EM prep | GSIM | resolved at B7 profile lock |
+| Photonic FDTD | Meep | resolved at B7 profile lock |
+| RF/antenna FDTD | openEMS | resolved at B7 profile lock |
+| 3D thermal/structural | Elmer | resolved at B7 profile lock |
+| Waveguide modes/device heaters | FEMwell | resolved at B7 profile lock |
+| Meshing, RF numerics | Gmsh, scikit-rf | native + pip `analog` |
+| Layout generation | GDSFactory | pip `layout` |
+| DRC (default), XOR, streamout | KLayout batch | native |
+| LVS compare | Netgen (Magic/KLayout-extracted netlists) | native |
+| Waveform evidence extraction | GTKWave batch mode | native |
+| Plot artifacts | matplotlib | pip `analog` |
+
+Native-tool acquisition (suite vs apt vs vendored) is decided at B10.
+Until then tools are expected-but-unpinned: every run records the
+exact tool+version+deck it used, nothing is assumed.
+
+### Display-side (RocketIDE-owned — never engine dependencies)
+
+Surfer (embedded waves), GTKWave GUI (desktop fallback), KLayout GUI,
+KWeb (browser layout), Xschem GUI. The engine emits typed data plus
+artifact references; RocketIDE renders. The full data contract lives
+in [docs/engine-api.md](docs/engine-api.md) so UI work runs parallel.
+
+### Backlog (kept out until a trigger fires)
+
+Xyce (post-layout scale blowup or HB need), Palace (FEM-only
+structure), DEVSIM (TCAD need), Magic-as-default (Magic-only deck).
+
+### Dropped
+
+Surelog (Slang supersedes), EMEPy (MEOW is native), nextpnr (FPGA,
+no stages), Tidy3D-required paths (commercial must never be required).
+
+</details>
 
 - TDD, always: failing test first, watch it RED, smallest GREEN, then
   refactor. RED must be the intended missing behavior, not setup
