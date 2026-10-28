@@ -1,0 +1,1 @@
+{"schema": "rocketeda/tooling/v0.1", "request_id": "request_ipc_001", "project_id": "analog_demo", "operation": "get_job_status", "arguments": {"run_id": "run_drc_001"}}
