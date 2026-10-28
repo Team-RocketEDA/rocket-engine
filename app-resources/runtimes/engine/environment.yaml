@@ -1,0 +1,11 @@
+# Prepared-profile placeholder. Real profiles are materialized by release CI
+# from locked requirements (uv.lock + native packs), never by the agent at
+# design time. Profiles: engine, design, photonic-circuit,
+# analog-characterization, digital-test, field-and-device. A profile that has
+# not passed dependency/license/fixture qualification is not advertised.
+schema: rocketeda/profile/v0.1
+profile_id: engine
+status: planned
+python: "3.12"
+environment_digest: null
+note: No packages are installed by this file; it only reserves the shape.

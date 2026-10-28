@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+.uv-cache/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+results/
+.rocket/
+*.gds
+*.oas
+.env

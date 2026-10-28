@@ -1,0 +1,9 @@
+# Native-tool inventory placeholder. Distributions (ngspice, Xyce, Xschem,
+# Magic, Netgen, KLayout, LibreLane closure, Verilator, OSS-CAD-Suite, Meep,
+# Elmer, Gmsh, ...) are pinned by digest in release packaging, with PATH and
+# shared-library scoping per distribution. Nothing here selects a tool by
+# bare PATH at execution time.
+schema: rocketeda/tools/v0.1
+status: planned
+distributions: []
+note: No binaries are fetched by this file; it only reserves the shape.

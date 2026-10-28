@@ -1,0 +1,46 @@
+[project]
+name = "rocket-engine"
+version = "0.0.1"
+description = "Shared tooling engine used by the RocketEDA IDE (manual actions and MCP invoke the same operations)."
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+  "anyio>=4.0",
+  "fastapi>=0.115",
+  "httpx>=0.27",
+  "jsonschema>=4.0",
+  "mcp>=1.0",
+  "pydantic>=2.0",
+  "ruamel.yaml>=0.18",
+  "uvicorn>=0.30",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# src/ IS the engine root: its contents install as the `rocket_engine`
+# package. There is no nested package directory and no UI code anywhere
+# under src/.
+force-include = {"src" = "rocket_engine"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["rocket_engine"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
