@@ -30,9 +30,22 @@ def test_happy_scenario_passes():
 
 
 @needs_magic
-def test_live_scenarios_pass_against_real_magic():
+def test_live_magic_scenarios_pass_against_real_magic():
     runner = _load_runner()
     for name in ("drc_live_pass.yaml", "drc_live_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
+
+
+needs_klayout = pytest.mark.skipif(
+    shutil.which("klayout") is None, reason="klayout not installed"
+)
+
+
+@needs_klayout
+def test_live_klayout_scenarios_pass_against_real_klayout():
+    runner = _load_runner()
+    for name in ("drc_live_kl_pass.yaml", "drc_live_kl_fail.yaml"):
         result = runner.run_scenario(ROOT / "scenarios" / name)
         assert result["passed"] is True, result["failures"]
 

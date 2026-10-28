@@ -1,0 +1,7 @@
+name: drc live klayout pass on known-good cell
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-kl-1, operation: run_drc, target: good}
+  - run_live: {cell: good, tech: synthetic-kl, backend: klayout}
+  - assert_verdict: PASS
+  - assert_event: job_queued
