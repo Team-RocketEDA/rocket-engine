@@ -3,7 +3,7 @@
 The engine is headless. This document is the complete data contract:
 every operation, query, event, state, and result shape the UI can
 depend on. No UI field may exist without a typed engine output defined
-here or in `src/interfaces/`. Transports (`api`, `ipc`, `mcp`, `cli`)
+here or in `src/interfaces/`. Transports (`http`, `ipc`, `mcp`, `cli`)
 carry identical commands — the shapes below never vary by caller.
 
 Conventions: `ref` = `{scope, id, revision}` (scope `project` or
@@ -104,7 +104,10 @@ measurement is `{name, value, unit, target?, margin?, status}` —
   coverage_pct}`.
 - Console: `cells[] {seq, code_ref, stdout, stderr, state}`,
   `effects[]` (runs spawned, files staged — never silent writes),
-  approvals `{approval_id, state, binding_hash}`.
+  approvals `{approval_id, state, binding_hash}`. A live approval
+  binds code + history cursor + env digest + revision: any drift at
+  admit time fails `approval_invalid`, and console reset kills every
+  outstanding approval.
 - Library: `pdks[] {id, revision, domains, readiness{}}`,
   `components[] {ref, status}` where `status` includes `UNVERIFIED`
   for unproven reuse; `dependency_closure[]`.
@@ -139,8 +142,10 @@ and fields are rejected, never ignored.
 Same command over HTTPS+SSE, framed stdio, MCP `tools/call`, and
 the CLI mirror. Envelope: `{schema, request_id, project_id,
 expected_revision, operation, target?, arguments}` → ack
-`{run_id, snapshot_id, state}` → events → result. Contract
-changes are additive and versioned (`rocketeda/tooling/vX.Y`);
+`{run_id, snapshot_id, state}` → events → result. Resubmitting the
+same envelope id returns the identical ack (MCP passes the JSON-RPC
+id as `request_id`). Contract changes are additive and versioned
+(`rocketeda/tooling/vX.Y`);
 renames are breaking and need a major bump plus migration notes.
 
 ## 8. Agent analytical access
