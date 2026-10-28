@@ -128,7 +128,7 @@ class BwrapRunner:
             )
         return {"ready": True, "binary": binary}
 
-    def run(self, command, workdir, timeout_s=120, extra_binds=()):
+    def run(self, command, workdir, timeout_s=120, extra_binds=(), input_text=None):
         binary = self._resolve()
         if not Path(workdir).is_dir():
             raise ExecutionError(
@@ -136,12 +136,16 @@ class BwrapRunner:
             )
         proc = subprocess.Popen(
             self._argv(binary, workdir, command, extra_binds),
+            stdin=subprocess.PIPE if input_text is not None else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=workdir,
         )
         try:
-            out_bytes, err_bytes = proc.communicate(timeout=timeout_s)
+            out_bytes, err_bytes = proc.communicate(
+                input_text.encode() if input_text is not None else None,
+                timeout=timeout_s,
+            )
         except subprocess.TimeoutExpired as exc:
             proc.kill()
             proc.wait()

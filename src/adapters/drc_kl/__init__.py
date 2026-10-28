@@ -13,6 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from ...execution.errors import ExecutionError
 from ...interfaces import ToolAdapter
 from ..errors import AdapterError
 
@@ -77,6 +78,9 @@ def _rules_or_raise(rules):
 
 
 class KlayoutDrcAdapter(ToolAdapter):
+    def __init__(self, runner=None):
+        self._runner = runner
+
     def capabilities(self, target):
         return {
             "operations": [OPERATION],
@@ -134,8 +138,12 @@ class KlayoutDrcAdapter(ToolAdapter):
         ]
         return {"total": int(match.group(1)), "violations": violations}
 
-    @staticmethod
-    def _run(argv, workdir):
+    def _run(self, argv, workdir):
+        if self._runner is not None:
+            try:
+                return self._runner.run(argv, workdir, _TIMEOUT_S)
+            except ExecutionError as exc:
+                raise AdapterError(exc.code, str(exc)) from exc
         try:
             return subprocess.run(
                 argv,

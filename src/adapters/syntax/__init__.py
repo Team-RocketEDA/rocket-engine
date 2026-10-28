@@ -17,6 +17,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from ...execution.errors import ExecutionError
 from ...interfaces import ToolAdapter
 from ..errors import AdapterError
 
@@ -30,6 +31,9 @@ _SUMMARY_RE = re.compile(r"^Build (succeeded|failed): (\d+) errors?, (\d+) warni
 
 
 class SyntaxAdapter(ToolAdapter):
+    def __init__(self, runner=None):
+        self._runner = runner
+
     def capabilities(self, target):
         return {"operations": [OPERATION], "tool": "slang"}
 
@@ -136,8 +140,12 @@ class SyntaxAdapter(ToolAdapter):
             )
         return found
 
-    @staticmethod
-    def _run(argv, workdir, timeout_s):
+    def _run(self, argv, workdir, timeout_s):
+        if self._runner is not None:
+            try:
+                return self._runner.run(argv, workdir, timeout_s)
+            except ExecutionError as exc:
+                raise AdapterError(exc.code, str(exc)) from exc
         try:
             return subprocess.run(
                 argv,
