@@ -55,5 +55,7 @@ not own: solver CLIs, check planning, transport protocols, any UI.
 GREEN (slice 2): `service.py` (in-memory dispatch, evidence,
 evaluation, approvals), `errors.py` (`ExecutionError`). Real workers,
 live console env, and persistence arrive in later slices.
-Invariants I08–I11, I22 proven. Tests: `tests/execution/`
-(6 passed). I15–I18, I23–I24 get RED with the console surface.
+Invariants I08–I11, I22 proven, plus I15, I17, I18 via
+`console.py` (real binding semantics; execution itself still
+in-memory). Tests: `tests/execution/` (15 passed). I16, I23, I24
+await the real worker substrate.
