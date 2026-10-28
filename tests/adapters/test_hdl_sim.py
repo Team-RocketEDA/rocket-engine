@@ -230,3 +230,17 @@ def test_hdl_parse_synthesizes_violation_on_bare_sim_crash():
     result = HdlSimAdapter().parse(native)
     assert result["total"] == 1
     assert result["violations"][0]["rule"] == "sim_fail"
+
+
+def test_hdl_parse_marks_warnings_not_errors():
+    from rocket_engine.adapters.hdl_sim import HdlSimAdapter  # RED: missing adapter
+
+    native = {
+        "exit_code": 0,
+        "compile": {"exit_code": 0, "stdout": "x.v:3: warning: implicit net\n", "stderr": ""},
+        "run": {"exit_code": 0, "stdout": "", "stderr": ""},
+    }
+    result = HdlSimAdapter().parse(native)
+    assert result["total"] == 1
+    assert result["violations"][0]["rule"] == "compile"
+    assert result["violations"][0]["severity"] == "warning"
