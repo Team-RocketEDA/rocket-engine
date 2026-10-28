@@ -5,8 +5,10 @@ root owns no domain logic: it routes cataloged names (see
 `interfaces.vocabulary`) to live module state. Operations queue through
 the project service with revision gating and envelope-id idempotency;
 only wired queries read state, the rest honestly report unwired.
-`run()` executes registered solvers synchronously (run_drc live via
-Magic); unregistered operations raise instead of faking a verdict.
+`run()` executes registered solvers synchronously. Each operation
+maps to named solvers; `deck.tool` selects one, defaulting to the
+first registered (run_drc: magic, then klayout). Unregistered
+operations and unknown deck tools raise instead of faking a verdict.
 """
 
 import io
@@ -15,6 +17,7 @@ import uuid
 from ruamel.yaml import YAML
 
 from .adapters.drc import MagicDrcAdapter
+from .adapters.drc_kl import KlayoutDrcAdapter
 from .adapters.errors import AdapterError
 from .execution.service import ExecutionService
 from .interfaces.vocabulary import OPERATIONS, QUERIES
@@ -31,7 +34,9 @@ class Engine:
         self._project = ProjectService(project_id, actor)
         self._execution = ExecutionService(project_id)
         self._catalog = Catalog(catalog_root)
-        self._solvers = {"run_drc": MagicDrcAdapter()}
+        self._solvers = {
+            "run_drc": {"magic": MagicDrcAdapter(), "klayout": KlayoutDrcAdapter()}
+        }
         self._yaml = YAML(typ="safe")
 
     def snapshot(self):
@@ -64,9 +69,10 @@ class Engine:
             expected_revision=arguments.get("expected_revision"),
         )
 
-    def register_solver(self, operation, adapter):
-        self._solvers[operation] = adapter
-        return {"operation": operation, "solver": type(adapter).__name__}
+    def register_solver(self, operation, adapter, tool=None):
+        name = tool if tool is not None else type(adapter).__name__
+        self._solvers.setdefault(operation, {})[name] = adapter
+        return {"operation": operation, "tool": name}
 
     def findings(self, run_id, limit=50, cursor=None):
         return self._execution.findings(run_id, limit=limit, cursor=cursor)
@@ -79,13 +85,23 @@ class Engine:
                 f"Bound to {self._project_id}, got {envelope}.",
             )
         name = command.get("operation")
-        try:
-            adapter = self._solvers[name]
-        except KeyError:
+        solvers = self._solvers.get(name) or {}
+        if not solvers:
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
-            ) from None
+            )
         arguments = dict(command.get("arguments") or {})
+        hint = (arguments.get("deck") or {}).get("tool")
+        if hint is None:
+            adapter = next(iter(solvers.values()))
+        else:
+            try:
+                adapter = solvers[hint]
+            except KeyError:
+                raise ProjectError(
+                    "unsupported_operation",
+                    f"No {name} solver for deck tool: {hint}.",
+                ) from None
         issued = self._execution.dispatch(
             name, {"cell": arguments.get("cell")}, command.get("snapshot_id", "")
         )
@@ -104,13 +120,16 @@ class Engine:
                 "operation": name,
             }
         # Solver convention: violations carry rule text; severity,
-        # message, and bbox are optional refinements. Per-solver finding
-        # translators arrive with the second solver.
+        # message, and bboxes are optional refinements. Each solver
+        # reports bboxes in its native units (lambda vs um) and the
+        # location keys say which.
         findings = []
         for violation in result.get("violations", []):
             location = {}
             if violation.get("bbox") is not None:
                 location["bbox_lambda"] = violation["bbox"]
+            if violation.get("bbox_um") is not None:
+                location["bbox_um"] = violation["bbox_um"]
             if violation.get("area") is not None:
                 location["area"] = violation["area"]
             findings.append(

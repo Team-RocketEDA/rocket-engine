@@ -119,11 +119,14 @@ def _run_step(ctx, num, step):
         _require_ack(ctx, label)
         sub = step["dispatch_fake"]
         ctx["engine"].register_solver(
-            ctx["operation"], FakeAdapter({"findings": sub.get("findings", [])})
+            ctx["operation"],
+            FakeAdapter({"findings": sub.get("findings", [])}),
+            tool="fake",
         )
         out = ctx["engine"].run(
             {"project_id": ctx["project_id"], "operation": ctx["operation"],
-             "arguments": {}, "snapshot_id": ctx["ack"]["snapshot_id"]}
+             "arguments": {"deck": {"tool": "fake"}},
+             "snapshot_id": ctx["ack"]["snapshot_id"]}
         )
         ctx["verdict"] = out["verdict"]
         return None
