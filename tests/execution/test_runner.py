@@ -101,3 +101,25 @@ def test_runner_kills_overruns(runner, tmp_path):
         assert getattr(exc, "code", None) == "runner_unavailable"
     else:
         raise AssertionError("expected runner_unavailable for an overrun")
+
+
+@needs_bwrap
+def test_runner_truncates_oversized_output(runner, tmp_path):
+    proc = runner.run(
+        ["/bin/sh", "-c", "seq 1 999999"], str(tmp_path), timeout_s=30
+    )
+    assert "truncated after" in proc.stdout
+    assert "of" in proc.stdout and "bytes" in proc.stdout
+    assert len(proc.stdout.encode("utf-8")) < 1_200_000
+
+
+@needs_bwrap
+def test_runner_strips_control_characters(runner, tmp_path):
+    proc = runner.run(
+        ["/usr/bin/printf", "ok\\x1b[31mRED\\x00\\x07\\n"],
+        str(tmp_path),
+        timeout_s=30,
+    )
+    assert "okRED" in proc.stdout.replace("\n", "")
+    for bad in ("\x1b", "\x00", "\x07"):
+        assert bad not in proc.stdout
