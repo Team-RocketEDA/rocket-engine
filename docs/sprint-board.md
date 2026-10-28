@@ -16,7 +16,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
 - [DRC-RED] DRC adapter RED (I14 fixtures, good/bad layouts)
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
-- [CONSOLE-GREEN] Console GREEN (workers, approvals, help)
 - [MCP-LIVE] MCP live-harness wiring (B9)
 - [B10] install.sh + tests/installed + capability matrix
 
@@ -38,3 +37,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [S4] Slice 4 GREEN code (workflows/transports) — commit pending
 - [MOCK-HARNESS] Scenario harness CLI (mock UI track)
 - [CONSOLE-RED] B8 console RED (I15-I18, I23-I24)
+- [CONSOLE-GREEN] Console GREEN (workers, approvals, help)
