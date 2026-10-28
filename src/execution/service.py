@@ -1,8 +1,9 @@
 """In-memory execution service (slice 2): dispatch, evidence, evaluation.
 
-Workers are not real yet: dispatch/cancel manipulate run state, and
-evaluate() judges caller-supplied findings. Real isolated workers, the
-live console env, and persistence arrive in later slices.
+dispatch/cancel manipulate run state; evaluate() judges findings and
+record_not_run() pins honest NOT_RUN verdicts with reasons. The first
+real worker path runs through Engine.run(); isolated workers, the live
+console env, and persistence arrive in later slices.
 """
 
 import uuid
@@ -102,6 +103,9 @@ class ExecutionService:
         return self._store_verdict(
             run_id, {"status": status, "finding_counts": counts}, findings
         )
+
+    def record_not_run(self, run_id, reason):
+        return self._store_verdict(run_id, {"status": "NOT_RUN", "reason": reason})
 
     def findings(self, run_id, limit=50, cursor=None):
         record = self._require(run_id)
