@@ -1,0 +1,7 @@
+name: drc live fail on known-bad cell
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-live-2, operation: run_drc, target: bad_spacing}
+  - run_live: {cell: bad_spacing, tech: scmos}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

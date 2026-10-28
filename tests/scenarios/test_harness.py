@@ -1,9 +1,16 @@
 """The harness tests itself: a good scenario passes, a bad expectation fails loudly."""
 
 import importlib.util
+import shutil
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent.parent
+
+needs_magic = pytest.mark.skipif(
+    shutil.which("magic") is None, reason="magic not installed"
+)
 
 
 def _load_runner():
@@ -20,6 +27,14 @@ def test_happy_scenario_passes():
     result = runner.run_scenario(ROOT / "scenarios" / "drc_fake_fail.yaml")
     assert result["passed"] is True
     assert result["failures"] == []
+
+
+@needs_magic
+def test_live_scenarios_pass_against_real_magic():
+    runner = _load_runner()
+    for name in ("drc_live_pass.yaml", "drc_live_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
 
 
 def test_broken_expectation_names_the_step(tmp_path):
