@@ -20,7 +20,7 @@ needs_magic = pytest.mark.skipif(not magic_present, reason="magic not installed"
 
 def _job(cell, tmp_path, **over):
     workdir = tmp_path / "work"
-    workdir.mkdir()
+    workdir.mkdir(exist_ok=True)
     cell_file = workdir / f"{cell}.mag"
     shutil.copy(FIXTURES / f"{cell}.mag", cell_file)
     job = {
@@ -60,6 +60,32 @@ def test_drc_preflight_refuses_unknown_tech(tmp_path):
         assert getattr(exc, "code", None) == "missing_dependency"
     else:
         raise AssertionError("expected missing_dependency for unknown tech")
+
+
+@needs_magic
+def test_drc_preflight_refuses_missing_cell(tmp_path):
+    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+
+    job = _job("good", tmp_path)
+    job["cell_file"] = str(tmp_path / "work" / "ghost.mag")
+    try:
+        MagicDrcAdapter().preflight(job)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "invalid_reference"
+    else:
+        raise AssertionError("expected invalid_reference for a missing cell")
+
+
+@needs_magic
+def test_drc_preflight_refuses_foreign_operation(tmp_path):
+    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+
+    try:
+        MagicDrcAdapter().preflight(_job("good", tmp_path, operation="run_spice"))
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "unsupported_operation"
+    else:
+        raise AssertionError("expected unsupported_operation for run_spice")
 
 
 @needs_magic
