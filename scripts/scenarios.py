@@ -12,7 +12,7 @@ Scenario YAML:
       - {submit: {request_id, operation, target, expected_revision?},
          expect_error?: <code>}
       - {dispatch_fake: {exit_code, findings: [{severity, rule, message}]}}
-      - {run_live: {cell, tech}}
+      - {run_live: {cell, tech, backend?, rules?}}
       - {assert_verdict: FAIL}
       - {assert_event: job_queued}
 
@@ -38,6 +38,26 @@ from rocket_engine.composition import Engine
 
 ROOT = Path(__file__).resolve().parent.parent
 DRC_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc"
+DRC_KL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc_kl"
+KL_RULES = {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0}
+
+_BACKENDS = {
+    "magic": {
+        "fixtures": DRC_FIXTURES,
+        "ext": ".mag",
+        "tech": "scmos",
+        "file_key": "cell_file",
+        "deck": None,
+    },
+    "klayout": {
+        "fixtures": DRC_KL_FIXTURES,
+        "ext": ".gds",
+        "tech": "synthetic-kl",
+        "file_key": "gds_file",
+        "deck": "klayout",
+        "rules": KL_RULES,
+    },
+}
 
 yaml = YAML(typ="safe")
 
@@ -133,23 +153,33 @@ def _run_step(ctx, num, step):
     if "run_live" in step:
         _require_ack(ctx, label)
         sub = step["run_live"]
-        fixture = DRC_FIXTURES / f"{sub['cell']}.mag"
+        backend = sub.get("backend", "magic")
+        try:
+            table = _BACKENDS[backend]
+        except KeyError:
+            raise AssertionError(f"{label}: unknown backend {backend}") from None
+        fixture = table["fixtures"] / f"{sub['cell']}{table['ext']}"
         if not fixture.is_file():
             raise AssertionError(f"{label}: no fixture for cell {sub['cell']}")
         workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
         ctx["tmpdirs"].append(workdir)
-        cell_file = workdir / fixture.name
-        shutil.copy(fixture, cell_file)
+        layout_file = workdir / fixture.name
+        shutil.copy(fixture, layout_file)
+        arguments = {
+            "tech": sub.get("tech", table["tech"]),
+            "cell": sub["cell"],
+            table["file_key"]: str(layout_file),
+            "workdir": str(workdir),
+        }
+        if table["deck"] is not None:
+            arguments["deck"] = {"tool": table["deck"]}
+        if "rules" in table:
+            arguments["rules"] = sub.get("rules", table["rules"])
         out = ctx["engine"].run(
             {
                 "project_id": ctx["project_id"],
                 "operation": ctx["operation"],
-                "arguments": {
-                    "tech": sub.get("tech", "scmos"),
-                    "cell": sub["cell"],
-                    "cell_file": str(cell_file),
-                    "workdir": str(workdir),
-                },
+                "arguments": arguments,
                 "snapshot_id": ctx["ack"]["snapshot_id"],
             }
         )
