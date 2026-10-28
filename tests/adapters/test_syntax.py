@@ -148,6 +148,18 @@ def test_syntax_proves_labels_against_real_slang(tmp_path):
             assert text in combined, (sources, text)
 
 
+def test_syntax_preflight_refuses_bad_flags(tmp_path):
+    from rocket_engine.adapters.syntax import SyntaxAdapter  # RED: missing adapter
+
+    job = _job(["counter.v"], tmp_path, slang_flags="-Wextra")
+    try:
+        SyntaxAdapter().preflight(job)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "invalid_command"
+    else:
+        raise AssertionError("expected invalid_command for non-list flags")
+
+
 def test_syntax_parse_synthesizes_violation_on_bare_failure():
     from rocket_engine.adapters.syntax import SyntaxAdapter  # RED: missing adapter
 
