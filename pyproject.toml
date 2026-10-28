@@ -19,6 +19,25 @@ dependencies = [
 dev = [
   "pytest>=8.0",
 ]
+# Optional solver profiles (see README "Tool & dependency decisions").
+# Base `uv sync` stays lean; add per profile, e.g. `uv sync --group photonic`.
+hdl = [
+  "cocotb>=1.9",
+]
+analog = [
+  "PySpice>=1.5",
+  "matplotlib>=3.8",
+  "scikit-rf>=1.0",
+]
+photonic = [
+  "sax>=0.18",
+  "circulax",
+  "meow-sim>=0.15",
+]
+layout = [
+  # <10: stay on stable 9.x; 10.x needs its own qualification (PDK pins differ).
+  "gdsfactory>=9.51,<10",
+]
 
 [build-system]
 requires = ["hatchling"]
