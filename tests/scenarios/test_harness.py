@@ -50,6 +50,36 @@ def test_live_klayout_scenarios_pass_against_real_klayout():
         assert result["passed"] is True, result["failures"]
 
 
+needs_icarus = pytest.mark.skipif(
+    shutil.which("iverilog") is None or shutil.which("vvp") is None,
+    reason="iverilog/vvp not on PATH",
+)
+
+
+@needs_icarus
+def test_live_hdl_scenarios_pass_against_real_tools():
+    runner = _load_runner()
+    for name in ("hdl_live_pass.yaml", "hdl_live_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
+
+
+def test_hdl_run_live_without_sources_fails_loudly(tmp_path):
+    runner = _load_runner()
+    bad = tmp_path / "bad.yaml"
+    bad.write_text(
+        (ROOT / "scenarios" / "hdl_live_pass.yaml")
+        .read_text()
+        .replace(
+            "run_live: {backend: hdl, sources: [counter.v, tb_pass.v]}",
+            "run_live: {backend: hdl}",
+        )
+    )
+    result = runner.run_scenario(bad)
+    assert result["passed"] is False
+    assert "sources" in result["failures"][0]
+
+
 def test_broken_expectation_names_the_step(tmp_path):
     runner = _load_runner()
     bad = tmp_path / "bad.yaml"
