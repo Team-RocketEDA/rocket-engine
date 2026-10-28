@@ -138,3 +138,40 @@ def test_drc_kl_proves_fixture_labels_against_real_klayout(tmp_path):
         )
         for line in want:
             assert line in proc.stdout
+
+
+def test_klayout_uses_injected_runner(tmp_path):
+    import subprocess
+
+    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+
+    seen = {}
+
+    class FakeRunner:
+        def run(self, command, workdir, timeout_s=120, extra_binds=()):
+            seen["command"] = command
+            seen["workdir"] = workdir
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+    adapter = KlayoutDrcAdapter(runner=FakeRunner())  # RED: no runner slot
+    proc = adapter._run(["klayout", "-b"], str(tmp_path))
+    assert seen["command"][:2] == ["klayout", "-b"]
+    assert seen["workdir"] == str(tmp_path)
+    assert proc.returncode == 0
+
+
+def test_klayout_converts_runner_errors(tmp_path):
+    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.execution.errors import ExecutionError
+
+    class BoomRunner:
+        def run(self, *args, **kwargs):
+            raise ExecutionError("runner_unavailable", "boom")
+
+    adapter = KlayoutDrcAdapter(runner=BoomRunner())
+    try:
+        adapter._run(["klayout", "-b"], str(tmp_path))
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "runner_unavailable"
+    else:
+        raise AssertionError("expected runner error conversion")

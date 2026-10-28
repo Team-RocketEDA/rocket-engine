@@ -183,3 +183,42 @@ def test_syntax_parse_rejects_native_without_summary():
         assert getattr(exc, "code", None) == "runner_unavailable"
     else:
         raise AssertionError("expected runner_unavailable for a missing summary")
+
+
+def test_syntax_uses_injected_runner(tmp_path):
+    import subprocess
+
+    from rocket_engine.adapters.syntax import SyntaxAdapter
+
+    seen = {}
+
+    class FakeRunner:
+        def run(self, command, workdir, timeout_s=120, extra_binds=()):
+            seen["command"] = command
+            seen["workdir"] = workdir
+            seen["timeout_s"] = timeout_s
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+    adapter = SyntaxAdapter(runner=FakeRunner())  # RED: no runner slot
+    proc = adapter._run(["slang", "--lint-only"], str(tmp_path), 30)
+    assert seen["command"][:2] == ["slang", "--lint-only"]
+    assert seen["workdir"] == str(tmp_path)
+    assert seen["timeout_s"] == 30
+    assert proc.returncode == 0
+
+
+def test_syntax_converts_runner_errors(tmp_path):
+    from rocket_engine.adapters.syntax import SyntaxAdapter
+    from rocket_engine.execution.errors import ExecutionError
+
+    class BoomRunner:
+        def run(self, *args, **kwargs):
+            raise ExecutionError("runner_unavailable", "boom")
+
+    adapter = SyntaxAdapter(runner=BoomRunner())
+    try:
+        adapter._run(["slang", "--lint-only"], str(tmp_path), 30)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "runner_unavailable"
+    else:
+        raise AssertionError("expected runner error conversion")

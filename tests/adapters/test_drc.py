@@ -138,3 +138,42 @@ def test_drc_proves_fixture_labels_against_real_magic(tmp_path):
         )
         assert f"Total DRC errors found: {want_total}" in proc.stdout
         assert want_rule in proc.stdout
+
+
+def test_drc_uses_injected_runner(tmp_path):
+    import subprocess
+
+    from rocket_engine.adapters.drc import MagicDrcAdapter
+
+    seen = {}
+
+    class FakeRunner:
+        def run(self, command, workdir, timeout_s=120, extra_binds=(), input_text=None):
+            seen["command"] = command
+            seen["workdir"] = workdir
+            seen["input_text"] = input_text
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+    adapter = MagicDrcAdapter(runner=FakeRunner())  # RED: no runner slot
+    proc = adapter._run("scmos", "quit\n", str(tmp_path))
+    assert seen["command"][:2] == ["magic", "-dnull"]
+    assert seen["workdir"] == str(tmp_path)
+    assert seen["input_text"] == "quit\n"
+    assert proc.returncode == 0
+
+
+def test_drc_converts_runner_errors(tmp_path):
+    from rocket_engine.adapters.drc import MagicDrcAdapter
+    from rocket_engine.execution.errors import ExecutionError
+
+    class BoomRunner:
+        def run(self, *args, **kwargs):
+            raise ExecutionError("runner_unavailable", "boom")
+
+    adapter = MagicDrcAdapter(runner=BoomRunner())
+    try:
+        adapter._run("scmos", "quit\n", str(tmp_path))
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "runner_unavailable"
+    else:
+        raise AssertionError("expected runner error conversion")

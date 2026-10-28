@@ -123,3 +123,12 @@ def test_runner_strips_control_characters(runner, tmp_path):
     assert "okRED" in proc.stdout.replace("\n", "")
     for bad in ("\x1b", "\x00", "\x07"):
         assert bad not in proc.stdout
+
+
+@needs_bwrap
+def test_runner_passes_input_text_to_stdin(runner, tmp_path):
+    proc = runner.run(
+        ["/bin/cat"], str(tmp_path), timeout_s=30, input_text="hello-stdin\n"
+    )
+    assert proc.returncode == 0
+    assert proc.stdout == "hello-stdin\n"
