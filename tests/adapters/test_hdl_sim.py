@@ -290,3 +290,38 @@ def test_hdl_sandbox_confines_writes(tmp_path):
         assert not probe.exists()
     finally:
         probe.unlink(missing_ok=True)
+
+
+def test_hdl_runner_errors_convert_to_adapter_errors(tmp_path):
+    from rocket_engine.adapters.hdl_sim import HdlSimAdapter
+    from rocket_engine.execution.errors import ExecutionError
+
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    (bindir / "iverilog").write_text("")
+    (bindir / "vvp").write_text("")
+
+    class PreflightBoom:
+        def preflight(self):
+            raise ExecutionError("runner_unavailable", "boom")
+
+    class RunBoom:
+        def preflight(self):
+            return {"ready": True}
+
+        def run(self, command, workdir, timeout_s=120, extra_binds=()):
+            raise ExecutionError("runner_unavailable", "boom")
+
+    job = _job(["counter.v", "tb_pass.v"], tmp_path, tool_dir=str(bindir))
+    cases = [
+        (HdlSimAdapter(runner=PreflightBoom()), "preflight"),
+        (HdlSimAdapter(runner=RunBoom()), "execute"),
+    ]
+    for adapter, method in cases:
+        try:
+            getattr(adapter, method)(job)
+        except Exception as exc:
+            assert type(exc).__name__ == "AdapterError", type(exc).__name__
+            assert exc.code == "runner_unavailable"
+        else:
+            raise AssertionError(f"expected converted AdapterError from {method}")
