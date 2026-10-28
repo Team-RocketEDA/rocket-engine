@@ -14,7 +14,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CORPUS-P] Photonic corpus (good/bad) — blocked: user review of suggestions
 - [CORPUS-M] Mixed corpus scope — blocked: user picks an option
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
-- [DRC-GREEN] Magic/KLayout DRC adapter GREEN
 - [B10] install.sh + tests/installed + capability matrix
 
 ## Ready
@@ -23,7 +22,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Doing
 
 
-- [DRC-RED] DRC adapter RED (I14 fixtures, good/bad layouts)
+- [DRC-GREEN] Magic/KLayout DRC adapter GREEN
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -38,3 +37,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CONSOLE-RED] B8 console RED (I15-I18, I23-I24)
 - [CONSOLE-GREEN] Console GREEN (workers, approvals, help)
 - [MCP-LIVE] MCP live-harness wiring (B9)
+- [DRC-RED] DRC adapter RED (I14 fixtures, good/bad layouts)
