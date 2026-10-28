@@ -15,6 +15,10 @@ Items marked (proposed) extend the PRD and need its sign-off.
 
 One backend per run, resolved by the engine from PDK + deck + registry.
 The `backend` column names the decided tool (see README decisions).
+`arguments.deck.tool` selects the solver when several qualify (run_drc:
+`magic`, `klayout`); a missing tool falls back to the operation
+default, an unknown tool fails `unsupported_operation` before anything
+runs. No silent fallback: the deck names it or the default owns it.
 
 | Operation | Key params | Result | Backend |
 |---|---|---|---|
@@ -25,7 +29,7 @@ The `backend` column names the decided tool (see README decisions).
 | `run_formal` | properties[], depth, engines[] | proven/bounded/cex + trace artifact | sby (+mcy quality) |
 | `run_digital_flow` | flow config, stages[]? | stage table (see §4), GDS/LEF/SDF/SPEF artifacts | LibreLane |
 | `run_timing` | corners[], artifacts? | setup/hold, paths[] {slack, from, to}, limits | OpenSTA via LibreLane |
-| `run_drc` | layout ref, deck ref | violations[] {rule, layer, bbox_um, count} | KLayout / Magic per deck |
+| `run_drc` | layout ref, deck ref | {total, violations[]} (see §4) | KLayout / Magic per deck.tool |
 | `run_lvs` | layout + reference refs | match/mismatch, device/net counts, diffs[] | Netgen (+KLayout LVS) |
 | `run_erc` | netlist ref, rules? | findings[] | engine + PDK rules |
 | `run_spice` | netlist, benches[], corners[] | measurements[] + curves (see §4) | ngspice (Xyce when qualified) |
@@ -77,7 +81,9 @@ digest}, `started/finished_at`, `summary` {counts by severity},
 `measurements[]`, `findings[]`, `artifacts[]`, `log_excerpt` +
 full-log artifact ref, `freshness`. A finding is
 `{id, severity, rule, message, location?, actual?, limit?}` where
-location may be a file span, a `layer+bbox_um`, or a device path. A
+location may be a file span, a device path, or a bbox whose key names
+its units: `bbox_um` for metric decks, `bbox_lambda` for lambda decks.
+Never infer units from the operation — read the key. A
 measurement is `{name, value, unit, target?, margin?, status}` —
 `margin` is always engine-computed, never left to the UI.
 
@@ -98,10 +104,10 @@ measurement is `{name, value, unit, target?, margin?, status}` —
   `s_params {ports[], matrix_ref}`, scalar measurements as in §3.
 - EM/thermal: `{converged, iterations, s_params?, modes[]?,
   hotspots[] {location, value, unit}, peak, mean, margins{}}`.
-- DRC: `violations[] {rule, layer, bbox_um, count}` + total + deck
-  identity. LVS: `{match, layout_devices, schematic_devices,
-  mismatches[]}`. Extraction: `{netlist_artifact, devices, nets,
-  coverage_pct}`.
+- DRC: `{total, violations[] {rule, message, location{bbox_um |
+  bbox_lambda, area?}}}`; FAIL iff any error-severity violation.
+  LVS: `{match, layout_devices, schematic_devices, mismatches[]}`.
+  Extraction: `{netlist_artifact, devices, nets, coverage_pct}`.
 - Console: `cells[] {seq, code_ref, stdout, stderr, state}`,
   `effects[]` (runs spawned, files staged — never silent writes),
   approvals `{approval_id, state, binding_hash}`. A live approval
