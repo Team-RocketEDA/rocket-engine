@@ -37,6 +37,7 @@ photonic = [
 ]
 layout = [
   # <10: stay on stable 9.x; 10.x needs its own qualification (PDK pins differ).
+  # gdsfactory parents kfactory~=3.0.4 (its layout backend) + kfnetlist transitively.
   "gdsfactory>=9.51,<10",
 ]
 

@@ -160,9 +160,10 @@ boundary, enforced in review.
 | 3D thermal/structural | Elmer | resolved at B7 profile lock |
 | Waveguide modes/device heaters | FEMwell | resolved at B7 profile lock |
 | Meshing, RF numerics | Gmsh, scikit-rf | native + pip `analog` |
-| Layout generation | GDSFactory | pip `layout` |
-| DRC (default), XOR, streamout | KLayout batch | native |
-| LVS compare | Netgen (Magic/KLayout-extracted netlists) | native |
+| Layout framework (components, PDKs, flows; kfactory backend) | GDSFactory 9.x | pip `layout` |
+| Layout netlist extract, opens/shorts/diff | kfnetlist (transitive via gdsfactory→kfactory) | pip `layout` (transitive) |
+| DRC (PDK decks), XOR, streamout | KLayout batch (stock) | native |
+| LVS compare (device-level) | Netgen (Magic/kfnetlist-extracted netlists) | native |
 | Waveform evidence extraction | GTKWave batch mode | native |
 | Plot artifacts | matplotlib | pip `analog` |
 
