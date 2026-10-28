@@ -20,4 +20,9 @@ class ToolAdapter(ABC):
 
     @abstractmethod
     def parse(self, native_output):
-        """Normalize native output into findings and measurements."""
+        """Normalize native output into findings and measurements.
+
+        Violation convention: rule/severity/message plus FLAT location
+        keys (file/line/col/sim_time/bbox/bbox_um/area). run() nests
+        them into finding.location; nested location dicts are ignored.
+        """

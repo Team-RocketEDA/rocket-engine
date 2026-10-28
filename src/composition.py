@@ -27,6 +27,18 @@ from .project.service import ProjectService
 
 _WIRED_QUERIES = frozenset({"get_project_snapshot"})
 
+# Adapter violation key -> finding location key. bbox keeps its legacy
+# lambda-units name; everything else passes through unchanged.
+_LOCATION_KEYS = (
+    ("bbox", "bbox_lambda"),
+    ("bbox_um", "bbox_um"),
+    ("area", "area"),
+    ("file", "file"),
+    ("line", "line"),
+    ("col", "col"),
+    ("sim_time", "sim_time"),
+)
+
 
 class Engine:
     def __init__(self, project_id, actor, catalog_root="."):
@@ -119,19 +131,14 @@ class Engine:
                 "verdict": verdict,
                 "operation": name,
             }
-        # Solver convention: violations carry rule text; severity,
-        # message, and bboxes are optional refinements. Each solver
-        # reports bboxes in its native units (lambda vs um) and the
-        # location keys say which.
+        # Solver convention (see ToolAdapter.parse): violations carry
+        # rule/severity/message plus flat location keys, nested here.
         findings = []
         for violation in result.get("violations", []):
             location = {}
-            if violation.get("bbox") is not None:
-                location["bbox_lambda"] = violation["bbox"]
-            if violation.get("bbox_um") is not None:
-                location["bbox_um"] = violation["bbox_um"]
-            if violation.get("area") is not None:
-                location["area"] = violation["area"]
+            for source, dest in _LOCATION_KEYS:
+                if violation.get(source) is not None:
+                    location[dest] = violation[source]
             findings.append(
                 {
                     "severity": violation.get("severity", "error"),

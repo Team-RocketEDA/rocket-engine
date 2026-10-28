@@ -95,8 +95,8 @@ def test_hdl_broken_compile_reports_diagnostics(tmp_path):
     result = adapter.parse(adapter.execute(_job(["counter_broken.v", "tb_pass.v"], tmp_path)))
     assert result["total"] >= 1
     assert all(v["rule"] == "compile" for v in result["violations"])
-    assert all(v["location"]["file"].endswith(".v") for v in result["violations"])
-    assert all(isinstance(v["location"]["line"], int) for v in result["violations"])
+    assert all(v["file"].endswith(".v") for v in result["violations"])
+    assert all(isinstance(v["line"], int) for v in result["violations"])
 
 
 @needs_icarus

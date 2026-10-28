@@ -37,7 +37,8 @@ def _parse_compile(text):
                 "rule": "compile",
                 "severity": "warning" if warning else "error",
                 "message": message,
-                "location": {"file": file, "line": int(line)},
+                "file": file,
+                "line": int(line),
             }
         )
     return violations
@@ -51,19 +52,18 @@ def _parse_sim(text):
         if match is None:
             continue
         kind, file, lineno, message = match.groups()
-        location = {"file": file, "line": int(lineno)}
+        violation = {
+            "rule": "assert_fatal" if kind == "FATAL" else "assert_error",
+            "severity": "error",
+            "message": message,
+            "file": file,
+            "line": int(lineno),
+        }
         if index + 1 < len(lines):
             timed = _TIME_RE.search(lines[index + 1])
             if timed:
-                location["sim_time"] = int(timed.group(1))
-        violations.append(
-            {
-                "rule": "assert_fatal" if kind == "FATAL" else "assert_error",
-                "severity": "error",
-                "message": message,
-                "location": location,
-            }
-        )
+                violation["sim_time"] = int(timed.group(1))
+        violations.append(violation)
     return violations
 
 
@@ -139,7 +139,6 @@ class HdlSimAdapter(ToolAdapter):
                         "rule": "compile",
                         "severity": "error",
                         "message": f"iverilog exited {compile_block.get('exit_code')}",
-                        "location": {},
                     }
                 ]
             return {"total": len(diags), "violations": diags}
@@ -157,7 +156,6 @@ class HdlSimAdapter(ToolAdapter):
                     "rule": "sim_fail",
                     "severity": "error",
                     "message": f"vvp exited {run_block.get('exit_code')}",
-                    "location": {},
                 }
             ]
         violations = diags + sim
