@@ -120,3 +120,23 @@ Of course just so you know, the analog s-domain loop is JUST an example, however
 - Verify circuit achieves desired output in both theory (schematic) and practical simulation (layout)
 - One example is comparing the resultant vs design goal, and to iterate the agent harness UNTIL the error is minimal or the result is acceptable.
 - And the best part? this loop can be coordinated using multiple agents each with their own modular subcircuit UNTIL the big circuit is there and done.
+
+## F8 — `deck.tool` selects the solver (engine-routing clarification)
+
+Amends: `frontend-tooling-spec.md` §2 run envelope and §4.1 deck
+semantics; blueprint B9 solver registry.
+
+Background: the PRD says a run presents an operation plus a deck (the
+PDK object the operation needs) but never states how the engine picks
+which tool binary executes the combo. Implemented rule in
+`composition.Engine.run` (covered by `tests/test_engine_run.py`):
+
+Proposed text: `arguments.deck.tool` names the registered solver for
+the operation (e.g. `run_drc` with `deck.tool: klayout`). When
+absent, the engine uses the first registered solver for that
+operation (today: `run_drc` → magic, then klayout; `run_hdl_test` →
+icarus). An unknown tool name raises `unsupported_operation`
+naming the operation and tool; the engine never substitutes another
+solver silently and never fakes a verdict. Deck still names WHAT the
+operation needs (the PDK object); `deck.tool` names WHICH solver
+runs it; the operation names the QUESTION asked.
