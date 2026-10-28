@@ -115,3 +115,93 @@ def test_run_records_not_run_when_tool_fails(tmp_path):
     out = engine.run(command)
     assert out["verdict"]["status"] == "NOT_RUN"
     assert "runner_unavailable" in out["verdict"]["reason"]
+
+
+KL_FIXTURES = Path("tests/adapters/fixtures/drc_kl")
+
+needs_klayout = pytest.mark.skipif(
+    shutil.which("klayout") is None, reason="klayout not installed"
+)
+
+
+def _kl_command(cell, tmp_path, **over):
+    workdir = tmp_path / "klwork"
+    workdir.mkdir(exist_ok=True)
+    gds_file = workdir / f"{cell}.gds"
+    shutil.copy(Path(KL_FIXTURES) / f"{cell}.gds", gds_file)
+    command = {
+        "project_id": PROJECT,
+        "operation": "run_drc",
+        "arguments": {
+            "tech": "synthetic-kl",
+            "cell": cell,
+            "gds_file": str(gds_file),
+            "workdir": str(workdir),
+            "rules": {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0},
+            "deck": {"tool": "klayout"},
+        },
+    }
+    command.update(over)
+    return command
+
+
+@needs_klayout
+def test_run_selects_solver_from_deck_tool(tmp_path):
+    engine = Engine(PROJECT, actor="tester")
+    out = engine.run(_kl_command("bad_space", tmp_path))
+    assert out["verdict"]["status"] == "FAIL"
+    found = engine.findings(out["run_id"])["findings"]
+    assert any("space" in f["rule"] for f in found)
+    assert all(len(f["location"]["bbox_um"]) == 4 for f in found)
+
+
+@needs_magic
+def test_run_defaults_to_first_registered_solver(tmp_path):
+    # Characterization: no deck hint keeps today's behavior (magic).
+    engine = Engine(PROJECT, actor="tester")
+    out = engine.run(_command("bad_spacing", tmp_path))
+    assert out["verdict"]["status"] == "FAIL"
+    found = engine.findings(out["run_id"])["findings"]
+    assert all("bbox_lambda" in f["location"] for f in found)
+
+
+def test_run_unknown_deck_tool_raises(tmp_path):
+    engine = Engine(PROJECT, actor="tester")
+    command = _command("good", tmp_path)
+    command["arguments"]["deck"] = {"tool": "no_such_tool"}
+    try:
+        engine.run(command)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "unsupported_operation"
+    else:
+        raise AssertionError("expected unsupported_operation for unknown deck tool")
+
+
+class NamedFake(FakeAdapter):
+    def __init__(self, rule):
+        self._rule = rule
+
+    def parse(self, native_output):
+        return {"total": 1, "violations": [{"rule": self._rule}]}
+
+
+def test_register_solver_names_tool_explicitly(tmp_path):
+    engine = Engine(PROJECT, actor="tester")
+    engine.register_solver("run_spice", NamedFake("rule-a"), tool="alpha")
+    engine.register_solver("run_spice", NamedFake("rule-b"), tool="beta")
+
+    def _spice(deck):
+        command = _command("good", tmp_path, operation="run_spice")
+        if deck is not None:
+            command["arguments"]["deck"] = {"tool": deck}
+        return engine.run(command)
+
+    out_alpha = _spice("alpha")
+    found_alpha = engine.findings(out_alpha["run_id"])["findings"]
+    assert [f["rule"] for f in found_alpha] == ["rule-a"]
+    out_beta = _spice("beta")
+    found = engine.findings(out_beta["run_id"])["findings"]
+    assert [f["rule"] for f in found] == ["rule-b"]
+    out_default = _spice(None)
+    found_default = engine.findings(out_default["run_id"])["findings"]
+    assert [f["rule"] for f in found_default] == ["rule-a"]
