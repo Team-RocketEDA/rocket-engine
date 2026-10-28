@@ -37,6 +37,9 @@ class Engine:
     def snapshot(self):
         return self._project.snapshot()
 
+    def events_since(self, cursor):
+        return self._project.events_since(cursor)
+
     def submit(self, command):
         envelope = command.get("project_id")
         if envelope != self._project_id:
@@ -100,20 +103,24 @@ class Engine:
                 "verdict": verdict,
                 "operation": name,
             }
-        # Solver convention: violations carry rule text plus a bbox.
-        # Per-solver finding translators arrive with the second solver.
-        findings = [
-            {
-                "severity": "error",
-                "rule": violation["rule"],
-                "message": violation["rule"],
-                "location": {
-                    "bbox_lambda": violation["bbox"],
-                    "area": violation.get("area"),
-                },
-            }
-            for violation in result.get("violations", [])
-        ]
+        # Solver convention: violations carry rule text; severity,
+        # message, and bbox are optional refinements. Per-solver finding
+        # translators arrive with the second solver.
+        findings = []
+        for violation in result.get("violations", []):
+            location = {}
+            if violation.get("bbox") is not None:
+                location["bbox_lambda"] = violation["bbox"]
+            if violation.get("area") is not None:
+                location["area"] = violation["area"]
+            findings.append(
+                {
+                    "severity": violation.get("severity", "error"),
+                    "rule": violation["rule"],
+                    "message": violation.get("message", violation["rule"]),
+                    "location": location,
+                }
+            )
         buf = io.StringIO()
         self._yaml.dump({"findings": findings}, buf)
         verdict = self._execution.evaluate(

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Scenario harness (mock UI track): scripted CLI scenarios against the real engine.
+"""Scenario harness (mock UI track): scripted MCP-client scenarios.
 
-Each scenario drives ProjectService + ExecutionService through one flow
-with a fake ToolAdapter, then asserts verdicts and events. No solvers,
-no UI — the mock UI track proves engine behavior headlessly.
+Each scenario submits through McpTransport into the real Engine, then
+either dispatches a canned FakeAdapter (fake track) or runs a live
+solver on a fixture cell (live track), then asserts verdicts/events.
 
 Scenario YAML:
     name: <title>
@@ -12,8 +12,12 @@ Scenario YAML:
       - {submit: {request_id, operation, target, expected_revision?},
          expect_error?: <code>}
       - {dispatch_fake: {exit_code, findings: [{severity, rule, message}]}}
+      - {run_live: {cell, tech}}
       - {assert_verdict: FAIL}
       - {assert_event: job_queued}
+
+Live scenarios need the real tool (magic for run_drc) and fail loudly
+without it. Fixture cells resolve under tests/adapters/fixtures/drc/.
 
 Usage:
     uv run --locked python scripts/scenarios.py scenarios/ [--json] [-q]
@@ -21,20 +25,25 @@ Usage:
 
 import argparse
 import json
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 from ruamel.yaml import YAML
 
 from rocket_engine.adapters import ToolAdapter
-from rocket_engine.execution import ExecutionService
-from rocket_engine.project import ProjectService
+from rocket_engine.adapters.mcp import McpTransport
+from rocket_engine.composition import Engine
+
+ROOT = Path(__file__).resolve().parent.parent
+DRC_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc"
 
 yaml = YAML(typ="safe")
 
 
 class FakeAdapter(ToolAdapter):
-    """Canned ToolAdapter: proves the port roundtrip without a solver."""
+    """Canned ToolAdapter: canned findings in the violations shape."""
 
     def __init__(self, canned):
         self._canned = canned
@@ -49,29 +58,51 @@ class FakeAdapter(ToolAdapter):
         return dict(self._canned)
 
     def parse(self, native_output):
-        return json.dumps({"findings": native_output["findings"]})
+        violations = [
+            {
+                "rule": finding["rule"],
+                "message": finding.get("message", finding["rule"]),
+                "severity": finding.get("severity", "error"),
+            }
+            for finding in native_output.get("findings", [])
+        ]
+        return {"total": len(violations), "violations": violations}
 
 
-def _command_text(project_id, revision, step):
+def _submit_envelope(project_id, revision, step):
     sub = step["submit"]
-    return (
-        "schema: rocketeda/tooling/v0.1\n"
-        f"request_id: {sub['request_id']}\n"
-        f"project_id: {project_id}\n"
-        f"expected_revision: \"{sub.get('expected_revision', revision)}\"\n"
-        f"operation: {sub['operation']}\n"
-        f"target: {{scope: project, id: {sub['target']}, revision: \"r1\"}}\n"
+    return json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": sub["request_id"],
+            "method": "tools/call",
+            "params": {
+                "name": sub["operation"],
+                "arguments": {
+                    "project_id": project_id,
+                    "expected_revision": sub.get("expected_revision", revision),
+                    "target": {
+                        "scope": "project",
+                        "id": sub["target"],
+                        "revision": "r1",
+                    },
+                },
+            },
+        }
     )
+
+
+def _require_ack(ctx, label):
+    if "ack" not in ctx:
+        raise AssertionError(f"{label}: no submitted ack to dispatch")
 
 
 def _run_step(ctx, num, step):
     label = f"step {num} ({next(iter(step))})"
     if "submit" in step:
-        sub = step["submit"]
         try:
-            ack = ctx["project"].submit(
-                _command_text(ctx["project_id"], ctx["revision"], step),
-                request_id=sub["request_id"],
+            ack = ctx["transport"].handle(
+                _submit_envelope(ctx["project_id"], ctx["revision"], step)
             )
         except Exception as exc:
             want = step.get("expect_error")
@@ -81,27 +112,45 @@ def _run_step(ctx, num, step):
         if step.get("expect_error"):
             raise AssertionError(f"{label}: expected error {step['expect_error']}, got ack")
         ctx["ack"] = ack
-        ctx["operation"] = sub["operation"]
-        ctx["target"] = sub["target"]
+        ctx["operation"] = step["submit"]["operation"]
+        ctx["target"] = step["submit"]["target"]
         return None
     if "dispatch_fake" in step:
-        if "ack" not in ctx:
-            raise AssertionError(f"{label}: no submitted ack to dispatch")
+        _require_ack(ctx, label)
         sub = step["dispatch_fake"]
-        run = ctx["execution"].dispatch(
-            operation=ctx["operation"],
-            target=ctx["target"],
-            snapshot_id=ctx["ack"]["snapshot_id"],
+        ctx["engine"].register_solver(
+            ctx["operation"], FakeAdapter({"findings": sub.get("findings", [])})
         )
-        adapter = FakeAdapter({"findings": sub.get("findings", [])})
-        job = {"run_id": run["run_id"], "operation": ctx["operation"]}
-        adapter.preflight(job)
-        native = adapter.execute(job)
-        ctx["verdict"] = ctx["execution"].evaluate(
-            run_id=run["run_id"],
-            exit_code=sub.get("exit_code", 0),
-            findings_fixture=adapter.parse(native),
+        out = ctx["engine"].run(
+            {"project_id": ctx["project_id"], "operation": ctx["operation"],
+             "arguments": {}, "snapshot_id": ctx["ack"]["snapshot_id"]}
         )
+        ctx["verdict"] = out["verdict"]
+        return None
+    if "run_live" in step:
+        _require_ack(ctx, label)
+        sub = step["run_live"]
+        fixture = DRC_FIXTURES / f"{sub['cell']}.mag"
+        if not fixture.is_file():
+            raise AssertionError(f"{label}: no fixture for cell {sub['cell']}")
+        workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
+        ctx["tmpdirs"].append(workdir)
+        cell_file = workdir / fixture.name
+        shutil.copy(fixture, cell_file)
+        out = ctx["engine"].run(
+            {
+                "project_id": ctx["project_id"],
+                "operation": ctx["operation"],
+                "arguments": {
+                    "tech": sub.get("tech", "scmos"),
+                    "cell": sub["cell"],
+                    "cell_file": str(cell_file),
+                    "workdir": str(workdir),
+                },
+                "snapshot_id": ctx["ack"]["snapshot_id"],
+            }
+        )
+        ctx["verdict"] = out["verdict"]
         return None
     if "assert_verdict" in step:
         got = (ctx.get("verdict") or {}).get("status")
@@ -109,7 +158,7 @@ def _run_step(ctx, num, step):
             raise AssertionError(f"{label}: verdict {got}, want {step['assert_verdict']}")
         return None
     if "assert_event" in step:
-        names = [e["event"] for e in ctx["project"].events_since(0)]
+        names = [e["event"] for e in ctx["engine"].events_since(0)]
         if step["assert_event"] not in names:
             raise AssertionError(f"{label}: no {step['assert_event']} in {names}")
         return None
@@ -119,23 +168,30 @@ def _run_step(ctx, num, step):
 def run_scenario(path):
     doc = yaml.load(Path(path).read_text())
     engine = doc.get("engine", {})
+    project_id = engine.get("project_id", "demo")
+    live = Engine(
+        project_id=project_id,
+        actor=engine.get("actor", {"kind": "user"}),
+        catalog_root=".",
+    )
     ctx = {
-        "project_id": engine.get("project_id", "demo"),
+        "project_id": project_id,
         "revision": engine.get("revision", "p12"),
-        "project": ProjectService(
-            project_id=engine.get("project_id", "demo"),
-            actor=engine.get("actor", {"kind": "user"}),
-            current_revision=engine.get("revision", "p12"),
-        ),
-        "execution": ExecutionService(project_id=engine.get("project_id", "demo")),
+        "engine": live,
+        "transport": McpTransport(live, project_id=project_id),
+        "tmpdirs": [],
     }
     failures = []
-    for num, step in enumerate(doc.get("steps", []), 1):
-        try:
-            _run_step(ctx, num, step)
-        except AssertionError as exc:
-            failures.append(str(exc))
-            break
+    try:
+        for num, step in enumerate(doc.get("steps", []), 1):
+            try:
+                _run_step(ctx, num, step)
+            except AssertionError as exc:
+                failures.append(str(exc))
+                break
+    finally:
+        for tmpdir in ctx["tmpdirs"]:
+            shutil.rmtree(tmpdir, ignore_errors=True)
     return {"name": doc.get("name", Path(path).name), "passed": not failures,
             "failures": failures}
 
