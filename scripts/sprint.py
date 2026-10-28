@@ -55,7 +55,10 @@ def cmd_list(args):
     for section in want:
         out.append(f"## {section}")
         names = [t for t, (s, _, _) in tickets.items() if s == section]
-        out.extend(f"- [{t}] {tickets[t][1]}" for t in names or ["(empty)"])
+        if names:
+            out.extend(f"- [{t}] {tickets[t][1]}" for t in names)
+        else:
+            out.append("(empty)")
     return "\n".join(out)
 
 
