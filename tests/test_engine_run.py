@@ -205,3 +205,31 @@ def test_register_solver_names_tool_explicitly(tmp_path):
     out_default = _spice(None)
     found_default = engine.findings(out_default["run_id"])["findings"]
     assert [f["rule"] for f in found_default] == ["rule-a"]
+
+
+class FileFake(FakeAdapter):
+    def parse(self, native_output):
+        return {
+            "total": 1,
+            "violations": [
+                {
+                    "rule": "assert_error",
+                    "severity": "error",
+                    "message": "counter sequence wrong",
+                    "file": "tb_error.v",
+                    "line": 17,
+                    "sim_time": 112000,
+                }
+            ],
+        }
+
+
+def test_run_preserves_file_line_locations(tmp_path):
+    engine = Engine(PROJECT, actor="tester")
+    engine.register_solver("run_spice", FileFake(), tool="filefake")
+    command = _command("good", tmp_path, operation="run_spice")
+    command["arguments"]["deck"] = {"tool": "filefake"}
+    out = engine.run(command)
+    assert out["verdict"]["status"] == "FAIL"
+    found = engine.findings(out["run_id"])["findings"]
+    assert found[0]["location"] == {"file": "tb_error.v", "line": 17, "sim_time": 112000}
