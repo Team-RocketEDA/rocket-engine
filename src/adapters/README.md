@@ -40,7 +40,8 @@ business rules, state, verdicts — and no adapter imports another.
 
 ## Status
 
-Scaffold — stubs only. Transports land slice 5 (CLI last, parked);
-first solver lands slice 4. Transport invariants I05/I12/I19, solver
-invariant I14. Tests: `tests/adapters/` (transports vs fake engine,
-solvers vs real fixtures).
+Transports GREEN (slice 4): `api/`, `ipc/`, `mcp/` speak the ports
+against any engine; `ToolAdapter` port defined in `interfaces/`
+(re-exported here). CLI stays parked. No solver wrapper yet — needs
+its own RED plus toolchain + PDK decks. Tests: `tests/adapters/`
+(4 passed vs fake engine).
