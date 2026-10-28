@@ -244,3 +244,49 @@ def test_hdl_parse_marks_warnings_not_errors():
     assert result["total"] == 1
     assert result["violations"][0]["rule"] == "compile"
     assert result["violations"][0]["severity"] == "warning"
+
+
+needs_sandbox = pytest.mark.skipif(
+    not tools_present or shutil.which("bwrap") is None,
+    reason="needs iverilog/vvp and bwrap",
+)
+
+
+def _sandboxed_adapter():
+    from rocket_engine.adapters.hdl_sim import HdlSimAdapter
+    from rocket_engine.execution.runner import BwrapRunner, default_profile  # RED
+
+    tools = [shutil.which("iverilog"), shutil.which("vvp")]
+    return HdlSimAdapter(runner=BwrapRunner(default_profile(tools)))
+
+
+@needs_sandbox
+def test_hdl_sandboxed_run_passes(tmp_path):
+    adapter = _sandboxed_adapter()
+    result = adapter.parse(adapter.execute(_job(["counter.v", "tb_pass.v"], tmp_path)))
+    assert result["total"] == 0
+
+
+@needs_sandbox
+def test_hdl_sandbox_confines_writes(tmp_path):
+    from rocket_engine.adapters.hdl_sim import HdlSimAdapter
+
+    probe = Path("/tmp/rocketeda_escape_probe")
+    probe.unlink(missing_ok=True)
+    try:
+        # Control: unconfined run writes through to the host.
+        control = HdlSimAdapter()
+        plain = control.parse(control.execute(_job(["tb_escape.v"], tmp_path)))
+        assert plain["total"] == 0
+        assert probe.exists()
+        probe.unlink()
+
+        # Sandboxed run: sim passes, host file never appears.
+        boxed_adapter = _sandboxed_adapter()
+        boxed = boxed_adapter.parse(
+            boxed_adapter.execute(_job(["tb_escape.v"], tmp_path))
+        )
+        assert boxed["total"] == 0
+        assert not probe.exists()
+    finally:
+        probe.unlink(missing_ok=True)
