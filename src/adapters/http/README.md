@@ -1,4 +1,4 @@
-# adapters/api — HTTP service surface
+# adapters/http — HTTP service surface
 
 ## Responsibility (PRD)
 

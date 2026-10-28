@@ -25,12 +25,12 @@ class FakeEngine:
 
 
 def test_api_ipc_mcp_submit_identical_commands():
-    from rocket_engine.adapters.api import ApiTransport  # RED: missing surface
+    from rocket_engine.adapters.http import HttpTransport  # RED: missing surface
     from rocket_engine.adapters.ipc import IpcTransport  # RED: missing surface
     from rocket_engine.adapters.mcp import McpTransport  # RED: missing surface
 
     engine = FakeEngine()
-    ApiTransport(engine).handle((FIXTURES / "api" / "request.json").read_text())
+    HttpTransport(engine).handle((FIXTURES / "http" / "request.json").read_text())
     IpcTransport(engine).handle((FIXTURES / "ipc" / "frame.json").read_text())
     McpTransport(engine).handle((FIXTURES / "mcp" / "tool_call.json").read_text())
     commands = engine.received

@@ -87,7 +87,7 @@ rule is absolute.
   on. No bytes on wires, no subprocesses — pure contracts.
 - **`adapters/` are the communication implementations (edges).** One
   duplex adapter per channel, each owning its full round trip. A
-  transport adapter (`api`, `ipc`, `mcp`, `cli`) translates outside
+  transport adapter (`http`, `ipc`, `mcp`, `cli`) translates outside
   bytes → ports → engine effects → events back out. A solver adapter
   (future `<solver>`) translates engine jobs → tool CLI/API →
   normalized evidence back in. No inbound/outbound grouping: direction

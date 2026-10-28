@@ -3,7 +3,7 @@
 from ..base import enforce_scope, parse_json
 
 
-class ApiTransport:
+class HttpTransport:
     def __init__(self, engine, project_id=None):
         self._engine = engine
         self._project_id = project_id
