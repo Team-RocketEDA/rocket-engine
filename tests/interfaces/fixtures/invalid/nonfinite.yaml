@@ -1,0 +1,8 @@
+schema: rocketeda/v0.1
+kind: component
+id: floaty
+revision: "r1"
+scope: project
+description: Fixture with a non-finite scalar (must be rejected).
+parameters:
+  length: {type: number, default: .nan, unit: um}

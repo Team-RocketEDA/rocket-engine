@@ -1,0 +1,10 @@
+schema: rocketeda/v0.1
+kind: component
+id: straight_soi
+revision: "r1"
+scope: global
+description: Reusable straight waveguide (test fixture).
+domains: [photonic]
+ports:
+  o1: {domain: optical, direction: passive, width: 1}
+  o2: {domain: optical, direction: passive, width: 1}

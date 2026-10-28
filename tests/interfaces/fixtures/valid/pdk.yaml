@@ -1,0 +1,12 @@
+schema: rocketeda/v0.1
+kind: pdk
+id: example_process
+revision: "r1"
+scope: global
+description: Example process, geometry only (test fixture).
+domains: [photonic]
+source: {kind: file, path: installation/manifest.yaml, format: yaml}
+objects:
+  devices.straight:
+    description: Example straight waveguide.
+    models: {sax: models.straight}

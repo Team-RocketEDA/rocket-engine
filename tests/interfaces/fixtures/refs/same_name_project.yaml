@@ -1,0 +1,9 @@
+schema: rocketeda/v0.1
+kind: component
+id: heater_arm
+revision: "r7"
+scope: project
+description: Project-scoped heater arm (same id as the global one).
+domains: [photonic]
+ports:
+  o1: {domain: optical, direction: passive, width: 1}

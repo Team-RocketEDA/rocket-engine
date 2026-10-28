@@ -1,0 +1,7 @@
+schema: rocketeda/v0.1
+kind: component
+id: dup_first
+id: dup_second
+revision: "r1"
+scope: project
+description: Fixture with a duplicate key (must be rejected).

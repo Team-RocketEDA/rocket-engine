@@ -1,0 +1,9 @@
+schema: rocketeda/v0.1
+kind: component
+base: &base
+  id: heater_arm
+id: merged_arm
+<<: *base
+revision: "r1"
+scope: project
+description: Fixture with anchors, aliases, and a merge key (must be rejected).

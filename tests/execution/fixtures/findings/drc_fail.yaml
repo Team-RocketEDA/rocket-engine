@@ -1,0 +1,22 @@
+# Normalized findings: DRC completed with violations.
+# Exit zero here must still evaluate to FAIL (I09).
+check_id: layout.drc
+status_hint: FAIL
+finding_counts: {error: 2, warning: 1}
+findings:
+  - id: m1_width_001
+    severity: error
+    rule: M1.min_width
+    location: {layer: met1, bbox_um: [10.0, 20.0, 10.09, 30.0]}
+    actual: {value: 0.09, unit: um}
+    limit: {value: 0.14, unit: um}
+  - id: m1_width_002
+    severity: error
+    rule: M1.min_width
+    location: {layer: met1, bbox_um: [40.0, 20.0, 40.09, 30.0]}
+    actual: {value: 0.09, unit: um}
+    limit: {value: 0.14, unit: um}
+  - id: density_note_001
+    severity: warning
+    rule: density.advisory
+    message: Metal density near advisory threshold.
