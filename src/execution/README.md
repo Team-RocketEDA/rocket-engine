@@ -52,7 +52,8 @@ not own: solver CLIs, check planning, transport protocols, any UI.
 
 ## Status
 
-Scaffold — package + this contract only. Slice 2. Invariants
-I08–I11 (evidence), I15–I18 + I22–I24 (isolation/approval/lifecycle).
-Tests: `tests/execution/` (injected failures, truncation, cancel races,
-adversarial isolation probes).
+GREEN (slice 2): `service.py` (in-memory dispatch, evidence,
+evaluation, approvals), `errors.py` (`ExecutionError`). Real workers,
+live console env, and persistence arrive in later slices.
+Invariants I08–I11, I22 proven. Tests: `tests/execution/`
+(6 passed). I15–I18, I23–I24 get RED with the console surface.
