@@ -38,3 +38,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CONSOLE-GREEN] Console GREEN (workers, approvals, help)
 - [MCP-LIVE] MCP live-harness wiring (B9)
 - [DRC-RED] DRC adapter RED (I14 fixtures, good/bad layouts)
+- [HDL-SCENARIO] HDL live scenarios (run_live hdl backend + icarus wiring)
