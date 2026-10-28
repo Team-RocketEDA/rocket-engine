@@ -18,6 +18,7 @@ dependencies = [
 [dependency-groups]
 dev = [
   "pytest>=8.0",
+  "pytest-cov>=6.0",
 ]
 # Optional solver profiles (see README "Tool & dependency decisions").
 # Base `uv sync` stays lean; add per profile, e.g. `uv sync --group photonic`.
