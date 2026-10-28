@@ -1,0 +1,11 @@
+schema: rocketeda/tooling/v0.1
+request_id: request_drc_001
+project_id: analog_demo
+expected_revision: "p12"
+operation: run_drc
+target: {scope: project, id: amplifier, revision: "r1"}
+arguments:
+  deck:
+    kind: pdk_object
+    pdk: {scope: global, id: sky130A, revision: "r1"}
+    object: decks.drc
