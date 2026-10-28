@@ -1,11 +1,11 @@
-"""RUNNER RED — BwrapRunner behind a small isolation contract (I16).
+"""RUNNER tests — BwrapRunner behind a small isolation contract (I16).
 
-Valid RED = `rocket_engine.execution.runner` does not exist yet, so
-every test fails on ImportError. Profiles and recipes come from the
-verified bubblewrap probe (see docs/probe-bwrap-isolation.md): userns
-sandbox, merged-/usr binds, ro tools, rw workdir. Tests skip (never
-fake-green) where bwrap is absent, except the missing-binary refusal
-which is hermetic by construction.
+Profiles and recipes come from the verified bubblewrap probe (see
+docs/probe-bwrap-isolation.md): userns sandbox, merged-/usr binds, ro
+tools, rw workdir. The bwrap-backed tests use the `runner` fixture,
+which skips unless the PATH-resolved bwrap passes preflight — another
+PATH entry may shadow bwrap with an unprovable build, and that must
+skip loudly, never fake-green or mystery-fail.
 """
 
 import shutil
@@ -25,18 +25,26 @@ PROFILE = {
 }
 
 
+@pytest.fixture
+def runner():
+    from rocket_engine.execution.runner import BwrapRunner
+
+    candidate = BwrapRunner(PROFILE)
+    try:
+        candidate.preflight()
+    except Exception:
+        pytest.skip("no provable bwrap on PATH")
+    return candidate
+
+
 def test_runner_module_exists():
-    from rocket_engine.execution.runner import (  # RED: missing module
-        BwrapRunner,
-    )
+    from rocket_engine.execution.runner import BwrapRunner
 
     assert callable(BwrapRunner)
 
 
 def test_runner_preflight_refuses_missing_binary(tmp_path):
-    from rocket_engine.execution.runner import (  # RED: missing module
-        BwrapRunner,
-    )
+    from rocket_engine.execution.runner import BwrapRunner
 
     runner = BwrapRunner(PROFILE, binary="/nonexistent-bwrap-for-tests")
     try:
@@ -48,20 +56,14 @@ def test_runner_preflight_refuses_missing_binary(tmp_path):
 
 
 @needs_bwrap
-def test_runner_preflight_passes_for_provable_profile():
-    from rocket_engine.execution.runner import (  # RED: missing module
-        BwrapRunner,
-    )
-
-    out = BwrapRunner(PROFILE).preflight()
+def test_runner_preflight_passes_for_provable_profile(runner):
+    out = runner.preflight()
     assert out["ready"] is True
 
 
 @needs_bwrap
 def test_runner_preflight_refuses_unprovable_namespaces():
-    from rocket_engine.execution.runner import (  # RED: missing module
-        BwrapRunner,
-    )
+    from rocket_engine.execution.runner import BwrapRunner
 
     profile = dict(PROFILE)
     profile["namespaces"] = ["user", "nosuchns"]
@@ -74,23 +76,15 @@ def test_runner_preflight_refuses_unprovable_namespaces():
 
 
 @needs_bwrap
-def test_runner_executes_inside_sandbox(tmp_path):
-    from rocket_engine.execution.runner import (  # RED: missing module
-        BwrapRunner,
-    )
-
-    proc = BwrapRunner(PROFILE).run(["/bin/echo", "hi"], str(tmp_path), timeout_s=30)
+def test_runner_executes_inside_sandbox(runner, tmp_path):
+    proc = runner.run(["/bin/echo", "hi"], str(tmp_path), timeout_s=30)
     assert proc.returncode == 0
     assert proc.stdout.strip() == "hi"
 
 
 @needs_bwrap
-def test_runner_confines_writes_to_workdir(tmp_path):
-    from rocket_engine.execution.runner import (  # RED: missing module
-        BwrapRunner,
-    )
-
-    proc = BwrapRunner(PROFILE).run(
+def test_runner_confines_writes_to_workdir(runner, tmp_path):
+    proc = runner.run(
         ["/bin/sh", "-c", "touch /usr/nope_for_tests && echo BAD || echo CONFINED"],
         str(tmp_path),
         timeout_s=30,
@@ -100,13 +94,9 @@ def test_runner_confines_writes_to_workdir(tmp_path):
 
 
 @needs_bwrap
-def test_runner_kills_overruns(tmp_path):
-    from rocket_engine.execution.runner import (  # RED: missing module
-        BwrapRunner,
-    )
-
+def test_runner_kills_overruns(runner, tmp_path):
     try:
-        BwrapRunner(PROFILE).run(["/bin/sleep", "30"], str(tmp_path), timeout_s=2)
+        runner.run(["/bin/sleep", "30"], str(tmp_path), timeout_s=2)
     except Exception as exc:
         assert getattr(exc, "code", None) == "runner_unavailable"
     else:

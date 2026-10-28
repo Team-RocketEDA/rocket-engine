@@ -62,3 +62,19 @@ bwrap --unshare-user --die-with-parent \
   per solver family; the DRC/HDL adapters gain an optional runner.
 - Full `--unshare-net` proof and the setuid-vs-userns decision ride
   with B10 on target Ubuntu.
+
+## Addendum: oss-cad-suite bundles its own bwrap (2026-10-28)
+
+`~/tools/oss-cad-suite/bin/bwrap` exists and SHADOWS the system bwrap
+when oss-cad-suite leads PATH — and it cannot create namespaces here
+(`No permissions to create a new namespace`). Consequences, both now
+handled:
+
+- `BwrapRunner.preflight()` refuses it with `runner_unavailable`,
+  exactly as designed (unprovable profile, loud refusal).
+- The runner tests take a `runner` fixture that skips unless the
+  PATH-resolved bwrap passes preflight — shadowing skips loudly,
+  never mystery-fails.
+- B10 must decide bwrap provenance (system vs bundled) and PATH
+  order. Until then, dev shells that export oss-cad-suite first will
+  see the 4 bwrap-backed runner tests skip.

@@ -2,6 +2,13 @@
 
 from .console import ConsoleSession, get_help
 from .errors import ExecutionError
+from .runner import BwrapRunner
 from .service import ExecutionService
 
-__all__ = ["ConsoleSession", "ExecutionError", "ExecutionService", "get_help"]
+__all__ = [
+    "BwrapRunner",
+    "ConsoleSession",
+    "ExecutionError",
+    "ExecutionService",
+    "get_help",
+]

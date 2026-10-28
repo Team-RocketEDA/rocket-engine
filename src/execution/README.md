@@ -57,5 +57,7 @@ evaluation, approvals), `errors.py` (`ExecutionError`). Real workers,
 live console env, and persistence arrive in later slices.
 Invariants I08–I11, I22 proven, plus I15, I17, I18 via
 `console.py` (real binding semantics; execution itself still
-in-memory). Tests: `tests/execution/` (15 passed). I16, I23, I24
-await the real worker substrate.
+in-memory). `runner.py` (`BwrapRunner`) confines solver subprocesses
+in userns sandboxes (I16 mechanics; net isolation re-proven on
+target). Tests: `tests/execution/` (22 passed). I23, I24 await the
+real worker substrate.
