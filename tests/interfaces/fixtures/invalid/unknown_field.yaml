@@ -1,0 +1,6 @@
+schema: rocketeda/v0.1
+kind: component
+id: typo_arm
+revisoin: "r1"
+scope: project
+description: Fixture with a misspelled field (must be rejected).

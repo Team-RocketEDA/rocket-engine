@@ -1,0 +1,10 @@
+schema: rocketeda/v0.1
+kind: project
+id: optical_demo
+revision: "r1"
+scope: project
+description: Small photonic design (test fixture).
+top: {scope: project, id: splitter_test, revision: "r1"}
+pdks:
+  - {scope: global, id: cornerstone_si220, revision: "r1"}
+constraints: {kind: file, path: constraints.yaml, format: yaml}

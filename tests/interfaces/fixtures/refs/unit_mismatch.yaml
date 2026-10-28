@@ -1,0 +1,10 @@
+schema: rocketeda/v0.1
+kind: component
+id: mixed_units
+revision: "r1"
+scope: project
+description: Ports in incompatible units (must be rejected on connect).
+domains: [photonic]
+ports:
+  o1: {domain: optical, direction: passive, width: 1, properties: {wavelength: {value: 1550, unit: nm}}}
+  o2: {domain: optical, direction: passive, width: 1, properties: {wavelength: {value: 1.55, unit: um}}}
