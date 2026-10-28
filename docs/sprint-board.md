@@ -23,7 +23,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 ## Ready
 
-- [MOCK-HARNESS] Scenario harness CLI (mock UI track)
 
 ## Doing
 
@@ -38,3 +37,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [S2] Slice 2 GREEN (execution I08-I11, I22)
 - [S3] Slice 3 GREEN (library I03, I04, I13)
 - [S4] Slice 4 GREEN code (workflows/transports) — commit pending
+- [MOCK-HARNESS] Scenario harness CLI (mock UI track)
