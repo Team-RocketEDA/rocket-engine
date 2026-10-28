@@ -38,6 +38,6 @@ any transport or solver code, any business rules.
 
 ## Status
 
-Scaffold — package + this contract only, no logic. Slice 1.
-Invariants I01 (strict YAML), I02 (refs/units). Tests:
-`tests/interfaces/` (created with slice 1, RED first).
+GREEN (slice 1): `documents.py` (strict validator), `references.py`
+(resolution + connection checks), `errors.py` (`ContractError`).
+Invariants I01, I02 proven. Tests: `tests/interfaces/` (12 passed).
