@@ -71,6 +71,30 @@ def test_live_sky130_scenarios_pass_against_real_deck():
         assert result["passed"] is True, result["failures"]
 
 
+needs_lvs_tools = pytest.mark.skipif(
+    shutil.which("magic") is None or shutil.which("netgen") is None,
+    reason="magic/netgen not on PATH",
+)
+
+
+@needs_lvs_tools
+def test_live_lvs_scenarios_pass_against_real_tools():
+    try:
+        from rocket_engine.interfaces.pdks import list_pdks
+    except Exception:
+        pytest.skip("pdk store unavailable")
+    try:
+        entries = list_pdks()
+    except Exception:
+        pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
+    if not [e for e in entries if e.get("id") == "sky130a"]:
+        pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
+    runner = _load_runner()
+    for name in ("lvs_sky130_pass.yaml", "lvs_sky130_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
+
+
 needs_icarus = pytest.mark.skipif(
     shutil.which("iverilog") is None or shutil.which("vvp") is None,
     reason="iverilog/vvp not on PATH",
