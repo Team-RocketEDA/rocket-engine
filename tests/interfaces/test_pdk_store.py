@@ -298,6 +298,104 @@ def test_resolve_deck_dangling_symlink_is_drift(tmp_path):
     assert link in str(excinfo.value)
 
 
+# --- PDK-DISPLAY slice 1: canonical display id (RED) ---
+
+def test_register_preserves_canonical_display_id(tmp_path):
+    from rocket_engine.interfaces.pdks import list_pdks, register_pdk
+
+    engine_root = tmp_path / "root"
+    source = _make_tiny_pdk(tmp_path / "tiny_pdk")
+    record = register_pdk(source, "tiny130A", "v1", engine_root=engine_root)
+    assert record["id"] == "tiny130A"
+    assert (engine_root / "pdks" / "tiny130a" / "v1").is_dir()
+    entries = list_pdks(engine_root=engine_root)
+    assert [(e["id"], e["revision"]) for e in entries] == [("tiny130A", "v1")]
+
+
+def test_manifest_stores_slug_and_display_id(tmp_path):
+    from rocket_engine.interfaces.pdks import register_pdk
+    from ruamel.yaml import YAML
+
+    engine_root = tmp_path / "root"
+    register_pdk(_make_tiny_pdk(tmp_path / "tiny_pdk"), "tiny130A", "v1",
+                 engine_root=engine_root)
+    manifest = YAML(typ="safe").load(
+        (engine_root / "pdks" / "tiny130a" / "v1" / "manifest.yaml").read_text()
+    )
+    assert manifest["id"] == "tiny130a"
+    assert manifest["display_id"] == "tiny130A"
+
+
+def test_ingredient_reports_display_id_for_either_spelling(tmp_path):
+    from rocket_engine.interfaces.pdks import pdk_ingredient, register_pdk
+
+    engine_root = tmp_path / "root"
+    register_pdk(_make_tiny_pdk(tmp_path / "tiny_pdk"), "tiny130A", "v1",
+                 engine_root=engine_root)
+    assert pdk_ingredient(
+        "tiny130A", "v1", engine_root=engine_root)["pdk_id"] == "tiny130A"
+    assert pdk_ingredient(
+        "tiny130a", "v1", engine_root=engine_root)["pdk_id"] == "tiny130A"
+
+
+def test_resolve_deck_accepts_display_or_slug(tmp_path):
+    from rocket_engine.interfaces.pdks import register_pdk, resolve_deck
+
+    engine_root = tmp_path / "root"
+    register_pdk(_make_tiny_pdk(tmp_path / "tiny_pdk"), "tiny130A", "v1",
+                 engine_root=engine_root)
+    deck = "libs.tech/magic/sky130A.tech"
+    display_hit = resolve_deck("tiny130A", "v1", deck, engine_root=engine_root)
+    slug_hit = resolve_deck("tiny130a", "v1", deck, engine_root=engine_root)
+    assert display_hit["path"] == slug_hit["path"]
+    assert display_hit["sha256"]
+
+
+def test_drift_and_conflict_messages_use_display_id(tmp_path):
+    from rocket_engine.interfaces.pdks import register_pdk, verify_pdk
+
+    engine_root = tmp_path / "root"
+    register_pdk(_make_tiny_pdk(tmp_path / "src_a"), "tiny130A", "v1",
+                 engine_root=engine_root)
+    victim = "libs.tech/klayout/drc/sky130A.lydrc"
+    (engine_root / "pdks" / "tiny130a" / "v1" / victim).write_text("// EVIL\n")
+    with pytest.raises(Exception) as excinfo:
+        verify_pdk("tiny130a", "v1", engine_root=engine_root)
+    assert _code(excinfo) == "pdk_drift"
+    assert "tiny130A@v1" in str(excinfo.value)
+    engine_root2 = tmp_path / "root2"
+    register_pdk(_make_tiny_pdk(tmp_path / "src_b"), "tiny130A", "v1",
+                 engine_root=engine_root2)
+    with pytest.raises(Exception) as excinfo:
+        register_pdk(_make_tiny_pdk(tmp_path / "src_c"), "tiny130A", "v1",
+                     engine_root=engine_root2)
+    assert _code(excinfo) == "pdk_conflict"
+    assert "tiny130A@v1" in str(excinfo.value)
+
+
+def test_old_slug_only_manifest_loads_with_slug_fallback(tmp_path):
+    from rocket_engine.interfaces.pdks import (
+        list_pdks,
+        pdk_ingredient,
+        register_pdk,
+    )
+    from ruamel.yaml import YAML
+
+    engine_root = tmp_path / "root"
+    register_pdk(_make_tiny_pdk(tmp_path / "tiny_pdk"), "tiny130a", "v1",
+                 engine_root=engine_root)
+    manifest_path = engine_root / "pdks" / "tiny130a" / "v1" / "manifest.yaml"
+    yaml = YAML(typ="safe")
+    data = yaml.load(manifest_path.read_text())
+    del data["display_id"]  # simulate a pre-display manifest
+    with manifest_path.open("w") as handle:
+        yaml.dump(data, handle)
+    entries = list_pdks(engine_root=engine_root)
+    assert entries[0]["id"] == "tiny130a"
+    assert pdk_ingredient(
+        "tiny130a", "v1", engine_root=engine_root)["pdk_id"] == "tiny130a"
+
+
 def test_resolve_deck_swapped_symlink_target_is_drift(tmp_path):
     from rocket_engine.interfaces.pdks import (  # review fix: swapped link
         register_pdk,
