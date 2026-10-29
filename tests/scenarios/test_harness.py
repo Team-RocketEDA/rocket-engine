@@ -270,6 +270,42 @@ def test_hdl_run_live_without_sources_fails_loudly(tmp_path):
     assert "sources" in result["failures"][0]
 
 
+# --- SCENARIO-PATH slice 1: startup PATH preflight (RED) ---
+
+def test_required_path_tools_declared_per_backend():
+    runner = _load_runner()
+    assert runner.required_path_tools(
+        {"steps": [{"run_live": {"backend": "hdl", "sources": ["x"]}}]}
+    ) == ["iverilog", "vvp"]
+    assert runner.required_path_tools(
+        {"steps": [{"run_live": {"cell": "good"}}]}
+    ) == ["magic"]
+    assert runner.required_path_tools(
+        {"steps": [{"run_live": {"backend": "extract_lvs_sky130", "cell": "x"}}]}
+    ) == ["magic", "netgen"]
+    assert runner.required_path_tools({"steps": [{"submit": {}}]}) == []
+
+
+def test_bare_path_hdl_scenario_fails_at_startup_naming_tool(tmp_path, monkeypatch):
+    runner = _load_runner()
+    monkeypatch.setenv("PATH", str(tmp_path))  # bare PATH: no tools at all
+    result = runner.run_scenario(ROOT / "scenarios" / "hdl_live_pass.yaml")
+    assert result["passed"] is False
+    assert "startup" in result["failures"][0]
+    assert "missing_dependency" in result["failures"][0]
+    assert "iverilog" in result["failures"][0]
+
+
+def test_bare_path_drc_scenario_fails_at_startup_naming_magic(tmp_path, monkeypatch):
+    runner = _load_runner()
+    monkeypatch.setenv("PATH", str(tmp_path))
+    result = runner.run_scenario(ROOT / "scenarios" / "drc_live_pass.yaml")
+    assert result["passed"] is False
+    assert "startup" in result["failures"][0]
+    assert "missing_dependency" in result["failures"][0]
+    assert "magic" in result["failures"][0]
+
+
 def test_broken_expectation_names_the_step(tmp_path):
     runner = _load_runner()
     bad = tmp_path / "bad.yaml"
