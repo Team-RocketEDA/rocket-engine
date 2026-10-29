@@ -13,3 +13,6 @@ results/
 *.gds
 *.oas
 .env
+# Vendored upstream fixtures (FIXTURE-FETCH): fetched trees stay local,
+# per-design notes (fixtures/upstream/*.md) commit.
+fixtures/upstream/*/
