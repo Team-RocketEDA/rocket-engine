@@ -713,3 +713,93 @@ def test_extract_preflight_needs_explicit_tech(tmp_path):
         assert getattr(exc, "code", None) == "invalid_command"
     else:
         raise AssertionError("expected invalid_command for a missing tech")
+
+
+MESHER_BANNER = """NETGEN-6.2.2401
+Developed by Joachim Schoeberl at
+2010-xxxx Vienna University of Technology
+2006-2010 RWTH Aachen University
+1996-2006 Johannes Kepler University Linz
+"""
+
+
+def _stub_netgen(tmp_path, name, banner):
+    # A fake `netgen` on PATH: prints the banner for -help and
+    # fails anything else, like a non-LVS namesake would.
+    path = tmp_path / name
+    path.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "-help" ]; then\n'
+        f"printf '%s' {banner!r}\n"
+        "exit 0\n"
+        "fi\n"
+        "echo 'not the LVS netgen' >&2\n"
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
+    return path
+
+
+def _prepend_path(monkeypatch, directory):
+    monkeypatch.setenv(
+        "PATH", f"{directory}{os.pathsep}{os.environ.get('PATH', '')}"
+    )
+
+
+def test_resolve_netgen_absent_is_none(tmp_path, monkeypatch):
+    # RED: resolve_netgen does not exist yet.
+    from rocket_engine.adapters.lvs_netgen import resolve_netgen
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.setenv("PATH", str(empty))
+    assert resolve_netgen() is None
+
+
+def test_resolve_netgen_rejects_mesher_impostor(tmp_path, monkeypatch):
+    # RED: the `netgen` apt package is the Schoeberl mesh
+    # generator — same name, different tool. PATH presence must
+    # never satisfy the LVS probe; observed live Oct 2026.
+    from rocket_engine.adapters.lvs_netgen import resolve_netgen
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    _stub_netgen(bindir, "netgen", MESHER_BANNER)
+    _prepend_path(monkeypatch, bindir)
+    assert shutil.which("netgen") is not None  # the trap is set
+    assert resolve_netgen() is None
+
+
+def test_resolve_netgen_admits_unknown_banner(tmp_path, monkeypatch):
+    # Denylist, not allowlist: only observed impostor markers
+    # reject. The real LVS banner is unverified here, so an
+    # unknown banner admits (NGSPICE-LIVE promotes this to a
+    # strict allowlist once the real binary is in hand).
+    from rocket_engine.adapters.lvs_netgen import resolve_netgen
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    _stub_netgen(bindir, "netgen", "netgen 1.5.316 from opencircuitdesign\n")
+    _prepend_path(monkeypatch, bindir)
+    assert resolve_netgen() == str(bindir / "netgen")
+
+
+def test_lvs_preflight_names_mesher_impostor(tmp_path, monkeypatch):
+    # RED: preflight must fail closed on the impostor with a
+    # cause that names it — never "produced no report" later.
+    from rocket_engine.adapters.lvs_netgen import NetgenLvsAdapter
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    _stub_netgen(bindir, "netgen", MESHER_BANNER)
+    _prepend_path(monkeypatch, bindir)
+    try:
+        NetgenLvsAdapter().preflight({"operation": "run_lvs"})
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "missing_dependency"
+        assert "Schoeberl" in str(exc) or "impostor" in str(exc), str(exc)
+        assert "NGSPICE-LIVE" in str(exc), str(exc)
+    else:
+        raise AssertionError("expected missing_dependency for the mesher")
+
