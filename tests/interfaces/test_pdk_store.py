@@ -97,6 +97,18 @@ def test_reregister_reverifies_never_duplicates(tmp_path):
     assert sorted(p.name for p in (engine_root / "pdks" / "tiny130a").iterdir()) == ["v1"]
 
 
+def test_reregister_from_different_source_conflicts(tmp_path):
+    from rocket_engine.interfaces.pdks import register_pdk  # RED: missing surface
+
+    engine_root = tmp_path / "root"
+    register_pdk(_make_tiny_pdk(tmp_path / "src_a"), "tiny130A", "v1",
+                 engine_root=engine_root)
+    with pytest.raises(Exception) as excinfo:
+        register_pdk(_make_tiny_pdk(tmp_path / "src_b"), "tiny130A", "v1",
+                     engine_root=engine_root)
+    assert _code(excinfo) == "pdk_conflict"
+
+
 def test_verify_passes_clean(tmp_path):
     from rocket_engine.interfaces.pdks import (  # RED: missing surface
         register_pdk,
