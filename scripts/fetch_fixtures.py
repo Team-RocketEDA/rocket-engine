@@ -21,12 +21,14 @@ the gate and must never vendor.
 Usage:
     python scripts/fetch_fixtures.py [--only NAME] [--retries N]
     python scripts/fetch_fixtures.py --check [--vendor-dir DIR]
+    python scripts/fetch_fixtures.py --verify-pins [--only NAME]
 """
 
 import argparse
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -240,6 +242,108 @@ def fetch_all(vendor_dir=VENDOR_DIR, only=None, retries=3):
     return status
 
 
+def _ls_remote_head(url, timeout=60):
+    """HEAD sha via `git ls-remote`; None when the remote is unreachable."""
+    try:
+        proc = subprocess.run(
+            ["git", "ls-remote", url, "HEAD"],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if proc.returncode != 0:
+        return None
+    parts = proc.stdout.split()
+    return parts[0] if parts else None
+
+
+def _pin_served(url, rev, timeout=120):
+    """Trial shallow fetch of one rev into a scratch dir (no vendoring).
+
+    Mirrors the fetch `fetch_one` performs, so a pin reported served
+    here is fetchable there. `git ls-remote` alone cannot prove this:
+    it matches ref patterns, not SHAs, so an old (non-tip) pin never
+    appears in its output even while perfectly fetchable.
+    """
+    try:
+        with tempfile.TemporaryDirectory(prefix="pincheck_") as tmp:
+            init = subprocess.run(
+                ["git", "init", "-q", tmp],
+                capture_output=True, text=True, timeout=timeout,
+            )
+            if init.returncode != 0:
+                return False
+            fetch = subprocess.run(
+                ["git", "fetch", "-q", "--depth", "1", url, rev],
+                cwd=tmp, capture_output=True, text=True, timeout=timeout,
+            )
+            return fetch.returncode == 0
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+
+def verify_pins(fixtures=None):
+    """Re-resolve each pin before it breaks a fetch (FETCH-HARDEN).
+
+    Returns {name: {"status", "pin", "head", "url"}} with status one of:
+    current (pin == HEAD), drifted (pin served but behind HEAD —
+    informational, re-pin when convenient), orphaned (pin no longer
+    served: force-push or rewrite — re-pin before fetching),
+    unreachable (`git ls-remote` failed: bad URL or no network).
+    """
+    specs = fixtures if fixtures is not None else FIXTURES
+    report = {}
+    for name in sorted(specs):
+        spec = specs[name]
+        url, rev = spec["url"], spec["rev"]
+        head = _ls_remote_head(url)
+        if head is None:
+            report[name] = {
+                "status": "unreachable", "pin": rev, "head": None,
+                "url": url,
+            }
+        elif head == rev:
+            report[name] = {
+                "status": "current", "pin": rev, "head": head, "url": url,
+            }
+        elif _pin_served(url, rev):
+            report[name] = {
+                "status": "drifted", "pin": rev, "head": head, "url": url,
+            }
+        else:
+            report[name] = {
+                "status": "orphaned", "pin": rev, "head": head, "url": url,
+            }
+    return report
+
+
+def format_pin_report(report):
+    """One human line per fixture; problems name the pin and the next step."""
+    lines = []
+    for name in sorted(report):
+        entry = report[name]
+        status = entry["status"]
+        if status == "current":
+            lines.append(f"{name}: current (pin == HEAD {entry['head']})")
+        elif status == "drifted":
+            lines.append(
+                f"{name}: drifted (pin {entry['pin']}, HEAD {entry['head']}) "
+                "— re-pin when convenient"
+            )
+        elif status == "orphaned":
+            lines.append(
+                f"{name}: ORPHANED pin {entry['pin']} no longer served by "
+                f"{entry['url']} (HEAD {entry['head']}) "
+                "— re-pin before fetching"
+            )
+        else:
+            lines.append(
+                f"{name}: UNREACHABLE {entry['url']} (git ls-remote failed) "
+                "— check network/URL"
+            )
+    return lines
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Vendor pinned fixtures.")
     parser.add_argument("--vendor-dir", default=str(VENDOR_DIR))
@@ -248,12 +352,24 @@ def main(argv=None):
     parser.add_argument("--retries", type=int, default=3)
     parser.add_argument("--check", action="store_true",
                         help="license-gate only, no fetching")
+    parser.add_argument("--verify-pins", action="store_true",
+                        help="re-resolve pins (current/drifted/orphaned), "
+                             "no fetching")
     args = parser.parse_args(argv)
     if args.only:
         unknown = [n for n in args.only if n not in FIXTURES]
         if unknown:
             print(f"unknown fixture(s): {', '.join(unknown)}", file=sys.stderr)
             return 2
+    if args.verify_pins:
+        specs = (FIXTURES if args.only is None
+                 else {n: FIXTURES[n] for n in args.only})
+        report = verify_pins(specs)
+        for line in format_pin_report(report):
+            print(line)
+        bad = [e for e in report.values()
+               if e["status"] in ("orphaned", "unreachable")]
+        return 1 if bad else 0
     if args.check:
         violations = license_gate(args.vendor_dir, args.only)
         for msg in violations:
