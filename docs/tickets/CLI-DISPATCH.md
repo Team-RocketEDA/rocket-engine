@@ -21,6 +21,10 @@ replay console history as CLI scripts. Adapters compose here
   batch execute; `--json` → stable machine output.
 - argv→op validation shared with MCP/console (one catalog, one
   parser of record); unknown op/args → usage error (exit 2).
+- Structure (hexagonal): the op dispatch is use-case-layer code
+  (the inbound port); argv parsing/formatting is the CLI inbound
+  adapter over it. The console is a second inbound adapter over
+  the same dispatch — adapters never call each other directly.
 - Honest exits: execution-ok is exit 0 *even when the verdict is
   FAIL* (verdict lives in the payload); engine errors exit 1.
   Verdicts from data, never from exit codes — same rule as solvers.
