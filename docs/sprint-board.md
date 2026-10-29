@@ -31,6 +31,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SCENARIO-PATH] Pin scenario gate to dev-PATH
 - [PDK-DISPLAY] Preserve canonical PDK display id in store records
 - [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
+- [DOCKER-DEPLOY] One-container judging/deployment recipe
 ## Ready
 
 
