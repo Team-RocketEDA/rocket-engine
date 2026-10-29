@@ -25,3 +25,7 @@ unlicensed code (two analog repos were already excluded) out forever.
 
 - Fresh fetch produces pinned trees; rerun is a no-op (hash check).
 - License-gate test green; documented-results notes exist per design.
+- Selection criterion (locked): every fixture ships prior
+  verification — testbenches, datasheets/measured numbers, or
+  regression suites. Designs with nothing measurable to compare
+  against are excluded, no matter how tempting.
