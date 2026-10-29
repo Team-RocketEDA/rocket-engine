@@ -188,7 +188,7 @@ def test_flatten_strips_single_subckt_wrappers():
     flat = flatten_spice(LAYOUT_SAMPLE_SPICE)
     assert ".subckt" not in flat.lower()
     assert ".ends" not in flat.lower()
-    assert flat.count("\nX") == 4
+    assert sum(1 for line in flat.splitlines() if line.startswith("X")) == 4
 
 
 def test_flatten_slices_named_cell_from_library():
@@ -200,7 +200,7 @@ def test_flatten_slices_named_cell_from_library():
     )
     flat = flatten_spice(lib, CELL)
     assert "other_dev" not in flat
-    assert flat.count("\nX") == 4
+    assert sum(1 for line in flat.splitlines() if line.startswith("X")) == 4
 
 
 def test_flatten_missing_cell_raises():

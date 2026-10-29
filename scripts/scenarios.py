@@ -45,6 +45,12 @@ HDL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "hdl"
 KL_RULES = {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0}
 SKY130_PDK_ID = "sky130a"
 SKY130_DECK_REL = "libs.tech/klayout/drc/sky130A.lydrc"
+LVS_SKY130_TECH_REL = "libs.tech/magic/sky130A.tech"
+LVS_SKY130_SETUP_REL = "libs.tech/netgen/sky130A_setup.tcl"
+LVS_SKY130_SPICE_LIB_REL = "libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice"
+LVS_SKY130_MAG_DIR_REL = "libs.ref/sky130_fd_sc_hd/mag"
+LVS_MUTATE_OLD = "X3 Y A VPWR VPB "
+LVS_MUTATE_NEW = "X3 Y A VPWR VPB_BAD "
 
 _BACKENDS = {
     "magic": {
@@ -130,7 +136,7 @@ def _require_ack(ctx, label):
         raise AssertionError(f"{label}: no submitted ack to dispatch")
 
 
-def _resolve_sky130_deck(label):
+def _resolve_sky130_deck(label, rel=SKY130_DECK_REL):
     try:
         from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
     except Exception as exc:
@@ -153,7 +159,7 @@ def _resolve_sky130_deck(label):
         )
     entry = sorted(candidates, key=lambda e: e["revision"])[0]
     try:
-        hit = resolve_deck(entry["id"], entry["revision"], SKY130_DECK_REL)
+        hit = resolve_deck(entry["id"], entry["revision"], rel)
     except Exception as exc:
         raise AssertionError(f"{label}: cannot resolve sky130 deck: {exc}") from exc
     return hit["path"]
@@ -181,6 +187,68 @@ def _run_live_hdl(ctx, label, sub):
                 "sources": staged,
                 "workdir": str(workdir),
                 "deck": {"tool": "icarus"},
+            },
+            "snapshot_id": ctx["ack"]["snapshot_id"],
+        }
+    )
+    ctx["verdict"] = out["verdict"]
+    return None
+
+
+def _run_live_lvs_sky130(ctx, label, sub):
+    from rocket_engine.adapters.lvs_netgen import flatten_spice
+
+    cell = sub.get("cell")
+    if not cell:
+        raise AssertionError(f"{label}: lvs run_live needs cell")
+    tech = _resolve_sky130_deck(label, LVS_SKY130_TECH_REL)
+    setup = _resolve_sky130_deck(label, LVS_SKY130_SETUP_REL)
+    mag = _resolve_sky130_deck(label, f"{LVS_SKY130_MAG_DIR_REL}/{cell}.mag")
+    lib = _resolve_sky130_deck(label, LVS_SKY130_SPICE_LIB_REL)
+    workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
+    ctx["tmpdirs"].append(workdir)
+    shutil.copy(mag, workdir / f"{cell}.mag")
+    try:
+        ref_text = flatten_spice(Path(lib).read_text(), cell)
+    except Exception as exc:
+        raise AssertionError(f"{label}: cannot slice {cell}: {exc}") from exc
+    if sub.get("mutate"):
+        if ref_text.count(LVS_MUTATE_OLD) != 1:
+            raise AssertionError(f"{label}: mismatch probe site changed")
+        ref_text = ref_text.replace(LVS_MUTATE_OLD, LVS_MUTATE_NEW)
+    schematic = workdir / "schematic.spice"
+    schematic.write_text(ref_text)
+    extracted = ctx["engine"].run(
+        {
+            "project_id": ctx["project_id"],
+            "operation": "run_extraction",
+            "arguments": {
+                "cell": cell,
+                "cell_file": str(workdir / f"{cell}.mag"),
+                "tech_file": tech,
+                "workdir": str(workdir),
+                "deck": {"tool": "magic"},
+            },
+            "snapshot_id": ctx["ack"]["snapshot_id"],
+        }
+    )
+    if (extracted["verdict"] or {}).get("status") != "PASS":
+        raise AssertionError(
+            f"{label}: extraction did not pass: {extracted['verdict']}"
+        )
+    layout_spice = workdir / f"{cell}.spice"
+    if not layout_spice.is_file():
+        raise AssertionError(f"{label}: extraction produced no spice")
+    out = ctx["engine"].run(
+        {
+            "project_id": ctx["project_id"],
+            "operation": ctx["operation"],
+            "arguments": {
+                "layout_spice": str(layout_spice),
+                "schematic_spice": str(schematic),
+                "setup_file": setup,
+                "workdir": str(workdir),
+                "deck": {"tool": "netgen"},
             },
             "snapshot_id": ctx["ack"]["snapshot_id"],
         }
@@ -228,6 +296,8 @@ def _run_step(ctx, num, step):
         backend = sub.get("backend", "magic")
         if backend == "hdl":
             return _run_live_hdl(ctx, label, sub)
+        if backend == "extract_lvs_sky130":
+            return _run_live_lvs_sky130(ctx, label, sub)
         try:
             table = _BACKENDS[backend]
         except KeyError:
