@@ -309,6 +309,33 @@ def test_bare_path_drc_scenario_fails_at_startup_naming_magic(tmp_path, monkeypa
     assert "magic" in result["failures"][0]
 
 
+# --- SCENARIO-PATH slice 2: reason inline + PATH contract doc (RED) ---
+
+@needs_magic
+def test_assert_verdict_mismatch_inlines_not_run_reason(tmp_path):
+    runner = _load_runner()
+    bad = tmp_path / "bad-tech.yaml"
+    bad.write_text(
+        (ROOT / "scenarios" / "drc_live_pass.yaml")
+        .read_text()
+        .replace(
+            "run_live: {cell: good, tech: scmos}",
+            "run_live: {cell: good, tech: bogus-tech}",
+        )
+    )
+    result = runner.run_scenario(bad)
+    assert result["passed"] is False
+    assert "NOT_RUN" in result["failures"][0]
+    assert "Cannot load magic tech" in result["failures"][0]
+
+
+def test_path_contract_documented():
+    text = (ROOT / "scenarios" / "README.md").read_text()
+    assert "oss-cad-suite" in text
+    assert "iverilog" in text
+    assert "missing_dependency" in text
+
+
 def test_broken_expectation_names_the_step(tmp_path):
     runner = _load_runner()
     bad = tmp_path / "bad.yaml"
