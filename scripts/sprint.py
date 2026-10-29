@@ -3,21 +3,26 @@
 
 Board lives at docs/sprint-board.md (repo root = parent of scripts/).
 Ticket line format: ``- [ID] Title`` under ``## Backlog|Ready|Doing|Review|Done``.
+Long descriptions live in docs/tickets/<ID>.md (managed, never hand-parsed).
 
 Usage:
     python scripts/sprint.py list [status]
     python scripts/sprint.py show <id>
-    python scripts/sprint.py add "title" [--id ID] [--status backlog]
+    python scripts/sprint.py add "title" [--id ID] [--status backlog] [--body FILE]
+    python scripts/sprint.py describe <id> <file>
+    python scripts/sprint.py undescribe <id>
     python scripts/sprint.py move <id> <status>
     python scripts/sprint.py remove <id>
 """
 
 import argparse
 import re
+import shutil
 import sys
 from pathlib import Path
 
 BOARD = Path(__file__).resolve().parent.parent / "docs" / "sprint-board.md"
+TICKETS_DIR = Path(__file__).resolve().parent.parent / "docs" / "tickets"
 SECTIONS = ["Backlog", "Ready", "Doing", "Review", "Done"]
 ALIASES = {"todo": "Backlog", "do": "Doing", "doing": "Doing",
            "in-review": "Review", "done": "Done", "backlog": "Backlog",
@@ -62,12 +67,30 @@ def cmd_list(args):
     return "\n".join(out)
 
 
+def body_path(tid):
+    return TICKETS_DIR / f"{tid}.md"
+
+
+def attach_body(tid, src):
+    src = Path(src)
+    if not src.is_file():
+        return None
+    TICKETS_DIR.mkdir(parents=True, exist_ok=True)
+    dest = body_path(tid)
+    shutil.copy(src, dest)
+    return dest
+
+
 def cmd_show(args):
     _, tickets, _ = load()
     if args.id not in tickets:
         return f"unknown ticket: {args.id}"
     section, title, _ = tickets[args.id]
-    return f"[{args.id}] {title}\nstatus: {section}"
+    head = f"[{args.id}] {title}\nstatus: {section}"
+    dest = body_path(args.id)
+    if dest.is_file():
+        return f"{head}\n---\n{dest.read_text().rstrip()}"
+    return f"{head}\n(no description)"
 
 
 def cmd_add(args):
@@ -83,6 +106,8 @@ def cmd_add(args):
         return f"duplicate ticket: {tid}"
     if not re.fullmatch(r"[A-Za-z0-9][\w-]*", tid):
         return f"bad id (letters/digits/_/-): {tid}"
+    if getattr(args, "body", None) and not Path(args.body).is_file():
+        return f"no such body file: {args.body}"
     target = f"## {section}"
     at = next(i for i, line in enumerate(lines) if line.strip() == target)
     insert = at + 1
@@ -90,6 +115,9 @@ def cmd_add(args):
         insert += 1
     lines.insert(insert, f"- [{tid}] {args.title}")
     save(lines)
+    if getattr(args, "body", None):
+        attach_body(tid, args.body)
+        return f"added [{tid}] to {section} (+ description)"
     return f"added [{tid}] to {section}"
 
 
@@ -112,12 +140,36 @@ def cmd_move(args):
     return f"moved [{args.id}] to {section}"
 
 
+def cmd_describe(args):
+    _, tickets, _ = load()
+    if args.id not in tickets:
+        return f"unknown ticket: {args.id}"
+    if attach_body(args.id, args.file) is None:
+        return f"no such body file: {args.file}"
+    return f"described [{args.id}]"
+
+
+def cmd_undescribe(args):
+    _, tickets, _ = load()
+    if args.id not in tickets:
+        return f"unknown ticket: {args.id}"
+    dest = body_path(args.id)
+    if not dest.is_file():
+        return f"no description for [{args.id}]"
+    dest.unlink()
+    return f"undescribed [{args.id}]"
+
+
 def cmd_remove(args):
     lines, tickets, _ = load()
     if args.id not in tickets:
         return f"unknown ticket: {args.id}"
     del lines[tickets[args.id][2]]
     save(lines)
+    dest = body_path(args.id)
+    if dest.is_file():
+        dest.unlink()
+        return f"removed [{args.id}] (+ description)"
     return f"removed [{args.id}]"
 
 
@@ -132,6 +184,12 @@ def main(argv=None):
     p.add_argument("title")
     p.add_argument("--id")
     p.add_argument("--status", default="backlog")
+    p.add_argument("--body", default=None)
+    p = sub.add_parser("describe", help="attach a description file to a ticket")
+    p.add_argument("id")
+    p.add_argument("file")
+    p = sub.add_parser("undescribe", help="remove a ticket description")
+    p.add_argument("id")
     p = sub.add_parser("move", help="move a ticket to a status")
     p.add_argument("id")
     p.add_argument("status")
@@ -139,6 +197,7 @@ def main(argv=None):
     p.add_argument("id")
     args = parser.parse_args(argv)
     print({"list": cmd_list, "show": cmd_show, "add": cmd_add,
+           "describe": cmd_describe, "undescribe": cmd_undescribe,
            "move": cmd_move, "remove": cmd_remove}[args.cmd](args))
 
 
