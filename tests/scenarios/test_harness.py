@@ -110,12 +110,23 @@ def test_live_hdl_scenarios_pass_against_real_tools():
 
 
 @needs_icarus
-def test_live_serv_scenario_passes_against_real_tools():
+def test_live_serv_scenarios_pass_against_real_tools():
     if not (ROOT / "fixtures" / "upstream" / "serv" / "rtl" / "serv_top.v").is_file():
         pytest.skip("serv fixture not fetched (fixtures/upstream/serv)")
     runner = _load_runner()
-    result = runner.run_scenario(ROOT / "scenarios" / "serv_live_pass.yaml")
-    assert result["passed"] is True, result["failures"]
+    for name in ("serv_live_pass.yaml", "serv_live_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
+
+
+@needs_icarus
+def test_live_picorv32_scenarios_pass_against_real_tools():
+    if not (ROOT / "fixtures" / "upstream" / "picorv32" / "picorv32.v").is_file():
+        pytest.skip("picorv32 fixture not fetched (fixtures/upstream/picorv32)")
+    runner = _load_runner()
+    for name in ("picorv32_live_pass.yaml", "picorv32_live_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
 
 
 needs_ngspice = pytest.mark.skipif(

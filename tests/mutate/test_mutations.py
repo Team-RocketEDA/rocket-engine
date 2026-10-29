@@ -41,7 +41,17 @@ ALL_OPERATORS = [
     "netlist_lvs_mismatch",
     "photonic_geometry_mistune",
     "photonic_circuit_mistune",
+    # VALIDATE-D: the digital shapes reused on the vendored trees.
+    "serv_reset_break",
+    "serv_truncation",
+    "serv_unconnected_port",
+    "picorv32_reset_break",
+    "picorv32_truncation",
+    "picorv32_unconnected_port",
 ]
+
+SERV_UPSTREAM = ROOT / "fixtures" / "upstream" / "serv"
+PICO_UPSTREAM = ROOT / "fixtures" / "upstream" / "picorv32"
 
 OPERATOR_SRC = {
     "digital_reset_break": HDL_FIXTURES,
@@ -53,7 +63,30 @@ OPERATOR_SRC = {
     "netlist_lvs_mismatch": LVS_FIXTURES,
     "photonic_geometry_mistune": SAX_FIXTURES,
     "photonic_circuit_mistune": SAX_FIXTURES,
+    "serv_reset_break": SERV_UPSTREAM,
+    "serv_truncation": SERV_UPSTREAM,
+    "serv_unconnected_port": SERV_UPSTREAM,
+    "picorv32_reset_break": PICO_UPSTREAM,
+    "picorv32_truncation": PICO_UPSTREAM,
+    "picorv32_unconnected_port": PICO_UPSTREAM,
 }
+
+
+def _require_src(operator):
+    # Vendored-tree operators skip LOUDLY where the fixture was
+    # never fetched; committed-fixture operators always run.
+    src = OPERATOR_SRC[operator]
+    if src == SERV_UPSTREAM:
+        marker, design = src / "rtl" / "serv_top.v", "serv"
+    elif src == PICO_UPSTREAM:
+        marker, design = src / "picorv32.v", "picorv32"
+    else:
+        return
+    if not marker.is_file():
+        pytest.skip(
+            f"MUTATE-HARNESS {operator} file: {design} fixture not fetched "
+            "(scripts/fetch_fixtures.py; docs/tickets/VALIDATE-D.md)"
+        )
 
 needs_icarus = pytest.mark.skipif(
     shutil.which("iverilog") is None or shutil.which("vvp") is None,
@@ -83,6 +116,7 @@ needs_sax = pytest.mark.skipif(
 def _apply(operator, tmp_path, seed=0):
     from rocket_engine.mutate import apply_operator  # RED: missing module
 
+    _require_src(operator)
     dest = tmp_path / "mut"
     return apply_operator(operator, dest, seed, OPERATOR_SRC[operator]), dest
 
@@ -106,7 +140,7 @@ def _run(engine_project, operation, arguments):
 
 
 # Registry: every operator declared with its expected verdict.
-def test_registry_lists_all_nine_operators():
+def test_registry_lists_all_fifteen_operators():
     from rocket_engine.mutate import OPERATORS  # RED: missing module
 
     assert sorted(OPERATORS) == sorted(ALL_OPERATORS)
@@ -125,6 +159,12 @@ def test_registry_declares_expected_verdict_per_operator():
         "netlist_lvs_mismatch": "run_lvs",
         "photonic_geometry_mistune": "run_optical",
         "photonic_circuit_mistune": "run_optical",
+        "serv_reset_break": "run_hdl_test",
+        "serv_truncation": "run_hdl_test",
+        "serv_unconnected_port": "run_hdl_test",
+        "picorv32_reset_break": "run_hdl_test",
+        "picorv32_truncation": "run_hdl_test",
+        "picorv32_unconnected_port": "run_hdl_test",
     }
     for name in ALL_OPERATORS:
         entry = OPERATORS[name]

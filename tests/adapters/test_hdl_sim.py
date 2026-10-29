@@ -341,3 +341,45 @@ def test_hdl_runner_errors_convert_to_adapter_errors(tmp_path):
             assert exc.code == "runner_unavailable"
         else:
             raise AssertionError(f"expected converted AdapterError from {method}")
+
+
+# VALIDATE-D: `defines` reach iverilog as -D flags (the picorv32
+# vendor flow compiles with -DCOMPRESSED_ISA).
+
+
+@needs_icarus
+def test_hdl_preflight_accepts_valid_defines(tmp_path):
+    from rocket_engine.adapters.hdl_sim import HdlSimAdapter  # RED: ignores defines
+
+    job = _job(["define_dut.v", "tb_define.v"], tmp_path, defines=["PROBE_TEN"])
+    checked = HdlSimAdapter().preflight(job)
+    assert checked["defines"] == ["PROBE_TEN"]
+
+
+def test_hdl_preflight_refuses_bad_defines(tmp_path):
+    from rocket_engine.adapters.hdl_sim import HdlSimAdapter  # RED: ignores defines
+
+    for bad in ("PROBE_TEN", ["HAS SPACE"], ["-x"], [""], [123], ["A;B"]):
+        job = _job(["define_dut.v", "tb_define.v"], tmp_path, defines=bad)
+        try:
+            HdlSimAdapter().preflight(job)
+        except Exception as exc:
+            assert getattr(exc, "code", None) == "invalid_command", bad
+        else:
+            raise AssertionError(f"expected invalid_command for defines={bad!r}")
+
+
+@needs_icarus
+def test_hdl_defines_reach_icarus(tmp_path):
+    from rocket_engine.adapters.hdl_sim import HdlSimAdapter  # RED: ignores defines
+
+    adapter = HdlSimAdapter()
+    bare = adapter.parse(adapter.execute(_job(["define_dut.v", "tb_define.v"], tmp_path)))
+    assert bare["total"] == 1
+    assert bare["violations"][0]["rule"] == "assert_fatal"
+    defined = adapter.parse(
+        adapter.execute(
+            _job(["define_dut.v", "tb_define.v"], tmp_path, defines=["PROBE_TEN"])
+        )
+    )
+    assert defined["total"] == 0, defined["violations"]
