@@ -254,7 +254,10 @@ def test_live_klayout_mzi_scenarios_pass_against_real_klayout():
         assert result["passed"] is True, result["failures"]
 
 
+@needs_icarus
 def test_hdl_run_live_without_sources_fails_loudly(tmp_path):
+    # Needs the hdl toolchain: on a bare PATH the SCENARIO-PATH
+    # startup preflight (correctly) fails before the sources check.
     runner = _load_runner()
     bad = tmp_path / "bad.yaml"
     bad.write_text(

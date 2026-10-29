@@ -17,7 +17,10 @@ Scenario YAML:
       - {assert_event: job_queued}
 
 Live scenarios need the real tool (magic for run_drc) and fail loudly
-without it. Fixture cells resolve under tests/adapters/fixtures/drc/.
+at startup without it (missing_dependency naming the binary — never a
+mid-run NOT_RUN). PATH contract: dev-PATH with oss-cad-suite; see
+scenarios/README.md. Fixture cells resolve under
+tests/adapters/fixtures/drc/.
 
 Usage:
     uv run --locked python scripts/scenarios.py scenarios/ [--json] [-q]
@@ -81,6 +84,23 @@ LVS_SKY130_SPICE_LIB_REL = "libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice
 LVS_SKY130_MAG_DIR_REL = "libs.ref/sky130_fd_sc_hd/mag"
 LVS_MUTATE_OLD = "X3 Y A VPWR VPB "
 LVS_MUTATE_NEW = "X3 Y A VPWR VPB_BAD "
+
+_BACKEND_PATH_TOOLS = {
+    # SCENARIO-PATH: the gate's PATH contract. sax_mzi needs the sax
+    # python module, not a PATH binary, so it has no entry here; its
+    # mid-run module check stays.
+    "magic": ("magic",),
+    "klayout": ("klayout",),
+    "klayout_sky130": ("klayout",),
+    "hdl": ("iverilog", "vvp"),
+    "hdl_serv": ("iverilog", "vvp"),
+    "hdl_picorv32": ("iverilog", "vvp"),
+    "hdl_sdm": ("iverilog", "vvp"),
+    "ngspice_bandgap": ("ngspice",),
+    "ngspice_sdtop": ("ngspice",),
+    "klayout_mzi": ("klayout",),
+    "extract_lvs_sky130": ("magic", "netgen"),
+}
 
 _BACKENDS = {
     "magic": {
@@ -723,8 +743,41 @@ def _run_step(ctx, num, step):
     raise AssertionError(f"{label}: unknown step verb")
 
 
+def required_path_tools(doc):
+    """Sorted PATH binaries a scenario doc needs (SCENARIO-PATH).
+
+    Derived from each run_live backend (default backend "magic",
+    matching _run_step); unknown backends contribute nothing (the
+    mid-run step still rejects them as unknown).
+    """
+    tools = set()
+    for step in doc.get("steps", []) or []:
+        if not isinstance(step, dict) or "run_live" not in step:
+            continue
+        sub = step["run_live"] or {}
+        tools.update(_BACKEND_PATH_TOOLS.get(sub.get("backend", "magic"), ()))
+    return sorted(tools)
+
+
+def preflight_path_tools(doc):
+    """PATH binaries a scenario doc needs but cannot find ([] when ok)."""
+    return [t for t in required_path_tools(doc) if shutil.which(t) is None]
+
+
 def run_scenario(path):
     doc = yaml.load(Path(path).read_text())
+    missing = preflight_path_tools(doc)
+    if missing:
+        return {
+            "name": doc.get("name", Path(path).name),
+            "passed": False,
+            "failures": [
+                f"startup: missing_dependency: {tool} not on PATH "
+                "(scenario gate needs dev-PATH with oss-cad-suite; "
+                "see scenarios/README.md)"
+                for tool in missing
+            ],
+        }
     engine = doc.get("engine", {})
     project_id = engine.get("project_id", "demo")
     live = Engine(
