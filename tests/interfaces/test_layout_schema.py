@@ -58,6 +58,7 @@ def _write_policy(path, overrides=None):
 
 
 def _make_engine_root(base):
+    base.mkdir(parents=True, exist_ok=True)
     _write_version(base / "layout.version")
     _write_policy(base / "policy.yaml")
     (base / "pdks").mkdir(parents=True)
