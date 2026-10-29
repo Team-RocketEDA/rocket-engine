@@ -1,0 +1,7 @@
+name: sdm_rx live pass on documented registers + PEX vector
+engine: {project_id: mixed_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-sdm-1, operation: run_hdl_test, target: sdm_rx}
+  - run_live: {backend: hdl_sdm}
+  - assert_verdict: PASS
+  - assert_event: job_queued

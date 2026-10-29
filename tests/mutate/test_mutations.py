@@ -51,6 +51,12 @@ ALL_OPERATORS = [
     # VALIDATE-A: the analog shapes reused on the bandgap snapshot.
     "bandgap_sizing_out_of_spec",
     "bandgap_open_net",
+    # VALIDATE-M: the seam-pair shapes on the sigma-delta tree.
+    "sdm_reset_break",
+    "sdm_truncation",
+    "sdm_unconnected_port",
+    "sdtop_sizing_out_of_spec",
+    "sdtop_open_net",
 ]
 
 SERV_UPSTREAM = ROOT / "fixtures" / "upstream" / "serv"
@@ -64,6 +70,8 @@ BANDGAP_SNAPSHOTS = (
     / "output-voltage-tc"
     / "netlist-snapshots"
 )
+SIGMA_RTL = ROOT / "fixtures" / "upstream" / "ttsky-sigma-delta" / "rtl"
+SIGMA_SPICE = ROOT / "fixtures" / "upstream" / "ttsky-sigma-delta" / "spice"
 
 OPERATOR_SRC = {
     "digital_reset_break": HDL_FIXTURES,
@@ -83,6 +91,11 @@ OPERATOR_SRC = {
     "picorv32_unconnected_port": PICO_UPSTREAM,
     "bandgap_sizing_out_of_spec": BANDGAP_SNAPSHOTS,
     "bandgap_open_net": BANDGAP_SNAPSHOTS,
+    "sdm_reset_break": SIGMA_RTL,
+    "sdm_truncation": SIGMA_RTL,
+    "sdm_unconnected_port": SIGMA_RTL,
+    "sdtop_sizing_out_of_spec": SIGMA_SPICE,
+    "sdtop_open_net": SIGMA_SPICE,
 }
 
 
@@ -97,6 +110,12 @@ def _require_src(operator):
     elif src == BANDGAP_SNAPSHOTS:
         marker = src / "20260817-015751-13476b7.spice"
         design, ticket = "sky130-bandgap", "VALIDATE-A"
+    elif src == SIGMA_RTL:
+        marker = src / "sdm_rx.v"
+        design, ticket = "ttsky-sigma-delta", "VALIDATE-M"
+    elif src == SIGMA_SPICE:
+        marker = src / "sd_top_pex.spice"
+        design, ticket = "ttsky-sigma-delta", "VALIDATE-M"
     else:
         return
     if not marker.is_file():
@@ -157,7 +176,7 @@ def _run(engine_project, operation, arguments):
 
 
 # Registry: every operator declared with its expected verdict.
-def test_registry_lists_all_seventeen_operators():
+def test_registry_lists_all_twenty_two_operators():
     from rocket_engine.mutate import OPERATORS  # RED: missing module
 
     assert sorted(OPERATORS) == sorted(ALL_OPERATORS)
@@ -184,6 +203,11 @@ def test_registry_declares_expected_verdict_per_operator():
         "picorv32_unconnected_port": "run_hdl_test",
         "bandgap_sizing_out_of_spec": "run_spice",
         "bandgap_open_net": "run_spice",
+        "sdm_reset_break": "run_hdl_test",
+        "sdm_truncation": "run_hdl_test",
+        "sdm_unconnected_port": "run_hdl_test",
+        "sdtop_sizing_out_of_spec": "run_spice",
+        "sdtop_open_net": "run_spice",
     }
     for name in ALL_OPERATORS:
         entry = OPERATORS[name]

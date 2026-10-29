@@ -129,6 +129,19 @@ def test_live_picorv32_scenarios_pass_against_real_tools():
         assert result["passed"] is True, result["failures"]
 
 
+@needs_icarus
+def test_live_sdm_scenarios_pass_against_real_tools():
+    # RED: unknown backend hdl_sdm.
+    if not (
+        ROOT / "fixtures" / "upstream" / "ttsky-sigma-delta" / "rtl" / "sdm_rx.v"
+    ).is_file():
+        pytest.skip("ttsky-sigma-delta fixture not fetched (fixtures/upstream/ttsky-sigma-delta)")
+    runner = _load_runner()
+    for name in ("hdl_sdm_pass.yaml", "hdl_sdm_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
+
+
 needs_ngspice = pytest.mark.skipif(
     shutil.which("ngspice") is None, reason="ngspice not on PATH"
 )
@@ -162,6 +175,48 @@ def test_live_ngspice_bandgap_scenarios_pass_against_real_tools():
     for name in ("ngspice_bandgap_pass.yaml", "ngspice_bandgap_fail.yaml"):
         result = runner.run_scenario(ROOT / "scenarios" / name)
         assert result["passed"] is True, result["failures"]
+
+
+def test_sdtop_scenarios_pass_or_quarantine_loudly():
+    # No bare skip: with ngspice + the sky130 store the pair runs
+    # live; without them both fail environmentally naming the tool /
+    # store + the NGSPICE-LIVE ref. RED: unknown backend ngspice_sdtop.
+    snapshot = (
+        ROOT
+        / "fixtures"
+        / "upstream"
+        / "ttsky-sigma-delta"
+        / "spice"
+        / "sd_top_pex.spice"
+    )
+    if not snapshot.is_file():
+        pytest.skip("ttsky-sigma-delta fixture not fetched")
+    try:
+        from rocket_engine.interfaces.pdks import list_pdks
+    except Exception:
+        list_pdks = None
+    store_ok = False
+    if list_pdks is not None:
+        try:
+            entries = list_pdks()
+            store_ok = any(e.get("id") == "sky130a" for e in entries)
+        except Exception:
+            store_ok = False
+    live = shutil.which("ngspice") is not None and store_ok
+    runner = _load_runner()
+    for name in ("ngspice_sdtop_pass.yaml", "ngspice_sdtop_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        if live:
+            assert result["passed"] is True, result["failures"]
+        else:
+            assert result["passed"] is False, name
+            msg = result["failures"][0]
+            assert ("ngspice not on PATH" in msg) or ("not registered" in msg) or (
+                "not resolvable" in msg
+            ), result["failures"]
+            assert ("NGSPICE-LIVE" in msg) or ("ROCKETEDA_HOME" in msg) or (
+                "not on PATH" in msg
+            ), result["failures"]
 
 
 def test_sax_mzi_scenarios_pass_or_quarantine_loudly():
