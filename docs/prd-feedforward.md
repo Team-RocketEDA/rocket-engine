@@ -1,7 +1,9 @@
 # PRD feedforward (draft from rocket-engine)
 
 Proposals for the PRD maintainers. Each item maps to the PRD section it
-amends. Nothing here edits the PRD; carry these as a review batch.
+amends. MERGED into the PRD (tool-research branch) on 2026-10-29 by
+maintainer direction; F6 confirmed with no file change. Kept as the
+audit trail — do not re-propose without a new reason.
 
 ## F1 — Preferred operating system: Ubuntu 24.04 LTS (x86-64)
 
