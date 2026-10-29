@@ -7,8 +7,9 @@ the project service with revision gating and envelope-id idempotency;
 only wired queries read state, the rest honestly report unwired.
 `run()` executes registered solvers synchronously. Each operation
 maps to named solvers; `deck.tool` selects one, defaulting to the
-first registered (run_drc: magic, then klayout). Unregistered
-operations and unknown deck tools raise instead of faking a verdict.
+first registered (run_drc: magic, then klayout; run_optical: sax).
+Unregistered operations and unknown deck tools raise instead of
+faking a verdict.
 """
 
 import io
@@ -20,6 +21,7 @@ from .adapters.drc import MagicDrcAdapter
 from .adapters.drc_kl import KlayoutDrcAdapter
 from .adapters.errors import AdapterError
 from .adapters.hdl_sim import HdlSimAdapter
+from .adapters.sax import SaxAdapter
 from .execution.service import ExecutionService
 from .interfaces.vocabulary import OPERATIONS, QUERIES
 from .library.catalog import Catalog
@@ -50,6 +52,7 @@ class Engine:
         self._solvers = {
             "run_drc": {"magic": MagicDrcAdapter(), "klayout": KlayoutDrcAdapter()},
             "run_hdl_test": {"icarus": HdlSimAdapter()},
+            "run_optical": {"sax": SaxAdapter()},
         }
         self._yaml = YAML(typ="safe")
 

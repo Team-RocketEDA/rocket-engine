@@ -6,7 +6,7 @@ instances:
   c: {component: coupler_ideal, settings: {coupling: 0.5}}
   loop: {component: straight, settings: {length: 100.0}}
 connections:
-  c,out1: loop.in0
+  c,out1: loop,in0
   loop,out0: c,in1
 ports:
   in0: c,in0

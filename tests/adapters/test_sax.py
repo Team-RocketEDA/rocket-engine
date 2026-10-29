@@ -198,6 +198,20 @@ def test_sax_preflight_refuses_target_without_bounds(tmp_path):
         raise AssertionError("expected invalid_command for a boundless target")
 
 
+def test_sax_preflight_refuses_dot_separated_port_refs(tmp_path):
+    from rocket_engine.adapters.sax import SaxAdapter
+
+    job = _job(["mzi.yml"], tmp_path)
+    spec = Path(job["sources"][0])
+    spec.write_text(spec.read_text().replace("c1,in0", "c1" + "." + "in0"))
+    try:
+        SaxAdapter().preflight(job)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "invalid_command"
+    else:
+        raise AssertionError("expected invalid_command for a dotted port ref")
+
+
 @needs_sax
 def test_sax_mzi_reproduces_documented_transmission(tmp_path):
     from rocket_engine.adapters.sax import SaxAdapter  # RED: missing adapter
@@ -274,7 +288,10 @@ def test_sax_proves_labels_against_real_sax():
             bound.setdefault(inst["component"], getattr(sax.models, inst["component"]))
         circuit, _ = sax.circuit(netlist, models=bound)
         out = circuit(wl=np.array([1.55]))
-        return {pair: float(np.abs(np.asarray(values).ravel()[0]) ** 2) for pair, values in out.items()}
+        return {
+            pair: float(np.abs(np.asarray(values).ravel()[0]) ** 2)
+            for pair, values in out.items()
+        }
 
     mzi = _simulate("mzi.yml")
     assert mzi[("in0", "out1")] == pytest.approx(1.0, abs=1e-9)
@@ -392,7 +409,7 @@ def test_sax_parse_rejects_envelope_without_result():
 def test_sax_uses_injected_runner(tmp_path):
     from rocket_engine.adapters.sax import SaxAdapter  # RED: missing adapter
 
-    runner = FakeRunner(_ok_envelope({"in0>out1": [1.0, 1.0, 1.0]}))
+    runner = FakeRunner(_ok_envelope({"in0>through": [1.0, 1.0, 1.0]}))
     adapter = SaxAdapter(runner=runner)
     job = _job(["ring.yml"], tmp_path)
     result = adapter.parse(adapter.execute(job))
@@ -405,7 +422,7 @@ def test_sax_uses_injected_runner(tmp_path):
 def test_sax_execute_stages_driver_and_job(tmp_path):
     from rocket_engine.adapters.sax import SaxAdapter  # RED: missing adapter
 
-    runner = FakeRunner(_ok_envelope({"in0>out1": [1.0, 1.0, 1.0]}))
+    runner = FakeRunner(_ok_envelope({"in0>through": [1.0, 1.0, 1.0]}))
     job = _job(["ring.yml"], tmp_path)
     native = SaxAdapter(runner=runner).execute(job)
     workdir = Path(job["workdir"])

@@ -5,7 +5,7 @@ circuit: broken-link
 instances:
   c1: {component: coupler_ideal, settings: {coupling: 0.5}}
 connections:
-  c1,out0: ghost.in0
+  c1,out0: ghost,in0
 ports:
   in0: c1,in0
 sweep: {start_nm: 1550.0, stop_nm: 1550.0, points: 1}
