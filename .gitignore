@@ -16,3 +16,5 @@ results/
 # Vendored upstream fixtures (FIXTURE-FETCH): fetched trees stay local,
 # per-design notes (fixtures/upstream/*.md) commit.
 fixtures/upstream/*/
+# Mutation scratch (MUTATE-HARNESS): CLI staging copies, never committed.
+tmp/

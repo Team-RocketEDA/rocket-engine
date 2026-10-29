@@ -758,3 +758,32 @@ def test_photonic_mutated_fails_live(operator, tmp_path):
     assert {f["rule"] for f in found if f["severity"] == "error"} == set(
         evidence["expected_rules"]
     ), (operator, found)
+
+
+# Guards: drifted sites and bad seeds fail loudly, never silently.
+def test_drifted_probe_site_raises_mutation_error(tmp_path):
+    from rocket_engine.mutate import MutationError, apply_operator
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "counter.v").write_text("module counter; // drifted\nendmodule\n")
+    (src / "tb_pass.v").write_text("module tb_pass; endmodule\n")
+    try:
+        apply_operator("digital_reset_break", tmp_path / "mut", 0, src)
+    except MutationError as exc:
+        assert "digital_reset_break" in str(exc)
+    else:
+        raise AssertionError("expected MutationError for a drifted site")
+
+
+def test_non_integer_seed_raises_mutation_error(tmp_path):
+    from rocket_engine.mutate import MutationError, apply_operator
+
+    for bad_seed in ("0", 1.5, True, None):
+        try:
+            apply_operator(
+                "digital_reset_break", tmp_path / "mut", bad_seed, HDL_FIXTURES
+            )
+        except MutationError:
+            continue
+        raise AssertionError(f"expected MutationError for seed {bad_seed!r}")
