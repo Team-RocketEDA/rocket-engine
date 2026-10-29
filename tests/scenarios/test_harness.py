@@ -336,6 +336,15 @@ def test_path_contract_documented():
     assert "missing_dependency" in text
 
 
+def test_bare_path_ngspice_preflight_keeps_ticket_ref(tmp_path, monkeypatch):
+    runner = _load_runner()
+    monkeypatch.setenv("PATH", str(tmp_path))
+    result = runner.run_scenario(ROOT / "scenarios" / "ngspice_bandgap_pass.yaml")
+    assert result["passed"] is False
+    assert "ngspice" in result["failures"][0]
+    assert "NGSPICE-LIVE" in result["failures"][0]
+
+
 def test_broken_expectation_names_the_step(tmp_path):
     runner = _load_runner()
     bad = tmp_path / "bad.yaml"
