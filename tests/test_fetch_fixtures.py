@@ -221,6 +221,58 @@ def test_verify_pins_cli_exit_codes(tmp_path, monkeypatch, capsys):
     assert "orphan" in out.lower()
 
 
+# --- FETCH-HARDEN slice 2: license precedence (RED) ---
+
+def test_readme_only_license_mention_warns_instead_of_passing(tmp_path):
+    mod = load_fetch()
+    tree = tmp_path / "depnote"
+    tree.mkdir()
+    (tree / "README.md").write_text(
+        "# depnote\nDepends on libx, distributed under the Apache License, "
+        "Version 2.0. See libx upstream for its LICENSE file.\n"
+    )
+    assert mod.check_license(tree) is None  # README never decides
+    violations = mod.license_gate(tmp_path, ["depnote"])
+    assert len(violations) == 1
+    assert "README" in violations[0] and "Apache-2.0" in violations[0]
+
+
+def test_readme_full_grant_text_still_needs_license_file(tmp_path):
+    mod = load_fetch()
+    tree = tmp_path / "readmeonly"
+    tree.mkdir()
+    (tree / "README.md").write_text("# x\n" + MIT)
+    assert mod.check_license(tree) is None
+    violations = mod.license_gate(tmp_path, ["readmeonly"])
+    assert len(violations) == 1 and "README" in violations[0]
+
+
+def test_license_file_decides_over_readme_mention(tmp_path):
+    mod = load_fetch()
+    tree = tmp_path / "serv"
+    tree.mkdir()
+    (tree / "LICENSE").write_text(MIT)
+    (tree / "README.md").write_text("Also see libx (Apache License, Version 2.0).\n")
+    assert mod.check_license(tree) == "MIT"
+    assert mod.license_gate(tmp_path, ["serv"]) == []
+
+
+def test_license_evidence_names_the_source(tmp_path):
+    mod = load_fetch()
+    lic_tree = tmp_path / "a"
+    lic_tree.mkdir()
+    (lic_tree / "LICENSE").write_text(MIT)
+    assert mod.license_evidence(lic_tree) == ("MIT", "license_file")
+    read_tree = tmp_path / "b"
+    read_tree.mkdir()
+    (read_tree / "README.md").write_text(MIT)
+    assert mod.license_evidence(read_tree) == ("MIT", "readme")
+    bare = tmp_path / "c"
+    bare.mkdir()
+    (bare / "x").write_text("nothing\n")
+    assert mod.license_evidence(bare) == (None, None)
+
+
 def test_vendor_readme_notes_documented_results(tmp_path):
     mod = load_fetch()
     spec = {"url": "https://github.com/example/x", "rev": "a" * 40,
