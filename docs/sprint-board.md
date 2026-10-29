@@ -39,6 +39,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
+- [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
 ## Ready
 
 

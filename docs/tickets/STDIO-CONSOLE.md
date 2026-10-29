@@ -1,6 +1,6 @@
 # STDIO-CONSOLE: MATLAB-esque script console, stdio-only (MVP stretch)
 
-*Status: Backlog · Depends: WORKERS · Size: M · Roadmap: orch-build-mvp*
+*Status: Backlog · Depends: WORKERS, CLI-DISPATCH · Size: M · Roadmap: orch-build-mvp*
 
 ## Why
 
@@ -13,11 +13,16 @@ console is trustworthy by construction: no tokens, no broker,
 no remote threat model. Wiring xterm.js to it is cheap
 (RocketIDE-side); the engine side is this ticket. Positioned as
 MVP stretch: validation gates first, console second.
+Hexagonal note: adapters compose — this console rides
+CLI-DISPATCH (same op calls, interactive framing) over the one
+shared worker substrate. The core depends on no adapter.
 
 ## What
 
-- Stdio console adapter: cell submit/history/output framing the
-  IDE's xterm panel consumes; multiline + script-file cells.
+- Stdio console adapter as a REPL gateway onto CLI-DISPATCH:
+  cell submit/history/output framing the IDE's xterm panel
+  consumes; multiline + script-file cells; every cell compiles
+  to the same op calls the batch CLI runs.
 - Prebound API on every prompt (`project/tools/pdk/gf/np/plot`)
   per console spec; history persisted (`cells/*.py`,
   `executions/*.yaml`); no tabs needed (single console per panel).
