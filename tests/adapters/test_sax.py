@@ -22,7 +22,7 @@ import pytest
 FIXTURES = Path(__file__).parent / "fixtures" / "sax"
 
 sax_present = importlib.util.find_spec("sax") is not None
-needs_sax = pytest.mark.skipif(not sax_present, reason="sax not installed (pip photonic)")
+needs_sax = pytest.mark.skipif(not sax_present, reason="sax not installed (uv sync --group photonic)")
 
 
 def _job(sources, tmp_path, **over):
