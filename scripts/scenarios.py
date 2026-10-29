@@ -76,7 +76,8 @@ SIGMA_SPICE = ROOT / "fixtures" / "upstream" / "ttsky-sigma-delta" / "spice"
 SDTOP_SNAPSHOT = SIGMA_SPICE / "sd_top_pex.spice"
 MZI_DRC_RULES = {"layer": [3, 0], "width_um": 0.35, "space_um": 0.2}
 KL_RULES = {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0}
-SKY130_PDK_ID = "sky130a"
+SKY130_PDK_SLUG = "sky130a"
+SKY130_PDK_DISPLAY = "sky130A"
 SKY130_DECK_REL = "libs.tech/klayout/drc/sky130A.lydrc"
 LVS_SKY130_TECH_REL = "libs.tech/magic/sky130A.tech"
 LVS_SKY130_SETUP_REL = "libs.tech/netgen/sky130A_setup.tcl"
@@ -208,6 +209,7 @@ def _require_ack(ctx, label):
 
 def _sky130_entry(label):
     try:
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks
     except Exception as exc:
         raise AssertionError(f"{label}: pdk store unavailable: {exc}") from exc
@@ -216,16 +218,18 @@ def _sky130_entry(label):
     except Exception as exc:
         raise AssertionError(
             f"{label}: sky130 PDK not registered ({exc}); "
-            "set ROCKETEDA_HOME to a store with sky130a."
+            f"set ROCKETEDA_HOME to a store with {SKY130_PDK_DISPLAY}."
         ) from exc
     want_rev = os.environ.get("SKY130_PDK_REVISION")
-    candidates = [e for e in entries if e.get("id") == SKY130_PDK_ID]
+    candidates = [
+        e for e in entries if slugify(e.get("id") or "") == SKY130_PDK_SLUG
+    ]
     if want_rev:
         candidates = [e for e in candidates if e.get("revision") == want_rev]
     if not candidates:
         raise AssertionError(
             f"{label}: sky130 PDK not registered; "
-            "set ROCKETEDA_HOME to a store with sky130a."
+            f"set ROCKETEDA_HOME to a store with {SKY130_PDK_DISPLAY}."
         )
     return sorted(candidates, key=lambda e: e["revision"])[0]
 

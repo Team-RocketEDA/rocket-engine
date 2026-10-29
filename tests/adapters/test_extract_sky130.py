@@ -89,6 +89,7 @@ needs_tools = pytest.mark.skipif(
 
 def _resolve_decks():
     try:
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
     except Exception:
         pytest.skip("pdk store unavailable")
@@ -97,7 +98,8 @@ def _resolve_decks():
     except Exception:
         pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
     want_rev = os.environ.get("SKY130_PDK_REVISION")
-    candidates = [e for e in entries if e.get("id") == "sky130a"]
+    candidates = [e for e in entries
+                  if slugify(e.get("id") or "") == "sky130a"]
     if want_rev:
         candidates = [e for e in candidates if e.get("revision") == want_rev]
     if not candidates:

@@ -9,6 +9,16 @@ duplicating. Every store path goes through PATH-GUARD containment
 layout via LAYOUT-SCHEMA (`validate_tree`). Runs pin the I28
 ingredient closure (id + revision + manifest hash) via
 `pdk_ingredient`. MVP scope: local-dir adoption only.
+
+Identity (PDK-DISPLAY): slug on disk, canonical display id in
+records. The store directory and manifest `id` stay the lookup slug
+(`sky130A` → `sky130a`); the manifest `display_id` records the
+canonical id as passed at registration, and `register_pdk` /
+`verify_pdk` / `list_pdks` / `pdk_ingredient` plus drift/conflict
+messages report it. Lookup stays slug-based (either spelling
+resolves); pre-display manifests without `display_id` load with the
+slug as fallback. `display_id` is fixed at first registration:
+re-register never rewrites the manifest.
 """
 
 import hashlib
@@ -153,10 +163,16 @@ def _load_manifest(path):
     return data
 
 
-def _manifest_record(pdk_id, revision, dest, source, files, symlinks):
+def _display_of(manifest):
+    """Canonical display id; pre-display manifests fall back to the slug."""
+    return manifest.get("display_id") or manifest["id"]
+
+
+def _manifest_record(slug, display_id, revision, dest, source, files, symlinks):
     manifest = {
         "manifest_version": MANIFEST_VERSION,
-        "id": pdk_id,
+        "id": slug,
+        "display_id": display_id,
         "revision": revision,
         "source": str(source),
         "registered_at": datetime.now(timezone.utc).isoformat(),
@@ -180,7 +196,7 @@ def _drift(pdk_id, revision, rel, detail):
 
 
 def _verify_against(dest, manifest):
-    pdk_id = manifest["id"]
+    pdk_id = _display_of(manifest)
     revision = manifest["revision"]
     files, symlinks = _scan_tree(dest)
     want_files = manifest.get("files") or {}
@@ -243,13 +259,13 @@ def register_pdk(source_dir, pdk_id, revision, engine_root=None):
         if manifest.get("source") != str(source_resolved):
             raise PdkError(
                 "pdk_conflict",
-                f"PDK {slug}@{revision} is already registered from "
-                f"{manifest.get('source')}, not {source_resolved}.",
+                f"PDK {_display_of(manifest)}@{revision} is already registered "
+                f"from {manifest.get('source')}, not {source_resolved}.",
             )
         _verify_against(dest, manifest)
         manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
         return {
-            "id": slug,
+            "id": _display_of(manifest),
             "revision": revision,
             "path": str(dest),
             "manifest_hash": manifest_hash,
@@ -262,11 +278,11 @@ def register_pdk(source_dir, pdk_id, revision, engine_root=None):
     shutil.copytree(source_resolved, dest, symlinks=True, copy_function=shutil.copy2)
     files, symlinks = _scan_tree(dest)
     manifest, manifest_hash = _manifest_record(
-        slug, revision, dest, source_resolved, files, symlinks
+        slug, pdk_id, revision, dest, source_resolved, files, symlinks
     )
     _verify_against(dest, manifest)
     return {
-        "id": slug,
+        "id": pdk_id,
         "revision": revision,
         "path": str(dest),
         "manifest_hash": manifest_hash,
@@ -287,13 +303,13 @@ def verify_pdk(pdk_id, revision, engine_root=None):
     manifest_path = dest / _MANIFEST_FILENAME
     if not dest.is_dir() or not manifest_path.is_file():
         raise PdkError(
-            "unknown_pdk", f"Unknown PDK: {slug}@{revision} (no store entry)."
+            "unknown_pdk", f"Unknown PDK: {pdk_id}@{revision} (no store entry)."
         )
     manifest = _load_manifest(manifest_path)
     _verify_against(dest, manifest)
     return {
         "ok": True,
-        "id": slug,
+        "id": _display_of(manifest),
         "revision": revision,
         "path": str(dest),
         "manifest_hash": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
@@ -324,7 +340,7 @@ def list_pdks(engine_root=None):
                 )
             manifest = _load_manifest(manifest_path)
             entries.append({
-                "id": manifest["id"],
+                "id": _display_of(manifest),
                 "revision": manifest["revision"],
                 "path": str(rev_dir.resolve()),
                 "manifest_hash": hashlib.sha256(
@@ -351,9 +367,11 @@ def resolve_deck(pdk_id, revision, deck, engine_root=None):
     manifest_path = dest / _MANIFEST_FILENAME
     if not dest.is_dir() or not manifest_path.is_file():
         raise PdkError(
-            "unknown_pdk", f"Unknown PDK: {slug}@{revision} (no store entry)."
+            "unknown_pdk",
+            f"Unknown PDK: {pdk_id}@{revision} (no store entry).",
         )
     manifest = _load_manifest(manifest_path)
+    display = _display_of(manifest)
     # Containment first (resolved), then manifest lookup on the LEXICAL
     # rel: resolving before lookup would make every symlink deck
     # misdiagnose as its target and let swapped link targets pass.
@@ -364,24 +382,24 @@ def resolve_deck(pdk_id, revision, deck, engine_root=None):
     want_links = manifest.get("symlinks") or {}
     if rel in want_links:
         if not lexical.is_symlink() or os.readlink(lexical) != want_links[rel]:
-            _drift(slug, revision, rel, "symlink target changed")
+            _drift(display, revision, rel, "symlink target changed")
         try:
             digest = _sha256_file(target)
         except OSError:
-            _drift(slug, revision, rel, "symlink target missing on disk")
+            _drift(display, revision, rel, "symlink target missing on disk")
         return {"path": str(lexical), "sha256": digest}
     if rel not in want_files:
         raise PdkError(
             "unknown_pdk",
-            f"Unknown deck for {slug}@{revision}: {rel} (not in manifest).",
+            f"Unknown deck for {display}@{revision}: {rel} (not in manifest).",
         )
     if lexical.is_symlink():
-        _drift(slug, revision, rel, "changed from file to symlink")
+        _drift(display, revision, rel, "changed from file to symlink")
     if not target.is_file():
-        _drift(slug, revision, rel, "is missing on disk")
+        _drift(display, revision, rel, "is missing on disk")
     current_hash = _sha256_file(target)
     if current_hash != want_files[rel]:
-        _drift(slug, revision, rel, "hash mismatch")
+        _drift(display, revision, rel, "hash mismatch")
     return {"path": str(target), "sha256": current_hash}
 
 

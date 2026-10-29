@@ -15,7 +15,7 @@
 #
 # PDK register honors:
 #   PDK_SOURCE    PDK tree to adopt (default: ~/.local/share/pdk/sky130A)
-#   PDK_ID        store id (default: sky130a)
+#   PDK_ID        store id (default: sky130A; slug sky130a on disk)
 #   PDK_REVISION  store revision (default: open_pdks commit in nodeinfo.json)
 #   ROCKETEDA_HOME  engine store (default: ~/.local/share/rocketeda)
 #
@@ -43,7 +43,7 @@ probe() {  # name, version-argv...
 
 pdk_only() {
     local source="${PDK_SOURCE:-$HOME/.local/share/pdk/sky130A}"
-    local id="${PDK_ID:-sky130a}"
+    local id="${PDK_ID:-sky130A}"
     local revision="${PDK_REVISION:-5f09001e4b975ba35d27d99a10ecdf45054a9bd5}"
     if [ ! -d "$source" ]; then
         echo "install.sh: PDK source is not a directory: $source" >&2

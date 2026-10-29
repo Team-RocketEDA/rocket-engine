@@ -67,11 +67,13 @@ def _tool_gate(operator):
             return miss
         if entry.get("design") in ("bandgap", "sd_top"):
             try:
+                from rocket_engine.interfaces.paths import slugify
                 from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
 
-                entries = [e for e in list_pdks() if e.get("id") == "sky130a"]
+                entries = [e for e in list_pdks()
+                           if slugify(e.get("id") or "") == "sky130a"]
                 if not entries:
-                    raise LookupError("no sky130a entry")
+                    raise LookupError("no sky130A entry")
                 first = sorted(entries, key=lambda e: e["revision"])[0]
                 resolve_deck(
                     first["id"],
@@ -91,13 +93,15 @@ def _tool_gate(operator):
         if miss:
             return miss
         try:
+            from rocket_engine.interfaces.paths import slugify
             from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
 
             entries = [
-                e for e in list_pdks() if e.get("id") == "sky130a"
+                e for e in list_pdks()
+                if slugify(e.get("id") or "") == "sky130a"
             ]
             if not entries:
-                raise LookupError("no sky130a entry")
+                raise LookupError("no sky130A entry")
             first = sorted(entries, key=lambda e: e["revision"])[0]
             resolve_deck(
                 first["id"],
@@ -235,10 +239,12 @@ def cmd_recheck(args):
     )
     extra = None
     if entry["operation"] == "run_lvs":
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
 
         first = sorted(
-            [e for e in list_pdks() if e.get("id") == "sky130a"],
+            [e for e in list_pdks()
+             if slugify(e.get("id") or "") == "sky130a"],
             key=lambda e: e["revision"],
         )[0]
         hit = resolve_deck(
@@ -246,10 +252,12 @@ def cmd_recheck(args):
         )
         extra = {"setup_file": hit["path"]}
     if entry.get("design") in ("bandgap", "sd_top"):
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks
 
         first = sorted(
-            [e for e in list_pdks() if e.get("id") == "sky130a"],
+            [e for e in list_pdks()
+             if slugify(e.get("id") or "") == "sky130a"],
             key=lambda e: e["revision"],
         )[0]
         extra = {"pdk": {"id": first["id"], "revision": first["revision"]}}

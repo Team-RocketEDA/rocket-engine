@@ -47,7 +47,7 @@ def test_register_adopts_local_dir(tmp_path):
     engine_root = tmp_path / "root"
     source = _make_tiny_pdk(tmp_path / "tiny_pdk")
     record = register_pdk(source, "tiny130A", "v1", engine_root=engine_root)
-    assert record["id"] == "tiny130a"
+    assert record["id"] == "tiny130A"  # PDK-DISPLAY: canonical display id
     assert record["revision"] == "v1"
     assert record["file_count"] == len(TINY_PDK_FILES) + 1
     dest = engine_root / "pdks" / "tiny130a" / "v1"
@@ -257,7 +257,7 @@ def test_pdk_ingredient_closure_for_runs(tmp_path):
         engine_root=engine_root,
     )
     assert pdk_ingredient("tiny130a", "v1", engine_root=engine_root) == {
-        "pdk_id": "tiny130a",
+        "pdk_id": "tiny130A",  # PDK-DISPLAY: canonical display id
         "pdk_revision": "v1",
         "pdk_manifest_hash": record["manifest_hash"],
     }

@@ -56,6 +56,7 @@ def test_live_sky130_scenarios_pass_against_real_deck():
         if not (ROOT / "tests" / "adapters" / "fixtures" / "drc_sky130" / name).is_file():
             pytest.skip(f"sky130 fixtures not generated: {name}")
     try:
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks
     except Exception:
         pytest.skip("pdk store unavailable")
@@ -63,7 +64,8 @@ def test_live_sky130_scenarios_pass_against_real_deck():
         entries = list_pdks()
     except Exception:
         pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
-    if not [e for e in entries if e.get("id") == "sky130a"]:
+    if not [e for e in entries
+            if slugify(e.get("id") or "") == "sky130a"]:
         pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
     runner = _load_runner()
     for name in ("drc_sky130_pass.yaml", "drc_sky130_fail.yaml"):
@@ -80,6 +82,7 @@ needs_lvs_tools = pytest.mark.skipif(
 @needs_lvs_tools
 def test_live_lvs_scenarios_pass_against_real_tools():
     try:
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks
     except Exception:
         pytest.skip("pdk store unavailable")
@@ -87,7 +90,8 @@ def test_live_lvs_scenarios_pass_against_real_tools():
         entries = list_pdks()
     except Exception:
         pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
-    if not [e for e in entries if e.get("id") == "sky130a"]:
+    if not [e for e in entries
+            if slugify(e.get("id") or "") == "sky130a"]:
         pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
     runner = _load_runner()
     for name in ("lvs_sky130_pass.yaml", "lvs_sky130_fail.yaml"):
@@ -162,6 +166,7 @@ def test_live_ngspice_bandgap_scenarios_pass_against_real_tools():
     if not snapshot.is_file():
         pytest.skip("sky130-bandgap fixture not fetched")
     try:
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks
     except Exception:
         pytest.skip("pdk store unavailable")
@@ -169,7 +174,8 @@ def test_live_ngspice_bandgap_scenarios_pass_against_real_tools():
         entries = list_pdks()
     except Exception:
         pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
-    if not [e for e in entries if e.get("id") == "sky130a"]:
+    if not [e for e in entries
+            if slugify(e.get("id") or "") == "sky130a"]:
         pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
     runner = _load_runner()
     for name in ("ngspice_bandgap_pass.yaml", "ngspice_bandgap_fail.yaml"):
@@ -192,6 +198,7 @@ def test_sdtop_scenarios_pass_or_quarantine_loudly():
     if not snapshot.is_file():
         pytest.skip("ttsky-sigma-delta fixture not fetched")
     try:
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks
     except Exception:
         list_pdks = None
@@ -199,7 +206,8 @@ def test_sdtop_scenarios_pass_or_quarantine_loudly():
     if list_pdks is not None:
         try:
             entries = list_pdks()
-            store_ok = any(e.get("id") == "sky130a" for e in entries)
+            store_ok = any(slugify(e.get("id") or "") == "sky130a"
+                           for e in entries)
         except Exception:
             store_ok = False
     live = shutil.which("ngspice") is not None and store_ok

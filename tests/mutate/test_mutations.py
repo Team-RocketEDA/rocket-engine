@@ -617,6 +617,7 @@ def test_lvs_parse_recorded_mismatch_fails():
 def _resolve_lvs_store():
     import os
 
+    from rocket_engine.interfaces.paths import slugify
     from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
 
     try:
@@ -627,7 +628,8 @@ def _resolve_lvs_store():
             "set ROCKETEDA_HOME (see docs/tickets/NGSPICE-LIVE.md)"
         )
     want_rev = os.environ.get("SKY130_PDK_REVISION")
-    candidates = [e for e in entries if e.get("id") == "sky130a"]
+    candidates = [e for e in entries
+                  if slugify(e.get("id") or "") == "sky130a"]
     if want_rev:
         candidates = [e for e in candidates if e.get("revision") == want_rev]
     if not candidates:

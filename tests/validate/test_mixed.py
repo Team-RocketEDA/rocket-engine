@@ -180,6 +180,7 @@ def _require_ngspice():
 
 def _require_pdk():
     try:
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
     except Exception as exc:
         pytest.skip(
@@ -193,11 +194,12 @@ def _require_pdk():
             "VALIDATE-M analog live: sky130 PDK not registered "
             f"({exc}; set ROCKETEDA_HOME; see docs/tickets/NGSPICE-LIVE.md)"
         )
-    cands = [e for e in entries if e.get("id") == "sky130a"]
+    cands = [e for e in entries
+             if slugify(e.get("id") or "") == "sky130a"]
     if not cands:
         pytest.skip(
             "VALIDATE-M analog live: sky130 PDK not registered "
-            "(set ROCKETEDA_HOME to a store with sky130a; "
+            "(set ROCKETEDA_HOME to a store with sky130A; "
             "see docs/tickets/NGSPICE-LIVE.md)"
         )
     entry = sorted(cands, key=lambda e: e["revision"])[0]

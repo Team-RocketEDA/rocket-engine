@@ -103,17 +103,19 @@ def _need_ngspice():
 
 def _need_pdk():
     try:
+        from rocket_engine.interfaces.paths import slugify
         from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
     except Exception as exc:
         return (f"pdk store unavailable ({exc})", NGSPICE_REF)
     try:
-        entries = [e for e in list_pdks() if e.get("id") == "sky130a"]
+        entries = [e for e in list_pdks()
+                   if slugify(e.get("id") or "") == "sky130a"]
     except Exception as exc:
         return (f"sky130 PDK not registered ({exc}; set ROCKETEDA_HOME)",
                 NGSPICE_REF)
     if not entries:
         return ("sky130 PDK not registered (set ROCKETEDA_HOME "
-                "to a store with sky130a)", NGSPICE_REF)
+                "to a store with sky130A)", NGSPICE_REF)
     first = sorted(entries, key=lambda e: e["revision"])[0]
     try:
         resolve_deck(first["id"], first["revision"],
@@ -125,10 +127,12 @@ def _need_pdk():
 
 
 def _pdk_entry():
+    from rocket_engine.interfaces.paths import slugify
     from rocket_engine.interfaces.pdks import list_pdks
 
     first = sorted(
-        [e for e in list_pdks() if e.get("id") == "sky130a"],
+        [e for e in list_pdks()
+         if slugify(e.get("id") or "") == "sky130a"],
         key=lambda e: e["revision"],
     )[0]
     return {"id": first["id"], "revision": first["revision"]}
