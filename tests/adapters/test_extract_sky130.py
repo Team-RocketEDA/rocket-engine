@@ -773,16 +773,30 @@ def test_resolve_netgen_rejects_mesher_impostor(tmp_path, monkeypatch):
 
 def test_resolve_netgen_admits_unknown_banner(tmp_path, monkeypatch):
     # Denylist, not allowlist: only observed impostor markers
-    # reject. The real LVS banner is unverified here, so an
-    # unknown banner admits (NGSPICE-LIVE promotes this to a
-    # strict allowlist once the real binary is in hand).
+    # reject. Banner below is the verbatim real LVS banner
+    # (Netgen 1.5.326, observed Oct 2026); NGSPICE-LIVE may still
+    # promote this to a strict allowlist.
     from rocket_engine.adapters.lvs_netgen import resolve_netgen
 
     bindir = tmp_path / "bin"
     bindir.mkdir()
-    _stub_netgen(bindir, "netgen", "netgen 1.5.316 from opencircuitdesign\n")
+    _stub_netgen(
+        bindir, "netgen",
+        "Netgen 1.5.326 compiled on Fri Oct 30 03:32:48 AM +04 2026\n",
+    )
     _prepend_path(monkeypatch, bindir)
     assert resolve_netgen() == str(bindir / "netgen")
+
+
+def test_resolve_netgen_live_admits_real_binary():
+    # Live: where a netgen exists on PATH, the guard must agree
+    # it is usable — an impostor here fails LOUDLY (wrong
+    # toolchain shouts; only absent tools skip).
+    from rocket_engine.adapters.lvs_netgen import resolve_netgen
+
+    if shutil.which("netgen") is None:
+        pytest.skip("netgen not on PATH")
+    assert resolve_netgen() is not None
 
 
 def test_lvs_preflight_names_mesher_impostor(tmp_path, monkeypatch):
