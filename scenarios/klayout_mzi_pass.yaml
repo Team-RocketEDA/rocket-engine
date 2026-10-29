@@ -1,0 +1,7 @@
+name: klayout mzi pass on cspdk reference GDS
+engine: {project_id: photonic_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-klmzi-1, operation: run_drc, target: mzi_ref}
+  - run_live: {backend: klayout_mzi}
+  - assert_verdict: PASS
+  - assert_event: job_queued

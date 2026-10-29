@@ -15,7 +15,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
-EXPECTED = {"serv", "picorv32", "sky130-bandgap", "ttsky-sigma-delta"}
+EXPECTED = {"serv", "picorv32", "sky130-bandgap", "ttsky-sigma-delta", "cspdk"}
 
 
 def load_fetch():
@@ -44,7 +44,7 @@ def make_git_repo(path, files):
     return out.stdout.strip()
 
 
-def test_catalog_pins_four_accepted_designs():
+def test_catalog_pins_five_accepted_designs():
     mod = load_fetch()
     assert set(mod.FIXTURES) == EXPECTED
     for name, spec in mod.FIXTURES.items():

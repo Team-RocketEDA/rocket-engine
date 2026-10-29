@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Vendor accepted D/A/M fixtures at pinned commits (FIXTURE-FETCH).
+"""Vendor accepted D/A/P/M fixtures at pinned commits (FIXTURE-FETCH).
 
 Accepted set (locked): SERV + picorv32 (digital), 2amlogic
-sky130-bandgap (analog), pthomas ttsky-sigma-delta (mixed-signal).
-Each ships prior verification (testbenches / spec + sims / measured
-numbers) — see docs/asic-fixture-candidates.md.
+sky130-bandgap (analog), gdsfactory cspdk (photonic layout truth),
+pthomas ttsky-sigma-delta (mixed-signal).
+Each ships prior verification (testbenches / spec + sims / reference
+GDS + regression tests / measured numbers) — see
+docs/asic-fixture-candidates.md (cspdk: docs/tickets/VALIDATE-P.md).
 
 Layout: shallow clones at pinned SHAs under fixtures/upstream/<name>/
 (NOT tests/adapters/fixtures, which holds hand-made micro-fixtures).
@@ -77,6 +79,22 @@ FIXTURES = {
             "Continuous-time sigma-delta ADC (TinyTapeout sky130); "
             "ships design doc + measured results. Correct = sims match "
             "the documented/measured numbers in the vendored tree."
+        ),
+    },
+    "cspdk": {
+        "url": "https://github.com/gdsfactory/cspdk",
+        "rev": "3323b17b4d75c852ed2372d7d13239408cca0eb1",
+        "license": "MIT",
+        "kind": "P",
+        "results": (
+            "CORNERSTONE photonics PDK (gdsfactory); ships cells + "
+            "reference GDS + regression tests + design guidelines. "
+            "Correct = the reference si340 MZI GDS "
+            "(tests/gds_ref_si340/mzi.gds) passes the documented "
+            "CORNERSTONE min rules (GDS 3/0: 350 nm feature, 200 nm "
+            "gap; 49th-call guidelines section 5.3-5.4) under the "
+            "engine KLayout DRC check; upstream test_gds difftests "
+            "each cell against its reference."
         ),
     },
 }

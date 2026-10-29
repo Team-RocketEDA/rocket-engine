@@ -164,6 +164,41 @@ def test_live_ngspice_bandgap_scenarios_pass_against_real_tools():
         assert result["passed"] is True, result["failures"]
 
 
+def test_sax_mzi_scenarios_pass_or_quarantine_loudly():
+    # No bare skip: with sax the pair runs live; without it both
+    # fail environmentally naming sax + the B10 ref. RED: unknown
+    # backend sax_mzi.
+    if not (
+        ROOT / "fixtures" / "upstream" / "cspdk" / "tests" / "gds_ref_si340"
+        / "mzi.gds"
+    ).is_file():
+        pytest.skip("cspdk fixture not fetched (fixtures/upstream/cspdk)")
+    runner = _load_runner()
+    sax_present = importlib.util.find_spec("sax") is not None
+    for name in ("sax_mzi_pass.yaml", "sax_mzi_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        if sax_present:
+            assert result["passed"] is True, result["failures"]
+        else:
+            assert result["passed"] is False, name
+            assert "sax not installed" in result["failures"][0], result["failures"]
+            assert "B10-owned" in result["failures"][0], result["failures"]
+
+
+@needs_klayout
+def test_live_klayout_mzi_scenarios_pass_against_real_klayout():
+    # RED: unknown backend klayout_mzi.
+    if not (
+        ROOT / "fixtures" / "upstream" / "cspdk" / "tests" / "gds_ref_si340"
+        / "mzi.gds"
+    ).is_file():
+        pytest.skip("cspdk fixture not fetched (fixtures/upstream/cspdk)")
+    runner = _load_runner()
+    for name in ("klayout_mzi_pass.yaml", "klayout_mzi_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
+
+
 def test_hdl_run_live_without_sources_fails_loudly(tmp_path):
     runner = _load_runner()
     bad = tmp_path / "bad.yaml"
