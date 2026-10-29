@@ -396,6 +396,29 @@ def test_old_slug_only_manifest_loads_with_slug_fallback(tmp_path):
         "tiny130a", "v1", engine_root=engine_root)["pdk_id"] == "tiny130a"
 
 
+# --- PDK-DISPLAY slice 2: tree_hash in ingredient (RED) ---
+
+def test_ingredient_includes_content_addressed_tree_hash(tmp_path):
+    from rocket_engine.interfaces.pdks import pdk_ingredient, register_pdk
+
+    engine_root = tmp_path / "root"
+    record = register_pdk(
+        _make_tiny_pdk(tmp_path / "tiny_pdk"), "tiny130A", "v1",
+        engine_root=engine_root,
+    )
+    ingredient = pdk_ingredient("tiny130a", "v1", engine_root=engine_root)
+    assert ingredient["pdk_tree_hash"] == record["tree_hash"]
+    # manifest_hash covers manifest bytes (incl. registered_at), so it
+    # differs across independent registrations; tree_hash must not.
+    engine_root2 = tmp_path / "root2"
+    record2 = register_pdk(
+        _make_tiny_pdk(tmp_path / "tiny_pdk2"), "tiny130A", "v1",
+        engine_root=engine_root2,
+    )
+    assert record2["manifest_hash"] != record["manifest_hash"]
+    assert record2["tree_hash"] == record["tree_hash"]
+
+
 def test_resolve_deck_swapped_symlink_target_is_drift(tmp_path):
     from rocket_engine.interfaces.pdks import (  # review fix: swapped link
         register_pdk,
