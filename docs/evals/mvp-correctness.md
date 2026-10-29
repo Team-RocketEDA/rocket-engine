@@ -47,11 +47,16 @@ photonic, mixed-signal):
 
 ## Gate: ENGINE-CORRECTNESS (single command)
 
-- One command runs all four flows (good + all mutations),
-  collects verdicts, writes the correctness report (totals, failed
-  cases with artifacts, quarantined flakes with refs).
+- Command: `.venv/bin/python scripts/correctness.py` (one command;
+  `--flow`, `--design`, `--only-good` narrow for triage; `--report`
+  overrides the stable path). Runs all four flows (good + all
+  mutations), collects verdicts, writes the correctness report to
+  `tmp/correctness/report.json` + `report.md` (totals, failed cases
+  with artifacts under `tmp/correctness/cases/<case>/`, quarantined
+  flakes with refs).
 - Gate verdict: 4/4 flows green → PASS, else FAIL. Skip = FAIL
-  (with reason + ref). Exit code 0 iff PASS.
+  (with reason + ref; environment-blocked flows surface as FAIL
+  blocked-env, never hidden, never fake-green). Exit code 0 iff PASS.
 - DEMO-PATH runs this gate as its centerpiece.
 
 ## Metrics
@@ -90,4 +95,16 @@ photonic, mixed-signal):
   honest-gap, no closed-loop, closure tracked under SEAM-COSIM).
   Regression 5/5 PASS (528/52 tools, 466/114 clean, coverage
   84.12%, scenarios-gate 18/8 tools + 10/16 clean all
+  environmental-with-ref, tree-clean PASS).
+- 2026-10-29 (ENGINE-CORRECTNESS): gate live
+  (`scripts/correctness.py`, report `tmp/correctness/`). Tools PATH:
+  FAIL 1/4 truthful (digital 16/16 PASS live iverilog 14.0; analog
+  0/6 blocked-env ngspice; photonic 4/8 — layout 4 PASS live
+  klayout, optical 4 blocked-env sax; mixed 8/14 — digital 8 PASS
+  live, analog 6 blocked-env ngspice; 28 pass / 0 fail / 16
+  quarantined, all with refs, exit 1). Clean PATH: FAIL 0/4
+  truthful (4 layout PASS, 40 quarantined, exit 1). Digital-only
+  3x PASS identical. Broken-fixture FAILs with artifacts, exit
+  codes exact. Regression 5/5 PASS (534/52 tools, 470/116 clean
+  with store, coverage 84.12%, scenarios-gate 18/8 + 10/16 all
   environmental-with-ref, tree-clean PASS).

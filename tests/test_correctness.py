@@ -136,7 +136,7 @@ def test_gate_fails_on_broken_flow_fixture(tmp_path):
     text = bench.read_text()
     assert "reg resetn" in text or "resetn" in text
     # Stick reset low: CPU never fetches, monitor $fatal fires.
-    broken = text.replace("resetn = 1;", "resetn = 0; // BROKEN")
+    broken = text.replace("resetn <= 1;", "resetn <= 0; // BROKEN")
     assert broken != text
     bench.write_text(broken)
     # Gate resolves harness/monitor from --root: link the rest.
