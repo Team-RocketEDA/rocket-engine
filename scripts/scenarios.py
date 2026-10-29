@@ -731,9 +731,14 @@ def _run_step(ctx, num, step):
         ctx["verdict"] = out["verdict"]
         return None
     if "assert_verdict" in step:
-        got = (ctx.get("verdict") or {}).get("status")
+        verdict = ctx.get("verdict") or {}
+        got = verdict.get("status")
         if got != step["assert_verdict"]:
-            raise AssertionError(f"{label}: verdict {got}, want {step['assert_verdict']}")
+            reason = verdict.get("reason")
+            detail = f" ({reason})" if reason else ""
+            raise AssertionError(
+                f"{label}: verdict {got}{detail}, want {step['assert_verdict']}"
+            )
         return None
     if "assert_event" in step:
         names = [e["event"] for e in ctx["engine"].events_since(0)]
