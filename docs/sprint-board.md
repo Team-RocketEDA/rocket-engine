@@ -18,7 +18,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
-- [FETCH-HARDEN] Harden fixture fetch pins + license gate
 - [SCENARIO-PATH] Pin scenario gate to dev-PATH
 - [PDK-DISPLAY] Preserve canonical PDK display id in store records
 - [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
@@ -70,3 +69,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [WORKERS] Isolated worker substrate (I23/I24)
 - [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
 - [DEMO-PATH] Slice: install.sh on demo machine + scenarios + runbook
+- [FETCH-HARDEN] Harden fixture fetch pins + license gate
