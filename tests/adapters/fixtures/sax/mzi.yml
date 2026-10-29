@@ -1,0 +1,23 @@
+# Balanced MZI reference: two 50/50 ideal couplers, equal 10 um arms.
+# Verified against sax 0.18.2: in0 -> out1 is exactly 1.0 (0 dB)
+# and in0 -> out0 is exactly 0 at every wavelength (ideal blocks).
+circuit: mzi-balanced
+instances:
+  c1: {component: coupler_ideal, settings: {coupling: 0.5}}
+  c2: {component: coupler_ideal, settings: {coupling: 0.5}}
+  s_top: {component: straight, settings: {length: 10.0}}
+  s_bot: {component: straight, settings: {length: 10.0}}
+connections:
+  c1,out0: s_top,in0
+  c1,out1: s_bot,in0
+  s_top,out0: c2,in0
+  s_bot,out0: c2,in1
+ports:
+  in0: c1,in0
+  in1: c1,in1
+  out0: c2,out0
+  out1: c2,out1
+sweep: {start_nm: 1540.0, stop_nm: 1560.0, points: 3}
+targets:
+  - {from: in0, to: out1, at_nm: 1550.0, min_db: -0.5}
+  - {from: in0, to: out0, at_nm: 1550.0, max_db: -40.0}

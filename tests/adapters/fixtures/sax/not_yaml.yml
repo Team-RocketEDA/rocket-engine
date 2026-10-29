@@ -1,0 +1,3 @@
+# Not YAML at all: preflight must refuse with invalid_reference.
+circuit: [unclosed
+  bad indent: :
