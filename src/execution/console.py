@@ -2,10 +2,10 @@
 
 Binding semantics are real: approvals pin code, history cursor,
 environment digest, and revision, and reset kills every outstanding
-approval. Workers are not real yet — execute_cell records history
-without running code. Isolated execution arrives with the worker
-substrate (I23/I24); I16 runner mechanics already exist
-(BwrapRunner) and will confine workers when they land.
+approval. execute_cell records history without running code;
+isolated execution lives in worker.py — CellRunner admits through
+admit_cell and runs each cell in a fresh BwrapRunner-confined
+worker (I23/I24).
 """
 
 import uuid

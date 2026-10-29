@@ -7,10 +7,17 @@ profile on a trivial command before any real work runs; unprovable
 profiles refuse loudly instead of degrading silently. See
 docs/probe-bwrap-isolation.md for the verified recipe and the
 environment limits found while probing.
+
+Profiles also carry `env_unset` (emitted as `--unsetenv`): bwrap
+inherits the caller's environment except where told otherwise, so a
+host DISPLAY would leak into the sandbox and abort display-sensitive
+tools (netgen's Tk init). Default profiles scrub it.
 """
 
+import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 from pathlib import Path
@@ -49,6 +56,7 @@ def default_profile(tool_paths=()):
         "symlinks": list(_SYSTEM_SYMLINKS),
         "tmpfs": ["/tmp"],
         "env": {"PATH": "/usr/bin:/bin", "TMPDIR": "/tmp"},
+        "env_unset": ["DISPLAY"],
     }
 
 
@@ -57,7 +65,7 @@ _CSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _BAD_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
-def _clean_stream(data):
+def clean_stream(data):
     """Decode, strip terminal/control bytes, bound length with a marker.
 
     Truncation counts exact input bytes; a split multibyte tail decodes
@@ -70,6 +78,54 @@ def _clean_stream(data):
     if total > _OUTPUT_LIMIT_BYTES:
         text += f"\n...[truncated after {_OUTPUT_LIMIT_BYTES} of {total} bytes]\n"
     return text
+
+
+_clean_stream = clean_stream
+
+
+def _kill_tree(proc):
+    """SIGKILL one spawned process group, then reap the leader.
+
+    Every sandboxed spawn leads its own session (start_new_session),
+    so the group kill reaches grandchildren the leader already
+    orphaned. Missing-group errors mean everyone already exited.
+    """
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        pass
+    try:
+        proc.kill()
+    except (ProcessLookupError, OSError):
+        pass
+    proc.wait()
+
+
+def pgid_survivors(pgid):
+    """Pids still in one process group (Linux /proc scan).
+
+    Excludes this process. Used to CONFIRM a tree kill, never to
+    select new victims: kill by group first, then scan.
+    """
+    me = os.getpid()
+    found = []
+    procfs = Path("/proc")
+    if not procfs.is_dir():
+        return found
+    for entry in procfs.iterdir():
+        if not entry.name.isdigit() or int(entry.name) == me:
+            continue
+        try:
+            stat = (entry / "stat").read_text(encoding="utf-8")
+        except OSError:
+            continue
+        try:
+            group = int(stat.rsplit(")", 1)[1].split()[2])
+        except (IndexError, ValueError):
+            continue
+        if group == pgid:
+            found.append(int(entry.name))
+    return found
 
 
 class BwrapRunner:
@@ -87,7 +143,7 @@ class BwrapRunner:
             "missing_dependency", f"bwrap not found: {self._binary}."
         )
 
-    def _argv(self, binary, workdir, command, extra_binds=()):
+    def _argv(self, binary, workdir, command, extra_binds=(), extra_env=None):
         argv = [binary]
         for ns in self._profile.get("namespaces", ["user"]):
             argv.append(f"--unshare-{ns}")
@@ -103,8 +159,24 @@ class BwrapRunner:
         argv += ["--bind", str(workdir), str(workdir)]
         for key, value in self._profile.get("env", {}).items():
             argv += ["--setenv", key, value]
+        for key, value in dict(extra_env or {}).items():
+            argv += ["--setenv", key, value]
+        for key in self._profile.get("env_unset", []):
+            argv += ["--unsetenv", key]
         argv += ["--chdir", str(workdir), *command]
         return argv
+
+    def argv_for(self, workdir, command, extra_binds=(), extra_env=None):
+        """Sandbox argv for one run; per-run env rides as extra `--setenv`.
+
+        Uses the configured binary verbatim (no PATH resolution): call
+        after a passing preflight, or let PATH lookup resolve it at
+        spawn. Unset entries are emitted last, so unset wins on a
+        set/unset conflict by construction.
+        """
+        return self._argv(
+            self._binary, workdir, command, extra_binds, extra_env
+        )
 
     def preflight(self, timeout_s=30):
         binary = self._resolve()
@@ -140,6 +212,7 @@ class BwrapRunner:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=workdir,
+            start_new_session=True,
         )
         try:
             out_bytes, err_bytes = proc.communicate(
@@ -147,8 +220,7 @@ class BwrapRunner:
                 timeout=timeout_s,
             )
         except subprocess.TimeoutExpired as exc:
-            proc.kill()
-            proc.wait()
+            _kill_tree(proc)
             raise ExecutionError(
                 "runner_unavailable",
                 f"Sandboxed run timed out after {timeout_s}s.",

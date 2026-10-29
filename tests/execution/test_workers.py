@@ -403,9 +403,11 @@ def test_crash_and_failure_are_truthful_no_fake_pass(cell_runner):
     )
     assert crashed["state"] == "crashed"
     assert crashed["ok"] is False
-    assert crashed["exit_code"] == -15
+    # bwrap reports child SIGTERM as 128+15; the worker reads the
+    # shell convention back to the signal.
+    assert crashed["exit_code"] == 143
     assert crashed["partial"] is True
-    assert "signal" in crashed["reason"].lower()
+    assert "signal 15" in crashed["reason"].lower()
 
 
 def test_fresh_worker_per_cell_namespace_never_crosses(cell_runner):
