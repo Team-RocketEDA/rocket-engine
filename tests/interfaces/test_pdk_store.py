@@ -260,6 +260,7 @@ def test_pdk_ingredient_closure_for_runs(tmp_path):
         "pdk_id": "tiny130A",  # PDK-DISPLAY: canonical display id
         "pdk_revision": "v1",
         "pdk_manifest_hash": record["manifest_hash"],
+        "pdk_tree_hash": record["tree_hash"],
     }
 
 

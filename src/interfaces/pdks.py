@@ -407,11 +407,14 @@ def pdk_ingredient(pdk_id, revision, engine_root=None):
     """Return the I28 PDK ingredient closure for run records.
 
     Verifies freshness first: a drifted store fails loudly instead
-    of recording a stale hash.
+    of recording a stale hash. `pdk_tree_hash` is the
+    content-addressed cross-machine identity (unlike
+    `pdk_manifest_hash`, it ignores `registered_at`/source).
     """
     result = verify_pdk(pdk_id, revision, engine_root=engine_root)
     return {
         "pdk_id": result["id"],
         "pdk_revision": result["revision"],
         "pdk_manifest_hash": result["manifest_hash"],
+        "pdk_tree_hash": result["tree_hash"],
     }
