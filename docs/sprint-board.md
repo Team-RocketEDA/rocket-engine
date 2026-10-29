@@ -13,9 +13,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
 - [B10] install.sh + tests/installed + capability matrix
 
-- [LAYOUT-SCHEMA] Folder schema YAML in source (versioned base template + parser)
-- [PATH-GUARD] Path safety module, RED-first (unix-only, charset, traversal, containment)
-- [PDK-STORE] Slice: register/verify/list PDK against user tree
 - [DRC-SKY130] Slice: KLayout sky130A.lydrc live proof
 - [EXTRACT-SKY130] Slice: magic extraction + Netgen LVS proof; sky130.lvs bug verdict
 - [SIM-SKY130] Slice: ngspice sky130.lib proof + SERV regression
@@ -36,6 +33,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
 - [FETCH-HARDEN] Harden fixture fetch pins + license gate
 - [SCENARIO-PATH] Pin scenario gate to dev-PATH
+- [PDK-DISPLAY] Preserve canonical PDK display id in store records
 ## Ready
 
 
@@ -66,3 +64,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CORPUS-D] Digital corpus (good/bad) — blocked: user review of suggestions
 - [CORPUS-A] Analog corpus (good/bad) — blocked: user review of suggestions
 - [CORPUS-M] Mixed corpus scope — blocked: user picks an option
+- [LAYOUT-SCHEMA] Folder schema YAML in source (versioned base template + parser)
+- [PATH-GUARD] Path safety module, RED-first (unix-only, charset, traversal, containment)
+- [PDK-STORE] Slice: register/verify/list PDK against user tree
