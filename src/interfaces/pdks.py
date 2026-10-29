@@ -354,22 +354,30 @@ def resolve_deck(pdk_id, revision, deck, engine_root=None):
             "unknown_pdk", f"Unknown PDK: {slug}@{revision} (no store entry)."
         )
     manifest = _load_manifest(manifest_path)
+    # Containment first (resolved), then manifest lookup on the LEXICAL
+    # rel: resolving before lookup would make every symlink deck
+    # misdiagnose as its target and let swapped link targets pass.
     target = join_contained(dest, deck)
-    rel = to_unix(str(target.relative_to(dest)))
+    lexical = Path(dest, to_unix(deck))
+    rel = to_unix(str(lexical.relative_to(dest)))
     want_files = manifest.get("files") or {}
     want_links = manifest.get("symlinks") or {}
     if rel in want_links:
-        current = os.readlink(target) if target.is_symlink() else None
-        if current != want_links[rel]:
+        if not lexical.is_symlink() or os.readlink(lexical) != want_links[rel]:
             _drift(slug, revision, rel, "symlink target changed")
-        resolved = target.resolve()
-        return {"path": str(target), "sha256": _sha256_file(resolved)}
+        try:
+            digest = _sha256_file(target)
+        except OSError:
+            _drift(slug, revision, rel, "symlink target missing on disk")
+        return {"path": str(lexical), "sha256": digest}
     if rel not in want_files:
         raise PdkError(
             "unknown_pdk",
             f"Unknown deck for {slug}@{revision}: {rel} (not in manifest).",
         )
-    if not target.is_file() or target.is_symlink():
+    if lexical.is_symlink():
+        _drift(slug, revision, rel, "changed from file to symlink")
+    if not target.is_file():
         _drift(slug, revision, rel, "is missing on disk")
     current_hash = _sha256_file(target)
     if current_hash != want_files[rel]:
