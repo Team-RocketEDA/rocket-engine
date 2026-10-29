@@ -27,6 +27,8 @@ operator, seed, variant, and expected verdict/rules.
 | `picorv32_unconnected_port` | digital | `fixtures/upstream/picorv32` (test_ez) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
 | `analog_sizing_out_of_spec` | analog | `tests/adapters/fixtures/ngspice/rc_divider.spice` | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
 | `analog_open_net` | analog | `tests/adapters/fixtures/ngspice/rc_divider.spice` | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
+| `bandgap_sizing_out_of_spec` | analog | `fixtures/upstream/sky130-bandgap` (output-voltage-tc snapshot) | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
+| `bandgap_open_net` | analog | `fixtures/upstream/sky130-bandgap` (output-voltage-tc snapshot) | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
 | `layout_drc_violation` | layout | `tests/adapters/fixtures/drc/good.mag` | `run_drc` (magic scmos) | PASS | FAIL (`spacing`/`width`) |
 | `netlist_lvs_mismatch` | layout | `tests/mutate/fixtures/lvs_inv/` pair | `run_lvs` (netgen) | PASS (match) | FAIL (`lvs_net_mismatch`) |
 | `photonic_geometry_mistune` | photonic | `tests/adapters/fixtures/sax/mzi.yml` | `run_optical` (sax) | PASS | FAIL (`transmission`) |
@@ -59,6 +61,18 @@ so the break is behavioral, not syntactic.
   node or commented device). No value changes — the topology break
   unloads the divider, `out` rises to the 1.8 V rail, and the vout
   measurement misses. Same quarantine/parse story as sizing.
+- `bandgap_sizing_out_of_spec` (3 variants): n_r2 51 → 50 / 52 /
+  54, so Vref = 1.1744 / 1.22507 / 1.233 V against the DR-005
+  [1.176, 1.224] V bound (the netlist header's own issue-#178
+  sizing table). Needs ngspice + the sky130 store, otherwise
+  quarantined (see `docs/tickets/NGSPICE-LIVE.md`); the verdict
+  mapping is pinned by canned-envelope parse tests and the
+  recorded-log oracle (tt_27c_3.30v: 1.210323 / 1.186357 /
+  1.216902).
+- `bandgap_open_net` (2 variants): XR2A lifted from `VOUT`
+  (renamed net VOUT_OPEN or commented device). No value changes
+  — the topology break cuts the R2 feedback leg and Vref misses
+  the DR-005 window. Same quarantine/parse story as sizing.
 - `layout_drc_violation` (2 variants): seed 0 shifts the second
   rect to 1λ spacing (mirrors `bad_spacing.mag`), seed 1 narrows
   the first rect to 1λ width (mirrors `bad_width.mag`). Verified
@@ -123,9 +137,36 @@ recheck`, and the `hdl_serv` / `hdl_picorv32` scenario backends.
   left open; the monitor `$fatal`s. Verified live with
   iverilog 14.0 + vvp.
 
-## Vendored-design follow-up (VALIDATE-A/P/M)
+## Vendored analog operators (VALIDATE-A)
 
-VALIDATE-A/P/M reuse the same operator shapes on their vendored
-trees (bandgap sizing/opens, sigma-delta seam pairs, cspdk
-geometry/circuit mistunes) — same evidence shape, same
-good-PASS/mutated-FAIL runner pattern.
+The divider operators above keep the RED-first flip fast and
+hermetic; VALIDATE-A reuses the same two analog shapes on the
+vendored bandgap snapshot (output-voltage-tc 20260817-015751,
+the envelope-1a 45/45 PASS design) — same evidence shape, same
+good-PASS/mutated-FAIL runner pattern, rechecked in
+`tests/validate/test_analog.py`. Staging (snapshot copy + DR-005
+run_spice job shape) is shared via
+`rocket_engine.mutate.stage_good_design` /
+`stage_design_extras`, used by the tests, `scripts/mutate.py
+recheck`, and the `ngspice_bandgap` scenario backend (the PDK
+pin is resolved by each caller from its own store).
+
+- `bandgap_sizing_out_of_spec` (3 variants): the Kuijk-core
+  resistor ratio `n_r2` 51 → 50 (K low, vref_min 1.1744 below
+  the 1.176 V floor), 52 (K high, vref_max up to 1.22507 above
+  the 1.224 V ceiling), or 54 (pre-DR-003 overshoot ~1.233 V)
+  — the netlist header's own issue-#178 sizing table. Live
+  needs ngspice + the sky130 store (quarantined per
+  NGSPICE-LIVE); the verdict mapping is pinned by
+  canned-envelope parse tests and the recorded-log oracle.
+- `bandgap_open_net` (2 variants): XR2A lifted from `VOUT`
+  onto `VOUT_OPEN` (feedback cut) or commented out (R2A leg
+  open). The topology break pushes Vref outside DR-005 with
+  rule `measurement`. Same quarantine/parse story as sizing.
+
+## Vendored-design follow-up (VALIDATE-P/M)
+
+VALIDATE-P/M reuse the same operator shapes on their vendored
+trees (sigma-delta seam pairs, cspdk geometry/circuit
+mistunes) — same evidence shape, same good-PASS/mutated-FAIL
+runner pattern.

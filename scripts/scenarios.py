@@ -280,6 +280,13 @@ def _run_live_hdl_vendored(ctx, label, sub, design):
 
 
 def _run_live_ngspice_bandgap(ctx, label, sub):
+    from rocket_engine.mutate import (
+        OPERATORS,
+        apply_operator,
+        stage_design_extras,
+        stage_good_design,
+    )
+
     if shutil.which("ngspice") is None:
         raise AssertionError(f"{label}: ngspice not on PATH")
     if not NGSPICE_SNAPSHOT.is_file():
@@ -288,30 +295,41 @@ def _run_live_ngspice_bandgap(ctx, label, sub):
     _resolve_sky130_deck(label, NGSPICE_LIB_REL)
     workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
     ctx["tmpdirs"].append(workdir)
-    staged = workdir / NGSPICE_SNAPSHOT.name
-    shutil.copy(NGSPICE_SNAPSHOT, staged)
+    mutation = sub.get("mutation") or {}
+    try:
+        if mutation:
+            operator = mutation.get("operator", "")
+            entry_op = OPERATORS[operator]
+            if entry_op.get("design") != "bandgap":
+                raise AssertionError(
+                    f"{label}: operator {operator} is not a bandgap mutation"
+                )
+            apply_operator(
+                operator, workdir, mutation.get("seed", 0), NGSPICE_SNAPSHOT.parent
+            )
+            staged = stage_design_extras("bandgap", workdir, ROOT)
+        else:
+            staged = stage_good_design("bandgap", workdir, ROOT)
+    except AssertionError:
+        raise
+    except KeyError as exc:
+        raise AssertionError(f"{label}: unknown mutation operator: {exc}") from exc
+    except (FileNotFoundError, ValueError) as exc:
+        raise AssertionError(f"{label}: cannot stage bandgap: {exc}") from exc
     out = ctx["engine"].run(
         {
             "project_id": ctx["project_id"],
             "operation": ctx["operation"],
             "arguments": {
-                "sources": [str(staged)],
-                "workdir": str(workdir),
-                "timeout_s": 300,
-                "params": {"vsup": 3.3},
-                "options": ["wnflag=1"],
-                "analyses": ["op"],
-                "corner": "tt",
-                "temp_c": 27,
-                "measurements": [
-                    {
-                        "name": "vref",
-                        "expr": "v(vref)",
-                        "unit": "V",
-                        "min": VREF_MIN,
-                        "max": VREF_MAX,
-                    },
-                ],
+                "sources": staged["sources"],
+                "workdir": staged["workdir"],
+                "timeout_s": staged["timeout_s"],
+                "params": staged["params"],
+                "options": staged["options"],
+                "analyses": staged["analyses"],
+                "corner": staged["corner"],
+                "temp_c": staged["temp_c"],
+                "measurements": staged["measurements"],
                 "pdk": {"id": entry["id"], "revision": entry["revision"]},
                 "deck": {"tool": "ngspice"},
             },

@@ -62,7 +62,28 @@ def _tool_gate(operator):
             if miss:
                 return miss.replace(binary, "iverilog/vvp")
     elif op == "run_spice":
-        return _need("ngspice", operator)
+        miss = _need("ngspice", operator)
+        if miss:
+            return miss
+        if entry.get("design") == "bandgap":
+            try:
+                from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
+
+                entries = [e for e in list_pdks() if e.get("id") == "sky130a"]
+                if not entries:
+                    raise LookupError("no sky130a entry")
+                first = sorted(entries, key=lambda e: e["revision"])[0]
+                resolve_deck(
+                    first["id"],
+                    first["revision"],
+                    "libs.tech/combined/sky130.lib.spice",
+                )
+            except Exception as exc:
+                return (
+                    f"QUARANTINED {operator}: sky130 model lib not resolvable "
+                    f"({exc}; set ROCKETEDA_HOME; docs/tickets/NGSPICE-LIVE.md)"
+                )
+        return None
     elif op == "run_drc":
         return _need("magic", operator)
     elif op == "run_lvs":
@@ -118,6 +139,22 @@ def _job(operator, dest, extra=None):
             "deck": {"tool": "icarus"},
         }
     if op == "run_spice":
+        design = entry.get("design")
+        if design == "bandgap":
+            staged = stage_design_extras(design, dest, ROOT)
+            return {
+                "sources": staged["sources"],
+                "workdir": staged["workdir"],
+                "timeout_s": staged["timeout_s"],
+                "measurements": staged["measurements"],
+                "analyses": staged["analyses"],
+                "options": staged["options"],
+                "params": staged["params"],
+                "corner": staged["corner"],
+                "temp_c": staged["temp_c"],
+                "pdk": (extra or {})["pdk"],
+                "deck": {"tool": "ngspice"},
+            }
         return {
             "sources": [str(dest / "rc_divider.spice")],
             "workdir": workdir,
@@ -208,6 +245,14 @@ def cmd_recheck(args):
             first["id"], first["revision"], "libs.tech/netgen/sky130A_setup.tcl"
         )
         extra = {"setup_file": hit["path"]}
+    if entry.get("design") == "bandgap":
+        from rocket_engine.interfaces.pdks import list_pdks
+
+        first = sorted(
+            [e for e in list_pdks() if e.get("id") == "sky130a"],
+            key=lambda e: e["revision"],
+        )[0]
+        extra = {"pdk": {"id": first["id"], "revision": first["revision"]}}
     _, good_out = _engine_run(
         "mutate_good", entry["operation"], _job(args.operator, good_dir, extra)
     )

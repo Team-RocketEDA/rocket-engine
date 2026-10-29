@@ -214,6 +214,61 @@ def analog_open_net(text, variant):
     return text.replace(old, new), {"variant_desc": desc}
 
 
+def bandgap_sizing_out_of_spec(text, variant):
+    """Move n_r2 off its 51 nominal; Vref leaves DR-005 [1.176, 1.224] V.
+
+    Expected values are the netlist header's own documented numbers
+    (issue #178 sizing table): n_r2=50 vref_min 1.1744 below the
+    floor, n_r2=52 vref_max up to 1.22507 above the ceiling,
+    n_r2=54 the pre-DR-003 ~1.233 V overshoot. Live where ngspice
+    + the sky130 store exist, otherwise quarantined (see
+    docs/tickets/NGSPICE-LIVE.md); the verdict mapping is pinned
+    by canned-envelope parse tests.
+    """
+    old = ".param n_r2=51"
+    _once(text, old, "bandgap_sizing_out_of_spec")
+    alts = [
+        (50, 1.1744, "n_r2 51 -> 50 (K low, vref_min below the 1.176 V floor)"),
+        (52, 1.22507, "n_r2 51 -> 52 (K high, vref_max above the 1.224 V ceiling)"),
+        (54, 1.233, "n_r2 51 -> 54 (pre-DR-003 overshoot, vref above ceiling)"),
+    ]
+    n_r2, expected_vref, desc = alts[variant % len(alts)]
+    extra = {
+        "variant_desc": desc,
+        "n_r2": n_r2,
+        "expected_vref": expected_vref,
+    }
+    return text.replace(old, f".param n_r2={n_r2}"), extra
+
+
+def bandgap_open_net(text, variant):
+    """Open the bandgap R2 leg: XR2A lifted from VOUT.
+
+    Variant 0 renames the output net (feedback cut, Vref
+    collapses); variant 1 comments the device (leg open). No value
+    changes — the topology break pushes Vref outside DR-005
+    [1.176, 1.224] V. Same quarantine/parse story as sizing.
+    """
+    old = (
+        "XR2A R2A_HD2 VOUT VSS sky130_fd_pr__res_high_po "
+        "W='r_w' L='r_lseg*n_r2+r_lseg_trim*n_r2_trim-n_r2_ov*r_ov_seg' "
+        "mult=1 m=1"
+    )
+    _once(text, old, "bandgap_open_net")
+    alts = [
+        (
+            old.replace("XR2A R2A_HD2 VOUT VSS", "XR2A R2A_HD2 VOUT_OPEN VSS"),
+            "XR2A output lifted onto VOUT_OPEN (feedback cut)",
+        ),
+        (
+            f"* {old} (MUTATE-HARNESS bandgap_open_net: device lifted)",
+            "XR2A commented out (R2A leg open)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
 def layout_drc_violation(text, variant):
     """Shift or shrink a rect into an scmos DRC violation."""
     if variant % 2 == 0:

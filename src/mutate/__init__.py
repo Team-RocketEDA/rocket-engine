@@ -69,6 +69,18 @@ _SERV_FILES = [
 
 _PICO_FILES = ["picorv32.v", "testbench_ez.v"]
 
+# VALIDATE-A bandgap snapshot (2amlogic sky130-bandgap): the
+# output-voltage-tc netlist that the signoff envelope 1a grades
+# 45/45 PASS on DR-005 [1.176, 1.224] V. Staged flat.
+_BANDGAP_SNAPSHOT = "20260817-015751-13476b7.spice"
+_BANDGAP_FILES = [_BANDGAP_SNAPSHOT]
+_BANDGAP_BASE = (
+    "fixtures/upstream/sky130-bandgap/sim/output-voltage-tc/netlist-snapshots"
+)
+# DR-005 ratified accuracy row: 1.20 V +/-2% untrimmed.
+_BANDGAP_VREF_MIN = 1.176
+_BANDGAP_VREF_MAX = 1.224
+
 OPERATORS = {
     "digital_reset_break": {
         "domain": "digital",
@@ -241,6 +253,30 @@ OPERATORS = {
         "variants": 1,
         "doc": "Detune the output coupler; cross-port target misses.",
     },
+    "bandgap_sizing_out_of_spec": {
+        "domain": "analog",
+        "design": "bandgap",
+        "operation": "run_spice",
+        "target_file": _BANDGAP_SNAPSHOT,
+        "files": list(_BANDGAP_FILES),
+        "base": _BANDGAP_BASE,
+        "expected_verdict": "FAIL",
+        "expected_rules": ["measurement"],
+        "variants": 3,
+        "doc": "Move n_r2 off 51; Vref leaves DR-005 [1.176, 1.224] V.",
+    },
+    "bandgap_open_net": {
+        "domain": "analog",
+        "design": "bandgap",
+        "operation": "run_spice",
+        "target_file": _BANDGAP_SNAPSHOT,
+        "files": list(_BANDGAP_FILES),
+        "base": _BANDGAP_BASE,
+        "expected_verdict": "FAIL",
+        "expected_rules": ["measurement"],
+        "variants": 2,
+        "doc": "Lift XR2A from VOUT; feedback cut, Vref misses.",
+    },
 }
 
 
@@ -300,12 +336,13 @@ def apply_operator(name, dest_dir, seed, src_dir):
     return evidence
 
 
-# VALIDATE-D design staging: base files come from apply_operator /
-# copy_base_files; the extras below (committed harness or monitor,
-# vendored firmware, watchdog, defines) complete a runnable sim dir.
-# Shared by tests/validate, scripts/mutate.py, and scripts/scenarios.py.
+# VALIDATE-D/A design staging: base files come from
+# apply_operator / copy_base_files; the extras below (committed
+# harness or monitor, vendored firmware, watchdog, defines, or the
+# bandgap run_spice job shape) complete a runnable sim dir. Shared
+# by tests/validate, scripts/mutate.py, and scripts/scenarios.py.
 
-_DESIGNS = ("serv", "picorv32")
+_DESIGNS = ("serv", "picorv32", "bandgap")
 _HARNESS = "tests/adapters/fixtures/hdl/serv_harness.v"
 _MONITOR = "tests/adapters/fixtures/hdl/picorv32_monitor.v"
 _FIRMWARE = "fixtures/upstream/serv/sw/hello_uart.hex"
@@ -323,16 +360,42 @@ def stage_design_extras(design, dest_dir, root):
     """Copy a design's extras into a staged sim dir; return job args.
 
     Base files must already be staged (via apply_operator for a
-    mutant). Returns sources/defines/timeout_s/workdir for a
-    run_hdl_test job, plus watchdog_units for SERV. Missing pieces
-    raise FileNotFoundError; a drifted harness watchdog raises
-    MutationError — never a silent unmutated-shaped run.
+    mutant). Digital designs return sources/defines/timeout_s/
+    workdir for a run_hdl_test job (plus watchdog_units for SERV);
+    the bandgap returns sources/measurements/analyses/options/
+    params/corner/temp_c/timeout_s/workdir for a run_spice job
+    (the PDK pin is resolved by the caller from its own store, so
+    a missing store skips loudly at the call site, never here).
+    Missing pieces raise FileNotFoundError; a drifted harness
+    watchdog raises MutationError — never a silent
+    unmutated-shaped run.
     """
     if design not in _DESIGNS:
         raise KeyError(f"unknown vendored design: {design!r}.")
     root = Path(root)
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
+    if design == "bandgap":
+        sources = [str(dest / name) for name in _staged_names(design, dest)]
+        return {
+            "sources": sources,
+            "workdir": str(dest),
+            "timeout_s": 300,
+            "measurements": [
+                {
+                    "name": "vref",
+                    "expr": "v(vref)",
+                    "unit": "V",
+                    "min": _BANDGAP_VREF_MIN,
+                    "max": _BANDGAP_VREF_MAX,
+                }
+            ],
+            "analyses": ["op"],
+            "options": ["wnflag=1"],
+            "params": {"vsup": 3.3},
+            "corner": "tt",
+            "temp_c": 27,
+        }
     if design == "serv":
         harness_src = root / _HARNESS
         if not harness_src.is_file():
@@ -390,7 +453,7 @@ def _staged_names(design, dest):
 
 
 def stage_good_design(design, dest_dir, root):
-    """Stage an unmutated design sim dir; return run_hdl_test job args."""
+    """Stage an unmutated design sim dir; return runnable job args."""
     entry = _design_entry(design)
     dest = Path(dest_dir)
     copy_base_files(entry, Path(root) / entry["base"], dest)
