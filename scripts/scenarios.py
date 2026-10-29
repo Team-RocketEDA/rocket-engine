@@ -102,6 +102,26 @@ _BACKEND_PATH_TOOLS = {
     "extract_lvs_sky130": ("magic", "netgen"),
 }
 
+_TOOL_HINTS = {
+    # Ownership refs carried on the startup line so a bare-PATH
+    # failure still points at the ticket that owns the gap
+    # (DEMO-PATH pins netgen → NGSPICE-LIVE).
+    "magic": "B10-owned tooling",
+    "ngspice": "see docs/tickets/NGSPICE-LIVE.md",
+    "netgen": "see docs/tickets/NGSPICE-LIVE.md",
+}
+
+
+def _startup_line(tool):
+    line = (
+        f"startup: missing_dependency: {tool} not on PATH "
+        "(scenario gate needs dev-PATH with oss-cad-suite; "
+        "see scenarios/README.md)"
+    )
+    if tool in _TOOL_HINTS:
+        line += f" [{_TOOL_HINTS[tool]}]"
+    return line
+
 _BACKENDS = {
     "magic": {
         "fixtures": DRC_FIXTURES,
@@ -776,12 +796,7 @@ def run_scenario(path):
         return {
             "name": doc.get("name", Path(path).name),
             "passed": False,
-            "failures": [
-                f"startup: missing_dependency: {tool} not on PATH "
-                "(scenario gate needs dev-PATH with oss-cad-suite; "
-                "see scenarios/README.md)"
-                for tool in missing
-            ],
+            "failures": [_startup_line(tool) for tool in missing],
         }
     engine = doc.get("engine", {})
     project_id = engine.get("project_id", "demo")
