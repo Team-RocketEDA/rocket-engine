@@ -38,7 +38,7 @@ def test_parse_good_call_yields_op_and_typed_args():
 def test_parse_nested_value_and_quoted_spaces():
     parse_op_call = _dispatch().parse_op_call
     op, args = parse_op_call(
-        "run_drc tech=synthetic-kl deck={tool: klayout} note='a b'"
+        "run_drc tech=synthetic-kl deck='{tool: klayout}' note='a b'"
     )
     assert op == "run_drc"
     assert args == {"tech": "synthetic-kl", "deck": {"tool": "klayout"},

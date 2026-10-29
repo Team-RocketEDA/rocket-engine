@@ -33,7 +33,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
-- [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -70,3 +69,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [VALIDATE-M] Mixed correctness e2e (sigma-delta)
 - [ENGINE-CORRECTNESS] MVP gate, correct vs incorrect all flows
 - [CORPUS-P] Photonic corpus (good/bad) — blocked: user review of suggestions
+- [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
