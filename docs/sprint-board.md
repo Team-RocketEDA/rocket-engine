@@ -17,7 +17,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
 - [REPLAY] Backlog: first-class run replay affordance
-- [VALIDATE-P] Photonic correctness e2e (cspdk + SAX)
 - [VALIDATE-M] Mixed correctness e2e (sigma-delta)
 - [ENGINE-CORRECTNESS] MVP gate, correct vs incorrect all flows
 - [WORKERS] Isolated worker substrate (I23/I24)
@@ -69,3 +68,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MUTATE-HARNESS] Systematic incorrect-design generator
 - [VALIDATE-D] Digital correctness e2e (SERV, picorv32)
 - [VALIDATE-A] Analog correctness e2e (bandgap)
+- [VALIDATE-P] Photonic correctness e2e (cspdk + SAX)

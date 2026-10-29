@@ -71,3 +71,12 @@ photonic, mixed-signal):
   envelope 45/45, canned-parse all PASS, quarantined under
   NGSPICE-LIVE). Regression 5/5 PASS (424/48 tools, 380/92
   clean, coverage 82.41%, scenarios-gate + tree-clean PASS).
+- 2026-10-29 (VALIDATE-P): Photonic 3/5 live, 5/5 proven-or-live
+  (cspdk si340 MZI ref GDS passes documented 350nm/200nm rules
+  live both PATHs, klayout 0.28.16; sax 0.18.2 recorded oracle
+  verbatim + canned-parse all PASS, optical live quarantined
+  under B10 photonic group; 2 ops x seeds FAIL
+  transmission-only, layout stays PASS, 3x identical, artifacts
+  kept, zero bare skips). Regression 5/5 PASS (452/53 tools,
+  408/97 clean, coverage 82.51%, scenarios-gate + tree-clean
+  PASS).

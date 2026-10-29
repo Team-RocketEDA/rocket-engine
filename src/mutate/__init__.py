@@ -81,6 +81,23 @@ _BANDGAP_BASE = (
 _BANDGAP_VREF_MIN = 1.176
 _BANDGAP_VREF_MAX = 1.224
 
+# VALIDATE-P MZI pair: the SAX-notebook balanced circuit
+# (tests/adapters/fixtures/sax/mzi.yml) plus the cspdk reference
+# si340 MZI GDS as layout truth. Documented CORNERSTONE min rules
+# for GDS 3/0: 350 nm feature, 200 nm gap (49th-call guidelines
+# section 5.3-5.4, Table 4). Staged flat as mzi.yml + mzi_ref.gds.
+_MZI_CIRCUIT = "mzi.yml"
+_MZI_REF_GDS = "fixtures/upstream/cspdk/tests/gds_ref_si340/mzi.gds"
+_MZI_STAGED_GDS = "mzi_ref.gds"
+_MZI_TECH = "cornerstone-si340"
+_MZI_CELL = "mzi"
+_MZI_RULES = {"layer": [3, 0], "width_um": 0.35, "space_um": 0.2}
+_MZI_RULES_REF = (
+    "CORNERSTONE-49th-Call-Design-Guidelines-1.pdf section 5.3-5.4 "
+    "Table 4 (vendored cspdk references/)"
+)
+_MZI_TIMEOUT_S = 120
+
 OPERATORS = {
     "digital_reset_break": {
         "domain": "digital",
@@ -233,6 +250,7 @@ OPERATORS = {
     },
     "photonic_geometry_mistune": {
         "domain": "photonic",
+        "design": "mzi",
         "operation": "run_optical",
         "target_file": "mzi.yml",
         "files": ["mzi.yml"],
@@ -244,6 +262,7 @@ OPERATORS = {
     },
     "photonic_circuit_mistune": {
         "domain": "photonic",
+        "design": "mzi",
         "operation": "run_optical",
         "target_file": "mzi.yml",
         "files": ["mzi.yml"],
@@ -336,13 +355,14 @@ def apply_operator(name, dest_dir, seed, src_dir):
     return evidence
 
 
-# VALIDATE-D/A design staging: base files come from
+# VALIDATE-D/A/P design staging: base files come from
 # apply_operator / copy_base_files; the extras below (committed
-# harness or monitor, vendored firmware, watchdog, defines, or the
-# bandgap run_spice job shape) complete a runnable sim dir. Shared
-# by tests/validate, scripts/mutate.py, and scripts/scenarios.py.
+# harness or monitor, vendored firmware, watchdog, defines, the
+# bandgap run_spice job shape, or the mzi circuit+layout pair)
+# complete a runnable sim dir. Shared by tests/validate,
+# scripts/mutate.py, and scripts/scenarios.py.
 
-_DESIGNS = ("serv", "picorv32", "bandgap")
+_DESIGNS = ("serv", "picorv32", "bandgap", "mzi")
 _HARNESS = "tests/adapters/fixtures/hdl/serv_harness.v"
 _MONITOR = "tests/adapters/fixtures/hdl/picorv32_monitor.v"
 _FIRMWARE = "fixtures/upstream/serv/sw/hello_uart.hex"
@@ -365,7 +385,10 @@ def stage_design_extras(design, dest_dir, root):
     the bandgap returns sources/measurements/analyses/options/
     params/corner/temp_c/timeout_s/workdir for a run_spice job
     (the PDK pin is resolved by the caller from its own store, so
-    a missing store skips loudly at the call site, never here).
+    a missing store skips loudly at the call site, never here);
+    the mzi returns sources/workdir/timeout_s for a run_optical
+    job plus a layout sidecar (staged reference GDS + documented
+    CORNERSTONE rules) for a run_drc job.
     Missing pieces raise FileNotFoundError; a drifted harness
     watchdog raises MutationError — never a silent
     unmutated-shaped run.
@@ -375,6 +398,32 @@ def stage_design_extras(design, dest_dir, root):
     root = Path(root)
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
+    if design == "mzi":
+        sources = [str(dest / name) for name in _staged_names(design, dest)]
+        ref_gds = root / _MZI_REF_GDS
+        if not ref_gds.is_file():
+            raise FileNotFoundError(
+                f"mzi staging: cspdk reference GDS missing: {ref_gds} "
+                "(scripts/fetch_fixtures.py --only cspdk)"
+            )
+        staged_gds = dest / _MZI_STAGED_GDS
+        shutil.copy(ref_gds, staged_gds)
+        return {
+            "sources": sources,
+            "workdir": str(dest),
+            "timeout_s": _MZI_TIMEOUT_S,
+            "layout": {
+                "gds_file": str(staged_gds),
+                "cell": _MZI_CELL,
+                "tech": _MZI_TECH,
+                "rules": {
+                    "layer": list(_MZI_RULES["layer"]),
+                    "width_um": _MZI_RULES["width_um"],
+                    "space_um": _MZI_RULES["space_um"],
+                },
+                "rules_ref": _MZI_RULES_REF,
+            },
+        }
     if design == "bandgap":
         sources = [str(dest / name) for name in _staged_names(design, dest)]
         return {

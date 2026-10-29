@@ -24,9 +24,11 @@ Usage:
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -57,6 +59,16 @@ NGSPICE_SNAPSHOT = (
 NGSPICE_LIB_REL = "libs.tech/combined/sky130.lib.spice"
 VREF_MIN = 1.176
 VREF_MAX = 1.224
+CSPDK_REF_GDS = (
+    ROOT
+    / "fixtures"
+    / "upstream"
+    / "cspdk"
+    / "tests"
+    / "gds_ref_si340"
+    / "mzi.gds"
+)
+MZI_DRC_RULES = {"layer": [3, 0], "width_um": 0.35, "space_um": 0.2}
 KL_RULES = {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0}
 SKY130_PDK_ID = "sky130a"
 SKY130_DECK_REL = "libs.tech/klayout/drc/sky130A.lydrc"
@@ -340,6 +352,129 @@ def _run_live_ngspice_bandgap(ctx, label, sub):
     return None
 
 
+def _run_live_sax_mzi(ctx, label, sub):
+    from rocket_engine.mutate import (
+        OPERATORS,
+        apply_operator,
+        stage_design_extras,
+        stage_good_design,
+    )
+
+    if importlib.util.find_spec("sax") is None:
+        raise AssertionError(
+            f"{label}: sax not installed, "
+            "uv sync --group photonic (B10-owned tooling)"
+        )
+    if not CSPDK_REF_GDS.is_file():
+        raise AssertionError(f"{label}: cspdk fixture not fetched")
+    workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
+    ctx["tmpdirs"].append(workdir)
+    mutation = sub.get("mutation") or {}
+    try:
+        if mutation:
+            operator = mutation.get("operator", "")
+            entry_op = OPERATORS[operator]
+            if entry_op.get("design") != "mzi":
+                raise AssertionError(
+                    f"{label}: operator {operator} is not an mzi mutation"
+                )
+            apply_operator(
+                operator, workdir, mutation.get("seed", 0), ROOT / entry_op["base"]
+            )
+            staged = stage_design_extras("mzi", workdir, ROOT)
+        else:
+            staged = stage_good_design("mzi", workdir, ROOT)
+    except AssertionError:
+        raise
+    except KeyError as exc:
+        raise AssertionError(f"{label}: unknown mutation operator: {exc}") from exc
+    except (FileNotFoundError, ValueError) as exc:
+        raise AssertionError(f"{label}: cannot stage mzi: {exc}") from exc
+    out = ctx["engine"].run(
+        {
+            "project_id": ctx["project_id"],
+            "operation": ctx["operation"],
+            "arguments": {
+                "sources": staged["sources"],
+                "workdir": staged["workdir"],
+                "timeout_s": staged["timeout_s"],
+                "deck": {"tool": "sax"},
+            },
+            "snapshot_id": ctx["ack"]["snapshot_id"],
+        }
+    )
+    ctx["verdict"] = out["verdict"]
+    return None
+
+
+def _write_sliver_mutant(label, ref_gds, dest_gds, workdir):
+    # Scenario-side layout sensitivity probe (mirrors the VALIDATE-P
+    # test helper; LVS precedent: inline mutation, not an operator):
+    # one 100 nm sliver on 3/0 must trip the 350 nm width rule.
+    script = Path(workdir) / "sliver.py"
+    script.write_text(
+        "import pya\n"
+        "layout = pya.Layout()\n"
+        f"layout.read({str(ref_gds)!r})\n"
+        "top = layout.top_cell()\n"
+        "layer = layout.layer(3, 0)\n"
+        "dbu = layout.dbu\n"
+        "x0 = int(round(200.0 / dbu))\n"
+        "top.shapes(layer).insert(pya.Box(x0, 0, x0 + int(round(0.1 / dbu)),\n"
+        "    int(round(2.0 / dbu))))\n"
+        f"layout.write({str(dest_gds)!r})\n"
+    )
+    try:
+        proc = subprocess.run(
+            ["klayout", "-b", "-r", str(script)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=workdir,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AssertionError(f"{label}: klayout sliver write timed out") from exc
+    if proc.returncode != 0 or not Path(dest_gds).is_file():
+        raise AssertionError(f"{label}: klayout sliver write failed: {proc.stderr[:300]}")
+
+
+def _run_live_klayout_mzi(ctx, label, sub):
+    from rocket_engine.mutate import stage_good_design
+
+    if shutil.which("klayout") is None:
+        raise AssertionError(f"{label}: klayout not on PATH")
+    if not CSPDK_REF_GDS.is_file():
+        raise AssertionError(f"{label}: cspdk fixture not fetched")
+    workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
+    ctx["tmpdirs"].append(workdir)
+    try:
+        staged = stage_good_design("mzi", workdir, ROOT)
+    except (FileNotFoundError, ValueError) as exc:
+        raise AssertionError(f"{label}: cannot stage mzi: {exc}") from exc
+    gds_file = staged["layout"]["gds_file"]
+    if sub.get("sliver"):
+        mutant = workdir / "sliver.gds"
+        _write_sliver_mutant(label, gds_file, mutant, workdir)
+        gds_file = str(mutant)
+    out = ctx["engine"].run(
+        {
+            "project_id": ctx["project_id"],
+            "operation": ctx["operation"],
+            "arguments": {
+                "tech": staged["layout"]["tech"],
+                "cell": staged["layout"]["cell"],
+                "gds_file": gds_file,
+                "rules": dict(MZI_DRC_RULES),
+                "workdir": str(workdir),
+                "deck": {"tool": "klayout"},
+            },
+            "snapshot_id": ctx["ack"]["snapshot_id"],
+        }
+    )
+    ctx["verdict"] = out["verdict"]
+    return None
+
+
 def _run_live_lvs_sky130(ctx, label, sub):
     from rocket_engine.adapters.lvs_netgen import flatten_spice
 
@@ -447,6 +582,10 @@ def _run_step(ctx, num, step):
             return _run_live_hdl_picorv32(ctx, label, sub)
         if backend == "ngspice_bandgap":
             return _run_live_ngspice_bandgap(ctx, label, sub)
+        if backend == "sax_mzi":
+            return _run_live_sax_mzi(ctx, label, sub)
+        if backend == "klayout_mzi":
+            return _run_live_klayout_mzi(ctx, label, sub)
         if backend == "extract_lvs_sky130":
             return _run_live_lvs_sky130(ctx, label, sub)
         try:

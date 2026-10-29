@@ -164,9 +164,27 @@ pin is resolved by each caller from its own store).
   open). The topology break pushes Vref outside DR-005 with
   rule `measurement`. Same quarantine/parse story as sizing.
 
-## Vendored-design follow-up (VALIDATE-P/M)
+## Photonic pair (VALIDATE-P)
 
-VALIDATE-P/M reuse the same operator shapes on their vendored
-trees (sigma-delta seam pairs, cspdk geometry/circuit
-mistunes) — same evidence shape, same good-PASS/mutated-FAIL
-runner pattern.
+The geometry/circuit operators above keep the RED-first flip fast
+and hermetic on the committed SAX circuit; VALIDATE-P pairs that
+circuit with the vendored cspdk reference si340 MZI GDS as layout
+truth (design `"mzi"`, staged via
+`rocket_engine.mutate.stage_good_design` /
+`stage_design_extras`: mzi.yml + mzi_ref.gds + the documented
+CORNERSTONE 3/0 rules, 350 nm feature / 200 nm gap) — same
+evidence shape, same good-PASS/mutated-FAIL runner pattern,
+rechecked in `tests/validate/test_photonic.py`. The optical side
+flips to FAIL with `transmission` only; the layout side stays
+PASS on circuit mistunes. A test-level 100 nm sliver probe (not
+an operator: GDS is binary, no text probe site) proves the layout
+check is not vacuous. Live rechecks need `sax` for run_optical
+(the `photonic` group, B10-owned; otherwise quarantined loudly,
+with recorded sax 0.18.2 oracle envelopes pinning the mapping)
+and `klayout` for run_drc.
+
+## Vendored-design follow-up (VALIDATE-M)
+
+VALIDATE-M reuses the same operator shapes on its vendored tree
+(sigma-delta seam pairs) — same evidence shape, same
+good-PASS/mutated-FAIL runner pattern.
