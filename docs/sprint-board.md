@@ -13,9 +13,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
 - [B10] install.sh + tests/installed + capability matrix
 
-- [DRC-SKY130] Slice: KLayout sky130A.lydrc live proof
-- [EXTRACT-SKY130] Slice: magic extraction + Netgen LVS proof; sky130.lvs bug verdict
-- [SIM-SKY130] Slice: ngspice sky130.lib proof + SERV regression
 - [DEMO-PATH] Slice: install.sh on demo machine + scenarios + runbook
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out
@@ -34,6 +31,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [FETCH-HARDEN] Harden fixture fetch pins + license gate
 - [SCENARIO-PATH] Pin scenario gate to dev-PATH
 - [PDK-DISPLAY] Preserve canonical PDK display id in store records
+- [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
 ## Ready
 
 
@@ -67,3 +65,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [LAYOUT-SCHEMA] Folder schema YAML in source (versioned base template + parser)
 - [PATH-GUARD] Path safety module, RED-first (unix-only, charset, traversal, containment)
 - [PDK-STORE] Slice: register/verify/list PDK against user tree
+- [DRC-SKY130] Slice: KLayout sky130A.lydrc live proof
+- [EXTRACT-SKY130] Slice: magic extraction + Netgen LVS proof; sky130.lvs bug verdict
+- [SIM-SKY130] Slice: ngspice sky130.lib proof + SERV regression

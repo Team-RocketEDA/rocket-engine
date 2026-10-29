@@ -22,6 +22,11 @@ cells without running them — everything downstream is blocked on it.
 - Fresh worker per cell; namespace never crosses cells (I23);
   reusable results persist only as approved artifacts (I24 shape).
 - Crash/timeout reconciliation with truthful states (no fake PASS).
+- Runner env control (found wave-3 review): `BwrapRunner` profiles
+  need env-unset support (`--unsetenv`), not just `--setenv` —
+  netgen's Tk init aborts against an unreachable `$DISPLAY`, and
+  the LVS adapter can only scrub DISPLAY on the direct-subprocess
+  path today. Workers must start from a scrubbed env by default.
 
 ## Acceptance
 

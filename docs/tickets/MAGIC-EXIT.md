@@ -15,6 +15,13 @@ on evidence, not vibes.
 
 - Watch file noting each trigger's status + last-checked date;
   re-verify on a cadence (e.g. each sprint); record verdicts.
+- First check DONE 2026-10-29 (EXTRACT-SKY130,
+  `docs/probe-extract-lvs.md`): `sky130.lvs` FAILS on the
+  known-good cell — case bug #531 reproduced (schematic classes
+  UPPERCASE vs layout lowercase), so Magic extraction + Netgen
+  LVS is evidence-locked and no KLayout LVS solver lands. Re-run
+  probe attempt 2 against each new tree; a `Congratulations!
+  Netlists match.` reopens the migration slice.
 
 ## Acceptance
 
