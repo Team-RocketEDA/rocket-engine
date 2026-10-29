@@ -63,6 +63,127 @@ def digital_unconnected_port(text, variant):
     return text.replace(old, new), {"variant_desc": desc}
 
 
+def serv_reset_break(text, variant):
+    """Break the servant CPU reset: stuck in reset or inverted."""
+    old = ".i_rst        (wb_rst),"
+    _once(text, old, "serv_reset_break")
+    alts = [
+        (
+            ".i_rst        (1'b1),",
+            "CPU reset stuck active (firmware never boots, watchdog fires)",
+        ),
+        (
+            ".i_rst        (~wb_rst),",
+            "CPU reset inverted (held in reset while the system runs)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def serv_truncation(text, variant):
+    """Narrow the servile data-bus address so MMIO is unreachable."""
+    old = "assign o_dbus_adr = {data[31:2], 2'b00};"
+    _once(text, old, "serv_truncation")
+    alts = [
+        (
+            "assign o_dbus_adr = 32'b0;",
+            "data-bus address zeroed (GPIO/HALT stores hit RAM, no halt)",
+        ),
+        (
+            "assign o_dbus_adr = {data[31:2] & 30'h0FFFFFFF, 2'b00};",
+            "address top 2 bits dropped (0x4/0x9xxxxxxx unreachable)",
+        ),
+        (
+            "assign o_dbus_adr = {data[31:2] & 30'h00FFFFFF, 2'b00};",
+            "address top 6 bits dropped (0x4/0x9xxxxxxx unreachable)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def serv_unconnected_port(text, variant):
+    """Leave a servant CPU port unconnected in the SoC wiring."""
+    alts = [
+        (
+            ".i_clk        (wb_clk),",
+            ".i_clk        (),",
+            "CPU clock left unconnected (no edges, firmware never runs)",
+        ),
+        (
+            ".i_rst        (wb_rst),",
+            ".i_rst        (),",
+            "CPU reset left unconnected (floats, firmware never boots)",
+        ),
+    ]
+    old, new, desc = alts[variant % len(alts)]
+    _once(text, old, "serv_unconnected_port")
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def picorv32_reset_break(text, variant):
+    """Break the test_ez reset: stuck in reset or re-asserted."""
+    if variant % 2 == 0:
+        old = "resetn <= 1;"
+        _once(text, old, "picorv32_reset_break")
+        new = "resetn <= 0;"
+        desc = "reset stuck active (CPU never fetches, counter stays put)"
+    else:
+        old = "repeat (1000) @(posedge clk);"
+        _once(text, old, "picorv32_reset_break")
+        new = (
+            "repeat (100) @(posedge clk); "
+            "resetn <= 0; repeat (900) @(posedge clk);"
+        )
+        desc = "reset re-asserted after 100 cycles (run aborted early)"
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def picorv32_truncation(text, variant):
+    """Narrow the ALU add path so the ez counter never reaches 10."""
+    old = "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : reg_op1 + reg_op2;"
+    _once(text, old, "picorv32_truncation")
+    alts = [
+        (
+            "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : "
+            "((reg_op1 + reg_op2) & 32'h00000007);",
+            "ALU add masked to 3 bits (max 7)",
+        ),
+        (
+            "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : "
+            "((reg_op1 + reg_op2) & 32'h00000003);",
+            "ALU add masked to 2 bits (max 3)",
+        ),
+        (
+            "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : "
+            "{29'b0, reg_op1[2:0] + reg_op2[2:0]};",
+            "ALU add zero-extended from 3 bits (max 8)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def picorv32_unconnected_port(text, variant):
+    """Leave a picorv32 port unconnected in the ez bench wiring."""
+    alts = [
+        (
+            ".clk         (clk        ),",
+            ".clk         (),",
+            "CPU clock left unconnected (no edges, trap unresolved)",
+        ),
+        (
+            ".mem_rdata   (mem_rdata  )",
+            ".mem_rdata   ()",
+            "memory read data left unconnected (fetches unknown)",
+        ),
+    ]
+    old, new, desc = alts[variant % len(alts)]
+    _once(text, old, "picorv32_unconnected_port")
+    return text.replace(old, new), {"variant_desc": desc}
+
+
 def analog_sizing_out_of_spec(text, variant):
     """Move R2 off its 8k nominal so Vout leaves [1.199, 1.201] V."""
     old = "R2 out 0 8k"

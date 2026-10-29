@@ -27,6 +27,9 @@ _TIMEOUT_S = 120
 _COMPILE_RE = re.compile(r"^([^:\s][^:]*):(\d+):\s*(.+)$", re.M)
 _SIM_RE = re.compile(r"^(FATAL|ERROR):\s*(\S+):(\d+):\s*(.*)$")
 _TIME_RE = re.compile(r"Time:\s*(\d+)")
+# Verilog `define names, with an optional =value (no whitespace or
+# shell metacharacters; argv is never shelled, belt and suspenders).
+_DEFINE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(=[A-Za-z0-9_.+-]+)?")
 
 
 def _parse_compile(text):
@@ -74,7 +77,7 @@ class HdlSimAdapter(ToolAdapter):
         self._runner = runner
 
     def capabilities(self, target):
-        return {"operations": [OPERATION], "tool": "icarus", "sim": "vvp"}
+        return {"operations": [OPERATION], "tool": "icarus", "sim": "vvp", "defines": True}
 
     def preflight(self, job):
         # Cheap deterministic checks first: operation, timeout, sources.
@@ -97,11 +100,17 @@ class HdlSimAdapter(ToolAdapter):
             raise AdapterError(
                 "invalid_reference", f"Sources not found: {missing or sources}."
             )
+        defines = job.get("defines") or []
+        if not isinstance(defines, list) or any(
+            not isinstance(d, str) or not _DEFINE_RE.fullmatch(d) for d in defines
+        ):
+            raise AdapterError("invalid_command", f"Bad defines: {defines!r}.")
         checked = {
             "iverilog": self._resolve(job, "iverilog"),
             "vvp": self._resolve(job, "vvp"),
             "sources": list(sources),
             "timeout_s": timeout,
+            "defines": list(defines),
         }
         if self._runner is not None:
             try:
@@ -119,7 +128,13 @@ class HdlSimAdapter(ToolAdapter):
             )
         roots = tool_roots([checked["iverilog"], checked["vvp"]])
         build = self._run(
-            [checked["iverilog"], "-o", "sim.vvp", *checked["sources"]],
+            [
+                checked["iverilog"],
+                "-o",
+                "sim.vvp",
+                *[f"-D{d}" for d in checked["defines"]],
+                *checked["sources"],
+            ],
             workdir,
             checked["timeout_s"],
             roots,

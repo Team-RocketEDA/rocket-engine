@@ -19,6 +19,12 @@ operator, seed, variant, and expected verdict/rules.
 | `digital_reset_break` | digital | `tests/adapters/fixtures/hdl/counter.v` + `tb_pass.v` | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
 | `digital_truncation` | digital | `tests/adapters/fixtures/hdl/counter.v` + `tb_pass.v` | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
 | `digital_unconnected_port` | digital | `tests/adapters/fixtures/hdl/tb_pass.v` | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `serv_reset_break` | digital | `fixtures/upstream/serv` (SERV hello) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `serv_truncation` | digital | `fixtures/upstream/serv` (SERV hello) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `serv_unconnected_port` | digital | `fixtures/upstream/serv` (SERV hello) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `picorv32_reset_break` | digital | `fixtures/upstream/picorv32` (test_ez) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `picorv32_truncation` | digital | `fixtures/upstream/picorv32` (test_ez) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `picorv32_unconnected_port` | digital | `fixtures/upstream/picorv32` (test_ez) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
 | `analog_sizing_out_of_spec` | analog | `tests/adapters/fixtures/ngspice/rc_divider.spice` | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
 | `analog_open_net` | analog | `tests/adapters/fixtures/ngspice/rc_divider.spice` | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
 | `layout_drc_violation` | layout | `tests/adapters/fixtures/drc/good.mag` | `run_drc` (magic scmos) | PASS | FAIL (`spacing`/`width`) |
@@ -77,11 +83,49 @@ so the break is behavioral, not syntactic.
   otherwise quarantined loudly, with canned-envelope parse tests
   pinning the mapping.
 
-## Vendored-design follow-up (VALIDATE-*) 
+## Vendored digital operators (VALIDATE-D)
 
-These operators target small committed fixtures so the RED-first
-flip per operator stays fast and hermetic. VALIDATE-D/A/P/M reuse
-the same operator shapes on the vendored trees (SERV reset/trunc/
-port breaks, bandgap sizing/opens, sigma-delta seam pairs, cspdk
+The counter operators above keep the RED-first flip fast and
+hermetic; VALIDATE-D reuses the same three digital shapes on the
+vendored trees (SERV hello, picorv32 test_ez) — same evidence
+shape, same good-PASS/mutated-FAIL runner pattern, rechecked in
+`tests/validate/test_digital.py`. Staging (base + committed
+harness/monitor + firmware + watchdog + defines) is shared via
+`rocket_engine.mutate.stage_good_design` /
+`stage_design_extras`, used by the tests, `scripts/mutate.py
+recheck`, and the `hdl_serv` / `hdl_picorv32` scenario backends.
+
+- `serv_reset_break` (2 variants): the servant CPU `.i_rst` is
+  stuck at 1 (never boots) or inverted `~wb_rst` (held in reset
+  while the system runs). Either way the firmware never HALTs and
+  the harness watchdog `$fatal`s. Verified live with iverilog 14.0
+  + vvp at the 5M-unit staging watchdog.
+- `serv_truncation` (3 variants): the servile data-bus address
+  `o_dbus_adr` is zeroed, masked with `30'h0FFFFFFF` (top 2 address
+  bits dropped), or masked with `30'h00FFFFFF` (top 6 address bits
+  dropped) — GPIO (0x40000000) and HALT (0x90000000) stores land in
+  RAM instead, so hello never prints and never halts, and the
+  watchdog `$fatal`s. Verified live with iverilog 14.0 + vvp.
+- `serv_unconnected_port` (2 variants): the servant CPU `.i_clk`
+  (no edges) or `.i_rst` (floats) left open in the SoC wiring;
+  the firmware never boots and the watchdog `$fatal`s. Verified
+  live with iverilog 14.0 + vvp.
+- `picorv32_reset_break` (2 variants): test_ez `resetn` stuck at
+  0 (CPU never fetches) or re-asserted after 100 cycles (run
+  aborted). The committed monitor `$fatal`s on the stalled loop
+  counter. Verified live with iverilog 14.0 + vvp.
+- `picorv32_truncation` (3 variants): the ALU add path masked to
+  3 bits (max 7), 2 bits (max 3), or zero-extended from 3 bits
+  (max 8) — the ez counter never reaches the expected 10 and the
+  monitor `$fatal`s. Verified live with iverilog 14.0 + vvp.
+- `picorv32_unconnected_port` (2 variants): the ez bench `.clk`
+  (no edges, trap unresolved) or `.mem_rdata` (fetches unknown)
+  left open; the monitor `$fatal`s. Verified live with
+  iverilog 14.0 + vvp.
+
+## Vendored-design follow-up (VALIDATE-A/P/M)
+
+VALIDATE-A/P/M reuse the same operator shapes on their vendored
+trees (bandgap sizing/opens, sigma-delta seam pairs, cspdk
 geometry/circuit mistunes) — same evidence shape, same
 good-PASS/mutated-FAIL runner pattern.

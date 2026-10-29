@@ -43,9 +43,7 @@ DRC_KL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc_kl"
 DRC_SKY130_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc_sky130"
 HDL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "hdl"
 SERV_UPSTREAM = ROOT / "fixtures" / "upstream" / "serv"
-SERV_MANIFEST = HDL_FIXTURES / "serv_sources.txt"
-SERV_HARNESS = HDL_FIXTURES / "serv_harness.v"
-SERV_FIRMWARE = "hello_uart.hex"
+PICORV32_UPSTREAM = ROOT / "fixtures" / "upstream" / "picorv32"
 NGSPICE_SNAPSHOT = (
     ROOT
     / "fixtures"
@@ -221,42 +219,57 @@ def _run_live_hdl(ctx, label, sub):
 
 
 def _run_live_hdl_serv(ctx, label, sub):
+    return _run_live_hdl_vendored(ctx, label, sub, "serv")
+
+
+def _run_live_hdl_picorv32(ctx, label, sub):
+    return _run_live_hdl_vendored(ctx, label, sub, "picorv32")
+
+
+def _run_live_hdl_vendored(ctx, label, sub, design):
+    from rocket_engine.mutate import (
+        OPERATORS,
+        apply_operator,
+        stage_design_extras,
+        stage_good_design,
+    )
+
     if shutil.which("iverilog") is None or shutil.which("vvp") is None:
         raise AssertionError(f"{label}: iverilog/vvp not on PATH")
-    if not (SERV_UPSTREAM / "rtl" / "serv_top.v").is_file():
-        raise AssertionError(f"{label}: serv fixture not fetched")
-    if not SERV_MANIFEST.is_file():
-        raise AssertionError(f"{label}: serv sources manifest missing")
-    if not SERV_HARNESS.is_file():
-        raise AssertionError(f"{label}: serv harness missing")
-    hex_src = SERV_UPSTREAM / "sw" / SERV_FIRMWARE
-    if not hex_src.is_file():
-        raise AssertionError(f"{label}: serv firmware missing")
+    upstream = {"serv": SERV_UPSTREAM, "picorv32": PICORV32_UPSTREAM}[design]
+    marker = "rtl/serv_top.v" if design == "serv" else "picorv32.v"
+    if not (upstream / marker).is_file():
+        raise AssertionError(f"{label}: {design} fixture not fetched")
     workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
     ctx["tmpdirs"].append(workdir)
-    staged = []
-    for line in SERV_MANIFEST.read_text().splitlines():
-        rel = line.strip()
-        if not rel or rel.startswith("#"):
-            continue
-        src = SERV_UPSTREAM / rel
-        if not src.is_file():
-            raise AssertionError(f"{label}: no vendored source for {rel}")
-        dest = workdir / Path(rel).name
-        shutil.copy(src, dest)
-        staged.append(str(dest))
-    harness_dest = workdir / SERV_HARNESS.name
-    shutil.copy(SERV_HARNESS, harness_dest)
-    staged.append(str(harness_dest))
-    shutil.copy(hex_src, workdir / SERV_FIRMWARE)
+    mutation = sub.get("mutation") or {}
+    try:
+        if mutation:
+            operator = mutation.get("operator", "")
+            entry = OPERATORS[operator]
+            if entry.get("design") != design:
+                raise AssertionError(
+                    f"{label}: operator {operator} is not a {design} mutation"
+                )
+            apply_operator(operator, workdir, mutation.get("seed", 0), upstream)
+            staged = stage_design_extras(design, workdir, ROOT)
+        else:
+            staged = stage_good_design(design, workdir, ROOT)
+    except AssertionError:
+        raise
+    except KeyError as exc:
+        raise AssertionError(f"{label}: unknown mutation operator: {exc}") from exc
+    except (FileNotFoundError, ValueError) as exc:
+        raise AssertionError(f"{label}: cannot stage {design}: {exc}") from exc
     out = ctx["engine"].run(
         {
             "project_id": ctx["project_id"],
             "operation": ctx["operation"],
             "arguments": {
-                "sources": staged,
+                "sources": staged["sources"],
                 "workdir": str(workdir),
-                "timeout_s": 300,
+                "timeout_s": staged["timeout_s"],
+                "defines": staged["defines"],
                 "deck": {"tool": "icarus"},
             },
             "snapshot_id": ctx["ack"]["snapshot_id"],
@@ -412,6 +425,8 @@ def _run_step(ctx, num, step):
             return _run_live_hdl(ctx, label, sub)
         if backend == "hdl_serv":
             return _run_live_hdl_serv(ctx, label, sub)
+        if backend == "hdl_picorv32":
+            return _run_live_hdl_picorv32(ctx, label, sub)
         if backend == "ngspice_bandgap":
             return _run_live_ngspice_bandgap(ctx, label, sub)
         if backend == "extract_lvs_sky130":

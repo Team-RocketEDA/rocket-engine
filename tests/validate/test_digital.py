@@ -21,6 +21,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -96,7 +97,10 @@ def _stage_mut(operator, dest, seed):
 
 
 def _job(staged):
+    # "operation" serves direct-adapter calls; Engine.run passes it
+    # through identically (same value, harmless duplicate).
     return {
+        "operation": "run_hdl_test",
         "sources": staged["sources"],
         "workdir": staged["workdir"],
         "timeout_s": staged["timeout_s"],
@@ -344,12 +348,8 @@ def test_serv_mutation_targets_vendored_site(operator, seed, tmp_path):
     staged = dest / evidence["target_file"]
     assert staged.is_file()
     # Scratch copies mutated, vendored tree pristine.
-    assert evidence["target_file"] in ("servant.v", "serv_bufreg.v")
-    base = None
-    for rel in ("servant/servant.v", "rtl/serv_bufreg.v"):
-        if Path(rel).name == evidence["target_file"]:
-            base = SERV / rel
-    assert base is not None
+    assert evidence["target_file"] in ("servant/servant.v", "rtl/serv_bufreg.v")
+    base = SERV / evidence["target_file"]
     assert staged.read_bytes() != base.read_bytes()
 
 
@@ -550,6 +550,96 @@ def test_picorv32_failure_artifacts_kept(tmp_path):
     assert "no progress" in (case_dir / "native.log").read_text()
 
 
+# Staging guards: unknown designs and missing/drifted pieces fail
+# loudly (no tool needed).
+
+
+def test_stage_unknown_design_raises_key_error(tmp_path):
+    from rocket_engine.mutate import stage_design_extras, stage_good_design
+
+    for fn in (stage_good_design, stage_design_extras):
+        try:
+            fn("no_such_design", tmp_path, ROOT)
+        except KeyError:
+            continue
+        raise AssertionError(f"expected KeyError from {fn.__name__}")
+
+
+def test_stage_picorv32_missing_monitor_raises(tmp_path):
+    from rocket_engine.mutate import stage_design_extras
+
+    dest = tmp_path / "mut"
+    dest.mkdir()
+    (dest / "picorv32.v").write_text("module picorv32; endmodule\n")
+    (dest / "testbench_ez.v").write_text("module testbench; endmodule\n")
+    empty_root = tmp_path / "empty-root"
+    empty_root.mkdir()
+    try:
+        stage_design_extras("picorv32", dest, empty_root)
+    except FileNotFoundError as exc:
+        assert "monitor" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError for missing monitor")
+
+
+def test_stage_picorv32_missing_base_raises(tmp_path):
+    from rocket_engine.mutate import stage_design_extras
+
+    dest = tmp_path / "mut"
+    dest.mkdir()
+    try:
+        stage_design_extras("picorv32", dest, ROOT)
+    except FileNotFoundError as exc:
+        assert "base file missing" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError for missing base")
+
+
+def test_stage_serv_drifted_watchdog_raises(tmp_path):
+    from rocket_engine.mutate import MutationError, stage_design_extras
+
+    fake_root = tmp_path / "fake-root"
+    harness_dir = fake_root / "tests" / "adapters" / "fixtures" / "hdl"
+    harness_dir.mkdir(parents=True)
+    real = (ROOT / "tests" / "adapters" / "fixtures" / "hdl" / "serv_harness.v").read_text()
+    (harness_dir / "serv_harness.v").write_text(
+        real.replace("parameter watchdog_units = 200000000", "parameter watchdog_units = 1")
+    )
+    dest = tmp_path / "mut"
+    try:
+        stage_design_extras("serv", dest, fake_root)
+    except MutationError as exc:
+        assert "watchdog" in str(exc)
+    else:
+        raise AssertionError("expected MutationError for drifted watchdog")
+
+
+def test_stage_serv_missing_pieces_raise(tmp_path):
+    from rocket_engine.mutate import stage_design_extras
+
+    fake_root = tmp_path / "fake-root"
+    fake_root.mkdir()
+    dest = tmp_path / "mut"
+    try:
+        stage_design_extras("serv", dest, fake_root)
+    except FileNotFoundError as exc:
+        assert "harness" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError for missing harness")
+    harness_dir = fake_root / "tests" / "adapters" / "fixtures" / "hdl"
+    harness_dir.mkdir(parents=True)
+    shutil.copy(
+        ROOT / "tests" / "adapters" / "fixtures" / "hdl" / "serv_harness.v",
+        harness_dir / "serv_harness.v",
+    )
+    try:
+        stage_design_extras("serv", dest, fake_root)
+    except FileNotFoundError as exc:
+        assert "firmware" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError for missing firmware")
+
+
 # CLI rechecks prove the scripts/mutate.py path on vendored designs.
 
 
@@ -561,7 +651,7 @@ def test_cli_recheck_proves_vendored_flip(operator, tmp_path):
     else:
         _require_pico()
     proc = subprocess.run(
-        ["python3", str(ROOT / "scripts" / "mutate.py"), "recheck",
+        [sys.executable, str(ROOT / "scripts" / "mutate.py"), "recheck",
          "--operator", operator, "--seed", "0",
          "--dest", str(tmp_path / "recheck")],
         capture_output=True,

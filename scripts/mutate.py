@@ -26,7 +26,12 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from rocket_engine.composition import Engine  # noqa: E402
-from rocket_engine.mutate import OPERATORS, apply_operator  # noqa: E402
+from rocket_engine.mutate import (  # noqa: E402
+    OPERATORS,
+    apply_operator,
+    copy_base_files,
+    stage_design_extras,
+)
 
 QUARANTINE_REF = {
     "ngspice": "docs/tickets/NGSPICE-LIVE.md",
@@ -97,6 +102,16 @@ def _job(operator, dest, extra=None):
     op = entry["operation"]
     workdir = str(dest)
     if op == "run_hdl_test":
+        design = entry.get("design")
+        if design is not None:
+            staged = stage_design_extras(design, dest, ROOT)
+            return {
+                "sources": staged["sources"],
+                "workdir": staged["workdir"],
+                "timeout_s": staged["timeout_s"],
+                "defines": staged["defines"],
+                "deck": {"tool": "icarus"},
+            }
         return {
             "sources": [str(dest / "counter.v"), str(dest / "tb_pass.v")],
             "workdir": workdir,
@@ -177,8 +192,7 @@ def cmd_recheck(args):
     base = Path(args.dest or (ROOT / "tmp" / "scratch" / f"{args.operator}-{args.seed}"))
     good_dir = base / "good"
     good_dir.mkdir(parents=True, exist_ok=True)
-    for filename in entry["files"]:
-        shutil.copy(ROOT / entry["base"] / filename, good_dir / filename)
+    copy_base_files(entry, ROOT / entry["base"], good_dir)
     evidence = apply_operator(
         args.operator, base / "mut", args.seed, ROOT / entry["base"]
     )
