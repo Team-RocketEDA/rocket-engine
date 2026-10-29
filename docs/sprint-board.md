@@ -30,7 +30,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
-- [DEMO-PATH] Slice: install.sh on demo machine + scenarios + runbook
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -70,3 +69,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
 - [WORKERS] Isolated worker substrate (I23/I24)
 - [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
+- [DEMO-PATH] Slice: install.sh on demo machine + scenarios + runbook
