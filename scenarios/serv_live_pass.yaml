@@ -1,0 +1,7 @@
+name: serv live pass on hello firmware
+engine: {project_id: digital_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-serv-1, operation: run_hdl_test, target: servant}
+  - run_live: {backend: hdl_serv}
+  - assert_verdict: PASS
+  - assert_event: job_queued

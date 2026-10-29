@@ -109,6 +109,49 @@ def test_live_hdl_scenarios_pass_against_real_tools():
         assert result["passed"] is True, result["failures"]
 
 
+@needs_icarus
+def test_live_serv_scenario_passes_against_real_tools():
+    if not (ROOT / "fixtures" / "upstream" / "serv" / "rtl" / "serv_top.v").is_file():
+        pytest.skip("serv fixture not fetched (fixtures/upstream/serv)")
+    runner = _load_runner()
+    result = runner.run_scenario(ROOT / "scenarios" / "serv_live_pass.yaml")
+    assert result["passed"] is True, result["failures"]
+
+
+needs_ngspice = pytest.mark.skipif(
+    shutil.which("ngspice") is None, reason="ngspice not on PATH"
+)
+
+
+@needs_ngspice
+def test_live_ngspice_bandgap_scenario_passes():
+    snapshot = (
+        ROOT
+        / "fixtures"
+        / "upstream"
+        / "sky130-bandgap"
+        / "sim"
+        / "output-voltage-tc"
+        / "netlist-snapshots"
+        / "20260817-015751-13476b7.spice"
+    )
+    if not snapshot.is_file():
+        pytest.skip("sky130-bandgap fixture not fetched")
+    try:
+        from rocket_engine.interfaces.pdks import list_pdks
+    except Exception:
+        pytest.skip("pdk store unavailable")
+    try:
+        entries = list_pdks()
+    except Exception:
+        pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
+    if not [e for e in entries if e.get("id") == "sky130a"]:
+        pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
+    runner = _load_runner()
+    result = runner.run_scenario(ROOT / "scenarios" / "ngspice_bandgap_pass.yaml")
+    assert result["passed"] is True, result["failures"]
+
+
 def test_hdl_run_live_without_sources_fails_loudly(tmp_path):
     runner = _load_runner()
     bad = tmp_path / "bad.yaml"
