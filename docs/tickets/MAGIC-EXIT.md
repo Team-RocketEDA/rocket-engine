@@ -1,6 +1,6 @@
 # MAGIC-EXIT: Track Magic phase-out triggers
 
-*Status: Backlog · Depends: none · Size: S · Roadmap: orch-build-mvp*
+*Status: Deferred until post-MVP/hackathon (owner call 2026-10-29) · Depends: none · Size: S · Roadmap: orch-build-mvp*
 
 ## Why
 
