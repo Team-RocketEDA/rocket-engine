@@ -21,7 +21,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
-- [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
 - [FETCH-HARDEN] Harden fixture fetch pins + license gate
 - [SCENARIO-PATH] Pin scenario gate to dev-PATH
 - [PDK-DISPLAY] Preserve canonical PDK display id in store records
@@ -34,6 +33,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
+- [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
