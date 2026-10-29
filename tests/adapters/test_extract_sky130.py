@@ -668,3 +668,46 @@ def test_extract_lvs_proves_labels_against_real_tools(tmp_path):
         assert report.is_file()
         assert want in report.read_text()
     assert "VPB_BAD" in (workdir / "oracle_bad.spice").read_text()
+
+
+def _bare_extract_job(tmp_path, **over):
+    cell_file = tmp_path / "cell.mag"
+    cell_file.write_text("magic cell stub\n")
+    job = {
+        "operation": "run_extraction",
+        "cell": CELL,
+        "cell_file": str(cell_file),
+        "tech": "scmos",
+        "workdir": str(tmp_path),
+    }
+    job.update(over)
+    return job
+
+
+def test_extract_preflight_rejects_tcl_unsafe_cell(tmp_path):
+    # Review fix: the cell name is embedded in a Tcl script, so
+    # Tcl-active characters must fail here, never reach magic.
+    from rocket_engine.adapters.extract_magic import MagicExtractAdapter
+
+    job = _bare_extract_job(tmp_path, cell="inv_2]};puts pwned;load {")
+    try:
+        MagicExtractAdapter().preflight(job)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "invalid_command"
+    else:
+        raise AssertionError("expected invalid_command for a Tcl-unsafe cell")
+
+
+def test_extract_preflight_needs_explicit_tech(tmp_path):
+    # Review fix: no silent "scmos" fallback — the caller must name
+    # a tech_file, a deck tech, or an explicit tech.
+    from rocket_engine.adapters.extract_magic import MagicExtractAdapter
+
+    job = _bare_extract_job(tmp_path)
+    del job["tech"]
+    try:
+        MagicExtractAdapter().preflight(job)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "invalid_command"
+    else:
+        raise AssertionError("expected invalid_command for a missing tech")
