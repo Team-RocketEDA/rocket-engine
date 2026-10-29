@@ -1,0 +1,11 @@
+* inv_min base pair for MUTATE-HARNESS netlist_lvs_mismatch.
+* Layout and schematic sides are byte-identical: the unmutated
+* pair matches. The operator mutates a COPY of schematic.spice only.
+* Sky130 device names keep the pair setup-compatible with the
+* sky130A_setup.tcl live path; the mutation mirrors the proven
+* EXTRACT-SKY130 VPB -> VPB_BAD probe shape (see
+* tests/adapters/test_extract_sky130.py MISMATCH_OLD/NEW).
+.subckt inv_min A Y VPWR VGND VPB VNB
+X0 Y A VPWR VPB sky130_fd_pr__pfet_01v8_hvt w=1 l=0.15
+X1 Y A VGND VNB sky130_fd_pr__nfet_01v8 w=0.65 l=0.15
+.ends
