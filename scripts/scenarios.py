@@ -599,13 +599,18 @@ def _run_live_klayout_mzi(ctx, label, sub):
 
 
 def _run_live_lvs_sky130(ctx, label, sub):
-    from rocket_engine.adapters.lvs_netgen import flatten_spice
+    from rocket_engine.adapters.lvs_netgen import flatten_spice, resolve_netgen
 
     if shutil.which("magic") is None:
         raise AssertionError(f"{label}: magic not on PATH (B10-owned tooling)")
     if shutil.which("netgen") is None:
         raise AssertionError(
             f"{label}: netgen not on PATH (see docs/tickets/NGSPICE-LIVE.md)"
+        )
+    if resolve_netgen() is None:
+        raise AssertionError(
+            f"{label}: netgen on PATH is not the LVS netgen "
+            "(see docs/tickets/NGSPICE-LIVE.md)"
         )
     cell = sub.get("cell")
     if not cell:

@@ -22,6 +22,15 @@ from ..errors import AdapterError
 
 OPERATION = "run_lvs"
 _TIMEOUT_S = 120
+_IDENTIFY_TIMEOUT_S = 10
+
+# Observed impostor markers (Oct 2026): the `netgen` apt package is
+# the Schoeberl mesh generator — same name, different tool. Denylist
+# only: NGSPICE-LIVE promotes this to a strict allowlist once the
+# real LVS banner is verifiable against an installed binary.
+_IMPOSTOR_RE = re.compile(
+    r"Schoeberl|Vienna University|RWTH Aachen|Johannes Kepler"
+)
 
 _SUBCKT_RE = re.compile(r"^\s*\.subckt\s+(\S+)", re.IGNORECASE)
 _ENDS_RE = re.compile(r"^\s*\.ends\b", re.IGNORECASE)
@@ -85,6 +94,49 @@ def netgen_env():
     env = dict(os.environ)
     env.pop("DISPLAY", None)
     return env
+
+
+def _identify_netgen(path):
+    """Banner check: None if usable, else the rejection cause."""
+    try:
+        proc = subprocess.run(
+            [path, "-help"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=_IDENTIFY_TIMEOUT_S,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return (
+            f"netgen at {path} is unprovable: the identity probe "
+            "failed (see docs/tickets/NGSPICE-LIVE.md)."
+        )
+    banner = (proc.stdout or "") + (proc.stderr or "")
+    if _IMPOSTOR_RE.search(banner):
+        first = banner.strip().splitlines()[0] if banner.strip() else "empty banner"
+        return (
+            f"netgen at {path} is the Schoeberl mesh-generator "
+            f"impostor, not the LVS netgen ({first}); install "
+            "opencircuitdesign netgen (see docs/tickets/NGSPICE-LIVE.md)."
+        )
+    return None
+
+
+def resolve_netgen():
+    """Path to a usable LVS netgen, or None.
+
+    PATH presence is NOT enough: the `netgen` apt package is the
+    Schoeberl mesh generator, a same-named different tool (caught
+    live Oct 2026). Denylist: only observed impostor markers
+    reject; an unknown banner admits — NGSPICE-LIVE promotes this
+    to a strict allowlist once the real binary is verifiable.
+    """
+    found = shutil.which("netgen")
+    if found is None:
+        return None
+    if _identify_netgen(found) is not None:
+        return None
+    return found
 
 
 def _setup_file_or_raise(job):
@@ -164,8 +216,12 @@ class NetgenLvsAdapter(ToolAdapter):
                 "unsupported_operation",
                 f"Netgen LVS handles {OPERATION}, got {job.get('operation')}.",
             )
-        if shutil.which("netgen") is None:
+        found = shutil.which("netgen")
+        if found is None:
             raise AdapterError("missing_dependency", "netgen binary not found.")
+        cause = _identify_netgen(found)
+        if cause is not None:
+            raise AdapterError("missing_dependency", cause)
         checked = {"setup_file": _setup_file_or_raise(job)}
         for key in ("layout_spice", "schematic_spice"):
             path = job.get(key)
