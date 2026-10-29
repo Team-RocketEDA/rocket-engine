@@ -8,8 +8,9 @@ only wired queries read state, the rest honestly report unwired.
 `run()` executes registered solvers synchronously. Each operation
 maps to named solvers; `deck.tool` selects one, defaulting to the
 first registered (run_drc: magic, then klayout; run_optical: sax;
-run_extraction: magic; run_lvs: netgen). Unregistered operations
-and unknown deck tools raise instead of faking a verdict.
+run_extraction: magic; run_lvs: netgen; run_spice: ngspice).
+Unregistered operations and unknown deck tools raise instead of
+faking a verdict.
 """
 
 import io
@@ -23,6 +24,7 @@ from .adapters.errors import AdapterError
 from .adapters.extract_magic import MagicExtractAdapter
 from .adapters.hdl_sim import HdlSimAdapter
 from .adapters.lvs_netgen import NetgenLvsAdapter
+from .adapters.ngspice import NgspiceAdapter
 from .adapters.sax import SaxAdapter
 from .execution.service import ExecutionService
 from .interfaces.vocabulary import OPERATIONS, QUERIES
@@ -57,6 +59,7 @@ class Engine:
             "run_optical": {"sax": SaxAdapter()},
             "run_extraction": {"magic": MagicExtractAdapter()},
             "run_lvs": {"netgen": NetgenLvsAdapter()},
+            "run_spice": {"ngspice": NgspiceAdapter()},
         }
         self._yaml = YAML(typ="safe")
 

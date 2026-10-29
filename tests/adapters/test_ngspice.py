@@ -384,7 +384,7 @@ def test_ngspice_parse_evaluates_measurements_from_canned_output():
     assert by_name["vref"]["value"] == pytest.approx(1.198553, abs=1e-6)
     assert by_name["vref"]["unit"] == "V"
     assert by_name["vref"]["status"] == "pass"
-    assert by_name["vref"]["margin"] == pytest.approx(1.25 - 1.198553, abs=1e-6)
+    assert by_name["vref"]["margin"] == pytest.approx(1.198553 - 1.15, abs=1e-6)
     assert by_name["vos_loop"]["value"] == pytest.approx(8.680044e-06, abs=1e-9)
 
 
@@ -532,6 +532,172 @@ def test_ngspice_converts_runner_errors(tmp_path):
             assert exc.code == "runner_unavailable"
         else:
             raise AssertionError(f"expected converted AdapterError from {method}")
+
+
+def test_ngspice_preflight_refuses_malformed_measurements(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\n")
+    bad = [
+        ["not-a-mapping"],
+        [{"name": "9v", "expr": "v(out)", "min": 0.0, "max": 5.0}],
+        [{"name": "vout", "expr": "line one\nline two", "min": 0.0, "max": 5.0}],
+        [{"name": "vout", "expr": "", "min": 0.0, "max": 5.0}],
+    ]
+    for measurements in bad:
+        job = _job([netlist], tmp_path, measurements=measurements)
+        try:
+            NgspiceAdapter().preflight(job)
+        except Exception as exc:
+            assert getattr(exc, "code", None) == "invalid_command"
+        else:
+            raise AssertionError(
+                f"expected invalid_command for {measurements!r}"
+            )
+
+
+def test_ngspice_preflight_refuses_bad_control_lines(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\n")
+    cases = [
+        {"analyses": [".op"]},
+        {"analyses": ["op\n.quit"]},
+        {"options": ["wnflag=1\n.end"]},
+    ]
+    for over in cases:
+        job = _job([netlist], tmp_path, **over)
+        try:
+            NgspiceAdapter().preflight(job)
+        except Exception as exc:
+            assert getattr(exc, "code", None) == "invalid_command"
+        else:
+            raise AssertionError(f"expected invalid_command for {over!r}")
+
+
+def test_ngspice_preflight_refuses_bad_params(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\n")
+    bad = [{"9lives": 3.3}, {"vsup": "3.3 V"}, {"vsup": True}]
+    for params in bad:
+        job = _job([netlist], tmp_path, params=params)
+        try:
+            NgspiceAdapter().preflight(job)
+        except Exception as exc:
+            assert getattr(exc, "code", None) == "invalid_command"
+        else:
+            raise AssertionError(f"expected invalid_command for {params!r}")
+
+
+def test_ngspice_preflight_refuses_bad_temp_and_title(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\n")
+    for over in ({"temp_c": "hot"}, {"title": ""}, {"title": "a\nb"}):
+        job = _job([netlist], tmp_path, **over)
+        try:
+            NgspiceAdapter().preflight(job)
+        except Exception as exc:
+            assert getattr(exc, "code", None) == "invalid_command"
+        else:
+            raise AssertionError(f"expected invalid_command for {over!r}")
+
+
+def test_ngspice_preflight_refuses_bad_pdk_pin(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\n")
+    for pdk in ("sky130a", {"id": "sky130a"}, {"revision": "r1"}):
+        job = _job([netlist], tmp_path, pdk=pdk)
+        try:
+            NgspiceAdapter().preflight(job)
+        except Exception as exc:
+            assert getattr(exc, "code", None) == "invalid_command"
+        else:
+            raise AssertionError(f"expected invalid_command for {pdk!r}")
+
+
+@pytest.mark.skipif(ngspice_present, reason="ngspice on PATH resolves fine")
+def test_ngspice_preflight_reports_missing_ngspice_on_path(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\n")
+    job = _job([netlist], tmp_path)
+    try:
+        NgspiceAdapter().preflight(job)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "missing_dependency"
+    else:
+        raise AssertionError("expected missing_dependency without tool_dir")
+
+
+def test_ngspice_execute_refuses_missing_workdir(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    (bindir / "ngspice").write_text("")
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\n")
+    job = _job([netlist], tmp_path, tool_dir=str(bindir))
+    job["workdir"] = str(tmp_path / "no-such-workdir")
+    try:
+        NgspiceAdapter(runner=FakeRunner(CANNED_OK)).execute(job)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "invalid_reference"
+    else:
+        raise AssertionError("expected invalid_reference for missing workdir")
+
+
+def test_ngspice_runs_executable_end_to_end(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    fake = bindir / "ngspice"
+    fake.write_text("#!/bin/sh\necho 'meas_vout = 1.2e+00'\n")
+    fake.chmod(0o755)
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\nR1 in out 4k\nR2 out 0 8k\n")
+    job = _job(
+        [netlist],
+        tmp_path,
+        tool_dir=str(bindir),
+        measurements=[
+            {"name": "vout", "expr": "v(out)", "unit": "V",
+             "min": 1.19, "max": 1.21},
+        ],
+    )
+    adapter = NgspiceAdapter()
+    result = adapter.parse(adapter.execute(job))
+    assert result["total"] == 0
+    assert result["measurements"][0]["value"] == pytest.approx(1.2, abs=1e-9)
+
+
+def test_ngspice_hang_raises_runner_unavailable(tmp_path):
+    from rocket_engine.adapters.ngspice import NgspiceAdapter
+
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    fake = bindir / "ngspice"
+    fake.write_text("#!/bin/sh\nsleep 30\n")
+    fake.chmod(0o755)
+    netlist = tmp_path / "tb.spice"
+    netlist.write_text("V1 in 0 1.8\n")
+    job = _job([netlist], tmp_path, tool_dir=str(bindir), timeout_s=1)
+    try:
+        NgspiceAdapter().execute(job)
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "runner_unavailable"
+    else:
+        raise AssertionError("expected runner_unavailable for a hung sim")
 
 
 def test_run_spice_registers_ngspice_by_default():

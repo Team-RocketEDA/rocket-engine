@@ -42,6 +42,23 @@ DRC_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc"
 DRC_KL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc_kl"
 DRC_SKY130_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc_sky130"
 HDL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "hdl"
+SERV_UPSTREAM = ROOT / "fixtures" / "upstream" / "serv"
+SERV_MANIFEST = HDL_FIXTURES / "serv_sources.txt"
+SERV_HARNESS = HDL_FIXTURES / "serv_harness.v"
+SERV_FIRMWARE = "hello_uart.hex"
+NGSPICE_SNAPSHOT = (
+    ROOT
+    / "fixtures"
+    / "upstream"
+    / "sky130-bandgap"
+    / "sim"
+    / "output-voltage-tc"
+    / "netlist-snapshots"
+    / "20260817-015751-13476b7.spice"
+)
+NGSPICE_LIB_REL = "libs.tech/combined/sky130.lib.spice"
+VREF_MIN = 1.176
+VREF_MAX = 1.224
 KL_RULES = {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0}
 SKY130_PDK_ID = "sky130a"
 SKY130_DECK_REL = "libs.tech/klayout/drc/sky130A.lydrc"
@@ -136,9 +153,9 @@ def _require_ack(ctx, label):
         raise AssertionError(f"{label}: no submitted ack to dispatch")
 
 
-def _resolve_sky130_deck(label, rel=SKY130_DECK_REL):
+def _sky130_entry(label):
     try:
-        from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
+        from rocket_engine.interfaces.pdks import list_pdks
     except Exception as exc:
         raise AssertionError(f"{label}: pdk store unavailable: {exc}") from exc
     try:
@@ -157,7 +174,15 @@ def _resolve_sky130_deck(label, rel=SKY130_DECK_REL):
             f"{label}: sky130 PDK not registered; "
             "set ROCKETEDA_HOME to a store with sky130a."
         )
-    entry = sorted(candidates, key=lambda e: e["revision"])[0]
+    return sorted(candidates, key=lambda e: e["revision"])[0]
+
+
+def _resolve_sky130_deck(label, rel=SKY130_DECK_REL):
+    try:
+        from rocket_engine.interfaces.pdks import resolve_deck
+    except Exception as exc:
+        raise AssertionError(f"{label}: pdk store unavailable: {exc}") from exc
+    entry = _sky130_entry(label)
     try:
         hit = resolve_deck(entry["id"], entry["revision"], rel)
     except Exception as exc:
@@ -187,6 +212,95 @@ def _run_live_hdl(ctx, label, sub):
                 "sources": staged,
                 "workdir": str(workdir),
                 "deck": {"tool": "icarus"},
+            },
+            "snapshot_id": ctx["ack"]["snapshot_id"],
+        }
+    )
+    ctx["verdict"] = out["verdict"]
+    return None
+
+
+def _run_live_hdl_serv(ctx, label, sub):
+    if shutil.which("iverilog") is None or shutil.which("vvp") is None:
+        raise AssertionError(f"{label}: iverilog/vvp not on PATH")
+    if not (SERV_UPSTREAM / "rtl" / "serv_top.v").is_file():
+        raise AssertionError(f"{label}: serv fixture not fetched")
+    if not SERV_MANIFEST.is_file():
+        raise AssertionError(f"{label}: serv sources manifest missing")
+    if not SERV_HARNESS.is_file():
+        raise AssertionError(f"{label}: serv harness missing")
+    hex_src = SERV_UPSTREAM / "sw" / SERV_FIRMWARE
+    if not hex_src.is_file():
+        raise AssertionError(f"{label}: serv firmware missing")
+    workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
+    ctx["tmpdirs"].append(workdir)
+    staged = []
+    for line in SERV_MANIFEST.read_text().splitlines():
+        rel = line.strip()
+        if not rel or rel.startswith("#"):
+            continue
+        src = SERV_UPSTREAM / rel
+        if not src.is_file():
+            raise AssertionError(f"{label}: no vendored source for {rel}")
+        dest = workdir / Path(rel).name
+        shutil.copy(src, dest)
+        staged.append(str(dest))
+    harness_dest = workdir / SERV_HARNESS.name
+    shutil.copy(SERV_HARNESS, harness_dest)
+    staged.append(str(harness_dest))
+    shutil.copy(hex_src, workdir / SERV_FIRMWARE)
+    out = ctx["engine"].run(
+        {
+            "project_id": ctx["project_id"],
+            "operation": ctx["operation"],
+            "arguments": {
+                "sources": staged,
+                "workdir": str(workdir),
+                "timeout_s": 300,
+                "deck": {"tool": "icarus"},
+            },
+            "snapshot_id": ctx["ack"]["snapshot_id"],
+        }
+    )
+    ctx["verdict"] = out["verdict"]
+    return None
+
+
+def _run_live_ngspice_bandgap(ctx, label, sub):
+    if shutil.which("ngspice") is None:
+        raise AssertionError(f"{label}: ngspice not on PATH")
+    if not NGSPICE_SNAPSHOT.is_file():
+        raise AssertionError(f"{label}: bandgap snapshot not fetched")
+    entry = _sky130_entry(label)
+    _resolve_sky130_deck(label, NGSPICE_LIB_REL)
+    workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
+    ctx["tmpdirs"].append(workdir)
+    staged = workdir / NGSPICE_SNAPSHOT.name
+    shutil.copy(NGSPICE_SNAPSHOT, staged)
+    out = ctx["engine"].run(
+        {
+            "project_id": ctx["project_id"],
+            "operation": ctx["operation"],
+            "arguments": {
+                "sources": [str(staged)],
+                "workdir": str(workdir),
+                "timeout_s": 300,
+                "params": {"vsup": 3.3},
+                "options": ["wnflag=1"],
+                "analyses": ["op"],
+                "corner": "tt",
+                "temp_c": 27,
+                "measurements": [
+                    {
+                        "name": "vref",
+                        "expr": "v(vref)",
+                        "unit": "V",
+                        "min": VREF_MIN,
+                        "max": VREF_MAX,
+                    },
+                ],
+                "pdk": {"id": entry["id"], "revision": entry["revision"]},
+                "deck": {"tool": "ngspice"},
             },
             "snapshot_id": ctx["ack"]["snapshot_id"],
         }
@@ -296,6 +410,10 @@ def _run_step(ctx, num, step):
         backend = sub.get("backend", "magic")
         if backend == "hdl":
             return _run_live_hdl(ctx, label, sub)
+        if backend == "hdl_serv":
+            return _run_live_hdl_serv(ctx, label, sub)
+        if backend == "ngspice_bandgap":
+            return _run_live_ngspice_bandgap(ctx, label, sub)
         if backend == "extract_lvs_sky130":
             return _run_live_lvs_sky130(ctx, label, sub)
         try:

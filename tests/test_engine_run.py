@@ -59,13 +59,13 @@ def test_run_drc_bad_cell_fails_with_violations(tmp_path):
 
 def test_run_unregistered_operation_raises(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    command = _command("good", tmp_path, operation="run_spice")
+    command = _command("good", tmp_path, operation="run_em")
     try:
         engine.run(command)
     except Exception as exc:
         assert getattr(exc, "code", None) == "unsupported_operation"
     else:
-        raise AssertionError("expected unsupported_operation for run_spice")
+        raise AssertionError("expected unsupported_operation for run_em")
 
 
 @needs_magic
@@ -81,7 +81,7 @@ def test_run_records_not_run_on_preflight_refusal(tmp_path):
 
 class FakeAdapter:
     def capabilities(self, target):
-        return {"operations": ["run_spice"]}
+        return {"operations": ["run_em"]}
 
     def preflight(self, job):
         return {"ready": True}
@@ -95,8 +95,8 @@ class FakeAdapter:
 
 def test_register_solver_wires_custom_operation(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_spice", FakeAdapter())
-    command = _command("good", tmp_path, operation="run_spice")
+    engine.register_solver("run_em", FakeAdapter())
+    command = _command("good", tmp_path, operation="run_em")
     out = engine.run(command)
     assert out["verdict"]["status"] == "PASS"
 
@@ -110,8 +110,8 @@ class FailingAdapter(FakeAdapter):
 
 def test_run_records_not_run_when_tool_fails(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_spice", FailingAdapter())
-    command = _command("good", tmp_path, operation="run_spice")
+    engine.register_solver("run_em", FailingAdapter())
+    command = _command("good", tmp_path, operation="run_em")
     out = engine.run(command)
     assert out["verdict"]["status"] == "NOT_RUN"
     assert "runner_unavailable" in out["verdict"]["reason"]
@@ -187,11 +187,11 @@ class NamedFake(FakeAdapter):
 
 def test_register_solver_names_tool_explicitly(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_spice", NamedFake("rule-a"), tool="alpha")
-    engine.register_solver("run_spice", NamedFake("rule-b"), tool="beta")
+    engine.register_solver("run_em", NamedFake("rule-a"), tool="alpha")
+    engine.register_solver("run_em", NamedFake("rule-b"), tool="beta")
 
     def _spice(deck):
-        command = _command("good", tmp_path, operation="run_spice")
+        command = _command("good", tmp_path, operation="run_em")
         if deck is not None:
             command["arguments"]["deck"] = {"tool": deck}
         return engine.run(command)
@@ -226,8 +226,8 @@ class FileFake(FakeAdapter):
 
 def test_run_preserves_file_line_locations(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_spice", FileFake(), tool="filefake")
-    command = _command("good", tmp_path, operation="run_spice")
+    engine.register_solver("run_em", FileFake(), tool="filefake")
+    command = _command("good", tmp_path, operation="run_em")
     command["arguments"]["deck"] = {"tool": "filefake"}
     out = engine.run(command)
     assert out["verdict"]["status"] == "FAIL"
