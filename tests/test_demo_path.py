@@ -11,12 +11,19 @@ Slice B (demo.sh + runbook + scenario coverage + LVS preflight)
 arrives as a second RED commit on top of this file.
 """
 
+import importlib.util
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+from ruamel.yaml import YAML
+
 ROOT = Path(__file__).resolve().parent.parent
 INSTALL = ROOT / "scripts" / "install.sh"
+DEMO = ROOT / "scripts" / "demo.sh"
+RUNBOOK = ROOT / "docs" / "demo-runbook.md"
 
 
 def run_install(args, env_over=None, timeout=180):
@@ -99,3 +106,105 @@ def test_install_unknown_mode_prints_usage():
     proc = run_install(["--bogus"])
     assert proc.returncode == 2, proc.stdout + proc.stderr
     assert "usage" in proc.stderr.lower(), proc.stderr
+
+
+# --- Slice B: demo.sh + runbook + scenario coverage + failure grace ---
+
+def test_demo_script_help_names_the_four_stages():
+    proc = subprocess.run(
+        ["bash", str(DEMO), "--help"],
+        capture_output=True, text=True, timeout=60, cwd=ROOT,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    for stage in ("install", "fetch", "scenarios", "gate"):
+        assert stage in proc.stdout.lower(), proc.stdout
+
+
+def test_runbook_has_single_command_and_expected_output():
+    assert RUNBOOK.is_file(), "docs/demo-runbook.md missing"
+    text = RUNBOOK.read_text()
+    assert "scripts/demo.sh" in text, text
+    assert "Expected output" in text, text
+    for flow in ("digital", "analog", "photonic", "mixed"):
+        assert flow in text, flow
+    assert "next step" in text.lower(), text
+
+
+FLOW_SCENARIOS = {
+    "digital": ["serv_live_pass.yaml", "serv_live_fail.yaml",
+                "picorv32_live_pass.yaml", "picorv32_live_fail.yaml",
+                "hdl_live_pass.yaml", "hdl_live_fail.yaml"],
+    "analog": ["ngspice_bandgap_pass.yaml", "ngspice_bandgap_fail.yaml"],
+    "photonic": ["sax_mzi_pass.yaml", "sax_mzi_fail.yaml",
+                 "klayout_mzi_pass.yaml", "klayout_mzi_fail.yaml"],
+    "mixed": ["ngspice_sdtop_pass.yaml", "ngspice_sdtop_fail.yaml",
+              "hdl_sdm_pass.yaml", "hdl_sdm_fail.yaml"],
+    "layout": ["drc_live_pass.yaml", "drc_live_fail.yaml",
+               "drc_sky130_pass.yaml", "drc_sky130_fail.yaml",
+               "lvs_sky130_pass.yaml", "lvs_sky130_fail.yaml"],
+}
+
+
+def test_scenario_coverage_across_all_mvp_flows():
+    yaml = YAML(typ="safe")
+    for flow, names in FLOW_SCENARIOS.items():
+        for name in names:
+            path = ROOT / "scenarios" / name
+            assert path.is_file(), f"{flow}: {name} missing"
+            doc = yaml.load(path.read_text())
+            assert doc.get("steps"), f"{flow}: {name} has no steps"
+
+
+def _load_runner():
+    spec = importlib.util.spec_from_file_location(
+        "scenarios", ROOT / "scripts" / "scenarios.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_lvs_scenario_without_netgen_names_cause_and_ref(monkeypatch):
+    runner = _load_runner()
+    real_which = shutil.which
+    monkeypatch.setattr(
+        shutil, "which",
+        lambda name, *a, **k: ("/fake/magic" if name == "magic"
+                               else (None if name == "netgen"
+                                     else real_which(name, *a, **k))),
+    )
+    result = runner.run_scenario(ROOT / "scenarios" / "lvs_sky130_pass.yaml")
+    assert result["passed"] is False
+    assert "netgen" in result["failures"][0], result["failures"]
+    assert "NGSPICE-LIVE" in result["failures"][0], result["failures"]
+
+
+def test_scenario_without_pdk_store_fails_with_cause_no_traceback(tmp_path):
+    staged = tmp_path / "yaml"
+    staged.mkdir()
+    shutil.copy(ROOT / "scenarios" / "drc_sky130_pass.yaml",
+                staged / "drc_sky130_pass.yaml")
+    env = dict(os.environ)
+    env["ROCKETEDA_HOME"] = str(tmp_path / "empty-store")
+    proc = subprocess.run(
+        [str(ROOT / ".venv" / "bin" / "python"),
+         str(ROOT / "scripts" / "scenarios.py"), str(staged)],
+        capture_output=True, text=True, timeout=300, env=env, cwd=ROOT,
+    )
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "ROCKETEDA_HOME" in proc.stdout, proc.stdout
+    assert "Traceback" not in proc.stdout + proc.stderr
+
+
+def test_gate_without_ngspice_fails_with_cause_no_traceback(tmp_path):
+    if shutil.which("ngspice") is not None:
+        pytest.skip("ngspice present: live path covers analog")
+    proc = subprocess.run(
+        [str(ROOT / ".venv" / "bin" / "python"),
+         str(ROOT / "scripts" / "correctness.py"),
+         "--flow", "analog", "--report", str(tmp_path / "rep")],
+        capture_output=True, text=True, timeout=300, cwd=ROOT,
+    )
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "GATE FAIL" in proc.stdout, proc.stdout
+    assert "blocked-env" in proc.stdout, proc.stdout
+    assert "Traceback" not in proc.stdout + proc.stderr
