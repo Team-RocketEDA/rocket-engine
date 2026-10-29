@@ -143,6 +143,84 @@ def test_license_gate_rejects_copyleft_tree(tmp_path):
     assert mod.license_gate(tmp_path, ["gplcore"]) != []
 
 
+# --- FETCH-HARDEN slice 1: pin re-verification (RED) ---
+
+def _make_remote_with_history(tmp_path):
+    """Local 'upstream' with two commits serving reachable SHAs (like GitHub)."""
+    src = tmp_path / "upstream"
+    sha1 = make_git_repo(src, {"LICENSE": MIT, "top.v": "v1\n"})
+    (src / "top.v").write_text("v2\n")
+    subprocess.run(["git", "add", "."], cwd=src, check=True)
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t",
+         "commit", "-qm", "two"], cwd=src, check=True,
+    )
+    sha2 = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=src, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "config", "uploadpack.allowReachableSHA1InWant", "true"],
+        cwd=src, check=True,
+    )
+    return src, sha1, sha2
+
+
+def test_verify_pins_current_pin(tmp_path):
+    mod = load_fetch()
+    src, _, head = _make_remote_with_history(tmp_path)
+    report = mod.verify_pins({"demo": {"url": str(src), "rev": head}})
+    assert report["demo"]["status"] == "current"
+    assert report["demo"]["head"] == head
+
+
+def test_verify_pins_drifted_pin(tmp_path):
+    mod = load_fetch()
+    src, old, head = _make_remote_with_history(tmp_path)
+    report = mod.verify_pins({"demo": {"url": str(src), "rev": old}})
+    assert report["demo"]["status"] == "drifted"
+    assert report["demo"]["head"] == head
+    assert report["demo"]["pin"] == old
+
+
+def test_verify_pins_orphaned_pin(tmp_path):
+    mod = load_fetch()
+    src, _, head = _make_remote_with_history(tmp_path)
+    dead = "d" * 40
+    report = mod.verify_pins({"demo": {"url": str(src), "rev": dead}})
+    assert report["demo"]["status"] == "orphaned"
+    assert report["demo"]["pin"] == dead
+    assert report["demo"]["head"] == head
+
+
+def test_verify_pins_unreachable_url(tmp_path):
+    mod = load_fetch()
+    report = mod.verify_pins(
+        {"demo": {"url": str(tmp_path / "nope"), "rev": "a" * 40}}
+    )
+    assert report["demo"]["status"] == "unreachable"
+
+
+def test_verify_pins_cli_exit_codes(tmp_path, monkeypatch, capsys):
+    mod = load_fetch()
+    src, _, head = _make_remote_with_history(tmp_path)
+    monkeypatch.setattr(
+        mod, "FIXTURES",
+        {"demo": {"url": str(src), "rev": head, "license": "MIT",
+                 "results": "tb"}},
+    )
+    assert mod.main(["--verify-pins"]) == 0
+    monkeypatch.setattr(
+        mod, "FIXTURES",
+        {"demo": {"url": str(src), "rev": "d" * 40, "license": "MIT",
+                 "results": "tb"}},
+    )
+    assert mod.main(["--verify-pins"]) == 1
+    out = capsys.readouterr().out
+    assert "d" * 40 in out
+    assert "orphan" in out.lower()
+
+
 def test_vendor_readme_notes_documented_results(tmp_path):
     mod = load_fetch()
     spec = {"url": "https://github.com/example/x", "rev": "a" * 40,
