@@ -9,10 +9,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 ## Backlog
 
-- [CORPUS-D] Digital corpus (good/bad) — blocked: user review of suggestions
-- [CORPUS-A] Analog corpus (good/bad) — blocked: user review of suggestions
 - [CORPUS-P] Photonic corpus (good/bad) — blocked: user review of suggestions
-- [CORPUS-M] Mixed corpus scope — blocked: user picks an option
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
 - [B10] install.sh + tests/installed + capability matrix
 
@@ -66,3 +63,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [STORAGE-REV] Amend ADR-001: co-located runs, shared pdks, kicad-style policy
 - [FIXTURE-FETCH] Slice: vendor 4 fixtures + documented mutations
 - [SAX-ADAPTER] Photonic sim solver via SAX
+- [CORPUS-D] Digital corpus (good/bad) — blocked: user review of suggestions
+- [CORPUS-A] Analog corpus (good/bad) — blocked: user review of suggestions
+- [CORPUS-M] Mixed corpus scope — blocked: user picks an option
