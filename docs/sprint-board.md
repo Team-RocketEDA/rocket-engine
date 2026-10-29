@@ -17,7 +17,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
 - [REPLAY] Backlog: first-class run replay affordance
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
-- [WORKERS] Isolated worker substrate (I23/I24)
 - [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
@@ -33,6 +32,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
+- [WORKERS] Isolated worker substrate (I23/I24)
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
