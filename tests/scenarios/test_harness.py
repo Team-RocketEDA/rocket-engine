@@ -50,6 +50,27 @@ def test_live_klayout_scenarios_pass_against_real_klayout():
         assert result["passed"] is True, result["failures"]
 
 
+@needs_klayout
+def test_live_sky130_scenarios_pass_against_real_deck():
+    for name in ("good.gds", "bad.gds"):
+        if not (ROOT / "tests" / "adapters" / "fixtures" / "drc_sky130" / name).is_file():
+            pytest.skip(f"sky130 fixtures not generated: {name}")
+    try:
+        from rocket_engine.interfaces.pdks import list_pdks
+    except Exception:
+        pytest.skip("pdk store unavailable")
+    try:
+        entries = list_pdks()
+    except Exception:
+        pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
+    if not [e for e in entries if e.get("id") == "sky130a"]:
+        pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
+    runner = _load_runner()
+    for name in ("drc_sky130_pass.yaml", "drc_sky130_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
+
+
 needs_icarus = pytest.mark.skipif(
     shutil.which("iverilog") is None or shutil.which("vvp") is None,
     reason="iverilog/vvp not on PATH",
