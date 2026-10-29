@@ -17,7 +17,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
 - [REPLAY] Backlog: first-class run replay affordance
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
-- [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
 - [FETCH-HARDEN] Harden fixture fetch pins + license gate
@@ -70,3 +69,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CORPUS-P] Photonic corpus (good/bad) — blocked: user review of suggestions
 - [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
 - [WORKERS] Isolated worker substrate (I23/I24)
+- [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
