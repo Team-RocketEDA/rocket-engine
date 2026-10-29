@@ -7,10 +7,11 @@
 Mixed-signal is where engines embarrass themselves: analog macro +
 digital wrapper, two sim domains, one verdict. The pthomas
 sigma-delta ships a design doc with measured numbers — the perfect
-forcing function. MVP scope is honest about the seam: analog-macro
-sim + digital-wrapper sim run through the engine and compared
-against documented results separately, with the co-simulation seam
-documented as the known next step rather than faked.
+forcing function. The end goal is closed-loop co-simulation like
+every other domain (no domain is permanently partial — see F9);
+for the demo, macro + wrapper verify through the engine against
+documented results with the seam status reported honestly, and
+seam closure tracked as follow-up work, never cut scope.
 
 ## What
 
@@ -22,5 +23,6 @@ documented as the known next step rather than faked.
 
 - Good design → results match documented within tolerance.
 - Every mutation → expected FAIL, and only it.
-- Co-sim seam documented (not faked); failure artifacts kept; 3x
-  repeats identical; flakes quarantined, never silently skipped.
+- Co-sim seam status reported honestly with closure tracked as
+  follow-up; failure artifacts kept; 3x repeats identical; flakes
+  quarantined, never silently skipped.

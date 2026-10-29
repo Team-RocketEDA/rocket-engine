@@ -140,3 +140,21 @@ naming the operation and tool; the engine never substitutes another
 solver silently and never fakes a verdict. Deck still names WHAT the
 operation needs (the PDK object); `deck.tool` names WHICH solver
 runs it; the operation names the QUESTION asked.
+
+## F9 — Vision is end-to-end for all domains; "partial" is demo scoping only
+
+Amends: PRD §7 demo language, §10 boundaries.
+
+Background: PRD §§7.2–7.3 label the analog and photonic demos
+"partial." The project goal is full natural-language-to-real-chip
+for D/A/P/M with any PDK. Digital leads only because it is
+easiest to verify — it is the bare-minimum correctness bar, not
+the favored domain. Analog, photonic, and mixed need carefully
+engineered proven reference designs, so the HACKATHON shows
+simple-but-impressive examples (or stretch) — a schedule fact,
+not a vision cap.
+
+Proposed text: state the end goal as complete agentic design for
+every domain; confine "partial" to hackathon demo scoping with
+its reason (reference-design readiness), never as a project
+category. No domain is permanently partial.
