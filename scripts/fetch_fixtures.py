@@ -176,26 +176,55 @@ def fetch_one(name, spec, vendor_dir=VENDOR_DIR, retries=3):
     raise FetchError(f"{name}: fetch failed after {retries} attempts: {last}")
 
 
-def check_license(tree):
-    """Identify a vendored tree's license; None if not accepted/found."""
+def _read_texts(tree, filenames):
     tree = Path(tree)
-    candidates = [tree / f for f in LICENSE_FILES]
-    candidates += [tree / f for f in README_FALLBACKS]
     texts = []
-    for path in candidates:
+    for name in filenames:
+        path = tree / name
         if path.is_file():
             try:
                 texts.append(path.read_text(errors="replace").lower())
             except OSError:
                 continue
+    return texts
+
+
+def _match_markers(texts):
     for lic, markers in MARKERS:
         if any(all(m in text for m in markers) for text in texts):
             return lic
     return None
 
 
+def license_evidence(tree):
+    """(license id, source) with LICENSE*/COPYING* precedence.
+
+    LICENSE*/COPYING* files decide; a README match is a fallback
+    signal only (source "readme"), never a pass — READMEs routinely
+    *mention* licenses (dependency notes) without granting them.
+    """
+    found = _match_markers(_read_texts(tree, LICENSE_FILES))
+    if found is not None:
+        return found, "license_file"
+    found = _match_markers(_read_texts(tree, README_FALLBACKS))
+    if found is not None:
+        return found, "readme"
+    return None, None
+
+
+def check_license(tree):
+    """Decisive license id from LICENSE*/COPYING* files; None otherwise."""
+    found, source = license_evidence(tree)
+    return found if source == "license_file" else None
+
+
 def license_gate(vendor_dir=VENDOR_DIR, names=None):
-    """Return a violation message per fixture lacking an accepted license."""
+    """Return a violation message per fixture lacking an accepted license.
+
+    README-only matches fail LOUDLY: the message names the fallback
+    license so a human can adjudicate (add the real LICENSE file or
+    drop the fixture) instead of the gate silently passing.
+    """
     vendor_dir = Path(vendor_dir)
     violations = []
     for name in names if names is not None else sorted(FIXTURES):
@@ -203,12 +232,20 @@ def license_gate(vendor_dir=VENDOR_DIR, names=None):
         if not tree.is_dir():
             violations.append(f"{name}: not vendored under {vendor_dir}")
             continue
-        found = check_license(tree)
-        if found not in ACCEPTED:
+        found, source = license_evidence(tree)
+        if found in ACCEPTED and source == "license_file":
+            continue
+        if found in ACCEPTED and source == "readme":
             violations.append(
-                f"{name}: no accepted license found "
-                f"(want one of: {', '.join(ACCEPTED)})"
+                f"{name}: license {found} found only in README (fallback "
+                "signal, not a LICENSE file) — refusing "
+                f"(want one of: {', '.join(ACCEPTED)} in LICENSE*/COPYING*)"
             )
+            continue
+        violations.append(
+            f"{name}: no accepted license found "
+            f"(want one of: {', '.join(ACCEPTED)})"
+        )
     return violations
 
 
