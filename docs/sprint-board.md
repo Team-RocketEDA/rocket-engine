@@ -12,7 +12,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
 - [B10] install.sh + tests/installed + capability matrix
 
-- [DEMO-PATH] Slice: install.sh on demo machine + scenarios + runbook
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
 - [REPLAY] Backlog: first-class run replay affordance
@@ -31,6 +30,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
+- [DEMO-PATH] Slice: install.sh on demo machine + scenarios + runbook
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
