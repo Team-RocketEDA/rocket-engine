@@ -48,10 +48,22 @@ ALL_OPERATORS = [
     "picorv32_reset_break",
     "picorv32_truncation",
     "picorv32_unconnected_port",
+    # VALIDATE-A: the analog shapes reused on the bandgap snapshot.
+    "bandgap_sizing_out_of_spec",
+    "bandgap_open_net",
 ]
 
 SERV_UPSTREAM = ROOT / "fixtures" / "upstream" / "serv"
 PICO_UPSTREAM = ROOT / "fixtures" / "upstream" / "picorv32"
+BANDGAP_SNAPSHOTS = (
+    ROOT
+    / "fixtures"
+    / "upstream"
+    / "sky130-bandgap"
+    / "sim"
+    / "output-voltage-tc"
+    / "netlist-snapshots"
+)
 
 OPERATOR_SRC = {
     "digital_reset_break": HDL_FIXTURES,
@@ -69,6 +81,8 @@ OPERATOR_SRC = {
     "picorv32_reset_break": PICO_UPSTREAM,
     "picorv32_truncation": PICO_UPSTREAM,
     "picorv32_unconnected_port": PICO_UPSTREAM,
+    "bandgap_sizing_out_of_spec": BANDGAP_SNAPSHOTS,
+    "bandgap_open_net": BANDGAP_SNAPSHOTS,
 }
 
 
@@ -77,15 +91,18 @@ def _require_src(operator):
     # never fetched; committed-fixture operators always run.
     src = OPERATOR_SRC[operator]
     if src == SERV_UPSTREAM:
-        marker, design = src / "rtl" / "serv_top.v", "serv"
+        marker, design, ticket = src / "rtl" / "serv_top.v", "serv", "VALIDATE-D"
     elif src == PICO_UPSTREAM:
-        marker, design = src / "picorv32.v", "picorv32"
+        marker, design, ticket = src / "picorv32.v", "picorv32", "VALIDATE-D"
+    elif src == BANDGAP_SNAPSHOTS:
+        marker = src / "20260817-015751-13476b7.spice"
+        design, ticket = "sky130-bandgap", "VALIDATE-A"
     else:
         return
     if not marker.is_file():
         pytest.skip(
             f"MUTATE-HARNESS {operator} file: {design} fixture not fetched "
-            "(scripts/fetch_fixtures.py; docs/tickets/VALIDATE-D.md)"
+            f"(scripts/fetch_fixtures.py; docs/tickets/{ticket}.md)"
         )
 
 needs_icarus = pytest.mark.skipif(
@@ -140,7 +157,7 @@ def _run(engine_project, operation, arguments):
 
 
 # Registry: every operator declared with its expected verdict.
-def test_registry_lists_all_fifteen_operators():
+def test_registry_lists_all_seventeen_operators():
     from rocket_engine.mutate import OPERATORS  # RED: missing module
 
     assert sorted(OPERATORS) == sorted(ALL_OPERATORS)
@@ -165,6 +182,8 @@ def test_registry_declares_expected_verdict_per_operator():
         "picorv32_reset_break": "run_hdl_test",
         "picorv32_truncation": "run_hdl_test",
         "picorv32_unconnected_port": "run_hdl_test",
+        "bandgap_sizing_out_of_spec": "run_spice",
+        "bandgap_open_net": "run_spice",
     }
     for name in ALL_OPERATORS:
         entry = OPERATORS[name]

@@ -135,7 +135,7 @@ needs_ngspice = pytest.mark.skipif(
 
 
 @needs_ngspice
-def test_live_ngspice_bandgap_scenario_passes():
+def test_live_ngspice_bandgap_scenarios_pass_against_real_tools():
     snapshot = (
         ROOT
         / "fixtures"
@@ -159,8 +159,9 @@ def test_live_ngspice_bandgap_scenario_passes():
     if not [e for e in entries if e.get("id") == "sky130a"]:
         pytest.skip("sky130 PDK deck not registered (ROCKETEDA_HOME)")
     runner = _load_runner()
-    result = runner.run_scenario(ROOT / "scenarios" / "ngspice_bandgap_pass.yaml")
-    assert result["passed"] is True, result["failures"]
+    for name in ("ngspice_bandgap_pass.yaml", "ngspice_bandgap_fail.yaml"):
+        result = runner.run_scenario(ROOT / "scenarios" / name)
+        assert result["passed"] is True, result["failures"]
 
 
 def test_hdl_run_live_without_sources_fails_loudly(tmp_path):
