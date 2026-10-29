@@ -18,6 +18,10 @@ harness cold. The gate must declare which toolchain it needs.
 - Make `scenarios.py` fail loudly at startup when a scenario's
   required tool is missing from PATH (missing_dependency with
   the tool name), instead of NOT_RUN verdicts mid-run.
+- Inline the environmental reason in report lines (found wave-4b
+  review): `verdict NOT_RUN, want X` must name the missing tool
+  (the reason exists at the verdict layer but never reaches the
+  report line).
 
 ## Acceptance
 

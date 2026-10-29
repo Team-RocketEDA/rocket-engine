@@ -63,3 +63,11 @@ photonic, mixed-signal):
 ## Run log
 
 - 2026-10-29: definition written (pre-wave-4-landing). No runs yet.
+- 2026-10-29 (wave-4b): Digital 5/5 capability PASS live
+  (SERV greeting+HALT, picorv32 182/45/45 + vendor-make oracle,
+  6 ops x seeds FAIL assert_fatal-only, 3x identical, artifacts
+  kept, zero bare skips). Analog 1/5 live (no-silent-skip PASS;
+  rest blocked-env, ngspice+store absent — oracle verbatim,
+  envelope 45/45, canned-parse all PASS, quarantined under
+  NGSPICE-LIVE). Regression 5/5 PASS (424/48 tools, 380/92
+  clean, coverage 82.41%, scenarios-gate + tree-clean PASS).

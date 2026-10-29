@@ -91,7 +91,10 @@ def _require_pdk():
     try:
         from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
     except Exception as exc:
-        pytest.skip(f"VALIDATE-A live: pdk store unavailable ({exc})")
+        pytest.skip(
+            "VALIDATE-A live: pdk store unavailable "
+            f"({exc}; see docs/tickets/NGSPICE-LIVE.md)"
+        )
     try:
         entries = list_pdks()
     except Exception as exc:

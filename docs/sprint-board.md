@@ -17,8 +17,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
 - [REPLAY] Backlog: first-class run replay affordance
-- [VALIDATE-D] Digital correctness e2e (SERV, picorv32)
-- [VALIDATE-A] Analog correctness e2e (bandgap)
 - [VALIDATE-P] Photonic correctness e2e (cspdk + SAX)
 - [VALIDATE-M] Mixed correctness e2e (sigma-delta)
 - [ENGINE-CORRECTNESS] MVP gate, correct vs incorrect all flows
@@ -69,3 +67,5 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [EXTRACT-SKY130] Slice: magic extraction + Netgen LVS proof; sky130.lvs bug verdict
 - [SIM-SKY130] Slice: ngspice sky130.lib proof + SERV regression
 - [MUTATE-HARNESS] Systematic incorrect-design generator
+- [VALIDATE-D] Digital correctness e2e (SERV, picorv32)
+- [VALIDATE-A] Analog correctness e2e (bandgap)
