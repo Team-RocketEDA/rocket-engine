@@ -102,6 +102,16 @@ def test_install_wires_pdk_step_into_install_mode():
     assert "--pdk-only" in text, text
 
 
+def test_install_recreates_an_existing_venv():
+    # Regression pin: the first fresh-shell proof failed install with
+    # "A virtual environment already exists at: .venv" (proof log
+    # exit 1) because `uv venv` refuses to overwrite. --install must
+    # clear before recreating. (The full --install path is proven by
+    # the fresh-shell run, never executed by the suite.)
+    text = INSTALL.read_text()
+    assert "uv venv --clear" in text, text
+
+
 def test_install_unknown_mode_prints_usage():
     proc = run_install(["--bogus"])
     assert proc.returncode == 2, proc.stdout + proc.stderr

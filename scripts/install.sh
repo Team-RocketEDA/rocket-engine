@@ -88,7 +88,7 @@ fi
 if [ "$MODE" = "--install" ]; then
     command -v uv >/dev/null 2>&1 || { echo "install.sh: uv not on PATH" >&2; echo "next: install uv (https://docs.astral.sh/uv/), then retry" >&2; exit 1; }
     echo "==> venv + locked sync"
-    (cd "$ROOT" && uv venv --python 3.12 && uv sync --locked --group dev) || exit 1
+    (cd "$ROOT" && uv venv --clear --python 3.12 && uv sync --locked --group dev) || exit 1
     echo "==> engine import check"
     (cd "$ROOT" && uv run --locked python -c "import rocket_engine; print('ok')") || exit 1
     echo "==> PDK register"
