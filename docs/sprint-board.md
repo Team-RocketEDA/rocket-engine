@@ -35,6 +35,10 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MUTATE-HARNESS] Systematic incorrect-design generator
 - [ENGINE-CORRECTNESS] MVP gate, correct vs incorrect all flows
 - [SAX-ADAPTER] Photonic sim solver via SAX
+- [WORKERS] Isolated worker substrate (I23/I24)
+- [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
+- [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
+- [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
 ## Ready
 
 
