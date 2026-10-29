@@ -171,6 +171,12 @@ Native-tool acquisition (suite vs apt vs vendored) is decided at B10.
 Until then tools are expected-but-unpinned: every run records the
 exact tool+version+deck it used, nothing is assumed.
 
+Magic phase-out (declared 2026-10-29): Magic stays ONLY for sky130A
+layout extraction and the Netgen LVS loop it feeds, until the
+gdsfactory 10.x stack (kfactory-native LVS/PEX) is stable and
+PDK-supported — then extraction moves off Magic. No new Magic
+dependencies; KLayout batch remains the sole DRC backend.
+
 ### Display-side (RocketIDE-owned — never engine dependencies)
 
 Surfer (embedded waves), GTKWave GUI (desktop fallback), KLayout GUI,
