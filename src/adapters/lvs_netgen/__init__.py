@@ -191,9 +191,11 @@ class NetgenLvsAdapter(ToolAdapter):
             ("layout_spice", "layout_flat.spice"),
             ("schematic_spice", "schematic_flat.spice"),
         ):
-            flat = flatten_spice(Path(checked[key]).read_text(), cell)
+            flat = flatten_spice(
+                Path(checked[key]).read_text(encoding="utf-8"), cell
+            )
             staged[key] = Path(workdir) / name
-            staged[key].write_text(flat)
+            staged[key].write_text(flat, encoding="utf-8")
         report_file = Path(workdir) / "lvs_report.out"
         proc = self._run(
             [
@@ -217,7 +219,7 @@ class NetgenLvsAdapter(ToolAdapter):
             "stdout": proc.stdout,
             "stderr": proc.stderr,
             "report_file": str(report_file),
-            "report_text": report_file.read_text(),
+            "report_text": report_file.read_text(encoding="utf-8"),
             "layout_spice": checked["layout_spice"],
             "schematic_spice": checked["schematic_spice"],
         }
@@ -227,7 +229,7 @@ class NetgenLvsAdapter(ToolAdapter):
         if report is None:
             report_file = native_output.get("report_file")
             if report_file and Path(report_file).is_file():
-                report = Path(report_file).read_text()
+                report = Path(report_file).read_text(encoding="utf-8")
             else:
                 report = native_output.get("stdout", "")
         if _MATCH_RE.search(report):

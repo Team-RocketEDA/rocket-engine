@@ -27,6 +27,10 @@ _DEVICE_RE = re.compile(
     re.IGNORECASE,
 )
 _PARAM_RE = re.compile(r"\b([wl])=([0-9.eE+-]+)", re.IGNORECASE)
+# The cell name is embedded in a Tcl script under braces: braces stop
+# substitution, but `}` breaks out and backslash-newline still folds,
+# so every Tcl-active character is rejected up front.
+_CELL_BAD_RE = re.compile(r"[{}\[\]$\\;\"\n\r]")
 
 _SCRIPT = (
     "load {cell}\nselect top cell\nextract all\n"
@@ -48,7 +52,14 @@ def _tech_arg_or_raise(job):
                     "invalid_reference", f"Magic tech file not found: {candidate}."
                 )
             return str(candidate)
-    return job.get("tech", "scmos")
+    tech = job.get("tech")
+    if tech is None:
+        raise AdapterError(
+            "invalid_command", "Extraction needs a tech_file or tech name."
+        )
+    if not isinstance(tech, str) or not tech:
+        raise AdapterError("invalid_command", f"Bad magic tech name: {tech!r}.")
+    return tech
 
 
 class MagicExtractAdapter(ToolAdapter):
@@ -59,14 +70,24 @@ class MagicExtractAdapter(ToolAdapter):
         return {"operations": [OPERATION], "tool": "magic"}
 
     def preflight(self, job):
+        # Cheap deterministic checks first (operation, cell, tech),
+        # machine-dependent ones last (binary, tech probe).
         if job.get("operation") != OPERATION:
             raise AdapterError(
                 "unsupported_operation",
                 f"Magic extraction handles {OPERATION}, got {job.get('operation')}.",
             )
+        cell = job.get("cell")
+        if not cell or not isinstance(cell, str):
+            raise AdapterError("invalid_command", "Extraction needs a cell name.")
+        if _CELL_BAD_RE.search(cell):
+            raise AdapterError(
+                "invalid_command",
+                f"Bad cell name (Tcl-unsafe characters): {cell!r}.",
+            )
+        tech_arg = _tech_arg_or_raise(job)
         if shutil.which("magic") is None:
             raise AdapterError("missing_dependency", "magic binary not found.")
-        tech_arg = _tech_arg_or_raise(job)
         probe = self._run(tech_arg, "quit\n", job.get("workdir", "."))
         if Path(tech_arg).is_file():
             if 'Using technology "' not in probe.stdout:
@@ -77,9 +98,6 @@ class MagicExtractAdapter(ToolAdapter):
             raise AdapterError(
                 "missing_dependency", f"Cannot load magic tech: {tech_arg}."
             )
-        cell = job.get("cell")
-        if not cell:
-            raise AdapterError("invalid_command", "Extraction needs a cell name.")
         cell_file = job.get("cell_file")
         if not cell_file or not Path(cell_file).is_file():
             raise AdapterError(
@@ -123,7 +141,7 @@ class MagicExtractAdapter(ToolAdapter):
             "cell": checked["cell"],
             "ext_file": str(ext_file),
             "spice_file": str(spice_file),
-            "spice_text": spice_file.read_text(),
+            "spice_text": spice_file.read_text(encoding="utf-8"),
         }
 
     def parse(self, native_output):
@@ -139,7 +157,7 @@ class MagicExtractAdapter(ToolAdapter):
                 raise AdapterError(
                     "runner_unavailable", "magic extraction has no spice text."
                 )
-            spice_text = Path(spice_file).read_text()
+            spice_text = Path(spice_file).read_text(encoding="utf-8")
         if _SUBCKT_RE.search(spice_text) is None:
             raise AdapterError(
                 "runner_unavailable", "extracted spice has no subckt block."
