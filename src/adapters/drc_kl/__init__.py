@@ -1,8 +1,13 @@
-"""KLayout DRC solver adapter (I14): batch DRC behind the ToolAdapter port.
+"""KLayout DRC solver adapter (I14 + DRC-SKY130): batch DRC behind the port.
 
-Protocol, verified against KLayout 0.28.16: render a pya check script
-from the rule table, run `klayout -b -r`, parse VIOL/TOTAL lines. (The
-Ruby DRC DSL does not run under -r; see docs/probe-klayout-drc.md.)
+Two modes, verified against KLayout 0.28.16:
+- Synthetic: render a pya check script from the rule table, run
+  `klayout -b -r`, parse VIOL/TOTAL lines.
+- Deck: run a foundry `.lydrc` (e.g. sky130A.lydrc) via
+  `klayout -b -rd input=<gds> -rd report=<lyrdb> -r <deck>`,
+  parse the report database XML into violations.
+(The plain-Ruby DSL note in docs/probe-klayout-drc.md predates the
+.lydrc batch recipe; XML-macro decks run fine under -r with -rd.)
 KLayout exits 0 regardless, so the verdict always comes from parsed
 output, never from the exit code.
 """
@@ -11,6 +16,7 @@ import json
 import re
 import shutil
 import subprocess
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ...execution.errors import ExecutionError
@@ -26,6 +32,7 @@ _VIOL_RE = re.compile(
     r"([0-9.eE+-]+),([0-9.eE+-]+)$",
     re.M,
 )
+_NUM_RE = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
 
 _CHECK_SCRIPT = """import json
 import pya
@@ -77,6 +84,74 @@ def _rules_or_raise(rules):
     return clean
 
 
+def _deck_file_or_raise(job):
+    deck = job.get("deck") if isinstance(job.get("deck"), dict) else {}
+    for candidate in (
+        job.get("deck_file"),
+        deck.get("path"),
+        deck.get("deck_file"),
+        deck.get("file"),
+    ):
+        if candidate is not None:
+            if not candidate or not Path(candidate).is_file():
+                raise AdapterError(
+                    "invalid_reference", f"DRC deck not found: {candidate}."
+                )
+            return str(candidate)
+    return None
+
+
+def _bbox_from_value(text):
+    nums = [float(v) for v in _NUM_RE.findall(text or "")]
+    if len(nums) < 4 or len(nums) % 2:
+        return None
+    xs = nums[0::2]
+    ys = nums[1::2]
+    return [min(xs), min(ys), max(xs), max(ys)]
+
+
+def _parse_lyrdb(xml_text):
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as exc:
+        raise AdapterError(
+            "runner_unavailable", f"klayout report is not valid XML: {exc}."
+        ) from exc
+    descriptions = {}
+    for cat in root.findall("./categories/category"):
+        name = (cat.findtext("name") or "").strip()
+        desc = (cat.findtext("description") or "").strip()
+        if name:
+            descriptions[name] = desc or name
+    violations = []
+    total = 0
+    for item in root.findall("./items/item"):
+        raw_rule = (item.findtext("category") or "").strip().strip("'\"")
+        rule = raw_rule or "unknown"
+        try:
+            mult = int((item.findtext("multiplicity") or "1").strip())
+        except ValueError:
+            mult = 1
+        total += max(mult, 1)
+        texts = [
+            (v.text or "")
+            for v in item.findall("./values/value")
+            if (v.text or "").strip()
+        ]
+        joined = "; ".join(texts)
+        violation = {
+            "rule": rule,
+            "message": descriptions.get(rule, rule),
+        }
+        if joined:
+            violation["message"] = f"{violation['message']}: {joined}"
+        bbox = _bbox_from_value(joined)
+        if bbox is not None:
+            violation["bbox_um"] = bbox
+        violations.append(violation)
+    return {"total": total, "violations": violations}
+
+
 class KlayoutDrcAdapter(ToolAdapter):
     def __init__(self, runner=None):
         self._runner = runner
@@ -86,6 +161,7 @@ class KlayoutDrcAdapter(ToolAdapter):
             "operations": [OPERATION],
             "tool": "klayout",
             "rules": ["width", "space"],
+            "decks": ["lydrc"],
         }
 
     def preflight(self, job):
@@ -101,20 +177,52 @@ class KlayoutDrcAdapter(ToolAdapter):
             raise AdapterError(
                 "invalid_reference", f"GDS file not found: {gds_file}."
             )
+        deck_file = _deck_file_or_raise(job)
+        if deck_file is not None:
+            return {"gds_file": gds_file, "deck_file": deck_file}
         return {"gds_file": gds_file, "rules": _rules_or_raise(job.get("rules"))}
 
     def execute(self, job):
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
+        if not Path(workdir).is_dir():
+            raise AdapterError(
+                "invalid_reference", f"Workdir not found: {workdir}."
+            )
+        if "deck_file" in checked:
+            report_file = Path(workdir) / "drc_report.lyrdb"
+            proc = self._run(
+                [
+                    "klayout",
+                    "-b",
+                    "-rd",
+                    f"input={checked['gds_file']}",
+                    "-rd",
+                    f"report={report_file}",
+                    "-r",
+                    checked["deck_file"],
+                ],
+                workdir,
+            )
+            if not report_file.is_file():
+                raise AdapterError(
+                    "runner_unavailable",
+                    f"klayout produced no report: {proc.stderr[:500]}.",
+                )
+            return {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "report_file": str(report_file),
+                "report_xml": report_file.read_text(),
+                "deck_file": checked["deck_file"],
+                "gds_file": checked["gds_file"],
+            }
         spec = json.dumps(
             {"gds_file": checked["gds_file"], "rules": checked["rules"]}
         )
         script = _CHECK_SCRIPT.replace("{spec!r}", repr(spec))
         script_file = Path(workdir) / "kl_drc_check.py"
-        if not Path(workdir).is_dir():
-            raise AdapterError(
-                "invalid_reference", f"Workdir not found: {workdir}."
-            )
         script_file.write_text(script)
         proc = self._run(["klayout", "-b", "-r", str(script_file)], workdir)
         return {
@@ -126,6 +234,16 @@ class KlayoutDrcAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        if "report_xml" in native_output or "report_file" in native_output:
+            xml_text = native_output.get("report_xml")
+            if xml_text is None:
+                report_file = native_output.get("report_file")
+                if not report_file or not Path(report_file).is_file():
+                    raise AdapterError(
+                        "runner_unavailable", "klayout deck run has no report."
+                    )
+                xml_text = Path(report_file).read_text()
+            return _parse_lyrdb(xml_text)
         stdout = native_output.get("stdout", "")
         match = _TOTAL_RE.search(stdout)
         if match is None:

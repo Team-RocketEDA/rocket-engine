@@ -25,6 +25,7 @@ Usage:
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -39,8 +40,11 @@ from rocket_engine.composition import Engine
 ROOT = Path(__file__).resolve().parent.parent
 DRC_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc"
 DRC_KL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc_kl"
+DRC_SKY130_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "drc_sky130"
 HDL_FIXTURES = ROOT / "tests" / "adapters" / "fixtures" / "hdl"
 KL_RULES = {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0}
+SKY130_PDK_ID = "sky130a"
+SKY130_DECK_REL = "libs.tech/klayout/drc/sky130A.lydrc"
 
 _BACKENDS = {
     "magic": {
@@ -57,6 +61,14 @@ _BACKENDS = {
         "file_key": "gds_file",
         "deck": "klayout",
         "rules": KL_RULES,
+    },
+    "klayout_sky130": {
+        "fixtures": DRC_SKY130_FIXTURES,
+        "ext": ".gds",
+        "tech": "sky130A",
+        "file_key": "gds_file",
+        "deck": "klayout",
+        "sky130_deck": True,
     },
 }
 
@@ -116,6 +128,35 @@ def _submit_envelope(project_id, revision, step):
 def _require_ack(ctx, label):
     if "ack" not in ctx:
         raise AssertionError(f"{label}: no submitted ack to dispatch")
+
+
+def _resolve_sky130_deck(label):
+    try:
+        from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
+    except Exception as exc:
+        raise AssertionError(f"{label}: pdk store unavailable: {exc}") from exc
+    try:
+        entries = list_pdks()
+    except Exception as exc:
+        raise AssertionError(
+            f"{label}: sky130 PDK not registered ({exc}); "
+            "set ROCKETEDA_HOME to a store with sky130a."
+        ) from exc
+    want_rev = os.environ.get("SKY130_PDK_REVISION")
+    candidates = [e for e in entries if e.get("id") == SKY130_PDK_ID]
+    if want_rev:
+        candidates = [e for e in candidates if e.get("revision") == want_rev]
+    if not candidates:
+        raise AssertionError(
+            f"{label}: sky130 PDK not registered; "
+            "set ROCKETEDA_HOME to a store with sky130a."
+        )
+    entry = sorted(candidates, key=lambda e: e["revision"])[0]
+    try:
+        hit = resolve_deck(entry["id"], entry["revision"], SKY130_DECK_REL)
+    except Exception as exc:
+        raise AssertionError(f"{label}: cannot resolve sky130 deck: {exc}") from exc
+    return hit["path"]
 
 
 def _run_live_hdl(ctx, label, sub):
@@ -208,6 +249,8 @@ def _run_step(ctx, num, step):
             arguments["deck"] = {"tool": table["deck"]}
         if "rules" in table:
             arguments["rules"] = sub.get("rules", table["rules"])
+        if table.get("sky130_deck"):
+            arguments["deck_file"] = _resolve_sky130_deck(label)
         out = ctx["engine"].run(
             {
                 "project_id": ctx["project_id"],
