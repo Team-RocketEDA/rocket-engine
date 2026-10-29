@@ -108,3 +108,8 @@ photonic, mixed-signal):
   codes exact. Regression 5/5 PASS (534/52 tools, 470/116 clean
   with store, coverage 84.12%, scenarios-gate 18/8 + 10/16 all
   environmental-with-ref, tree-clean PASS).
+- 2026-10-29 (wave-5 landing, parent re-verified): suite 525/61
+  tools, gate FAIL 1/4 truthful (28 pass / 0 fail / 16
+  quarantined, exit 1) — both reproduce logged numbers exactly.
+  cspdk accepted as the photonic corpus (MIT, pin 3323b17b,
+  ref GDS + upstream regression confirmed) → CORPUS-P Done.
