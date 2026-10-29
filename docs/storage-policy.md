@@ -63,8 +63,8 @@ its runs (managed: inside `projects/<id>/`; linked: inside
 
 ## I28: runs regenerate from recorded ingredients
 
-New behavior invariant (cf. `behavior-invariants.yaml` style;
-promotion to the PRD list is a maintainer call):
+New behavior invariant, promoted to the PRD list as I28
+(`tools-research/behavior-invariants.yaml`) on 2026-10-29:
 
 - **I28 — Run regenerability from recorded ingredients.**
   Given a stored run record with pinned project revision and

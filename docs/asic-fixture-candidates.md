@@ -43,7 +43,7 @@ Bandgap is the right first analog block (DC + corners + a reference
 voltage to assert against). The 2amlogic canary is preferred over
 the efabless DAC for MVP because it claims layout + verification
 reports, not just schematic — verify on fetch; fall back to the
-efabless RDAC if the canary is immature.
+efabless RDAC if the canary is immature. this one might also be interesting https://github.com/rnunes2311/SAR_ADC_12bit it has a couple stars but no documented verification. Verdict 2026-10-29: license is Apache-2.0 (gate passes; 33 stars, last push 2024-05, ~33MB) but still no documented verification, so it stays out of FIXTURES until a probe finds sims/specs to assert against — license-accepted, verification-unproven.
 
 ## 3. Mixed-signal
 

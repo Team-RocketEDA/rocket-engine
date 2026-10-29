@@ -18,9 +18,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 - [LAYOUT-SCHEMA] Folder schema YAML in source (versioned base template + parser)
 - [PATH-GUARD] Path safety module, RED-first (unix-only, charset, traversal, containment)
-- [STORAGE-REV] Amend ADR-001: co-located runs, shared pdks, kicad-style policy
 - [PDK-STORE] Slice: register/verify/list PDK against user tree
-- [FIXTURE-FETCH] Slice: vendor 4 fixtures + documented mutations
 - [DRC-SKY130] Slice: KLayout sky130A.lydrc live proof
 - [EXTRACT-SKY130] Slice: magic extraction + Netgen LVS proof; sky130.lvs bug verdict
 - [SIM-SKY130] Slice: ngspice sky130.lib proof + SERV regression
@@ -34,12 +32,13 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [VALIDATE-M] Mixed correctness e2e (sigma-delta)
 - [MUTATE-HARNESS] Systematic incorrect-design generator
 - [ENGINE-CORRECTNESS] MVP gate, correct vs incorrect all flows
-- [SAX-ADAPTER] Photonic sim solver via SAX
 - [WORKERS] Isolated worker substrate (I23/I24)
 - [STDIO-CONSOLE] MATLAB-esque script console, stdio-only (MVP stretch)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
 - [CLI-DISPATCH] One command surface (binary + batch + REPL entry)
+- [FETCH-HARDEN] Harden fixture fetch pins + license gate
+- [SCENARIO-PATH] Pin scenario gate to dev-PATH
 ## Ready
 
 
@@ -64,3 +63,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DRC-RED] DRC adapter RED (I14 fixtures, good/bad layouts)
 - [HDL-SCENARIO] HDL live scenarios (run_live hdl backend + icarus wiring)
 - [RUNNER-ROLLOUT] Runner rollout to drc/klayout/syntax + stdin support
+- [STORAGE-REV] Amend ADR-001: co-located runs, shared pdks, kicad-style policy
+- [FIXTURE-FETCH] Slice: vendor 4 fixtures + documented mutations
+- [SAX-ADAPTER] Photonic sim solver via SAX
