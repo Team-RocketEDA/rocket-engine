@@ -278,3 +278,41 @@ def test_register_rejects_bad_source_and_bad_revision(tmp_path):
     with pytest.raises(Exception) as excinfo:
         register_pdk(source, "tiny130a", "../evil", engine_root=engine_root)
     assert _code(excinfo) in ("invalid_pdk", "path_escape")
+
+
+def test_resolve_deck_dangling_symlink_is_drift(tmp_path):
+    from rocket_engine.interfaces.pdks import (  # review fix: dangling link deck
+        register_pdk,
+        resolve_deck,
+    )
+
+    engine_root = tmp_path / "root"
+    register_pdk(_make_tiny_pdk(tmp_path / "tiny_pdk"), "tiny130A", "v1",
+                 engine_root=engine_root)
+    link = "libs.tech/netgen/setup.tcl"
+    (engine_root / "pdks" / "tiny130a" / "v1"
+     / "libs.tech" / "netgen" / "sky130A_setup.tcl").unlink()
+    with pytest.raises(Exception) as excinfo:
+        resolve_deck("tiny130a", "v1", link, engine_root=engine_root)
+    assert _code(excinfo) == "pdk_drift"
+    assert link in str(excinfo.value)
+
+
+def test_resolve_deck_swapped_symlink_target_is_drift(tmp_path):
+    from rocket_engine.interfaces.pdks import (  # review fix: swapped link
+        register_pdk,
+        resolve_deck,
+    )
+
+    engine_root = tmp_path / "root"
+    register_pdk(_make_tiny_pdk(tmp_path / "tiny_pdk"), "tiny130A", "v1",
+                 engine_root=engine_root)
+    netgen = engine_root / "pdks" / "tiny130a" / "v1" / "libs.tech" / "netgen"
+    (netgen / "setup.tcl").unlink()
+    # Point at another MANIFESTED file: a resolver that looks up the
+    # resolved path would silently serve the wrong deck content.
+    (netgen / "setup.tcl").symlink_to("../magic/sky130A.tech")
+    with pytest.raises(Exception) as excinfo:
+        resolve_deck("tiny130a", "v1", "libs.tech/netgen/setup.tcl",
+                     engine_root=engine_root)
+    assert _code(excinfo) == "pdk_drift"
