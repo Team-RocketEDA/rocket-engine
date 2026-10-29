@@ -18,7 +18,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
-- [PDK-DISPLAY] Preserve canonical PDK display id in store records
 - [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 ## Ready
@@ -70,3 +69,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DEMO-PATH] Slice: install.sh on demo machine + scenarios + runbook
 - [FETCH-HARDEN] Harden fixture fetch pins + license gate
 - [SCENARIO-PATH] Pin scenario gate to dev-PATH
+- [PDK-DISPLAY] Preserve canonical PDK display id in store records
