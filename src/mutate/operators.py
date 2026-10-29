@@ -346,3 +346,116 @@ def photonic_circuit_mistune(text, variant):
         "expected_db": _db(linear),
     }
     return text.replace(old, new), extra
+
+
+def sdm_reset_break(text, variant):
+    """Break the sdm_rx sinc3-path reset: inverted or stuck clearing."""
+    old = "if (!aresetn || clear_pulse)"
+    _once(text, old, "sdm_reset_break")
+    alts = [
+        (
+            "if (aresetn || clear_pulse)",
+            "sinc3 reset inverted (clears while running, runs in reset)",
+        ),
+        (
+            "if (1'b1)",
+            "sinc3 reset stuck active (counters held at zero)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def sdm_truncation(text, variant):
+    """Narrow the fast-path output so DC full scale never reaches OSR^3."""
+    old = "data_fast <= f_c3[31:0];"
+    _once(text, old, "sdm_truncation")
+    alts = [
+        (
+            "data_fast <= f_c3[31:0] & 32'h000000FF;",
+            "data_fast masked to 8 bits (max 255, want 15625)",
+        ),
+        (
+            "data_fast <= f_c3[31:0] & 32'h0000000F;",
+            "data_fast masked to 4 bits (max 15, want 15625)",
+        ),
+        (
+            "data_fast <= {24'b0, f_c3[7:0]};",
+            "data_fast zero-extended from 8 bits (max 255)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def sdm_unconnected_port(text, variant):
+    """Break the bitstream input path, as if its port were left open."""
+    if variant % 2 == 0:
+        old = "wire step = ctrl_enable && bit_ce;"
+        _once(text, old, "sdm_unconnected_port")
+        new = "wire step = ctrl_enable && 1'b0;"
+        desc = "bit_ce path tied low (never steps, as if unconnected)"
+    else:
+        old = "wire signed [1:0] din = bit_i ? 2'sd1 : -2'sd1;"
+        _once(text, old, "sdm_unconnected_port")
+        new = "wire signed [1:0] din = 2'sd0;"
+        desc = "bit_i path tied to zero (input ignored, as if unconnected)"
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def sdtop_sizing_out_of_spec(text, variant):
+    """Move the RIN input-leg length off its 102.57 nominal; the input
+    gain shifts, the integrator DC leaves its [0.8, 1.0] V window.
+
+    Expected values are bench predictions (live needs ngspice + the
+    sky130 store, otherwise quarantined per NGSPICE-LIVE): halving
+    RIN doubles the input current (integrator driven toward the rail),
+    doubling halves it (integrator sags toward ground), and the 10.0
+    extreme rails it. The verdict mapping is pinned by canned-envelope
+    parse tests.
+    """
+    old = (
+        "X64 ota_layout_0/INM UA0 VGND "
+        "sky130_fd_pr__res_high_po_0p35 l=102.57"
+    )
+    _once(text, old, "sdtop_sizing_out_of_spec")
+    alts = [
+        (51.285, 1.35, "RIN l 102.57 -> 51.285 (gain high, integrator toward rail)"),
+        (205.14, 0.45, "RIN l 102.57 -> 205.14 (gain low, integrator sags)"),
+        (10.0, 2.8, "RIN l 102.57 -> 10.0 (extreme, integrator rails)"),
+    ]
+    rin_l, expected_int_dc, desc = alts[variant % len(alts)]
+    new = old.replace("l=102.57", f"l={rin_l}")
+    extra = {
+        "variant_desc": desc,
+        "rin_l": rin_l,
+        "expected_int_dc": expected_int_dc,
+    }
+    return text.replace(old, new), extra
+
+
+def sdtop_open_net(text, variant):
+    """Open the RIN input leg: X64 lifted from UA0.
+
+    Variant 0 renames the input net (leg floats on UA0_OPEN);
+    variant 1 comments the device (leg open). No value changes —
+    the topology break starves the integrator and its DC misses
+    [0.8, 1.0] V. Same quarantine/parse story as sizing.
+    """
+    old = (
+        "X64 ota_layout_0/INM UA0 VGND "
+        "sky130_fd_pr__res_high_po_0p35 l=102.57"
+    )
+    _once(text, old, "sdtop_open_net")
+    alts = [
+        (
+            old.replace("X64 ota_layout_0/INM UA0 VGND", "X64 ota_layout_0/INM UA0_OPEN VGND"),
+            "X64 input lifted onto UA0_OPEN (input open)",
+        ),
+        (
+            f"* {old} (MUTATE-HARNESS sdtop_open_net: device lifted)",
+            "X64 commented out (RIN leg open)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}

@@ -68,6 +68,9 @@ CSPDK_REF_GDS = (
     / "gds_ref_si340"
     / "mzi.gds"
 )
+SIGMA_RTL = ROOT / "fixtures" / "upstream" / "ttsky-sigma-delta" / "rtl"
+SIGMA_SPICE = ROOT / "fixtures" / "upstream" / "ttsky-sigma-delta" / "spice"
+SDTOP_SNAPSHOT = SIGMA_SPICE / "sd_top_pex.spice"
 MZI_DRC_RULES = {"layer": [3, 0], "width_um": 0.35, "space_um": 0.2}
 KL_RULES = {"layer": [1, 0], "width_um": 3.0, "space_um": 3.0}
 SKY130_PDK_ID = "sky130a"
@@ -238,6 +241,10 @@ def _run_live_hdl_picorv32(ctx, label, sub):
     return _run_live_hdl_vendored(ctx, label, sub, "picorv32")
 
 
+def _run_live_hdl_sdm(ctx, label, sub):
+    return _run_live_hdl_vendored(ctx, label, sub, "sdm_rx")
+
+
 def _run_live_hdl_vendored(ctx, label, sub, design):
     from rocket_engine.mutate import (
         OPERATORS,
@@ -248,8 +255,17 @@ def _run_live_hdl_vendored(ctx, label, sub, design):
 
     if shutil.which("iverilog") is None or shutil.which("vvp") is None:
         raise AssertionError(f"{label}: iverilog/vvp not on PATH")
-    upstream = {"serv": SERV_UPSTREAM, "picorv32": PICORV32_UPSTREAM}[design]
-    marker = "rtl/serv_top.v" if design == "serv" else "picorv32.v"
+    upstream = {
+        "serv": SERV_UPSTREAM,
+        "picorv32": PICORV32_UPSTREAM,
+        "sdm_rx": SIGMA_RTL,
+    }[design]
+    if design == "serv":
+        marker = "rtl/serv_top.v"
+    elif design == "picorv32":
+        marker = "picorv32.v"
+    else:
+        marker = "sdm_rx.v"
     if not (upstream / marker).is_file():
         raise AssertionError(f"{label}: {design} fixture not fetched")
     workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
@@ -328,6 +344,69 @@ def _run_live_ngspice_bandgap(ctx, label, sub):
         raise AssertionError(f"{label}: unknown mutation operator: {exc}") from exc
     except (FileNotFoundError, ValueError) as exc:
         raise AssertionError(f"{label}: cannot stage bandgap: {exc}") from exc
+    out = ctx["engine"].run(
+        {
+            "project_id": ctx["project_id"],
+            "operation": ctx["operation"],
+            "arguments": {
+                "sources": staged["sources"],
+                "workdir": staged["workdir"],
+                "timeout_s": staged["timeout_s"],
+                "params": staged["params"],
+                "options": staged["options"],
+                "analyses": staged["analyses"],
+                "corner": staged["corner"],
+                "temp_c": staged["temp_c"],
+                "measurements": staged["measurements"],
+                "pdk": {"id": entry["id"], "revision": entry["revision"]},
+                "deck": {"tool": "ngspice"},
+            },
+            "snapshot_id": ctx["ack"]["snapshot_id"],
+        }
+    )
+    ctx["verdict"] = out["verdict"]
+    return None
+
+
+def _run_live_ngspice_sdtop(ctx, label, sub):
+    from rocket_engine.mutate import (
+        OPERATORS,
+        apply_operator,
+        stage_design_extras,
+        stage_good_design,
+    )
+
+    if shutil.which("ngspice") is None:
+        raise AssertionError(
+            f"{label}: ngspice not on PATH (see docs/tickets/NGSPICE-LIVE.md)"
+        )
+    if not SDTOP_SNAPSHOT.is_file():
+        raise AssertionError(f"{label}: sd_top PEX snapshot not fetched")
+    entry = _sky130_entry(label)
+    _resolve_sky130_deck(label, NGSPICE_LIB_REL)
+    workdir = Path(tempfile.mkdtemp(prefix="scen_live_"))
+    ctx["tmpdirs"].append(workdir)
+    mutation = sub.get("mutation") or {}
+    try:
+        if mutation:
+            operator = mutation.get("operator", "")
+            entry_op = OPERATORS[operator]
+            if entry_op.get("design") != "sd_top":
+                raise AssertionError(
+                    f"{label}: operator {operator} is not an sd_top mutation"
+                )
+            apply_operator(
+                operator, workdir, mutation.get("seed", 0), SDTOP_SNAPSHOT.parent
+            )
+            staged = stage_design_extras("sd_top", workdir, ROOT)
+        else:
+            staged = stage_good_design("sd_top", workdir, ROOT)
+    except AssertionError:
+        raise
+    except KeyError as exc:
+        raise AssertionError(f"{label}: unknown mutation operator: {exc}") from exc
+    except (FileNotFoundError, ValueError) as exc:
+        raise AssertionError(f"{label}: cannot stage sd_top: {exc}") from exc
     out = ctx["engine"].run(
         {
             "project_id": ctx["project_id"],
@@ -580,8 +659,12 @@ def _run_step(ctx, num, step):
             return _run_live_hdl_serv(ctx, label, sub)
         if backend == "hdl_picorv32":
             return _run_live_hdl_picorv32(ctx, label, sub)
+        if backend == "hdl_sdm":
+            return _run_live_hdl_sdm(ctx, label, sub)
         if backend == "ngspice_bandgap":
             return _run_live_ngspice_bandgap(ctx, label, sub)
+        if backend == "ngspice_sdtop":
+            return _run_live_ngspice_sdtop(ctx, label, sub)
         if backend == "sax_mzi":
             return _run_live_sax_mzi(ctx, label, sub)
         if backend == "klayout_mzi":

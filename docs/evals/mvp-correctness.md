@@ -80,3 +80,14 @@ photonic, mixed-signal):
   kept, zero bare skips). Regression 5/5 PASS (452/53 tools,
   408/97 clean, coverage 82.51%, scenarios-gate + tree-clean
   PASS).
+- 2026-10-29 (VALIDATE-M): Mixed 3/5 live, 5/5 proven-or-live
+  (sdm_rx ID/VERSION/OSR/DC-15625/PEX-1013 + bit-exact -305/-98680
+  live tools PATH, iverilog 14.0; sd_top PEX 133-dev + 2048/0.4946
+  vector + GATE 36.0 oracles verbatim + canned-parse all PASS,
+  analog live quarantined under NGSPICE-LIVE; 7 digital + 5 analog
+  ops x seeds FAIL declared-rule-only, 3x identical (digital live,
+  analog file+canned), artifacts kept, zero bare skips; seam
+  honest-gap, no closed-loop, closure tracked under SEAM-COSIM).
+  Regression 5/5 PASS (528/52 tools, 466/114 clean, coverage
+  84.12%, scenarios-gate 18/8 tools + 10/16 clean all
+  environmental-with-ref, tree-clean PASS).

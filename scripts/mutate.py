@@ -65,7 +65,7 @@ def _tool_gate(operator):
         miss = _need("ngspice", operator)
         if miss:
             return miss
-        if entry.get("design") == "bandgap":
+        if entry.get("design") in ("bandgap", "sd_top"):
             try:
                 from rocket_engine.interfaces.pdks import list_pdks, resolve_deck
 
@@ -140,7 +140,7 @@ def _job(operator, dest, extra=None):
         }
     if op == "run_spice":
         design = entry.get("design")
-        if design == "bandgap":
+        if design in ("bandgap", "sd_top"):
             staged = stage_design_extras(design, dest, ROOT)
             return {
                 "sources": staged["sources"],
@@ -245,7 +245,7 @@ def cmd_recheck(args):
             first["id"], first["revision"], "libs.tech/netgen/sky130A_setup.tcl"
         )
         extra = {"setup_file": hit["path"]}
-    if entry.get("design") == "bandgap":
+    if entry.get("design") in ("bandgap", "sd_top"):
         from rocket_engine.interfaces.pdks import list_pdks
 
         first = sorted(

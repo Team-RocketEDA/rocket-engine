@@ -98,6 +98,24 @@ _MZI_RULES_REF = (
 )
 _MZI_TIMEOUT_S = 120
 
+# VALIDATE-M sigma-delta seam pairs: the digital wrapper sdm_rx.v
+# (fixtures/upstream/ttsky-sigma-delta/rtl) plus the committed
+# Verilog bench and the cleaned PEX bitstream vector (the one-way
+# seam handoff), and the analog macro sd_top PEX netlist
+# (fixtures/upstream/ttsky-sigma-delta/spice). Staged flat.
+_SDM_FILES = ["sdm_rx.v"]
+_SDM_BASE = "fixtures/upstream/ttsky-sigma-delta/rtl"
+_SDM_BENCH = "tests/adapters/fixtures/hdl/sdm_rx_bench.v"
+_SDM_VECTOR = "fixtures/upstream/ttsky-sigma-delta/rtl/tb/vectors/pex_bits.txt"
+_SDM_STAGED_VECTOR = "pex_bits_clean.txt"
+_SDM_TIMEOUT_S = 120
+_SDTOP_SNAPSHOT = "sd_top_pex.spice"
+_SDTOP_FILES = [_SDTOP_SNAPSHOT]
+_SDTOP_BASE = "fixtures/upstream/ttsky-sigma-delta/spice"
+# Integrator monitor UA1 DC ~0.9 V mean (docs/09b Phase 1.1).
+_SDTOP_INT_MIN = 0.8
+_SDTOP_INT_MAX = 1.0
+
 OPERATORS = {
     "digital_reset_break": {
         "domain": "digital",
@@ -296,6 +314,66 @@ OPERATORS = {
         "variants": 2,
         "doc": "Lift XR2A from VOUT; feedback cut, Vref misses.",
     },
+    "sdm_reset_break": {
+        "domain": "digital",
+        "design": "sdm_rx",
+        "operation": "run_hdl_test",
+        "target_file": "sdm_rx.v",
+        "files": list(_SDM_FILES),
+        "base": _SDM_BASE,
+        "expected_verdict": "FAIL",
+        "expected_rules": ["assert_fatal"],
+        "variants": 2,
+        "doc": "Break the sinc3-path reset (inverted or stuck); bench $fatal fires.",
+    },
+    "sdm_truncation": {
+        "domain": "digital",
+        "design": "sdm_rx",
+        "operation": "run_hdl_test",
+        "target_file": "sdm_rx.v",
+        "files": list(_SDM_FILES),
+        "base": _SDM_BASE,
+        "expected_verdict": "FAIL",
+        "expected_rules": ["assert_fatal"],
+        "variants": 3,
+        "doc": "Narrow data_fast; DC full scale never reaches 25^3.",
+    },
+    "sdm_unconnected_port": {
+        "domain": "digital",
+        "design": "sdm_rx",
+        "operation": "run_hdl_test",
+        "target_file": "sdm_rx.v",
+        "files": list(_SDM_FILES),
+        "base": _SDM_BASE,
+        "expected_verdict": "FAIL",
+        "expected_rules": ["assert_fatal"],
+        "variants": 2,
+        "doc": "Break the bitstream input path (bit_ce/bit_i as if unconnected).",
+    },
+    "sdtop_sizing_out_of_spec": {
+        "domain": "analog",
+        "design": "sd_top",
+        "operation": "run_spice",
+        "target_file": _SDTOP_SNAPSHOT,
+        "files": list(_SDTOP_FILES),
+        "base": _SDTOP_BASE,
+        "expected_verdict": "FAIL",
+        "expected_rules": ["measurement"],
+        "variants": 3,
+        "doc": "Move RIN l off 102.57; integrator DC leaves [0.8, 1.0] V.",
+    },
+    "sdtop_open_net": {
+        "domain": "analog",
+        "design": "sd_top",
+        "operation": "run_spice",
+        "target_file": _SDTOP_SNAPSHOT,
+        "files": list(_SDTOP_FILES),
+        "base": _SDTOP_BASE,
+        "expected_verdict": "FAIL",
+        "expected_rules": ["measurement"],
+        "variants": 2,
+        "doc": "Lift X64 from UA0; input open, integrator DC misses.",
+    },
 }
 
 
@@ -355,14 +433,14 @@ def apply_operator(name, dest_dir, seed, src_dir):
     return evidence
 
 
-# VALIDATE-D/A/P design staging: base files come from
+# VALIDATE-D/A/P/M design staging: base files come from
 # apply_operator / copy_base_files; the extras below (committed
-# harness or monitor, vendored firmware, watchdog, defines, the
-# bandgap run_spice job shape, or the mzi circuit+layout pair)
-# complete a runnable sim dir. Shared by tests/validate,
-# scripts/mutate.py, and scripts/scenarios.py.
+# harness or monitor or bench, vendored firmware or vector, watchdog,
+# defines, the bandgap/sd_top run_spice job shapes, or the mzi
+# circuit+layout pair) complete a runnable sim dir. Shared by
+# tests/validate, scripts/mutate.py, and scripts/scenarios.py.
 
-_DESIGNS = ("serv", "picorv32", "bandgap", "mzi")
+_DESIGNS = ("serv", "picorv32", "bandgap", "mzi", "sdm_rx", "sd_top")
 _HARNESS = "tests/adapters/fixtures/hdl/serv_harness.v"
 _MONITOR = "tests/adapters/fixtures/hdl/picorv32_monitor.v"
 _FIRMWARE = "fixtures/upstream/serv/sw/hello_uart.hex"
@@ -382,13 +460,14 @@ def stage_design_extras(design, dest_dir, root):
     Base files must already be staged (via apply_operator for a
     mutant). Digital designs return sources/defines/timeout_s/
     workdir for a run_hdl_test job (plus watchdog_units for SERV);
-    the bandgap returns sources/measurements/analyses/options/
+    the bandgap/sd_top return sources/measurements/analyses/options/
     params/corner/temp_c/timeout_s/workdir for a run_spice job
     (the PDK pin is resolved by the caller from its own store, so
     a missing store skips loudly at the call site, never here);
     the mzi returns sources/workdir/timeout_s for a run_optical
     job plus a layout sidecar (staged reference GDS + documented
-    CORNERSTONE rules) for a run_drc job.
+    CORNERSTONE rules) for a run_drc job; sdm_rx pairs the vendored
+    DUT with the committed Verilog bench + the cleaned PEX vector.
     Missing pieces raise FileNotFoundError; a drifted harness
     watchdog raises MutationError — never a silent
     unmutated-shaped run.
@@ -444,6 +523,71 @@ def stage_design_extras(design, dest_dir, root):
             "params": {"vsup": 3.3},
             "corner": "tt",
             "temp_c": 27,
+        }
+    if design == "sd_top":
+        sources = [str(dest / name) for name in _staged_names(design, dest)]
+        return {
+            "sources": sources,
+            "workdir": str(dest),
+            "timeout_s": 300,
+            "measurements": [
+                {
+                    "name": "int_dc",
+                    "expr": "v(ua1)",
+                    "unit": "V",
+                    "min": _SDTOP_INT_MIN,
+                    "max": _SDTOP_INT_MAX,
+                }
+            ],
+            "analyses": ["op"],
+            "options": ["wnflag=1"],
+            "params": {"vsup": 3.3},
+            "corner": "tt",
+            "temp_c": 27,
+        }
+    if design == "sdm_rx":
+        bench_src = root / _SDM_BENCH
+        if not bench_src.is_file():
+            raise FileNotFoundError(f"sdm_rx bench missing: {bench_src}")
+        bench_dest = dest / Path(_SDM_BENCH).name
+        shutil.copy(bench_src, bench_dest)
+        vector_src = root / _SDM_VECTOR
+        if not vector_src.is_file():
+            raise FileNotFoundError(f"sdm_rx PEX vector missing: {vector_src}")
+        lines = vector_src.read_text(encoding="utf-8").splitlines()
+        clean = [line.strip() for line in lines[1:] if line.strip() in ("0", "1")]
+        if len(clean) != 2048:
+            raise MutationError(
+                f"sdm_rx staging: PEX vector has {len(clean)} bits, want 2048."
+            )
+        (dest / _SDM_STAGED_VECTOR).write_text("\n".join(clean) + "\n", encoding="utf-8")
+        # iverilog-14 elaboration shim (behavior-preserving, no value
+        # change): the vendored sdm_rx.v declares `fast_strobe /
+        # prec_strobe` after their first use (line 172 vs 135), which
+        # the vendor's older iverilog accepted but oss-cad-suite
+        # iverilog 14.0 rejects ("declaration after use"). Move the
+        # declaration earlier in the STAGED copy only (vendored bytes
+        # stay pristine); mutants patch the same way after apply_operator.
+        dut_path = dest / "sdm_rx.v"
+        dut_text = dut_path.read_text(encoding="utf-8")
+        strobe_decl = "    reg fast_strobe, prec_strobe;\n"
+        anchor = "    reg [15:0] osr_fast, osr_prec;      // active copies, load on clear\n"
+        if dut_text.count(strobe_decl) != 1 or dut_text.count(anchor) != 1:
+            raise MutationError(
+                "sdm_rx staging: strobe-decl shim site drifted "
+                f"({dut_text.count(strobe_decl)}x decl, {dut_text.count(anchor)}x anchor)."
+            )
+        dut_text = dut_text.replace(strobe_decl, "")
+        dut_text = dut_text.replace(anchor, anchor + strobe_decl)
+        dut_path.write_text(dut_text, encoding="utf-8")
+        sources = [str(dest / name) for name in _staged_names(design, dest)]
+        sources.append(str(bench_dest))
+        return {
+            "sources": sources,
+            "defines": [],
+            "timeout_s": _SDM_TIMEOUT_S,
+            "watchdog_units": None,
+            "workdir": str(dest),
         }
     if design == "serv":
         harness_src = root / _HARNESS

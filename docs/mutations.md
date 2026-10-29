@@ -29,6 +29,11 @@ operator, seed, variant, and expected verdict/rules.
 | `analog_open_net` | analog | `tests/adapters/fixtures/ngspice/rc_divider.spice` | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
 | `bandgap_sizing_out_of_spec` | analog | `fixtures/upstream/sky130-bandgap` (output-voltage-tc snapshot) | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
 | `bandgap_open_net` | analog | `fixtures/upstream/sky130-bandgap` (output-voltage-tc snapshot) | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
+| `sdm_reset_break` | digital | `fixtures/upstream/ttsky-sigma-delta` (sdm_rx wrapper) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `sdm_truncation` | digital | `fixtures/upstream/ttsky-sigma-delta` (sdm_rx wrapper) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `sdm_unconnected_port` | digital | `fixtures/upstream/ttsky-sigma-delta` (sdm_rx wrapper) | `run_hdl_test` (icarus) | PASS | FAIL (`assert_fatal`) |
+| `sdtop_sizing_out_of_spec` | analog | `fixtures/upstream/ttsky-sigma-delta` (sd_top PEX) | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
+| `sdtop_open_net` | analog | `fixtures/upstream/ttsky-sigma-delta` (sd_top PEX) | `run_spice` (ngspice) | PASS | FAIL (`measurement`) |
 | `layout_drc_violation` | layout | `tests/adapters/fixtures/drc/good.mag` | `run_drc` (magic scmos) | PASS | FAIL (`spacing`/`width`) |
 | `netlist_lvs_mismatch` | layout | `tests/mutate/fixtures/lvs_inv/` pair | `run_lvs` (netgen) | PASS (match) | FAIL (`lvs_net_mismatch`) |
 | `photonic_geometry_mistune` | photonic | `tests/adapters/fixtures/sax/mzi.yml` | `run_optical` (sax) | PASS | FAIL (`transmission`) |
@@ -183,8 +188,49 @@ check is not vacuous. Live rechecks need `sax` for run_optical
 with recorded sax 0.18.2 oracle envelopes pinning the mapping)
 and `klayout` for run_drc.
 
-## Vendored-design follow-up (VALIDATE-M)
+## Vendored sigma-delta operators (VALIDATE-M)
 
-VALIDATE-M reuses the same operator shapes on its vendored tree
-(sigma-delta seam pairs) — same evidence shape, same
-good-PASS/mutated-FAIL runner pattern.
+The digital/analog shapes above reused on the vendored sigma-delta
+tree as seam pairs — same evidence shape, same
+good-PASS/mutated-FAIL runner pattern, rechecked in
+`tests/validate/test_mixed.py`. Staging (DUT + committed Verilog
+bench + cleaned PEX vector for sdm_rx; PEX snapshot + integrator-DC
+run_spice job shape for sd_top) is shared via
+`rocket_engine.mutate.stage_good_design` /
+`stage_design_extras`, used by the tests, `scripts/mutate.py
+recheck`, and the `hdl_sdm` / `ngspice_sdtop` scenario backends
+(the PDK pin is resolved by each caller from its own store).
+
+- `sdm_reset_break` (2 variants): the sinc3-path reset
+  `if (!aresetn || clear_pulse)` inverted (clears while running)
+  or stuck at `1'b1` (counters held at zero). Either way
+  BITS_TOTAL never reaches its documented count and the bench
+  `$fatal`s. Verified live with iverilog 14.0 + vvp.
+- `sdm_truncation` (3 variants): `data_fast` masked to 8 bits (max
+  255), 4 bits (max 15), or zero-extended from 8 bits — the DC
+  full-scale check expects 25^3 = 15625 and `$fatal`s. Verified
+  live with iverilog 14.0 + vvp.
+- `sdm_unconnected_port` (2 variants): the bitstream input path
+  broken as if its port were left open — `bit_ce` tied low (never
+  steps, BITS_TOTAL stays 0) or `din` tied to zero (input ignored,
+  DATA_FAST stays 0). Verified live with iverilog + vvp.
+- `sdtop_sizing_out_of_spec` (3 variants): the RIN input-leg length
+  `l=102.57` → 51.285 (gain high, integrator toward the rail,
+  1.35 V), 205.14 (gain low, integrator sags, 0.45 V), or 10.0
+  (extreme, integrator rails, 2.8 V) against the [0.8, 1.0] V
+  integrator-DC window (docs/09b Phase 1.1: ~0.9 V mean). Live
+  needs ngspice + the sky130 store (quarantined per NGSPICE-LIVE);
+  the verdict mapping is pinned by canned-envelope parse tests.
+- `sdtop_open_net` (2 variants): X64 lifted from `UA0` onto
+  `UA0_OPEN` (input open) or commented out (RIN leg open). The
+  topology break starves the integrator and its DC misses [0.8,
+  1.0] V with rule `measurement`. Same quarantine/parse story as
+  sizing.
+
+Staging note: sdm_rx staging applies a behavior-preserving
+iverilog-14 elaboration shim to the STAGED copy only (moves one
+`fast_strobe/prec_strobe` declaration earlier; the vendored file's
+forward ref is rejected by oss-cad-suite iverilog 14.0 but was
+accepted by the vendor's older iverilog). Vendored bytes stay
+pristine; removing the moved line from staged and vendored yields
+identical bytes (asserted in test_mixed.py).
