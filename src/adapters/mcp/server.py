@@ -113,7 +113,26 @@ def _error(code, message):
     )
 
 
-def make_handlers(engine_factory, project_scope=None):
+def _confine_files(arguments, project_dir):
+    """Resolve run_spice sources inside the project and give ngspice a workdir under results/."""
+    root = Path(project_dir).resolve()
+    sources = arguments.get("sources")
+    if isinstance(sources, list):
+        resolved = []
+        for source in sources:
+            path = (root / str(source)).resolve()
+            if not path.is_relative_to(root):
+                raise AdapterError("invalid_reference", f"Source outside the project: {source}.")
+            resolved.append(str(path))
+        arguments["sources"] = resolved
+    if "workdir" in arguments:
+        raise AdapterError("invalid_command", "workdir is chosen by the engine, not the caller.")
+    workdir = root / "results" / "engine-runs"
+    workdir.mkdir(parents=True, exist_ok=True)
+    arguments["workdir"] = str(workdir)
+
+
+def make_handlers(engine_factory, project_scope=None, project_dir=None):
     engines = {}
 
     def _engine_for(project_id):
@@ -139,6 +158,8 @@ def make_handlers(engine_factory, project_scope=None):
                     and "expected_revision" not in arguments
                     and hasattr(engine, "snapshot")):
                 arguments["expected_revision"] = engine.snapshot()["current_revision"]
+            if project_dir is not None and params.name == "run_spice":
+                _confine_files(arguments, project_dir)
             result = transport.handle(json.dumps({
                 "method": "tools/call",
                 "params": {"name": params.name, "arguments": arguments},
@@ -155,9 +176,9 @@ def make_handlers(engine_factory, project_scope=None):
     return _list_tools, _call_tool
 
 
-def build_server(engine_factory, project_scope=None):
+def build_server(engine_factory, project_scope=None, project_dir=None):
     list_handler, call_handler = make_handlers(engine_factory,
-                                               project_scope)
+                                               project_scope, project_dir)
     return Server("rocket-engine",
                   on_list_tools=list_handler,
                   on_call_tool=call_handler)
@@ -189,6 +210,7 @@ def main(argv=None):
     server = build_server(
         lambda pid: Engine(pid, actor="mcp", constraints=constraints),
         project_scope=args.project,
+        project_dir=args.project_dir,
     )
 
     async def _run():
