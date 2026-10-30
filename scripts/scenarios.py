@@ -113,7 +113,12 @@ _TOOL_HINTS = {
 }
 
 
-def _startup_line(tool):
+def _startup_line(tool, cause="absent"):
+    if cause == "impostor":
+        return (
+            f"startup: missing_dependency: {tool} on PATH is not the "
+            "LVS netgen (see docs/tickets/NGSPICE-LIVE.md)"
+        )
     line = (
         f"startup: missing_dependency: {tool} not on PATH "
         "(scenario gate needs dev-PATH with oss-cad-suite; "
@@ -599,19 +604,10 @@ def _run_live_klayout_mzi(ctx, label, sub):
 
 
 def _run_live_lvs_sky130(ctx, label, sub):
-    from rocket_engine.adapters.lvs_netgen import flatten_spice, resolve_netgen
+    # Tool checks live in the startup preflight (single mechanism)
+    # plus the adapter port — not here.
+    from rocket_engine.adapters.lvs_netgen import flatten_spice
 
-    if shutil.which("magic") is None:
-        raise AssertionError(f"{label}: magic not on PATH (B10-owned tooling)")
-    if shutil.which("netgen") is None:
-        raise AssertionError(
-            f"{label}: netgen not on PATH (see docs/tickets/NGSPICE-LIVE.md)"
-        )
-    if resolve_netgen() is None:
-        raise AssertionError(
-            f"{label}: netgen on PATH is not the LVS netgen "
-            "(see docs/tickets/NGSPICE-LIVE.md)"
-        )
     cell = sub.get("cell")
     if not cell:
         raise AssertionError(f"{label}: lvs run_live needs cell")
@@ -794,8 +790,20 @@ def required_path_tools(doc):
 
 
 def preflight_path_tools(doc):
-    """PATH binaries a scenario doc needs but cannot find ([] when ok)."""
-    return [t for t in required_path_tools(doc) if shutil.which(t) is None]
+    """{tool: cause} for needed PATH binaries that are missing or wrong.
+
+    netgen goes through the LVS identity probe, not bare PATH
+    presence: the Schoeberl mesher shares the name.
+    """
+    from rocket_engine.adapters.lvs_netgen import resolve_netgen
+
+    missing = {}
+    for tool in required_path_tools(doc):
+        if shutil.which(tool) is None:
+            missing[tool] = "absent"
+        elif tool == "netgen" and resolve_netgen() is None:
+            missing[tool] = "impostor"
+    return missing
 
 
 def run_scenario(path):
@@ -805,7 +813,9 @@ def run_scenario(path):
         return {
             "name": doc.get("name", Path(path).name),
             "passed": False,
-            "failures": [_startup_line(tool) for tool in missing],
+            "failures": [
+                _startup_line(tool, cause) for tool, cause in missing.items()
+            ],
         }
     engine = doc.get("engine", {})
     project_id = engine.get("project_id", "demo")
