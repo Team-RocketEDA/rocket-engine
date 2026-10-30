@@ -30,7 +30,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
-- [MEOW-LIVE] EME smoke + tidy3d-locality verdict
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -76,3 +75,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-DISPLAY] Preserve canonical PDK display id in store records
 - [SAX-LIVE] Prove run_optical live with SAX
 - [CIRCULAX-LIVE] Time-domain smoke proof
+- [MEOW-LIVE] EME smoke + tidy3d-locality verdict
