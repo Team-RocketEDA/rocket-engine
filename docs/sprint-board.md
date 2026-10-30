@@ -27,6 +27,15 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [REWIND] Restorable project snapshots
 - [FUEL-CONTRACT] Pin fuel mcp-stub to the engine contract
 - [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
+- [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
+- [PDK-GF180] GF180MCU support (second CMOS node)
+- [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
+- [PDK-UBC] SiEPIC EBeam UBC support
+- [PDK-LXT] Luxelligence GF support (TFLN + gated DRC deck)
+- [PDK-SKY130GF] SkyWater pip distribution (decision + profile)
+- [PDK-VTT] VTT 3um SOI support (verify upstream first)
+- [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
+- [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
 
 
