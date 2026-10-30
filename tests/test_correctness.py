@@ -101,6 +101,38 @@ def test_gate_quarantine_exit_code_is_one(tmp_path):
     assert code == 1
 
 
+def test_gate_photonic_circuit_cases_live_or_loud(tmp_path):
+    # SAX-LIVE acceptance: photonic circuit cases execute live
+    # (not skipped, not quarantined) with 0 failures where sax +
+    # the cspdk fixture exist; quarantined LOUDLY (reason + ref)
+    # where sax is absent. Never silently skipped either way.
+    mod = load_gate()
+    marker = (
+        ROOT / "fixtures" / "upstream" / "cspdk"
+        / "tests" / "gds_ref_si340" / "mzi.gds"
+    )
+    if not marker.is_file():
+        pytest.skip(
+            "SAX-LIVE gate: cspdk fixture not fetched "
+            "(scripts/fetch_fixtures.py --only cspdk)"
+        )
+    report = mod.run_gate(ROOT, tmp_path / "correctness", flow="photonic")
+    optical = [
+        case for case in report["flows"]["photonic"]["cases"]
+        if "optical" in case["case"]
+    ]
+    assert optical, "photonic flow must enumerate optical cases"
+    if importlib.util.find_spec("sax") is None:
+        assert all(c["status"] == "quarantined" for c in optical), optical
+        for case in optical:
+            assert "sax not installed" in case["reason"], case
+            assert case["ref"].strip(), case
+    else:
+        assert all(c["status"] == "pass" for c in optical), json.dumps(
+            report, indent=2)[:2000]
+        assert report["totals"]["cases_fail"] == 0
+
+
 @needs_icarus
 def test_gate_digital_picorv32_good_passes_tools_path(tmp_path):
     # The one flow provable HERE: picorv32 good through the engine

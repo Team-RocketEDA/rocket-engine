@@ -302,6 +302,29 @@ def test_sax_proves_labels_against_real_sax():
     assert mistuned[("in0", "out1")] == pytest.approx(0.33972, abs=0.002)
 
 
+@needs_sax
+def test_sax_live_reports_proven_solver_version(tmp_path):
+    # SAX-LIVE: the proven solver version is observable per run,
+    # not prose — the live envelope must name sax 0.18.2 (uv.lock).
+    import sax
+
+    from rocket_engine.adapters.sax import SaxAdapter
+
+    assert sax.__version__ == "0.18.2"
+    adapter = SaxAdapter()
+    result = adapter.parse(adapter.execute(_job(["mzi.yml"], tmp_path)))
+    assert result["sax_version"] == "0.18.2"
+
+
+def test_sax_parse_threads_solver_version_from_envelope():
+    # SAX-LIVE: parse carries the driver's sax_version into the
+    # result shape (canned envelope, no binary needed).
+    from rocket_engine.adapters.sax import SaxAdapter  # RED: missing adapter
+
+    result = SaxAdapter().parse(_mzi_native())
+    assert result["sax_version"] == "0.18.2-canned"
+
+
 def test_sax_parse_evaluates_targets_from_canned_envelope():
     from rocket_engine.adapters.sax import SaxAdapter  # RED: missing adapter
 
