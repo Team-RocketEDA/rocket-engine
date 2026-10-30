@@ -18,11 +18,11 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 PROJECT = "analog_demo"
 
 
-def _build_server(engine):
+def _load():
     # RED: module missing.
-    from rocket_engine.adapters.mcp.server import build_server
+    import importlib
 
-    return build_server(lambda project_id: engine)
+    return importlib.import_module("rocket_engine.adapters.mcp.server")
 
 
 def _fake_engine():
@@ -38,21 +38,32 @@ def _fake_engine():
     return FakeEngine()
 
 
+def _call_params(name, arguments):
+    from mcp.types import CallToolRequestParams
+
+    return CallToolRequestParams(name=name, arguments=arguments)
+
+
+def _text(result):
+    return result.content[0].text
+
+
 def test_server_lists_every_cataloged_operation_and_query():
     from rocket_engine.interfaces.vocabulary import OPERATIONS, QUERIES
 
-    server = _build_server(_fake_engine())
-    tools = asyncio.run(server.list_tools())
+    module = _load()
+    tools = module.tool_definitions()
     names = {tool.name for tool in tools}
     assert set(OPERATIONS) <= names
     assert set(QUERIES) <= names
 
 
 def test_server_call_routes_envelope_to_engine():
+    module = _load()
     engine = _fake_engine()
-    server = _build_server(engine)
-    asyncio.run(server.call_tool(
-        "run_drc",
+    _, call = module.make_handlers(lambda project_id: engine)
+    result = asyncio.run(_call(
+        call, "run_drc",
         {"project_id": PROJECT, "expected_revision": "p12"},
     ))
     assert len(engine.submitted) == 1
@@ -61,22 +72,29 @@ def test_server_call_routes_envelope_to_engine():
     assert command["operation"] == "run_drc"
     assert command["arguments"]["expected_revision"] == "p12"
     assert command["request_id"]
+    assert json.loads(_text(result))["state"] == "queued"
+
+
+def _call(handler, name, arguments):
+    return handler(None, _call_params(name, arguments))
 
 
 def test_server_rejects_unknown_tool_without_routing():
+    module = _load()
     engine = _fake_engine()
-    server = _build_server(engine)
-    result = asyncio.run(server.call_tool("rm_rf", {"project_id": PROJECT}))
+    _, call = module.make_handlers(lambda project_id: engine)
+    result = asyncio.run(_call(call, "rm_rf", {"project_id": PROJECT}))
     assert engine.submitted == []
-    assert "unsupported" in json.dumps(result).lower()
+    assert "unsupported" in _text(result).lower()
 
 
 def test_server_rejects_missing_project_id():
+    module = _load()
     engine = _fake_engine()
-    server = _build_server(engine)
-    result = asyncio.run(server.call_tool("run_drc", {}))
+    _, call = module.make_handlers(lambda project_id: engine)
+    result = asyncio.run(_call(call, "run_drc", {}))
     assert engine.submitted == []
-    assert "project_id" in json.dumps(result).lower()
+    assert "project_id" in _text(result).lower()
 
 
 def test_stdio_smoke_initialize_list_call():
