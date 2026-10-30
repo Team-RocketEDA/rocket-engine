@@ -11,8 +11,14 @@ to the durable ledger (LEDGER-DURABLE/I30), and every run appends its
 completion with a verdict link. Only wired queries read state, the
 rest honestly report unwired.
 Two-phase execution: `submit(op)` admits and returns an ack, then
-`run_job(request_id)` executes the admitted command — over `run()`
-directly or over submit-only transports via `submit(run_job)`.
+`run_job` executes the admitted command — over `run()` directly or
+over submit-only transports via `submit(run_job)`. The ack run_id is
+the execution id: `get_job_status` reports queued after submit and the
+verdict after `run_job`; nothing runs implicitly (no auto-drain).
+With `constraints` (metric -> {min, max, unit[, expr, control]}),
+run_spice targets come from the project, never the caller:
+caller-supplied min/max — or a caller expr where the project defines
+one — is refused.
 `run()` executes registered solvers synchronously. Each operation
 maps to named solvers; `deck.tool` selects one, defaulting to the
 first registered (run_drc: magic, then klayout; run_optical: sax;
@@ -36,6 +42,7 @@ from .adapters.lvs_netgen import NetgenLvsAdapter
 from .adapters.ngspice import NgspiceAdapter
 from .adapters.sax import SaxAdapter
 from .adapters.syntax import SyntaxAdapter
+from .execution.errors import ExecutionError
 from .execution.service import ExecutionService
 from .interfaces.vocabulary import OPERATIONS, QUERIES
 from .library.catalog import Catalog
@@ -51,6 +58,14 @@ _WIRED_QUERIES = frozenset(
         "read_doc",
     }
 )
+
+# Job-result queries served from execution state (plus the captured run log).
+_JOB_QUERIES = frozenset(
+    {"get_job_status", "get_check_results", "get_logs", "list_job_kinds"}
+)
+
+# A get_logs page never dumps more than this many lines at once.
+_LOG_PAGE_MAX = 200
 
 # CRUD mutations execute immediately inside submit() (run_job
 # precedent): revision gate + idempotency + event logging, no queue,
@@ -86,9 +101,14 @@ class Engine:
         engine_root: Engine root for ledger durability; the log
             persists under `projects/<project_id>/` beneath it.
             None keeps the in-memory ledger.
+        constraints: Optional run_spice metric targets
+            ({metric: {min, max, unit[, expr, control]}}); caller
+            targets are refused, unknown metrics fail loudly.
     """
 
-    def __init__(self, project_id, actor, catalog_root=".", engine_root=None):
+    def __init__(
+        self, project_id, actor, catalog_root=".", engine_root=None, constraints=None
+    ):
         self._project_id = project_id
         self._actor = actor
         self._project = ProjectService(project_id, actor, engine_root=engine_root)
@@ -104,6 +124,10 @@ class Engine:
             "run_syntax": {"slang": SyntaxAdapter()},
         }
         self._yaml = YAML(typ="safe")
+        self._constraints = dict(constraints) if constraints is not None else None
+        self._logs = {}
+        self._latest = {}
+        self._run_jobs = {}
 
     def snapshot(self):
         """Read the current project snapshot.
@@ -151,13 +175,16 @@ class Engine:
             mutation mapping (new revision + events + approval-UI
             fields) for CRUD operations, the snapshot for the
             wired get_project_snapshot query, the event page for
-            get_events_since, or the project/document listing for
-            the CRUD queries.
+            get_events_since, the project/document listing for
+            the CRUD queries, the status/checks/logs/kinds for the
+            job-result queries, or the completed mapping for
+            run_job.
 
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unwired or
-                unknown name, revision_conflict for a stale
+                unknown name, invalid_command for caller-supplied
+                run_spice targets, revision_conflict for a stale
                 expected_revision, invalid_command for a malformed
                 get_events_since cursor or a malformed mutation,
                 resync_required when a get_events_since contiguity
@@ -180,6 +207,7 @@ class Engine:
             )
         name = command.get("operation")
         arguments = dict(command.get("arguments") or {})
+        arguments = self._apply_targets(name, arguments)
         if name == "get_events_since":
             return self._query_events_since(arguments)
         if name == "list_projects":
@@ -192,6 +220,8 @@ class Engine:
                     "invalid_command", "read_doc needs a path argument."
                 )
             return self._project.read_doc(arguments["path"])
+        if name in _JOB_QUERIES:
+            return self._query_job(name, arguments)
         if name in _WIRED_QUERIES:
             return self._project.snapshot()
         if name in QUERIES or name not in OPERATIONS:
@@ -211,11 +241,32 @@ class Engine:
         buf = io.StringIO()
         self._yaml.dump({"operation": name, "arguments": arguments}, buf)
         request_id = command.get("request_id") or uuid.uuid4().hex
-        return self._project.submit(
+        ack = self._project.submit(
             buf.getvalue(),
             str(request_id),
             expected_revision=arguments.get("expected_revision"),
         )
+        # The ack run_id is the execution id: register its queued
+        # record now so get_job_status can poll it — and run_job can
+        # execute it — under the one id. A replay returns the same
+        # ack; its record already exists, so register it only once.
+        if not self._execution.known(ack["run_id"]):
+            self._execution.dispatch(
+                name,
+                {"cell": arguments.get("cell")},
+                ack["snapshot_id"],
+                run_id=ack["run_id"],
+            )
+        self._run_jobs.setdefault(
+            ack["run_id"],
+            {
+                "operation": name,
+                "arguments": arguments,
+                "snapshot_id": ack["snapshot_id"],
+                "request_id": str(request_id),
+            },
+        )
+        return ack
 
     def _query_events_since(self, arguments):
         """Serve the wired get_events_since query (cursor + resync)."""
@@ -293,6 +344,144 @@ class Engine:
             expected_revision=arguments.get("expected_revision"),
         )
 
+    def _select_solver(self, name, arguments):
+        solvers = self._solvers.get(name) or {}
+        if not solvers:
+            raise ProjectError(
+                "unsupported_operation", f"No solver registered: {name}."
+            )
+        hint = (arguments.get("deck") or {}).get("tool")
+        if hint is None:
+            return next(iter(solvers.values()))
+        try:
+            return solvers[hint]
+        except KeyError:
+            raise ProjectError(
+                "unsupported_operation",
+                f"No {name} solver for deck tool: {hint}.",
+            ) from None
+
+    def _apply_targets(self, name, arguments):
+        if name != "run_spice" or self._constraints is None:
+            return arguments
+        measurements = arguments.get("measurements")
+        if not isinstance(measurements, list):
+            return arguments  # the adapter's preflight reports the shape error
+        filled = []
+        control = []
+        for item in measurements:
+            if not isinstance(item, dict):
+                filled.append(item)
+                continue
+            metric = item.get("name")
+            if "min" in item or "max" in item:
+                raise ProjectError(
+                    "invalid_command",
+                    "Targets come from the project's constraints, not the call: "
+                    f"remove min/max from {metric!r}.",
+                )
+            target = self._constraints.get(metric)
+            if target is None:
+                raise ProjectError(
+                    "invalid_command",
+                    f"No target for {metric!r} in the project's constraints; "
+                    f"constrained metrics: {sorted(self._constraints)}.",
+                )
+            bounds = {key: target[key] for key in ("min", "max") if target.get(key) is not None}
+            unit = item.get("unit") or target.get("unit", "")
+            item = {**item, **bounds, "unit": unit}
+            # How a metric is measured is part of the target: a caller formula could read anything.
+            if target.get("expr") is not None:
+                if item.get("expr") not in (None, "", target["expr"]):
+                    raise ProjectError(
+                        "invalid_command",
+                        f"How {metric!r} is measured comes from the project's constraints; "
+                        "omit expr.",
+                    )
+                item["expr"] = target["expr"]
+                for line in target.get("control") or []:
+                    if line not in control:
+                        control.append(line)
+            filled.append(item)
+        updated = {**arguments, "measurements": filled}
+        if control:
+            updated["analyses"] = list(arguments.get("analyses") or []) + control
+        return updated
+
+    def _query_job(self, name, arguments):
+        if name == "get_job_status":
+            return self._execution.status(arguments.get("run_id"))
+        if name == "get_check_results":
+            wanted = arguments.get("operation")
+            checks = {}
+            for operation, run_id in self._latest.items():
+                if wanted and operation != wanted:
+                    continue
+                status = self._execution.status(run_id)
+                verdict = status.get("verdict") or {}
+                checks[operation] = {
+                    "run_id": run_id,
+                    "state": status["state"],
+                    "status": verdict.get("status"),
+                    "verdict": verdict,
+                }
+            return {
+                "checks": checks,
+                "current_revision": self._project.snapshot()["current_revision"],
+            }
+        if name == "get_logs":
+            return self._logs_page(arguments)
+        if name == "list_job_kinds":
+            return {
+                "job_kinds": [
+                    {"operation": operation, "tools": list(solvers)}
+                    for operation, solvers in sorted(self._solvers.items())
+                ]
+            }
+        raise ProjectError("unsupported_operation", f"Operation not wired yet: {name}.")
+
+    def _logs_page(self, arguments):
+        run_id = arguments.get("run_id")
+        self._execution.status(run_id)  # unknown runs raise unknown_run
+        lines = self._logs.get(run_id, "").splitlines()
+        numbered = [(index + 1, line) for index, line in enumerate(lines)]
+        query = arguments.get("query")
+        if query:
+            numbered = [(n, line) for n, line in numbered if query.lower() in line.lower()]
+        try:
+            offset = max(0, int(arguments.get("offset", 0)))
+        except (TypeError, ValueError):
+            raise ProjectError(
+                "invalid_command",
+                f"get_logs offset must be an int, got {arguments.get('offset')!r}.",
+            ) from None
+        try:
+            limit = max(1, min(int(arguments.get("limit", 40)), _LOG_PAGE_MAX))
+        except (TypeError, ValueError):
+            raise ProjectError(
+                "invalid_command", f"get_logs limit must be an int, got {arguments.get('limit')!r}."
+            ) from None
+        page = numbered[offset : offset + limit]
+        return {
+            "run_id": run_id,
+            "total_lines": len(lines),
+            "matched": len(numbered),
+            "offset": offset,
+            "lines": [f"{n}: {line}" for n, line in page],
+            "more": offset + limit < len(numbered),
+        }
+
+    def log_text(self, run_id):
+        """Return the captured native log for a run.
+
+        Args:
+            run_id: Run whose native log to read.
+
+        Returns:
+            Captured log text, or "" when the run logged nothing.
+        """
+        return self._logs.get(run_id, "")
+
     def register_solver(self, operation, adapter, tool=None):
         """Register a solver adapter under an operation name.
 
@@ -326,23 +515,48 @@ class Engine:
     def _run_queued(self, command):
         """Execute an admitted request by id (phase 2 of submit-then-run)."""
         arguments = dict(command.get("arguments") or {})
-        request_id = arguments.get("request_id")
-        if request_id is None:
+        run_id = arguments.get("run_id")
+        if run_id is not None:
+            try:
+                pending = self._run_jobs[run_id]
+            except KeyError:
+                raise ProjectError(
+                    "unknown_request", f"No queued request: {run_id}."
+                ) from None
+            stored_operation = pending["operation"]
+            run_arguments = dict(pending["arguments"])
+            snapshot_id = pending["snapshot_id"]
+            request_id = pending["request_id"]
+        else:
+            request_id = arguments.get("request_id")
+            if request_id is None:
+                raise ProjectError(
+                    "invalid_command", "run_job needs a run_id or request_id argument."
+                )
+            stored, ack = self._project.command_for(request_id)
+            stored_operation = stored.get("operation")
+            run_arguments = dict(stored.get("arguments") or {})
+            snapshot_id = ack.get("snapshot_id", "")
+            request_id = str(request_id)
+            run_id = ack.get("run_id")
+        if not self._solvers.get(stored_operation):
             raise ProjectError(
-                "invalid_command", "run_job needs a request_id argument."
+                "unsupported_operation", f"No solver registered: {stored_operation}."
             )
-        stored, ack = self._project.command_for(request_id)
-        run_arguments = dict(stored.get("arguments") or {})
         # Submit-time admission data stays out of the solver job.
+        # Targets were already filled at submit time; never re-fill
+        # here (filled min/max would read as caller targets).
         run_arguments.pop("expected_revision", None)
         return self._run_operation(
-            stored.get("operation"),
+            stored_operation,
             run_arguments,
-            ack.get("snapshot_id", ""),
+            snapshot_id,
             request_id,
+            run_id=run_id,
+            contain=True,
         )
 
-    def _run_operation(self, name, arguments, snapshot_id, request_id):
+    def _run_operation(self, name, arguments, snapshot_id, request_id, run_id=None, contain=False):
         """Select the solver, run it, judge the verdict, log completion."""
         solvers = self._solvers.get(name) or {}
         if not solvers:
@@ -350,27 +564,13 @@ class Engine:
                 "unsupported_operation", f"No solver registered: {name}."
             )
         arguments = dict(arguments)
-        hint = (arguments.get("deck") or {}).get("tool")
-        if hint is None:
-            adapter = next(iter(solvers.values()))
-        else:
-            try:
-                adapter = solvers[hint]
-            except KeyError:
-                raise ProjectError(
-                    "unsupported_operation",
-                    f"No {name} solver for deck tool: {hint}.",
-                ) from None
-        issued = self._execution.dispatch(
-            name, {"cell": arguments.get("cell")}, snapshot_id
-        )
-        run_id = issued["run_id"]
-        self._execution.mark_running(run_id)
         try:
-            adapter.preflight({"operation": name, **arguments})
-            native = adapter.execute({"operation": name, **arguments})
-            result = adapter.parse(native)
-        except AdapterError as exc:
+            adapter = self._select_solver(name, arguments)
+        except ProjectError as exc:
+            if not contain:
+                raise
+            self._latest[name] = run_id
+            self._logs[run_id] = f"{exc.code}: {exc}"
             verdict = self._execution.record_not_run(run_id, f"{exc.code}: {exc}")
             self._project.append_run_event(
                 "run_failed", run_id, name, verdict, request_id
@@ -381,6 +581,51 @@ class Engine:
                 "verdict": verdict,
                 "operation": name,
             }
+        if run_id is None:
+            issued = self._execution.dispatch(
+                name, {"cell": arguments.get("cell")}, snapshot_id
+            )
+            run_id = issued["run_id"]
+        else:
+            # Reuses the submit-time record: unknown ids fail as unknown_run.
+            self._execution.status(run_id)
+        self._execution.mark_running(run_id)
+        self._latest[name] = run_id
+        try:
+            adapter.preflight({"operation": name, **arguments})
+            native = adapter.execute({"operation": name, **arguments})
+            result = adapter.parse(native)
+        except AdapterError as exc:
+            self._logs[run_id] = f"{exc.code}: {exc}"
+            verdict = self._execution.record_not_run(run_id, f"{exc.code}: {exc}")
+            self._project.append_run_event(
+                "run_failed", run_id, name, verdict, request_id
+            )
+            return {
+                "run_id": run_id,
+                "state": "completed",
+                "verdict": verdict,
+                "operation": name,
+            }
+        except Exception as exc:
+            # A solver bug in a queued job is NOT_RUN with a reason,
+            # never a crash and never a verdict. Direct runs re-raise.
+            if not contain:
+                raise
+            self._logs[run_id] = f"internal_error: {exc!r}"
+            verdict = self._execution.record_not_run(run_id, f"internal_error: {exc}")
+            self._project.append_run_event(
+                "run_failed", run_id, name, verdict, request_id
+            )
+            return {
+                "run_id": run_id,
+                "state": "completed",
+                "verdict": verdict,
+                "operation": name,
+            }
+        self._logs[run_id] = native.get("log") or "\n".join(
+            part for part in (native.get("stdout"), native.get("stderr")) if part
+        )
         # Solver convention (see ToolAdapter.parse): violations carry
         # rule/severity/message plus flat location keys, nested here.
         findings = []
@@ -402,6 +647,10 @@ class Engine:
         verdict = self._execution.evaluate(
             run_id, native.get("exit_code", 0), buf.getvalue()
         )
+        # Keep measured values on PASS too: a verdict without numbers can't be reviewed.
+        if result.get("measurements") is not None:
+            verdict = dict(verdict, measurements=result["measurements"])
+            self._execution.mark_completed(run_id, verdict)
         if (verdict or {}).get("status") == "NOT_RUN":
             outcome = "run_failed"
         else:
@@ -429,7 +678,8 @@ class Engine:
 
         Returns:
             Completion mapping with run_id, state, verdict, and
-            operation. Adapter failures become not_run verdicts,
+            operation. Measured values ride on the verdict (PASS
+            included), never only on failure. Adapter failures become not_run verdicts,
             never exceptions. Every judged run appends
             run_completed (PASS/FAIL) or run_failed (NOT_RUN) to
             the ledger with the engine's actor and the verdict.
@@ -440,7 +690,8 @@ class Engine:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unregistered
                 operation or unknown deck tool, invalid_command
-                when run_job lacks a request_id argument or a CRUD
+                when run_job lacks a run_id/request_id argument, for
+                caller-supplied run_spice targets, or when a CRUD
                 mutation is malformed, revision_conflict for a
                 stale CRUD expected_revision, unknown_document for
                 a missing CRUD document.
@@ -460,9 +711,10 @@ class Engine:
             return self._run_queued(command)
         if name in _CRUD_OPERATIONS:
             return self.submit(command)
+        arguments = self._apply_targets(name, dict(command.get("arguments") or {}))
         return self._run_operation(
             name,
-            dict(command.get("arguments") or {}),
+            arguments,
             command.get("snapshot_id", ""),
             None,
         )
