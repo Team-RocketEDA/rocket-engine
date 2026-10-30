@@ -111,7 +111,7 @@ def test_help_text_matches_reference_section():
     help_texts = api_spec.build_help()
     for name in (
         "run_drc", "run_spice", "read_doc", "get_project_snapshot",
-        "write_doc", "run_job",
+        "write_doc", "run_job", "get_capabilities",
     ):
         assert name in _wired_names(), name
         assert help_texts[name]["text"] == _reference_section(reference, name)
@@ -132,6 +132,9 @@ def test_help_summary_comes_from_handler_docstring():
     assert help_texts["run_job"]["summary"] == _handler_summary(
         "rocket_engine.composition", "Engine._run_queued"
     )
+    assert help_texts["get_capabilities"]["summary"] == _handler_summary(
+        "rocket_engine.composition", "Engine.capabilities"
+    )
 
 
 def test_mcp_description_matches_docs_summary():
@@ -143,6 +146,7 @@ def test_mcp_description_matches_docs_summary():
     for name in (
         "run_drc", "run_spice", "read_doc", "get_project_snapshot",
         "write_doc", "run_job", "run_formal", "api_search",
+        "get_capabilities",
     ):
         assert by_name[name] == help_texts[name]["summary"], name
 

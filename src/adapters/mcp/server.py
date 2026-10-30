@@ -57,7 +57,8 @@ def describe_tool(name):
 
     Wired solver operations read the primary adapter's class
     summary; CRUD operations and wired queries read their
-    ProjectService method summary; run_job reads the phase-2
+    ProjectService method summary; Engine-served queries read
+    their Engine method summary; run_job reads the phase-2
     runner summary; unwired names honestly say so. The generated
     reference reads the same docstrings, so docs and agent help
     cannot drift apart.
@@ -68,7 +69,7 @@ def describe_tool(name):
     Returns:
         Tool description text for the name.
     """
-    from ...composition import QUERY_METHODS, Engine
+    from ...composition import QUERY_ENGINE_METHODS, QUERY_METHODS, Engine
     from ...project.service import ProjectService
 
     solvers = _help_engine().solvers_for(name)
@@ -83,6 +84,9 @@ def describe_tool(name):
     method = QUERY_METHODS.get(name)
     if method is not None:
         return _summary_of(getattr(ProjectService, method))
+    emethod = QUERY_ENGINE_METHODS.get(name)
+    if emethod is not None:
+        return _summary_of(getattr(Engine, emethod))
     kind = "operation" if name in OPERATIONS else "query"
     return f"Declared {kind} `{name}`; no handler wired yet."
 

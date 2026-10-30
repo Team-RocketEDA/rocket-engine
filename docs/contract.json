@@ -901,15 +901,25 @@
       "wired": false
     },
     "get_capabilities": {
-      "description": "Declared query `get_capabilities`; no handler wired yet.",
-      "handlers": [],
+      "description": "Report per-solver availability, store state, and the provision menu.",
+      "handlers": [
+        "rocket_engine.composition.Engine.capabilities"
+      ],
       "kind": "query",
       "name": "get_capabilities",
-      "properties": {},
+      "properties": {
+        "engine_root": {
+          "description": "Explicit store root; ROCKETEDA_HOME resolution when omitted."
+        },
+        "target": {
+          "description": "Target passed to each adapter's capabilities()."
+        }
+      },
+      "raises": "SetupError: unknown_solver when a registered (operation, tool) has no detection spec \u2014 the report fails instead of misreporting a solver it cannot probe.",
       "required": [],
-      "returns": "",
+      "returns": "Capability mapping with operations, store, pdks, decks, cloud, and catalogue sections.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "get_check_results": {
       "description": "Declared query `get_check_results`; no handler wired yet.",
@@ -1076,7 +1086,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "2b9bc4068222562b1cdd2589a99a331ba83a6746f39c997d9b8477515a1257e4",
+  "schema_sha256": "05ff36c5972af808f4a9bcf37ce3c6381294d8338256de317de106fa92f7e6cc",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

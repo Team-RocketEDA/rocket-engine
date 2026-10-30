@@ -43,9 +43,9 @@
   },
   "get_capabilities": {
     "kind": "query",
-    "summary": "Declared query `get_capabilities`; no handler wired yet.",
-    "text": "Declared query `get_capabilities`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Report per-solver availability, store state, and the provision menu.",
+    "text": "Report per-solver availability, store state, and the provision menu.\n\nHandler: `rocket_engine.composition.Engine.capabilities`.\n\nThe engine side of the Vivado-style setup surface: every\ncataloged operation with readiness (ready when some\nregistered tool resolves, or when the Engine serves the\noperation directly; blocked with reason + missing items\n+ remedy when no tool resolves; unsupported when no\nsolver is registered), each tool's availability from its\nown detection probe plus its adapter capabilities(),\nPDK/deck install state from the store, BYOC-gated cloud\nrows, and the checkbox provision catalogue with live\ninstall state.\n\nArguments:\n\n- `target`: Target passed to each adapter's capabilities().\n- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.\n\nReturns:\n\nCapability mapping with operations, store, pdks, decks, cloud, and catalogue sections.\n\nRaises:\n\nSetupError: unknown_solver when a registered (operation, tool) has no detection spec \u2014 the report fails instead of misreporting a solver it cannot probe.\n\nCaution: Read-only: never creates the store skeleton and never attempts network \u2014 cloud rows report gated with key_state missing until CLOUD-AUTH supplies keys plus an explicit opt-in (F12/I32 BYOC).\n",
+    "wired": true
   },
   "get_check_results": {
     "kind": "query",

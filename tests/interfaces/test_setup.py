@@ -166,12 +166,17 @@ def test_fresh_machine_names_every_missing_tool_with_remedy(tmp_path, monkeypatc
 
     report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
 
+    from rocket_engine.composition import _CRUD_OPERATIONS
     from rocket_engine.interfaces.vocabulary import OPERATIONS
 
+    served = set(_CRUD_OPERATIONS) | {"run_job"}
     assert sorted(report["operations"]) == sorted(OPERATIONS)
     for op, detail in report["operations"].items():
         solvers = engine.solvers_for(op)
         if not solvers:
+            if op in served:
+                assert detail["readiness"] == "ready", op
+                continue
             assert detail["readiness"] == "unsupported", op
             assert "No solver registered" in detail["reason"], op
             continue
@@ -183,7 +188,7 @@ def test_fresh_machine_names_every_missing_tool_with_remedy(tmp_path, monkeypatc
             assert entry["missing"] != [], (op, tool)
             assert entry["remedy"].strip(), (op, tool)
             for name in entry["missing"]:
-                assert name in entry["remedy"], (op, tool, name)
+                assert name.lower() in entry["remedy"].lower(), (op, tool, name)
     assert report["pdks"] == []
     assert report["store"]["present"] is False
     assert report["store"]["remedy"].strip()
@@ -213,9 +218,12 @@ def test_single_tool_install_flips_exactly_its_state(tmp_path, monkeypatch):
     assert flipped == ["magic"], flipped
     assert after["magic"] == "installed"
     assert report["operations"]["run_extraction"]["readiness"] == "ready"
-    assert report["operations"]["run_drc"]["readiness"] == "blocked"
+    # run_drc is ready via its magic default while klayout stays
+    # per-tool unavailable: readiness is any-available, detail is per-tool.
+    assert report["operations"]["run_drc"]["readiness"] == "ready"
     assert report["operations"]["run_drc"]["tools"]["magic"]["available"] is True
     assert report["operations"]["run_drc"]["tools"]["klayout"]["available"] is False
+    assert report["operations"]["run_lvs"]["readiness"] == "blocked"
 
 
 def test_single_pdk_register_flips_exactly_its_state(tmp_path, monkeypatch):
@@ -321,6 +329,22 @@ def test_unregistered_operations_report_unsupported(tmp_path, monkeypatch):
     for op in orphans:
         assert report["operations"][op]["tools"] == {}
         assert "No solver registered" in report["operations"][op]["reason"]
+
+
+def test_engine_served_operations_report_ready(tmp_path, monkeypatch):
+    from rocket_engine.composition import _CRUD_OPERATIONS
+
+    engine = _engine()
+    _bare_path(monkeypatch, tmp_path)
+    _no_sax(monkeypatch)
+
+    report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
+
+    for op in set(_CRUD_OPERATIONS) | {"run_job"}:
+        detail = report["operations"][op]
+        assert detail["readiness"] == "ready", op
+        assert detail["tools"] == {}, op
+        assert "no solver needed" in detail["reason"], op
 
 
 def test_query_reads_without_creating_store(tmp_path, monkeypatch):

@@ -57,7 +57,7 @@ text, identical to the section bodies below.
 | `api_help` | no | — | Declared query `api_help`; no handler wired yet. |
 | `api_info` | no | — | Declared query `api_info`; no handler wired yet. |
 | `api_search` | no | — | Declared query `api_search`; no handler wired yet. |
-| `get_capabilities` | no | — | Declared query `get_capabilities`; no handler wired yet. |
+| `get_capabilities` | yes | `rocket_engine.composition.Engine.capabilities` | Report per-solver availability, store state, and the provision menu. |
 | `get_check_results` | no | — | Declared query `get_check_results`; no handler wired yet. |
 | `get_events_since` | yes | `rocket_engine.project.service.ProjectService.events_since` | Read retained events after a cursor, oldest first. |
 | `get_job_status` | no | — | Declared query `get_job_status`; no handler wired yet. |
@@ -634,9 +634,35 @@ Declared query `api_search`; no handler wired yet.
 
 ### get_capabilities
 
-Declared query `get_capabilities`; no handler wired yet.
+Report per-solver availability, store state, and the provision menu.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.capabilities`.
+
+The engine side of the Vivado-style setup surface: every
+cataloged operation with readiness (ready when some
+registered tool resolves, or when the Engine serves the
+operation directly; blocked with reason + missing items
++ remedy when no tool resolves; unsupported when no
+solver is registered), each tool's availability from its
+own detection probe plus its adapter capabilities(),
+PDK/deck install state from the store, BYOC-gated cloud
+rows, and the checkbox provision catalogue with live
+install state.
+
+Arguments:
+
+- `target`: Target passed to each adapter's capabilities().
+- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.
+
+Returns:
+
+Capability mapping with operations, store, pdks, decks, cloud, and catalogue sections.
+
+Raises:
+
+SetupError: unknown_solver when a registered (operation, tool) has no detection spec — the report fails instead of misreporting a solver it cannot probe.
+
+Caution: Read-only: never creates the store skeleton and never attempts network — cloud rows report gated with key_state missing until CLOUD-AUTH supplies keys plus an explicit opt-in (F12/I32 BYOC).
 
 ### get_check_results
 

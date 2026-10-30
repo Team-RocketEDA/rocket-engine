@@ -37,6 +37,7 @@ from .adapters.ngspice import NgspiceAdapter
 from .adapters.sax import SaxAdapter
 from .adapters.syntax import SyntaxAdapter
 from .execution.service import ExecutionService
+from .interfaces.setup import report_capabilities
 from .interfaces.vocabulary import OPERATIONS, QUERIES
 from .library.catalog import Catalog
 from .project.errors import ProjectError
@@ -45,6 +46,7 @@ from .project.service import ProjectService
 _WIRED_QUERIES = frozenset(
     {
         "get_project_snapshot",
+        "get_capabilities",
         "get_events_since",
         "list_projects",
         "list_docs",
@@ -62,6 +64,15 @@ QUERY_METHODS = {
     "list_projects": "list_projects",
     "list_docs": "list_docs",
     "read_doc": "read_doc",
+}
+
+# Wired query -> Engine method serving it. Same docs/help seam as
+# QUERY_METHODS, for the queries the composition root answers
+# itself (solver + store introspection the project ledger cannot
+# serve). scripts/api_spec.py and the MCP server read Engine
+# handler docstrings through this map.
+QUERY_ENGINE_METHODS = {
+    "get_capabilities": "capabilities",
 }
 
 # CRUD mutations + rewind execute immediately inside submit()
@@ -158,6 +169,47 @@ class Engine:
             cursor, require_contiguous_from=require_contiguous_from
         )
 
+    def capabilities(self, target=None, engine_root=None):
+        """Report per-solver availability, store state, and the provision menu.
+
+        The engine side of the Vivado-style setup surface: every
+        cataloged operation with readiness (ready when some
+        registered tool resolves, or when the Engine serves the
+        operation directly; blocked with reason + missing items
+        + remedy when no tool resolves; unsupported when no
+        solver is registered), each tool's availability from its
+        own detection probe plus its adapter capabilities(),
+        PDK/deck install state from the store, BYOC-gated cloud
+        rows, and the checkbox provision catalogue with live
+        install state.
+
+        Args:
+            target: Target passed to each adapter's capabilities().
+            engine_root: Explicit store root; ROCKETEDA_HOME
+                resolution when omitted.
+
+        Returns:
+            Capability mapping with operations, store, pdks,
+                decks, cloud, and catalogue sections.
+
+        Raises:
+            SetupError: unknown_solver when a registered
+                (operation, tool) has no detection spec — the
+                report fails instead of misreporting a solver it
+                cannot probe.
+
+        Caution: Read-only: never creates the store skeleton and
+            never attempts network — cloud rows report gated with
+            key_state missing until CLOUD-AUTH supplies keys plus
+            an explicit opt-in (F12/I32 BYOC).
+        """
+        return report_capabilities(
+            self._solvers,
+            target=target,
+            engine_root=engine_root,
+            served=_CRUD_OPERATIONS | {"run_job"},
+        )
+
     def submit(self, command):
         """Admit an operation (phase 1) or serve a wired query.
 
@@ -175,9 +227,10 @@ class Engine:
             Admission ack for queued operations, the immediate
             mutation mapping (new revision + events + approval-UI
             fields) for CRUD/rewind operations, the snapshot for
-            the wired get_project_snapshot query, the event page
-            for get_events_since, or the project/document listing
-            for the CRUD queries.
+            the wired get_project_snapshot query, the capability
+            mapping for get_capabilities, the event page for
+            get_events_since, or the project/document listing for
+            the CRUD queries.
 
         Raises:
             ProjectError: cross_project_denied for a foreign
@@ -207,6 +260,11 @@ class Engine:
             )
         name = command.get("operation")
         arguments = dict(command.get("arguments") or {})
+        if name == "get_capabilities":
+            return self.capabilities(
+                target=arguments.get("target"),
+                engine_root=arguments.get("engine_root"),
+            )
         if name == "get_events_since":
             return self._query_events_since(arguments)
         if name == "list_projects":

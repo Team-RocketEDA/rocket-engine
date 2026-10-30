@@ -1,0 +1,120 @@
+# Provision catalogue (ENGINE-SETUP): the data the Vivado-style setup
+# menu renders. One entry per provisionable unit: what it provides,
+# how to detect it, and where the install recipe lives. Recipes cite
+# docs/provision-plan.md (PROV seed), scripts/install.sh modes
+# (B10/DEMO-PATH), or the owning ticket — never a bare "install X".
+# Load with rocket_engine.interfaces.setup.load_catalogue.
+catalogue_version: 1
+entries:
+  - id: digital-bundle
+    kind: tool
+    label: Digital bundle (oss-cad-suite)
+    binaries: [iverilog, vvp, verilator, slang, yosys, ghdl, sby]
+    remedy: >-
+      Install the pinned oss-cad-suite bundle (iverilog, vvp,
+      verilator, slang, yosys, ghdl, sby; see
+      docs/provision-plan.md); the scenario gate needs dev-PATH
+      with oss-cad-suite (see scenarios/README.md).
+    recipe: "docs/provision-plan.md: pinned oss-cad-suite tarball (B10)."
+  - id: ngspice
+    kind: tool
+    label: ngspice (SPICE)
+    binaries: [ngspice]
+    remedy: >-
+      Provision ngspice (see docs/tickets/NGSPICE-LIVE.md).
+    recipe: "docs/provision-plan.md: apt pin or source build (B10)."
+  - id: netgen
+    kind: tool
+    label: Netgen (LVS)
+    binaries: [netgen]
+    banner: lvs
+    remedy: >-
+      Install opencircuitdesign netgen from source (see
+      docs/tickets/NGSPICE-LIVE.md); the `netgen` apt package is
+      the Schoeberl mesh-generator impostor, not the LVS tool.
+    recipe: "docs/tickets/NGSPICE-LIVE.md: opencircuitdesign source build (B10)."
+  - id: magic
+    kind: tool
+    label: Magic (DRC + extraction)
+    binaries: [magic]
+    remedy: >-
+      Install Magic from source per the rtimothyedwards docs (see
+      docs/provision-plan.md); ambient installs are kept and
+      version-asserted, never reinstalled.
+    recipe: "docs/provision-plan.md: source build with --prefix into the app-owned tools dir (B10)."
+  - id: klayout
+    kind: tool
+    label: KLayout (batch DRC)
+    binaries: [klayout]
+    remedy: >-
+      Install KLayout for batch DRC (see
+      docs/provision-plan.md); the engine uses `klayout -b`
+      batch only — GUI breakage never gates engine work.
+    recipe: "docs/provision-plan.md: ambient install kept and version-asserted (B10)."
+  - id: bwrap
+    kind: tool
+    label: Bubblewrap (isolation)
+    binaries: [bwrap]
+    remedy: >-
+      B10 owns bwrap provenance (system vs bundled) and PATH
+      placement (see docs/probe-bwrap-isolation.md).
+    recipe: "docs/probe-bwrap-isolation.md (B10)."
+  - id: sax
+    kind: python
+    label: SAX (photonic sim)
+    python: [sax]
+    remedy: "sax not installed, uv sync --group photonic (B10-owned tooling)"
+    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+  - id: cvc
+    kind: tool
+    label: cvc
+    binaries: [cvc]
+    provisionable: false
+    remedy: >-
+      cvc is absent with no recipe yet (batch roles per B10
+      matrix; see docs/provision-plan.md).
+    recipe: "none yet (B10 matrix)."
+  - id: openroad
+    kind: tool
+    label: OpenROAD
+    binaries: [openroad]
+    provisionable: false
+    remedy: >-
+      openroad is absent with no recipe yet (batch roles per B10
+      matrix; see docs/provision-plan.md).
+    recipe: "none yet (B10 matrix)."
+  - id: pdk-sky130A
+    kind: pdk
+    label: PDK sky130A
+    pdk_id: sky130A
+    source_default: ~/.local/share/pdk/sky130A
+    decks:
+      - libs.tech/klayout/drc/sky130A.lydrc
+      - libs.tech/magic/sky130A.tech
+      - libs.tech/combined/sky130.lib.spice
+      - libs.tech/netgen/sky130A_setup.tcl
+    remedy: >-
+      Register the PDK into ROCKETEDA_HOME (run
+      scripts/install.sh --pdk-only with PDK_SOURCE set to the
+      sky130A tree).
+    recipe: "scripts/install.sh --pdk-only (PDK_SOURCE/PDK_ID/PDK_REVISION; see docs/demo-runbook.md)."
+  - id: cloud-tidy3d
+    kind: cloud
+    label: Tidy3D web (cloud)
+    service: tidy3d web
+    remedy: >-
+      BYOC opt-in only (F12/I32): tidy3d web needs a
+      user-supplied key from the CLOUD-AUTH secure store (see
+      docs/tickets/CLOUD-AUTH.md); cloud never activates
+      without an explicit opt-in.
+    recipe: "CLOUD-AUTH (Backlog): OS keyring preferred, encrypted file fallback."
+  - id: cloud-gdsfactory-plus
+    kind: cloud
+    label: GDSFactory+ (cloud)
+    service: gdsfactory+
+    remedy: >-
+      BYOC opt-in only (F12/I32): gdsfactory+ needs a
+      user-supplied key from the CLOUD-AUTH secure store (see
+      docs/tickets/CLOUD-AUTH.md); cloud never activates
+      without an explicit opt-in.
+    recipe: "CLOUD-AUTH (Backlog): OS keyring preferred, encrypted file fallback."

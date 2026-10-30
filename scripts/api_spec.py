@@ -14,7 +14,8 @@ three from code with stdlib-only AST parsing (no imports, no install):
 Contract sources read (all AST, all code):
 - interfaces/vocabulary.py — OPERATIONS/QUERIES names,
 - composition.py — _solvers map (op -> tool -> adapter),
-  QUERY_METHODS (query -> ProjectService method), _CRUD_OPERATIONS,
+  QUERY_METHODS (query -> ProjectService method),
+  QUERY_ENGINE_METHODS (query -> Engine method), _CRUD_OPERATIONS,
 - adapter class docstrings — per-tool summary, prose, `Job keys:`,
   Caution (migrated docs/engine-api.md endpoint prose),
 - adapter preflight/execute/parse docstrings — Returns/Raises,
@@ -117,6 +118,13 @@ def query_methods(root=None):
     root = Path(root) if root is not None else SRC
     tree = ast.parse((root / "composition.py").read_text())
     return _str_dict(_module_assign(tree, "QUERY_METHODS"))
+
+
+def query_engine_methods(root=None):
+    """Wired query -> Engine method from QUERY_ENGINE_METHODS."""
+    root = Path(root) if root is not None else SRC
+    tree = ast.parse((root / "composition.py").read_text())
+    return _str_dict(_module_assign(tree, "QUERY_ENGINE_METHODS"))
 
 
 def solver_map(root=None):
@@ -345,6 +353,7 @@ def endpoint_spec(name, root=None):
     solvers = solver_map(root)
     crud = crud_operations(root)
     qmethods = query_methods(root)
+    qengines = query_engine_methods(root)
     spec = {"name": name, "kind": kind, "wired": False, "handlers": []}
     if name in solvers:
         spec["wired"] = True
@@ -385,6 +394,15 @@ def endpoint_spec(name, root=None):
             "project/service.py", "ProjectService." + qmethods[name],
             root=root,
         ))["summary"]
+    elif name in qengines:
+        spec["wired"] = True
+        spec["handlers"] = [
+            "rocket_engine.composition.Engine." + qengines[name]
+        ]
+        spec["summary"] = parse_docstring(doc_of(
+            "composition.py", "Engine." + qengines[name],
+            root=root,
+        ))["summary"]
     else:
         spec["summary"] = _UNWIRED_TEMPLATE.format(kind=kind, name=name)
     return spec
@@ -417,9 +435,14 @@ def section_body(name, root=None):
     solvers = solver_map(root)
     crud = crud_operations(root)
     qmethods = query_methods(root)
+    qengines = query_engine_methods(root)
     if name in solvers:
         return _solver_section(name, solvers[name], root)
-    if name in crud or name in qmethods:
+    if name in crud or name in qmethods or name in qengines:
+        if name in qengines:
+            return _method_section(
+                name, qengines[name], root, rel="composition.py", cls="Engine"
+            )
         method = name if name in crud else qmethods[name]
         return _method_section(name, method, root)
     if name == "run_job":
@@ -493,22 +516,19 @@ def _solver_section(name, entries, root):
     return _join_blocks(parts)
 
 
-def _method_section(name, method, root):
-    parsed = parse_docstring(doc_of(
-        "project/service.py", "ProjectService." + method, root=root
-    ))
-    required = set(signature_required(
-        "project/service.py", "ProjectService." + method, root=root
-    ))
+def _method_section(name, method, root, rel="project/service.py",
+                    cls="ProjectService"):
+    parsed = parse_docstring(doc_of(rel, cls + "." + method, root=root))
+    required = set(signature_required(rel, cls + "." + method, root=root))
     required -= _QUERY_DEFAULTS.get(name, set())
     args = [
         (n, n in required, d) for n, _r, d in parsed["args"]
         if n not in _PLUMBING
     ]
+    handler = "rocket_engine." + rel[:-3].replace("/", ".") + "." + cls + "." + method
     return _join_blocks([
         parsed["summary"],
-        "Handler: `rocket_engine.project.service.ProjectService."
-        + method + "`.",
+        "Handler: `" + handler + "`.",
         parsed["prose"],
         _arguments_block(args),
         _optional_block("Returns", parsed["returns"]),
@@ -540,6 +560,7 @@ def build_schemas(root=None):
     solvers = solver_map(root)
     crud = crud_operations(root)
     qmethods = query_methods(root)
+    qengines = query_engine_methods(root)
     revision_text = _expected_revision_text(root)
     schemas = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -548,16 +569,19 @@ def build_schemas(root=None):
     }
     for name in sorted(operations):
         schemas["operations"][name] = _schema_for(
-            name, "operation", solvers, crud, qmethods, revision_text, root
+            name, "operation", solvers, crud, qmethods, qengines,
+            revision_text, root,
         )
     for name in sorted(queries):
         schemas["queries"][name] = _schema_for(
-            name, "query", solvers, crud, qmethods, revision_text, root
+            name, "query", solvers, crud, qmethods, qengines,
+            revision_text, root,
         )
     return schemas
 
 
-def _schema_for(name, kind, solvers, crud, qmethods, revision_text, root):
+def _schema_for(name, kind, solvers, crud, qmethods, qengines,
+                revision_text, root):
     spec = endpoint_spec(name, root=root)
     schema = {
         "name": name,
@@ -593,13 +617,15 @@ def _schema_for(name, kind, solvers, crud, qmethods, revision_text, root):
         ))
         schema["returns"] = parse["returns"]
         return schema
-    if name in crud or name in qmethods:
-        method = name if name in crud else qmethods[name]
-        parsed = parse_docstring(doc_of(
-            "project/service.py", "ProjectService." + method, root=root
-        ))
+    if name in crud or name in qmethods or name in qengines:
+        if name in qengines:
+            rel, cls, method = "composition.py", "Engine", qengines[name]
+        else:
+            rel, cls = "project/service.py", "ProjectService"
+            method = name if name in crud else qmethods[name]
+        parsed = parse_docstring(doc_of(rel, cls + "." + method, root=root))
         required = set(signature_required(
-            "project/service.py", "ProjectService." + method, root=root
+            rel, cls + "." + method, root=root
         ))
         required -= _QUERY_DEFAULTS.get(name, set())
         schema["properties"] = {
