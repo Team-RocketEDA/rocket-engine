@@ -20,6 +20,8 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
 - [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
+- [CLOUD-AUTH] Secure field for opt-in cloud account data
+- [API-GENERALIZE] Frontend protocol: queue, microcommits, catalogue, symbols
 ## Ready
 
 
