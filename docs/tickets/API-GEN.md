@@ -35,3 +35,21 @@ reviewable per-endpoint shape.
   docs for a sampled endpoint; a deliberately broken
   docstring fails the gate with the endpoint named.
 - Full suite + gate + scenarios green.
+
+## Field notes — slice A (2026-10-30, Doing, NOT closed)
+
+- RED `08b37cc`: `tests/test_docstrings.py` (no-cloud pattern:
+  enforced tree scans clean, bad fixture fails naming the
+  endpoint, good fixture passes).
+- GREEN `f3672dd`: `scripts/check_docstrings.py` with an
+  `ENFORCED` manifest (composition, dispatch, mcp/ipc/http
+  transports, cli) + Google-style migration of those 7 files.
+  `.venv` mirror verified with `diff -rq` (only `__pycache__`
+  differs). Gates: test_docstrings + test_no_cloud +
+  tests/execution + test_mcp_server + test_transports +
+  test_cli → 99 passed, 21 live-skipped.
+- Docs: `AGENTS.md` mandate (summary/Args/Returns/Raises +
+  `Caution:` where it bites) citing ADR-003, F12/I32 BYOC, ADR-002.
+- Remainder for slice B: solver-adapter migration, manifest
+  widening, generator (reference + JSON Schema + MCP help),
+  `docs/engine-api.md` becomes generated output.
