@@ -442,6 +442,8 @@ class ProjectService:
 
         Overwrites any previous capture for that id; empty trees
         leave an empty marker dir so the revision stays restorable.
+        The copy lands in a sibling temp dir and renames into
+        place, so a crash never leaves a partial snapshot behind.
         """
         if self._dir is None:
             self._snapshots[revision] = dict(self._docs)
@@ -455,34 +457,69 @@ class ProjectService:
                 "invalid_ledger",
                 f"Cannot snapshot revision {revision}: {exc}.",
             ) from exc
+        base = self._dir / _SNAPSHOTS_DIRNAME
         try:
-            if dest.is_symlink() or dest.is_file():
-                dest.unlink()
-            elif dest.is_dir():
-                shutil.rmtree(dest)
-            dest.mkdir(parents=True, exist_ok=True)
+            base.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             raise ProjectError(
                 "invalid_ledger",
                 f"Cannot snapshot revision {revision}: {exc}.",
             ) from exc
-        for rel, _size in self._iter_doc_files():
+        for stale in base.glob(".cap.*"):
             try:
-                data = self._doc_path(rel).read_bytes()
-            except OSError as exc:
-                raise ProjectError(
-                    "invalid_ledger",
-                    f"Cannot snapshot {rel}: {exc}.",
-                ) from exc
-            target = dest / rel
+                if stale.is_symlink() or stale.is_file():
+                    stale.unlink()
+                elif stale.is_dir():
+                    shutil.rmtree(stale)
+            except OSError:
+                pass
+        tmp = base / f".cap.{uuid.uuid4().hex}.tmp"
+        try:
+            tmp.mkdir(parents=True, exist_ok=False)
+        except OSError as exc:
+            raise ProjectError(
+                "invalid_ledger",
+                f"Cannot snapshot revision {revision}: {exc}.",
+            ) from exc
+        try:
+            for rel, _size in self._iter_doc_files():
+                try:
+                    data = self._doc_path(rel).read_bytes()
+                except OSError as exc:
+                    raise ProjectError(
+                        "invalid_ledger",
+                        f"Cannot snapshot {rel}: {exc}.",
+                    ) from exc
+                target = tmp / rel
+                try:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    _atomic_write_bytes(target, data)
+                except OSError as exc:
+                    raise ProjectError(
+                        "invalid_ledger",
+                        f"Cannot snapshot {rel}: {exc}.",
+                    ) from exc
+            if dest.is_symlink() or dest.is_file():
+                dest.unlink()
+            elif dest.is_dir():
+                shutil.rmtree(dest)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(tmp, dest)
+        except ProjectError:
             try:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                _atomic_write_bytes(target, data)
-            except OSError as exc:
-                raise ProjectError(
-                    "invalid_ledger",
-                    f"Cannot snapshot {rel}: {exc}.",
-                ) from exc
+                shutil.rmtree(tmp, ignore_errors=True)
+            except OSError:
+                pass
+            raise
+        except OSError as exc:
+            try:
+                shutil.rmtree(tmp, ignore_errors=True)
+            except OSError:
+                pass
+            raise ProjectError(
+                "invalid_ledger",
+                f"Cannot snapshot revision {revision}: {exc}.",
+            ) from exc
 
     def _ensure_snapshot(self, revision):
         if not self._snapshot_exists(revision):
