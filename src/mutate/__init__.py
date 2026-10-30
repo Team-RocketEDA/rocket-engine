@@ -115,6 +115,48 @@ _SDTOP_BASE = "fixtures/upstream/ttsky-sigma-delta/spice"
 # Integrator monitor UA1 DC ~0.9 V mean (docs/09b Phase 1.1).
 _SDTOP_INT_MIN = 0.8
 _SDTOP_INT_MAX = 1.0
+# Mixed-flow testbench wrapper: the PEX is a bare .subckt (no
+# top-level instantiation), so the staged sim dir carries this
+# bench alongside the macro copy. Stimuli mirror the acceptance
+# sim/top_tb.py at DC mid-scale: 3.3 V analog / 1.8 V digital rails,
+# 50 MHz clock, UA0 = VIN_MID 1.65 V through 50 ohms, 1 pF loads on
+# the bitstream outputs, 50 fF on the integrator probe node. PEX
+# port order: UA0 UO0 UO1 CLK VDPWR UA1 VGND VAPWR.
+_SDTOP_TB_NAME = "sd_top_tb.spice"
+_SDTOP_TB = """* sd_top mixed-flow testbench (staged; mirrors sim/top_tb.py stimuli)
+VAP vapwr 0 3.3
+VDP vdpwr 0 1.8
+VGN vgnd 0 0
+VCLK clk 0 PULSE(0 1.8 0 0.2n 0.2n 10n 20n)
+VIN vsrc 0 1.65
+RS vsrc ua0 50
+CU0 uo0 0 1p
+CU1 uo1 0 1p
+CA1 ua1 0 50f
+XDUT ua0 uo0 uo1 clk vdpwr ua1 vgnd vapwr sd_top
+"""
+# Solver conditioning for the registered store: X99 (bias-startup
+# PFET, w=5 l=50) sits outside every hv-FET model bin (lmax 20.2 um),
+# so ngspice aborts ("could not find a valid modelname") once the
+# wrapper instantiates the macro. The STAGED copy is clamped to the
+# top bin edge; the settled int_dc mean moves 38 uV between l=15 and
+# l=20, so the clamp is bench conditioning, not a design change.
+_SDTOP_X99_OLD = (
+    "X99 VAPWR VGND bias_layout_0/nst VAPWR "
+    "sky130_fd_pr__pfet_g5v0d10v5 ad=1.45 pd=10.58 as=1.45 ps=10.58 w=5 l=50"
+)
+_SDTOP_X99_NEW = _SDTOP_X99_OLD.replace("l=50", "l=20")
+# Settled-window clocked mean: the static loop has no in-band OP, so
+# the probe is a 2 us 50 MHz transient recorded from 1 us on.
+_SDTOP_ANALYSES = ["tran 0.5n 2u 1u"]
+_SDTOP_OPTIONS = [
+    "wnflag=1",
+    "method=gear",
+    "reltol=1e-4",
+    "vntol=1e-6",
+    "abstol=1e-10",
+    "itl4=200",
+]
 
 OPERATORS = {
     "digital_reset_break": {
@@ -526,6 +568,24 @@ def stage_design_extras(design, dest_dir, root):
         }
     if design == "sd_top":
         sources = [str(dest / name) for name in _staged_names(design, dest)]
+        tb_dest = dest / _SDTOP_TB_NAME
+        tb_dest.write_text(_SDTOP_TB, encoding="utf-8")
+        sources.append(str(tb_dest))
+        # Model-bin clamp on the STAGED macro copy only (the vendored
+        # PEX is never touched): see _SDTOP_X99_OLD. Mutants rewrite
+        # X64, never X99, so the site must still occur exactly once.
+        pex_path = dest / _SDTOP_SNAPSHOT
+        pex_text = pex_path.read_text(encoding="utf-8")
+        if pex_text.count(_SDTOP_X99_OLD) != 1:
+            raise MutationError(
+                "sd_top staging: X99 clamp site drifted "
+                f"({_SDTOP_X99_OLD[:24]!r} occurs "
+                f"{pex_text.count(_SDTOP_X99_OLD)}x, want 1)."
+            )
+        pex_path.write_text(
+            pex_text.replace(_SDTOP_X99_OLD, _SDTOP_X99_NEW),
+            encoding="utf-8",
+        )
         return {
             "sources": sources,
             "workdir": str(dest),
@@ -533,14 +593,14 @@ def stage_design_extras(design, dest_dir, root):
             "measurements": [
                 {
                     "name": "int_dc",
-                    "expr": "v(ua1)",
+                    "expr": "mean(v(ua1))",
                     "unit": "V",
                     "min": _SDTOP_INT_MIN,
                     "max": _SDTOP_INT_MAX,
                 }
             ],
-            "analyses": ["op"],
-            "options": ["wnflag=1"],
+            "analyses": list(_SDTOP_ANALYSES),
+            "options": list(_SDTOP_OPTIONS),
             "params": {"vsup": 3.3},
             "corner": "tt",
             "temp_c": 27,

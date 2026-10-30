@@ -215,10 +215,12 @@ recheck`, and the `hdl_sdm` / `ngspice_sdtop` scenario backends
   steps, BITS_TOTAL stays 0) or `din` tied to zero (input ignored,
   DATA_FAST stays 0). Verified live with iverilog + vvp.
 - `sdtop_sizing_out_of_spec` (3 variants): the RIN input-leg length
-  `l=102.57` → 51.285 (gain high, integrator toward the rail,
-  1.35 V), 205.14 (gain low, integrator sags, 0.45 V), or 10.0
-  (extreme, integrator rails, 2.8 V) against the [0.8, 1.0] V
-  integrator-DC window (docs/09b Phase 1.1: ~0.9 V mean). Live
+  `l=102.57` → 30 (gain high, 0.17 V), 400 (gain low, 1.03 V), or
+  10.0 (extreme, integrator rails at 0.01 V) against the [0.8,
+  1.0] V integrator-DC window (docs/09b Phase 1.1: ~0.9 V mean).
+  All three are live-verified settled-window clocked means at
+  tt/27C: the closed loop servos mild halve/double moves back
+  in-band, so the variants are strengthened past the servo. Live
   needs ngspice + the sky130 store (quarantined per NGSPICE-LIVE);
   the verdict mapping is pinned by canned-envelope parse tests.
 - `sdtop_open_net` (2 variants): X64 lifted from `UA0` onto

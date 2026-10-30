@@ -407,11 +407,13 @@ def sdtop_sizing_out_of_spec(text, variant):
     """Move the RIN input-leg length off its 102.57 nominal; the input
     gain shifts, the integrator DC leaves its [0.8, 1.0] V window.
 
-    Expected values are bench predictions (live needs ngspice + the
-    sky130 store, otherwise quarantined per NGSPICE-LIVE): halving
-    RIN doubles the input current (integrator driven toward the rail),
-    doubling halves it (integrator sags toward ground), and the 10.0
-    extreme rails it. The verdict mapping is pinned by canned-envelope
+    Expected values are live-verified (ngspice + the sky130 store,
+    tt/27C settled-window clocked mean; otherwise quarantined per
+    NGSPICE-LIVE): the closed loop servos mild halve/double moves
+    back in-band, so the variants are strengthened past the servo to
+    actually violate the checked window — l=30 drives the integrator
+    to 0.17 V, l=400 pushes it to 1.03 V, and the 10.0 extreme rails
+    it at 0.01 V. The verdict mapping is pinned by canned-envelope
     parse tests.
     """
     old = (
@@ -420,9 +422,9 @@ def sdtop_sizing_out_of_spec(text, variant):
     )
     _once(text, old, "sdtop_sizing_out_of_spec")
     alts = [
-        (51.285, 1.35, "RIN l 102.57 -> 51.285 (gain high, integrator toward rail)"),
-        (205.14, 0.45, "RIN l 102.57 -> 205.14 (gain low, integrator sags)"),
-        (10.0, 2.8, "RIN l 102.57 -> 10.0 (extreme, integrator rails)"),
+        (30, 0.173, "RIN l 102.57 -> 30 (gain high, integrator driven low)"),
+        (400, 1.030, "RIN l 102.57 -> 400 (gain low, integrator pushed high)"),
+        (10.0, 0.015, "RIN l 102.57 -> 10.0 (extreme, integrator rails)"),
     ]
     rin_l, expected_int_dc, desc = alts[variant % len(alts)]
     new = old.replace("l=102.57", f"l={rin_l}")
