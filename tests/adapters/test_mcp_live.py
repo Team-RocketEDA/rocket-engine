@@ -104,11 +104,13 @@ def test_mcp_query_snapshot_reads_real_state():
 
     engine = Engine(PROJECT, actor="tester")
     transport = _transport(engine)
-    transport.handle(_call("run_drc", _submit_args(), call_id="req_live_010"))
+    ack = transport.handle(_call("run_drc", _submit_args(), call_id="req_live_010"))
     snap = transport.handle(
         _call("get_project_snapshot", {"project_id": PROJECT}, call_id="req_live_011")
     )
-    assert snap["current_revision"] == "p12"
+    # LEDGER-DURABLE: one accepted mutation advances p12 -> p13.
+    assert ack["current_revision"] == "p13"
+    assert snap["current_revision"] == "p13"
     assert snap["event_cursor"] == 1
 
 
