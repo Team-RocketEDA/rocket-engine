@@ -4,7 +4,10 @@ Adapters construct against this, never against services directly. The
 root owns no domain logic: it routes cataloged names (see
 `interfaces.vocabulary`) to live module state. Operations queue through
 the project service with revision gating and envelope-id idempotency;
-only wired queries read state, the rest honestly report unwired.
+every accepted mutation advances the revision and appends an
+actor-attributed event to the durable ledger (LEDGER-DURABLE/I30),
+and every run appends its completion with a verdict link. Only
+wired queries read state, the rest honestly report unwired.
 Two-phase execution: `submit(op)` admits and returns an ack, then
 `run_job(request_id)` executes the admitted command — over `run()`
 directly or over submit-only transports via `submit(run_job)`.
@@ -37,7 +40,7 @@ from .library.catalog import Catalog
 from .project.errors import ProjectError
 from .project.service import ProjectService
 
-_WIRED_QUERIES = frozenset({"get_project_snapshot"})
+_WIRED_QUERIES = frozenset({"get_project_snapshot", "get_events_since"})
 
 # Adapter violation key -> finding location key. bbox keeps its legacy
 # lambda-units name; everything else passes through unchanged.
@@ -59,13 +62,17 @@ class Engine:
         project_id: Project this engine is bound to; cross-project
             envelopes are denied, never routed.
         actor: Attribution for mutations this engine submits
-            (human / rocket-fuel / system).
+            (human / rocket-fuel / system); passed through to every
+            ledger event verbatim.
         catalog_root: Root the component catalog resolves against.
+        engine_root: Engine root for ledger durability; the log
+            persists under `projects/<project_id>/` beneath it.
+            None keeps the in-memory ledger.
     """
 
-    def __init__(self, project_id, actor, catalog_root="."):
+    def __init__(self, project_id, actor, catalog_root=".", engine_root=None):
         self._project_id = project_id
-        self._project = ProjectService(project_id, actor)
+        self._project = ProjectService(project_id, actor, engine_root=engine_root)
         self._execution = ExecutionService(project_id)
         self._catalog = Catalog(catalog_root)
         self._solvers = {
@@ -87,16 +94,25 @@ class Engine:
         """
         return self._project.snapshot()
 
-    def events_since(self, cursor):
+    def events_since(self, cursor, require_contiguous_from=None):
         """Read ledger events after a cursor.
 
         Args:
             cursor: Opaque position from a previous read.
+            require_contiguous_from: Assert contiguous history from
+                this seq; unmet demands fail instead of gap-hiding.
 
         Returns:
             Events appended after the cursor, oldest first.
+
+        Raises:
+            ProjectError: resync_required when the contiguity
+                demand cannot be met — re-read the snapshot plus
+                the full retained log and reset the cursor.
         """
-        return self._project.events_since(cursor)
+        return self._project.events_since(
+            cursor, require_contiguous_from=require_contiguous_from
+        )
 
     def submit(self, command):
         """Admit an operation (phase 1) or serve a wired query.
@@ -110,14 +126,17 @@ class Engine:
                 and request_id.
 
         Returns:
-            Admission ack for operations, or the snapshot for the
-            wired get_project_snapshot query.
+            Admission ack for operations, the snapshot for the
+            wired get_project_snapshot query, or the event page
+            for the wired get_events_since query.
 
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unwired or
                 unknown name, revision_conflict for a stale
-                expected_revision.
+                expected_revision, invalid_command for a malformed
+                get_events_since cursor, resync_required when a
+                get_events_since contiguity demand cannot be met.
 
         Caution: Bound to one project: cross-project envelopes are
             denied, never routed — and a stale expected_revision
@@ -131,6 +150,8 @@ class Engine:
             )
         name = command.get("operation")
         arguments = dict(command.get("arguments") or {})
+        if name == "get_events_since":
+            return self._query_events_since(arguments)
         if name in _WIRED_QUERIES:
             return self._project.snapshot()
         if name in QUERIES or name not in OPERATIONS:
@@ -153,6 +174,31 @@ class Engine:
             str(request_id),
             expected_revision=arguments.get("expected_revision"),
         )
+
+    def _query_events_since(self, arguments):
+        """Serve the wired get_events_since query (cursor + resync)."""
+        cursor = arguments.get("cursor", 0)
+        if not isinstance(cursor, int) or isinstance(cursor, bool):
+            raise ProjectError(
+                "invalid_command", f"Cursor must be an int, got {cursor!r}."
+            )
+        demand = arguments.get("require_contiguous_from")
+        if (
+            demand is not None
+            and (not isinstance(demand, int) or isinstance(demand, bool))
+        ):
+            raise ProjectError(
+                "invalid_command",
+                f"require_contiguous_from must be an int, got {demand!r}.",
+            )
+        events = self._project.events_since(
+            cursor, require_contiguous_from=demand
+        )
+        return {
+            "project_id": self._project_id,
+            "events": events,
+            "cursor": self._project.snapshot()["event_cursor"],
+        }
 
     def register_solver(self, operation, adapter, tool=None):
         """Register a solver adapter under an operation name.
@@ -185,6 +231,7 @@ class Engine:
         return self._execution.findings(run_id, limit=limit, cursor=cursor)
 
     def _run_queued(self, command):
+        """Execute an admitted request by id (phase 2 of submit-then-run)."""
         arguments = dict(command.get("arguments") or {})
         request_id = arguments.get("request_id")
         if request_id is None:
@@ -195,56 +242,21 @@ class Engine:
         run_arguments = dict(stored.get("arguments") or {})
         # Submit-time admission data stays out of the solver job.
         run_arguments.pop("expected_revision", None)
-        return self.run(
-            {
-                "project_id": self._project_id,
-                "operation": stored.get("operation"),
-                "arguments": run_arguments,
-                "snapshot_id": ack.get("snapshot_id", ""),
-            }
+        return self._run_operation(
+            stored.get("operation"),
+            run_arguments,
+            ack.get("snapshot_id", ""),
+            request_id,
         )
 
-    def run(self, command):
-        """Execute an operation synchronously through its solver.
-
-        `deck.tool` selects the registered solver, defaulting to
-        the first registered; solver violations nest into findings
-        and the verdict is evaluated from the native exit code.
-
-        Args:
-            command: Envelope with project_id, operation, and
-                arguments (deck.tool selects the solver).
-
-        Returns:
-            Completion mapping with run_id, state, verdict, and
-            operation. Adapter failures become not_run verdicts,
-            never exceptions.
-
-        Raises:
-            ProjectError: cross_project_denied for a foreign
-                envelope, unsupported_operation for an unregistered
-                operation or unknown deck tool, invalid_command
-                when run_job lacks a request_id argument.
-
-        Caution: Runs the solver now and records the verdict —
-            exit zero is not PASS; read the verdict, never the
-            exit path.
-        """
-        envelope = command.get("project_id")
-        if envelope != self._project_id:
-            raise ProjectError(
-                "cross_project_denied",
-                f"Bound to {self._project_id}, got {envelope}.",
-            )
-        name = command.get("operation")
-        if name == "run_job":
-            return self._run_queued(command)
+    def _run_operation(self, name, arguments, snapshot_id, request_id):
+        """Select the solver, run it, judge the verdict, log completion."""
         solvers = self._solvers.get(name) or {}
         if not solvers:
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
             )
-        arguments = dict(command.get("arguments") or {})
+        arguments = dict(arguments)
         hint = (arguments.get("deck") or {}).get("tool")
         if hint is None:
             adapter = next(iter(solvers.values()))
@@ -257,7 +269,7 @@ class Engine:
                     f"No {name} solver for deck tool: {hint}.",
                 ) from None
         issued = self._execution.dispatch(
-            name, {"cell": arguments.get("cell")}, command.get("snapshot_id", "")
+            name, {"cell": arguments.get("cell")}, snapshot_id
         )
         run_id = issued["run_id"]
         self._execution.mark_running(run_id)
@@ -267,6 +279,9 @@ class Engine:
             result = adapter.parse(native)
         except AdapterError as exc:
             verdict = self._execution.record_not_run(run_id, f"{exc.code}: {exc}")
+            self._project.append_run_event(
+                "run_failed", run_id, name, verdict, request_id
+            )
             return {
                 "run_id": run_id,
                 "state": "completed",
@@ -294,9 +309,58 @@ class Engine:
         verdict = self._execution.evaluate(
             run_id, native.get("exit_code", 0), buf.getvalue()
         )
+        if (verdict or {}).get("status") == "NOT_RUN":
+            outcome = "run_failed"
+        else:
+            outcome = "run_completed"
+        self._project.append_run_event(outcome, run_id, name, verdict, request_id)
         return {
             "run_id": run_id,
             "state": "completed",
             "verdict": verdict,
             "operation": name,
         }
+
+    def run(self, command):
+        """Execute an operation synchronously through its solver.
+
+        `deck.tool` selects the registered solver, defaulting to
+        the first registered; solver violations nest into findings
+        and the verdict is evaluated from the native exit code.
+
+        Args:
+            command: Envelope with project_id, operation, and
+                arguments (deck.tool selects the solver).
+
+        Returns:
+            Completion mapping with run_id, state, verdict, and
+            operation. Adapter failures become not_run verdicts,
+            never exceptions. Every judged run appends
+            run_completed (PASS/FAIL) or run_failed (NOT_RUN) to
+            the ledger with the engine's actor and the verdict.
+
+        Raises:
+            ProjectError: cross_project_denied for a foreign
+                envelope, unsupported_operation for an unregistered
+                operation or unknown deck tool, invalid_command
+                when run_job lacks a request_id argument.
+
+        Caution: Runs the solver now and records the verdict —
+            exit zero is not PASS; read the verdict, never the
+            exit path.
+        """
+        envelope = command.get("project_id")
+        if envelope != self._project_id:
+            raise ProjectError(
+                "cross_project_denied",
+                f"Bound to {self._project_id}, got {envelope}.",
+            )
+        name = command.get("operation")
+        if name == "run_job":
+            return self._run_queued(command)
+        return self._run_operation(
+            name,
+            dict(command.get("arguments") or {}),
+            command.get("snapshot_id", ""),
+            None,
+        )

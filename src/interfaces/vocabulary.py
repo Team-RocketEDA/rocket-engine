@@ -18,6 +18,6 @@ QUERIES = frozenset(
         "api_search", "api_info", "api_help", "get_python_console",
         "get_capabilities", "get_project_snapshot", "list_job_kinds",
         "plan_checks", "get_job_status", "get_check_results",
-        "list_artifacts", "get_logs",
+        "get_events_since", "list_artifacts", "get_logs",
     }
 )
