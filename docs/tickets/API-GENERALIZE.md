@@ -23,8 +23,10 @@ below closes a divergence vector.
 3. Catalogue index query: versioned cell list (cell, PDK, ports,
    default params) introspected from upstream, plus
    `place_cell` durable project mutation.
-4. Symbol serving: `.sym`→SVG conversion op (faithful paths +
-   structured pins; styling stays frontend-side).
+4. Raw asset serving (I29): serve PDK bytes verbatim at every
+   granularity — single `.sym` as-is, metadata, bulk. No
+   conversion, no rendering; parsing and styling stay
+   frontend-side. Hash-checked identity on every serve.
 
 ## Acceptance
 
