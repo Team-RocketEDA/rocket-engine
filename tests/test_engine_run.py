@@ -17,6 +17,8 @@ FIXTURES = Path("tests/adapters/fixtures/drc")
 
 magic_present = shutil.which("magic") is not None
 needs_magic = pytest.mark.skipif(not magic_present, reason="magic not installed")
+slang_present = shutil.which("slang") is not None
+needs_slang = pytest.mark.skipif(not slang_present, reason="slang not on PATH")
 
 
 def _command(cell, tmp_path, **over):
@@ -74,14 +76,78 @@ def test_submit_unwired_operation_raises():
         engine.submit(
             {
                 "project_id": PROJECT,
-                "operation": "run_syntax",
+                "operation": "run_formal",
                 "arguments": {"expected_revision": "p12"},
             }
         )
     except Exception as exc:
         assert getattr(exc, "code", None) == "unsupported_operation"
     else:
-        raise AssertionError("expected unsupported_operation for run_syntax")
+        raise AssertionError("expected unsupported_operation for run_formal")
+
+
+def test_submit_run_syntax_accepted():
+    engine = Engine(PROJECT, actor="tester")
+    ack = engine.submit(
+        {
+            "project_id": PROJECT,
+            "operation": "run_syntax",
+            "arguments": {"expected_revision": "p12"},
+        }
+    )
+    assert ack["state"] == "queued"
+    assert {"run_id", "snapshot_id", "event_cursor"} <= set(ack)
+
+
+@needs_slang
+def test_run_syntax_clean_passes_live(tmp_path):
+    from rocket_engine.adapters.syntax import SyntaxAdapter  # noqa: F401
+
+    engine = Engine(PROJECT, actor="tester")
+    workdir = tmp_path / "work"
+    workdir.mkdir(exist_ok=True)
+    staged = workdir / "counter.v"
+    shutil.copy(
+        Path("tests/adapters/fixtures/syntax/counter.v"), staged
+    )
+    out = engine.run(
+        {
+            "project_id": PROJECT,
+            "operation": "run_syntax",
+            "arguments": {
+                "sources": [str(staged)],
+                "workdir": str(workdir),
+            },
+        }
+    )
+    assert out["state"] == "completed"
+    assert out["verdict"]["status"] == "PASS"
+    assert engine.findings(out["run_id"])["findings"] == []
+
+
+@needs_slang
+def test_run_syntax_broken_fails_with_span_live(tmp_path):
+    engine = Engine(PROJECT, actor="tester")
+    workdir = tmp_path / "work"
+    workdir.mkdir(exist_ok=True)
+    staged = workdir / "counter_broken.v"
+    shutil.copy(
+        Path("tests/adapters/fixtures/syntax/counter_broken.v"), staged
+    )
+    out = engine.run(
+        {
+            "project_id": PROJECT,
+            "operation": "run_syntax",
+            "arguments": {
+                "sources": [str(staged)],
+                "workdir": str(workdir),
+            },
+        }
+    )
+    assert out["verdict"]["status"] == "FAIL"
+    found = engine.findings(out["run_id"])["findings"]
+    assert any(f["severity"] == "error" for f in found)
+    assert all("line" in f["location"] for f in found)
 
 
 @needs_magic
