@@ -92,3 +92,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
 - [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
 - [LEDGER-DURABLE] Durable attributed event log + advancing revisions
+- [PR3-MERGE] Merge fuel-mcp-fixes (PR #3) into GREEN-the-tests with consolidation
