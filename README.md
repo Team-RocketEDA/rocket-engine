@@ -163,11 +163,11 @@ boundary, enforced in review.
 | Photonic freq circuits | SAX | pip `photonic` |
 | Photonic transient/active/HB | Circulax | pip `photonic` |
 | Eigenmode expansion + modes | MEOW | pip `photonic` |
-| Layout-to-EM prep | GSIM | resolved at B7 profile lock |
-| Photonic FDTD | Meep | resolved at B7 profile lock |
-| RF/antenna FDTD | openEMS | resolved at B7 profile lock |
-| 3D thermal/structural | Elmer | resolved at B7 profile lock |
-| Waveguide modes/device heaters | FEMwell | resolved at B7 profile lock |
+| Layout-to-EM prep + Palace FEM | GSIM (local paths only; FDTD cloud excluded) | pip `photonic` (proposed) |
+| Photonic FDTD | Meep via GSIM | sidecar user install (B10 pin) |
+| RF/antenna FDTD | openEMS | watch (not selected) |
+| 3D thermal/structural | Elmer | watch (not selected) |
+| Waveguide modes/device heaters | FEMwell | watch (not selected) |
 | Meshing, RF numerics | Gmsh, scikit-rf | native + pip `analog` |
 | Layout framework (components, PDKs, flows; kfactory backend) | GDSFactory 9.x | pip `layout` |
 | Layout netlist extract, opens/shorts/diff | kfnetlist (transitive via gdsfactory→kfactory) | pip `layout` (transitive) |

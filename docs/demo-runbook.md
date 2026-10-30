@@ -26,10 +26,13 @@ recorded from a fresh-shell run on 2026-10-30 (see Transcript).
 From a fresh shell in `rocket-engine/`:
 
 ```sh
-export PATH="$HOME/tools/oss-cad-suite/bin:$PATH"
+export PATH="$HOME/tools/oss-cad-suite/bin:$HOME/tools/bin:$PATH"
 export ROCKETEDA_HOME=/tmp/rocketeda-demo
 scripts/demo.sh
 ```
+
+(`$HOME/tools/bin` carries user-built tools such as the
+opencircuitdesign netgen; harmless when absent.)
 
 This runs four stages — install (venv + locked sync + engine +
 PDK register + tool probe), fetch (fixture license gate),
@@ -45,6 +48,13 @@ new namespace`) is a sandbox artifact too — presence is still
 detected correctly.
 
 ## Expected output
+
+Note (2026-10-30, post-transcript): ngspice-42 and Netgen 1.5.326
+have since been provisioned on the demo machine, so a fresh run
+executes the analog/mixed/LVS paths live instead of blocking.
+The transcript below is the unprovisioned baseline; NGSPICE-LIVE
+owns the re-proof. Until then, expect MORE live results, never
+fewer — anything newly failing is a real bug, not a gap.
 
 Stages install and fetch PASS. Scenarios and gate report the
 env-blocked items honestly (cause + next step, no tracebacks):

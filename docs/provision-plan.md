@@ -16,16 +16,21 @@ engine's needs, and every other tool gets the same treatment from
 its own documentation. A recipe that cannot cite its upstream doc
 is not done.
 
-## Ambient census (2026-10-28, x86-64, Python 3.12.3, uv 0.13.5)
+## Ambient census (2026-10-30, x86-64, Python 3.12.3, uv 0.13.5, dev-PATH = oss-cad-suite + ~/tools/bin)
 
 | Tool | State | Note |
 |---|---|---|
-| magic 8.3.685 | present | CLI works |
+| magic 8.3.685 | present | CLI works (`/usr/local/bin`, source build) |
 | KLayout 0.28.16 | present | `-b` batch works; GUI broken (xcb) — engine uses batch only |
-| xschem | present | requires X; display-side, RocketIDE concern |
-| verilator, icarus, ghdl, slang, verible, sby, yosys | absent | provision via oss-cad-suite pin or apt |
-| ngspice | absent | provision via apt pin or source build |
-| gtkwave, netgen, cvc, openroad | absent | batch/view roles per B10 matrix |
+| ngspice-42 | present | `/usr/bin`, KLU solver; live proofs green |
+| netgen 1.5.326 | present | `~/tools/bin` (needs PATH), opencircuitdesign source build; live LVS green |
+| icarus 14.0-devel, vvp | present | oss-cad-suite; live HDL proofs green |
+| verilator 5.053-devel | present | oss-cad-suite |
+| ghdl 7.0-dev, slang 12.0, sby v0.70, yosys 0.70 | present | oss-cad-suite |
+| xschem | present | `/usr/local/bin`, requires X; display-side, RocketIDE concern |
+| gtkwave | present | oss-cad-suite; requires X; display-side |
+| bwrap | present | user-ns ok; netns denied in sandbox (re-prove on target) |
+| cvc, openroad | absent | batch roles per B10 matrix; no recipe yet |
 
 ## Provision approach (plan, not yet executed)
 
