@@ -108,7 +108,7 @@ def test_gdsfactory_gds_roundtrip_preserves_layout(tmp_path):
     assert gds.exists()
     assert got["roundtrip_cell"] == got["component"]
     assert got["roundtrip_polygons"] == got["n_polygons"]
-    assert got["roundtrip_bbox_um"] == pytest.approx(got["bbox_um"])
+    assert got["roundtrip_bbox_um"] == got["bbox_um"]
     assert got["roundtrip_match"] is True
 
 
