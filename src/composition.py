@@ -123,6 +123,10 @@ class Engine:
             done.append(self._execute(run_id, name, arguments))
         return done
 
+    def log_text(self, run_id):
+        """The full native log captured for a run ("" if none)."""
+        return self._logs.get(run_id, "")
+
     def register_solver(self, operation, adapter, tool=None):
         name = tool if tool is not None else type(adapter).__name__
         self._solvers.setdefault(operation, {})[name] = adapter

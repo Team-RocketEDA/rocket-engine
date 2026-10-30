@@ -13,7 +13,9 @@ project's constraints.yaml (`--project-dir`): the agent never sets them.
 import argparse
 import asyncio
 import json
+import subprocess
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from mcp.server import Server
@@ -134,6 +136,41 @@ def _confine_files(arguments, project_dir):
     arguments["workdir"] = str(workdir)
 
 
+def _source_state(root):
+    """(short commit, dirty) of the project's git working tree, or (None, None) outside git."""
+    git = ["git", "-C", str(root)]
+    head = subprocess.run([*git, "rev-parse", "--short", "HEAD"], capture_output=True, text=True)
+    if head.returncode != 0:
+        return None, None
+    status = subprocess.run([*git, "status", "--porcelain", "--", "design", "tests", "constraints.yaml"],
+                            capture_output=True, text=True)
+    return head.stdout.strip(), bool(status.stdout.strip())
+
+
+def write_evidence(project_dir, engine, outcomes, arguments):
+    """Persist each finished run under results/engine-runs/<run_id>.json, so the IDE
+    sees agent and manual runs alike. Only the engine writes here."""
+    root = Path(project_dir).resolve()
+    folder = root / "results" / "engine-runs"
+    folder.mkdir(parents=True, exist_ok=True)
+    commit, dirty = _source_state(root)
+    finished = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for outcome in outcomes:
+        record = {
+            "producer": "rocket-engine",
+            "run_id": outcome["run_id"],
+            "operation": outcome["operation"],
+            "verdict": outcome["verdict"],
+            "finished_at": finished,
+            "source_commit": commit,
+            "source_dirty": dirty,
+            "sources": [str(Path(s).relative_to(root)) if Path(s).is_relative_to(root) else s
+                        for s in arguments.get("sources") or []],
+            "log": engine.log_text(outcome["run_id"]) if hasattr(engine, "log_text") else "",
+        }
+        (folder / f"{outcome['run_id']}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+
+
 def make_handlers(engine_factory, project_scope=None, project_dir=None):
     engines = {}
 
@@ -169,7 +206,9 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
             }))
             # Run what was just queued, so the agent's next get_job_status has a verdict.
             if params.name in OPERATIONS and hasattr(engine, "drain"):
-                engine.drain()
+                outcomes = engine.drain()
+                if project_dir is not None:
+                    write_evidence(project_dir, engine, outcomes, arguments)
         except _ENGINE_ERRORS as exc:
             return _error(exc.code, str(exc))
         return CallToolResult(content=[TextContent(
@@ -206,17 +245,40 @@ def load_constraints(project_dir):
     return targets
 
 
+def _call_once(engine_factory, args):
+    """One-shot mode for the IDE's own buttons: same validation, targets and evidence as an agent call."""
+    from mcp.types import CallToolRequestParams
+
+    _, call = make_handlers(engine_factory, args.project, args.project_dir)
+
+    def invoke(name, arguments):
+        result = asyncio.run(call(None, CallToolRequestParams(name=name, arguments=arguments)))
+        return result.is_error, json.loads(result.content[0].text)
+
+    failed, body = invoke(args.call, json.loads(args.args))
+    if not failed and args.call in OPERATIONS and "run_id" in body:
+        failed, body = invoke("get_job_status", {"run_id": body["run_id"]})
+    print(json.dumps(body))
+    return 1 if failed else 0
+
+
 def main(argv=None):
     from ...composition import Engine
 
     parser = argparse.ArgumentParser(prog="rocket-engine-mcp")
     parser.add_argument("--project", help="bind to this project id (fills project_id/expected_revision)")
     parser.add_argument("--project-dir", help="project folder; run_spice targets come from its constraints.yaml")
+    parser.add_argument("--call", help="run one operation through the same handlers, print its job status, exit")
+    parser.add_argument("--args", default="{}", help="JSON arguments for --call")
     args = parser.parse_args(argv)
     constraints = load_constraints(args.project_dir) if args.project_dir else None
+    engine_factory = lambda pid: Engine(pid, actor="mcp", constraints=constraints)  # noqa: E731
+
+    if args.call:
+        return _call_once(engine_factory, args)
 
     server = build_server(
-        lambda pid: Engine(pid, actor="mcp", constraints=constraints),
+        engine_factory,
         project_scope=args.project,
         project_dir=args.project_dir,
     )
