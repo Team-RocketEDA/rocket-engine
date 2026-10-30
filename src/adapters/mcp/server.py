@@ -1,7 +1,9 @@
 """Connectable MCP stdio server: initialize/tools/list/tools/call.
 
 One tool per cataloged operation/query; handlers route through
-McpTransport so validation stays single-sourced. build_server()
+McpTransport so validation stays single-sourced. Tool descriptions
+read from the serving handler docstrings — the same text the
+generated reference serves (ADR-003 double-use). build_server()
 is transport-free; only main() touches stdio.
 """
 
@@ -19,21 +21,86 @@ from ..errors import AdapterError
 from . import McpTransport
 
 
+_HELP_ENGINE = None
+
+
+def _help_engine():
+    """Docs-only Engine for solver introspection (never submits).
+
+    Returns:
+        Shared in-memory Engine whose solver map describes each
+            operation's serving adapters.
+    """
+    global _HELP_ENGINE
+    if _HELP_ENGINE is None:
+        from ...composition import Engine
+
+        _HELP_ENGINE = Engine("mcp-help", actor="mcp")
+    return _HELP_ENGINE
+
+
+def _summary_of(target):
+    """First docstring line of one handler (help-text source).
+
+    Args:
+        target: Handler class, method, or function to summarize.
+
+    Returns:
+        Summary line, or "" when the handler is undocumented.
+    """
+    doc = target.__doc__ or ""
+    return doc.splitlines()[0].strip() if doc.splitlines() else ""
+
+
+def describe_tool(name):
+    """Describe one tool from its serving handler docstring.
+
+    Wired solver operations read the primary adapter's class
+    summary; CRUD operations and wired queries read their
+    ProjectService method summary; run_job reads the phase-2
+    runner summary; unwired names honestly say so. The generated
+    reference reads the same docstrings, so docs and agent help
+    cannot drift apart.
+
+    Args:
+        name: Cataloged operation or query name.
+
+    Returns:
+        Tool description text for the name.
+    """
+    from ...composition import QUERY_METHODS, Engine
+    from ...project.service import ProjectService
+
+    solvers = _help_engine().solvers_for(name)
+    if solvers:
+        return _summary_of(next(iter(solvers.values())))
+    if name == "run_job":
+        # run_job's contract doc lives on the phase-2 runner
+        # (introspection only; never called for help).
+        return _summary_of(Engine._run_queued)
+    if name in OPERATIONS and hasattr(ProjectService, name):
+        return _summary_of(getattr(ProjectService, name))
+    method = QUERY_METHODS.get(name)
+    if method is not None:
+        return _summary_of(getattr(ProjectService, method))
+    kind = "operation" if name in OPERATIONS else "query"
+    return f"Declared {kind} `{name}`; no handler wired yet."
+
+
 def tool_definitions():
     """Build one MCP tool per cataloged operation/query.
+
+    Descriptions come from the serving handler docstrings — the
+    same text the generated reference serves (ADR-003 double-use).
 
     Returns:
         Tool list with per-operation descriptions, sorted by name.
     """
     tools = []
     for name in sorted(OPERATIONS | QUERIES):
-        kind = "operation" if name in OPERATIONS else "query"
         tools.append(Tool(
             name=name,
-            description=(
-                f"Rocket-engine {kind} {name}. "
-                "Arguments: project_id (required) plus operation arguments."
-            ),
+            description=describe_tool(name),
             inputSchema={"type": "object"},
         ))
     return tools

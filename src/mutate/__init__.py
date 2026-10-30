@@ -420,7 +420,18 @@ OPERATORS = {
 
 
 def operator_variant(name, seed):
-    """Variant index for (operator, seed): seed mod variant count."""
+    """Variant index for (operator, seed): seed mod variant count.
+
+    Args:
+        name: Operator name selecting the variant count.
+        seed: Integer seed selecting the variant.
+
+    Returns:
+        Variant index in range.
+
+    Raises:
+        MutationError: Non-integer seed.
+    """
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise MutationError(f"{name}: seed must be an int, got {seed!r}.")
     return seed % OPERATORS[name]["variants"]
@@ -431,6 +442,17 @@ def copy_base_files(entry, src_dir, dest_dir):
 
     Repo-relative paths (SERV rtl/ + servile/ + servant/ + bench/)
     keep their structure under dest_dir; flat fixtures stay flat.
+
+    Args:
+        entry: Operator table entry naming the base files.
+        src_dir: Directory the base files copy from.
+        dest_dir: Directory the copies stage into.
+
+    Returns:
+        Staged file names.
+
+    Raises:
+        FileNotFoundError: Missing base file under src_dir.
     """
     src = Path(src_dir)
     dest = Path(dest_dir)
@@ -447,9 +469,20 @@ def copy_base_files(entry, src_dir, dest_dir):
 def apply_operator(name, dest_dir, seed, src_dir):
     """Stage base files into dest_dir and mutate the target copy.
 
-    Returns JSON-native evidence (operator, seed, variant, expected
-    verdict/rules, plus operator specifics). Unknown operators raise
-    KeyError; drifted probe sites raise MutationError.
+    Args:
+        name: Operator name to apply.
+        dest_dir: Directory the mutant stages into.
+        seed: Integer seed selecting the variant.
+        src_dir: Directory the base files copy from.
+
+    Returns:
+        JSON-native evidence (operator, seed, variant, expected
+            verdict/rules, plus operator specifics).
+
+    Raises:
+        KeyError: Unknown operator.
+        MutationError: Drifted probe site (fixture changed).
+        FileNotFoundError: Missing base file under src_dir.
     """
     entry = OPERATORS[name]
     variant = operator_variant(name, seed)
@@ -513,6 +546,22 @@ def stage_design_extras(design, dest_dir, root):
     Missing pieces raise FileNotFoundError; a drifted harness
     watchdog raises MutationError — never a silent
     unmutated-shaped run.
+
+    Args:
+        design: Vendored design name (serv/picorv32/bandgap/mzi/
+            sdm_rx/sd_top).
+        dest_dir: Staged sim dir receiving the extras.
+        root: Repo root the extras copy from.
+
+    Returns:
+        Runnable job args for the design's operation (plus the mzi
+            layout sidecar).
+
+    Raises:
+        KeyError: Unknown design.
+        FileNotFoundError: Missing harness/firmware/vector/base
+            piece.
+        MutationError: Drifted probe or shim site.
     """
     if design not in _DESIGNS:
         raise KeyError(f"unknown vendored design: {design!r}.")
@@ -706,7 +755,21 @@ def _staged_names(design, dest):
 
 
 def stage_good_design(design, dest_dir, root):
-    """Stage an unmutated design sim dir; return runnable job args."""
+    """Stage an unmutated design sim dir; return runnable job args.
+
+    Args:
+        design: Vendored design name to stage unmutated.
+        dest_dir: Staged sim dir receiving base files + extras.
+        root: Repo root the base files copy from.
+
+    Returns:
+        Runnable job args for the design's operation.
+
+    Raises:
+        KeyError: Unknown design.
+        FileNotFoundError: Missing base file or extra.
+        MutationError: Drifted probe or shim site.
+    """
     entry = _design_entry(design)
     dest = Path(dest_dir)
     copy_base_files(entry, Path(root) / entry["base"], dest)

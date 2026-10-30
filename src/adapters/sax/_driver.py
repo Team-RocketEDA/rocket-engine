@@ -67,6 +67,19 @@ def _fail(code, message, token, line):
 
 
 def main(argv):
+    """Run one staged SAX sim: job JSON in, envelope JSON on stdout.
+
+    Args:
+        argv: Argument vector; argv[1] is the staged job JSON path.
+
+    Returns:
+        Process exit code: 0 on sim success, 2 on a malformed
+            circuit, 3 when sax is not importable.
+
+    Raises:
+        ValueError: Unknown model name (raised and caught inside
+            main into the invalid_circuit envelope — never escapes).
+    """
     with open(argv[1], encoding="utf-8") as handle:
         job = json.load(handle)
     text = job.get("text", "")

@@ -63,13 +63,67 @@ def _tech_arg_or_raise(job):
 
 
 class MagicExtractAdapter(ToolAdapter):
+    """run_extraction via Magic: .mag cells to .ext/.spice netlists.
+
+    Serves the run_extraction operation with deck.tool `magic` (the
+    only tool). Loads the cell, extracts all, and converts with
+    ext2spice; the result carries the netlist artifact paths plus
+    device counts.
+
+    Job keys:
+        cell (required): Cell name loaded and extracted.
+        cell_file (required): Path to the .mag cell file.
+        tech (required): Magic tech name — one tech form is
+            required (tech, tech_file, or deck.path/tech_file/file).
+        tech_file: Magic tech file path (a hash-checked store deck
+            by the caller).
+        deck: Optional mapping naming the tech file
+            (deck.path/tech_file/file).
+        workdir: Run directory (default ".").
+
+    Args:
+        runner: Optional isolated runner; direct subprocess when None.
+
+    Caution: Magic exits 0 even for broken cells — the verdict
+        always comes from parsed output, never the exit code.
+    """
+
     def __init__(self, runner=None):
         self._runner = runner
 
     def capabilities(self, target):
+        """Report the served operation and tool name.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one cell per job).
+
+        Returns:
+            Capability mapping with operations and tool.
+        """
         return {"operations": [OPERATION], "tool": "magic"}
 
     def preflight(self, job):
+        """Check operation, cell, tech, binary, and cell file.
+
+        Cheap deterministic checks first, machine-dependent ones
+        last.
+
+        Args:
+            job: Solver job with operation run_extraction plus
+                cell, cell_file, and tech inputs.
+
+        Returns:
+            Checked mapping with tech_arg, cell, and cell_file.
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, invalid_command for a missing cell, a
+                Tcl-unsafe cell name, or no tech form,
+                missing_dependency for a missing magic binary or
+                unloadable tech, invalid_reference for a missing
+                cell or tech file.
+        """
         # Cheap deterministic checks first (operation, cell, tech),
         # machine-dependent ones last (binary, tech probe).
         if job.get("operation") != OPERATION:
@@ -106,6 +160,23 @@ class MagicExtractAdapter(ToolAdapter):
         return {"tech_arg": tech_arg, "cell": cell, "cell_file": cell_file}
 
     def execute(self, job):
+        """Stage the cell, extract all, and convert with ext2spice.
+
+        Args:
+            job: Solver job with operation run_extraction plus
+                cell, cell_file, and tech inputs.
+
+        Returns:
+            Native output with exit_code, stdout/stderr, tech,
+                cell, and the .ext/.spice artifact paths and text.
+
+        Raises:
+            AdapterError: invalid_reference for a missing workdir,
+                missing_dependency when the tech fails to load
+                mid-run, runner_unavailable when the output has no
+                ext2spice marker or no .ext/.spice pair, plus the
+                preflight codes (execute re-checks first).
+        """
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
         if not Path(workdir).is_dir():
@@ -145,6 +216,20 @@ class MagicExtractAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        """Parse the ext2spice marker plus the device table.
+
+        Args:
+            native_output: Native output with magic stdout and the
+                spice text or file.
+
+        Returns:
+            Result with cell, artifact paths, device_count,
+                devices, and no violations.
+
+        Raises:
+            AdapterError: runner_unavailable when the output has no
+                ext2spice marker, no spice text, or no subckt block.
+        """
         stdout = native_output.get("stdout", "")
         if _MARKER not in stdout:
             raise AdapterError(

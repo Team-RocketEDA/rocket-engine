@@ -31,7 +31,18 @@ _HELP = {
 
 
 def get_help(topic):
-    """Return versioned help metadata. Pure data — executes nothing."""
+    """Return versioned help metadata. Pure data — executes nothing.
+
+    Args:
+        topic: Help topic name (run_drc, run_spice, python_execute).
+
+    Returns:
+        Help entry with topic, contract version, signature, and
+            example.
+
+    Raises:
+        ExecutionError: unknown_topic for an unlisted topic.
+    """
     try:
         entry = _HELP[topic]
     except KeyError:
@@ -40,6 +51,13 @@ def get_help(topic):
 
 
 class ConsoleSession:
+    """In-memory console approvals with binding semantics.
+
+    Args:
+        project_id: Project this session approves cells for.
+        actor: Actor recorded on approvals.
+    """
+
     def __init__(self, project_id, actor):
         self._project_id = project_id
         self._actor = actor
@@ -48,6 +66,17 @@ class ConsoleSession:
         self._cursor = 0
 
     def request_cell_approval(self, code, history_cursor, env_digest, expected_revision):
+        """Bind a pending approval to one cell plus its context.
+
+        Args:
+            code: Full worker source the approval pins.
+            history_cursor: History position the approval pins.
+            env_digest: Environment digest the approval pins.
+            expected_revision: Revision the approval pins.
+
+        Returns:
+            Approval record with approval_id and pending state.
+        """
         approval_id = uuid.uuid4().hex
         self._approvals[approval_id] = {
             "approval_id": approval_id,
@@ -69,6 +98,25 @@ class ConsoleSession:
 
     def admit_cell(self, approval_id, code, history_cursor, env_digest,
                    expected_revision):
+        """Admit a cell whose context still matches its binding.
+
+        Any drift in code, cursor, env, or revision fails instead
+        of running a stranger's cell.
+
+        Args:
+            approval_id: Approval bound by request_cell_approval.
+            code: Full worker source to re-check against the binding.
+            history_cursor: History position to re-check.
+            env_digest: Environment digest to re-check.
+            expected_revision: Revision to re-check.
+
+        Returns:
+            Approval record with approval_id and approved state.
+
+        Raises:
+            ExecutionError: approval_invalid for an unknown approval
+                or any binding drift.
+        """
         binding = self._binding(approval_id)
         if (
             binding["code"] != code
@@ -83,6 +131,19 @@ class ConsoleSession:
         return {"approval_id": approval_id, "state": "approved"}
 
     def execute_cell(self, approval_id, code):
+        """Record a cell execution without running code.
+
+        Args:
+            approval_id: Approval whose code must match.
+            code: Cell code to re-check against the binding.
+
+        Returns:
+            Record with the advanced cursor and recorded state.
+
+        Raises:
+            ExecutionError: approval_invalid for an unknown approval
+                or code that differs from the approved code.
+        """
         binding = self._binding(approval_id)
         if binding["code"] != code:
             raise ExecutionError(
@@ -92,6 +153,11 @@ class ConsoleSession:
         return {"cursor": self._cursor, "state": "recorded"}
 
     def reset(self):
+        """Retire the generation and kill every outstanding approval.
+
+        Returns:
+            Mapping with the fresh generation id.
+        """
         self.generation = uuid.uuid4().hex
         self._approvals = {}
         self._cursor = 0

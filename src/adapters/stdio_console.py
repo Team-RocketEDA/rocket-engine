@@ -265,6 +265,13 @@ def build_cell_source(code, project_id="default"):
     display text is concatenated verbatim afterwards — cell bytes that
     happen to look like the slot stay data. The result ends with the
     exact displayed cell (trailing newline normalized).
+
+    Args:
+        code: Display cell text to wrap.
+        project_id: Project id rendered into the preamble binding.
+
+    Returns:
+        Worker source: pinned preamble plus the display cell.
     """
     display = code if code.endswith("\n") else code + "\n"
     return _render_preamble(project_id) + "\n" + display
@@ -276,6 +283,13 @@ def format_op_call(operation, arguments):
     Values render as JSON (a YAML subset, so types round-trip through
     the one parser of record) and the whole `key=value` token is shell
     quoted when needed. Argument order is sorted for stability.
+
+    Args:
+        operation: Cataloged operation or query name.
+        arguments: Operation arguments rendered as key=value pairs.
+
+    Returns:
+        Replayable batch-surface command line for the op call.
     """
     parts = [operation]
     for key in sorted(arguments):
@@ -295,7 +309,17 @@ def _load_yaml(text):
 
 
 class StdioConsole:
-    """One stdio console: cells in fresh workers, ops via dispatch."""
+    """One stdio console: cells in fresh workers, ops via dispatch.
+
+    Args:
+        engine: Engine ops replay against; constructed from
+            project_id/actor when omitted.
+        project_id: Project id stamped on every command.
+        actor: Actor stamped on every command.
+        root: Console state dir; defaults under cwd `.rocket/`.
+        cell_runner: Worker runner; constructed when omitted.
+        expected_revision: Revision cells bind approvals against.
+    """
 
     def __init__(self, engine=None, project_id="default", actor="console",
                  root=None, cell_runner=None, expected_revision="local"):
@@ -367,30 +391,65 @@ class StdioConsole:
 
     @property
     def console_id(self):
+        """Stable console id, persisted across restarts.
+
+        Returns:
+            Console id string.
+        """
         return self._console_id
 
     @property
     def generation(self):
+        """Current approval generation; reset retires it.
+
+        Returns:
+            Generation id string.
+        """
         return self._generation
 
     @property
     def cursor(self):
+        """History cursor: count of persisted executions.
+
+        Returns:
+            Execution count as an int.
+        """
         return self._cursor
 
     @property
     def root(self):
+        """Console state directory.
+
+        Returns:
+            Root path string.
+        """
         return str(self._root)
 
     @property
     def engine(self):
+        """Engine ops replay against.
+
+        Returns:
+            Bound engine.
+        """
         return self._engine
 
     @property
     def gate(self):
+        """Execution-scoped credential gate of the worker runner.
+
+        Returns:
+            Credential gate.
+        """
         return self._runner.gate
 
     @property
     def admission(self):
+        """Worker isolation admission record.
+
+        Returns:
+            Admission mapping copy.
+        """
         return dict(self._runner.admission)
 
     @staticmethod
@@ -404,7 +463,18 @@ class StdioConsole:
         return code if code.endswith("\n") else code + "\n"
 
     def request_approval(self, code):
-        """Approve-later path: bind an approval to one display cell."""
+        """Approve-later path: bind an approval to one display cell.
+
+        Args:
+            code: Display cell text to bind.
+
+        Returns:
+            Approval record with approval_id and pending state.
+
+        Raises:
+            ExecutionError: invalid_cell for non-text code,
+                empty_cell for a blank cell.
+        """
         display = self._normalize(code)
         full = build_cell_source(display, project_id=self._project_id)
         return self._session.request_cell_approval(
@@ -415,7 +485,25 @@ class StdioConsole:
 
     def run_approved(self, approval_id, code, artifacts=(), timeout_s=None,
                      on_live=None):
-        """Run a cell against an earlier approval (tamper raises)."""
+        """Run a cell against an earlier approval (tamper raises).
+
+        Args:
+            approval_id: Approval bound by request_approval.
+            code: Display cell text; must match the binding.
+            artifacts: Scratch-relative paths to harvest.
+            timeout_s: Worker budget in seconds; runner default
+                when omitted.
+            on_live: Optional callback while the worker is live.
+
+        Returns:
+            Persisted execution record with state, stdio, ops
+                replay, and artifacts.
+
+        Raises:
+            ExecutionError: approval_invalid when the code drifts
+                from its binding, invalid_cell/empty_cell for bad
+                code.
+        """
         display = self._normalize(code)
         full = build_cell_source(display, project_id=self._project_id)
         return self._run_full(approval_id, full, display,
@@ -423,7 +511,23 @@ class StdioConsole:
                               on_live)
 
     def submit(self, code, artifacts=(), timeout_s=None, on_live=None):
-        """Human-Run path: approve and run the exact displayed cell."""
+        """Human-Run path: approve and run the exact displayed cell.
+
+        Args:
+            code: Display cell text to approve and run.
+            artifacts: Scratch-relative paths to harvest.
+            timeout_s: Worker budget in seconds; runner default
+                when omitted.
+            on_live: Optional callback while the worker is live.
+
+        Returns:
+            Persisted execution record with state, stdio, ops
+                replay, and artifacts.
+
+        Raises:
+            ExecutionError: invalid_cell for non-text code,
+                empty_cell for a blank cell.
+        """
         display = self._normalize(code)
         full = build_cell_source(display, project_id=self._project_id)
         approval = self._session.request_cell_approval(
@@ -436,7 +540,23 @@ class StdioConsole:
                               on_live)
 
     def submit_file(self, path, artifacts=(), timeout_s=None, on_live=None):
-        """Run a script file as one cell; history keeps its own copy."""
+        """Run a script file as one cell; history keeps its own copy.
+
+        Args:
+            path: Script file path to run as one cell.
+            artifacts: Scratch-relative paths to harvest.
+            timeout_s: Worker budget in seconds; runner default
+                when omitted.
+            on_live: Optional callback while the worker is live.
+
+        Returns:
+            Persisted execution record with state, stdio, ops
+                replay, and artifacts.
+
+        Raises:
+            ExecutionError: cell_unreadable when the file cannot
+                be read, invalid_cell/empty_cell for bad content.
+        """
         try:
             text = Path(path).read_text(encoding="utf-8")
         except OSError as exc:
@@ -603,7 +723,11 @@ class StdioConsole:
         return replayed
 
     def history(self):
-        """Persisted executions, oldest first (survives restarts)."""
+        """Persisted executions, oldest first (survives restarts).
+
+        Returns:
+            Execution records sorted by history cursor.
+        """
         records = []
         for path in (self._root / "executions").glob("*.yaml"):
             records.append(_load_yaml(path.read_text(encoding="utf-8")))
@@ -611,7 +735,11 @@ class StdioConsole:
         return records
 
     def reset(self):
-        """Retire the generation and kill every outstanding approval."""
+        """Retire the generation and kill every outstanding approval.
+
+        Returns:
+            Mapping with the fresh generation id.
+        """
         out = self._session.reset()
         self._generation = out["generation"]
         self._write_console_yaml()
@@ -846,7 +974,24 @@ def _run_session(console, options, stdin, stdout, stderr):
 
 def main(argv=None, engine=None, cell_runner=None, stdin=None, stdout=None,
          stderr=None):
-    """Run the stdio console; return the process exit code (never raise)."""
+    """Run the stdio console; return the process exit code (never raise).
+
+    Args:
+        argv: Argument vector without the program name; defaults to
+            sys.argv[1:].
+        engine: Engine to run against; constructed from
+            --project/--actor when omitted.
+        cell_runner: Worker runner; constructed when omitted.
+        stdin: Input stream for the interactive session.
+        stdout: Stream for results and machine envelopes.
+        stderr: Stream for human-readable errors plus usage.
+
+    Returns:
+        Process exit code: 0 session-ok, 2 usage error.
+
+    Caution: Exit zero is not PASS — per-cell verdicts live in the
+        persisted records; read them, never the exit code.
+    """
     argv = list(sys.argv[1:] if argv is None else argv)
     stdin = sys.stdin if stdin is None else stdin
     stdout = sys.stdout if stdout is None else stdout

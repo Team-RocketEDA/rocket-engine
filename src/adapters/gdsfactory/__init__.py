@@ -24,7 +24,16 @@ CSPDK_PDK = "cspdk.si340"
 
 
 def gdsfactory_version():
-    """Proven layout version, observable per run (uv.lock pin)."""
+    """Proven layout version, observable per run (uv.lock pin).
+
+    Returns:
+        Installed gdsfactory version, or "unknown" when the package
+            carries no version attribute.
+
+    Raises:
+        AdapterError: missing_dependency when gdsfactory is not
+            importable.
+    """
     try:
         import gdsfactory as gf
     except ImportError as exc:
@@ -63,7 +72,20 @@ def _ensure_cspdk(cspdk_path=None):
 
 
 def cspdk_version(cspdk_path=None):
-    """Vendored PDK version, observable per run (fetch pin)."""
+    """Vendored PDK version, observable per run (fetch pin).
+
+    Args:
+        cspdk_path: Vendored cspdk tree to import from when the
+            package is not installed.
+
+    Returns:
+        Installed cspdk version, or "unknown" when the package
+            carries no version attribute.
+
+    Raises:
+        AdapterError: missing_dependency when cspdk.si340 is not
+            importable from either source.
+    """
     return getattr(_ensure_cspdk(cspdk_path), "__version__", "unknown")
 
 
@@ -87,9 +109,22 @@ def run_layout_smoke(*, cell="mzi", pdk=CSPDK_PDK, cspdk_path=None,
     roundtrip_match}` — plain strings/floats, JSON-friendly.
     `pdk="generic"` builds from the gpdk cell library (no cspdk
     needed); otherwise the cspdk si340 PDK is attached first.
-    Raises `missing_dependency` where gdsfactory/cspdk are
-    uninstalled, `invalid_command` on bad parameters or an
-    unknown cell.
+
+    Args:
+        cell: Cell name to build from the active PDK.
+        pdk: PDK to attach ("generic" skips cspdk).
+        cspdk_path: Vendored cspdk tree when the package is not
+            installed.
+        gds_path: GDS output path; a temp file when omitted.
+
+    Returns:
+        Build + roundtrip evidence mapping (versions, ports,
+            polygon counts, bboxes, roundtrip match).
+
+    Raises:
+        AdapterError: invalid_command on bad parameters or an
+            unknown cell, missing_dependency where
+            gdsfactory/cspdk are uninstalled.
     """
     if not isinstance(cell, str) or not cell:
         raise AdapterError(

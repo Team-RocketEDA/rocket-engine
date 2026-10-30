@@ -31,13 +31,61 @@ _SUMMARY_RE = re.compile(r"^Build (succeeded|failed): (\d+) errors?, (\d+) warni
 
 
 class SyntaxAdapter(ToolAdapter):
+    """run_syntax via Slang: SystemVerilog lint with diagnostics.
+
+    Serves the run_syntax operation with deck.tool `slang` (the only
+    tool). Lints the sources and parses file:line:col diagnostics
+    plus the Build summary; errors are FAIL, warnings never fail.
+
+    Job keys:
+        sources (required): HDL source paths under lint.
+        slang_flags: Extra slang flags (default [-Wextra]).
+        timeout_s: Lint budget in seconds (default 120).
+        tool_dir: Directory holding slang; PATH otherwise.
+        deck: Optional mapping; deck.tool must be slang here.
+        workdir: Run directory (default ".").
+
+    Args:
+        runner: Optional isolated runner; direct subprocess when None.
+
+    Caution: A failed build with no parsed diagnostics reports a
+        synthesized error rather than going clean.
+    """
+
     def __init__(self, runner=None):
         self._runner = runner
 
     def capabilities(self, target):
+        """Report the served operation and tool name.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one source set per job).
+
+        Returns:
+            Capability mapping with operations and tool.
+        """
         return {"operations": [OPERATION], "tool": "slang"}
 
     def preflight(self, job):
+        """Check operation, timeout, flags, sources, and slang.
+
+        Cheap deterministic checks first, tool resolution last.
+
+        Args:
+            job: Solver job with operation run_syntax plus
+                sources, flags, and timeout inputs.
+
+        Returns:
+            Checked mapping with the resolved slang path,
+                sources, flags, and timeout_s.
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, invalid_command for a bad timeout or
+                slang_flags, invalid_reference for missing sources,
+                missing_dependency for an unresolvable slang.
+        """
         # Cheap deterministic checks first: operation, timeout, flags,
         # sources. Tool resolution last, since it depends on the machine.
         if job.get("operation") != OPERATION:
@@ -71,6 +119,21 @@ class SyntaxAdapter(ToolAdapter):
         }
 
     def execute(self, job):
+        """Lint the sources with slang --lint-only.
+
+        Args:
+            job: Solver job with operation run_syntax plus
+                sources, flags, and timeout inputs.
+
+        Returns:
+            Native output with exit_code, stdout/stderr, and the
+                linted sources.
+
+        Raises:
+            AdapterError: invalid_reference for a missing workdir,
+                runner_unavailable on a slang timeout, plus the
+                preflight codes (execute re-checks first).
+        """
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
         if not Path(workdir).is_dir():
@@ -90,6 +153,22 @@ class SyntaxAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        """Parse slang diagnostics plus the Build summary line.
+
+        A failed build with no parsed error diagnostics synthesizes
+        one rather than going clean; warnings never fail.
+
+        Args:
+            native_output: Native output with slang stdout/stderr.
+
+        Returns:
+            {total, violations[]} with rule, severity, message, and
+                file/line/col locations.
+
+        Raises:
+            AdapterError: runner_unavailable when the output has no
+                Build summary line.
+        """
         text = native_output.get("stdout", "") + "\n" + native_output.get("stderr", "")
         violations = []
         for match in _DIAG_RE.finditer(text):

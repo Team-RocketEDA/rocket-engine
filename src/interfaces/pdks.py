@@ -43,11 +43,24 @@ _HASH_CHUNK_BYTES = 1024 * 1024
 
 
 class PdkError(ContractError):
-    """PDK-store violation with a stable machine code."""
+    """PDK-store violation with a stable machine code.
+
+    Args:
+        code: Stable machine-readable error code.
+        message: Human-readable detail.
+        fields: Itemized fields, when the error names any.
+    """
 
 
 def resolve_engine_root(explicit=None):
-    """Resolve ENGINE_ROOT: explicit arg -> $ROCKETEDA_HOME -> XDG default."""
+    """Resolve ENGINE_ROOT: explicit arg -> $ROCKETEDA_HOME -> XDG default.
+
+    Args:
+        explicit: Explicit root path; env/default when omitted.
+
+    Returns:
+        Resolved engine root path.
+    """
     if explicit is not None:
         return Path(explicit)
     env_home = os.environ.get("ROCKETEDA_HOME")
@@ -66,7 +79,19 @@ def _dump_yaml(data):
 
 
 def ensure_engine_root(root=None):
-    """Create a missing engine-root skeleton, then validate it. Idempotent."""
+    """Create a missing engine-root skeleton, then validate it.
+
+    Idempotent: existing stamps, policy, and dirs are kept.
+
+    Args:
+        root: Explicit root path; resolved when omitted.
+
+    Returns:
+        Validated engine root path.
+
+    Raises:
+        LayoutError: Any tree-validation failure after creation.
+    """
     resolved = resolve_engine_root(root)
     resolved.mkdir(parents=True, exist_ok=True)
     stamp = resolved / "layout.version"
@@ -227,6 +252,22 @@ def register_pdk(source_dir, pdk_id, revision, engine_root=None):
     """Adopt a local dir into pdks/ (copy + manifest + verify).
 
     Re-register re-verifies the existing entry instead of duplicating.
+
+    Args:
+        source_dir: Caller-owned directory to adopt (outside its
+            store entry).
+        pdk_id: Canonical display id (slug on disk).
+        revision: PDK revision pin.
+        engine_root: Explicit root; resolved when omitted.
+
+    Returns:
+        Registration record (id, revision, path, hashes, counts,
+            verified, reverified).
+
+    Raises:
+        PdkError: invalid_pdk for a bad source/revision/layout,
+            pdk_conflict when the entry is registered from another
+            source, pdk_drift when re-verify finds changes.
     """
     root = ensure_engine_root(engine_root)
     source = Path(source_dir)
@@ -294,7 +335,21 @@ def register_pdk(source_dir, pdk_id, revision, engine_root=None):
 
 
 def verify_pdk(pdk_id, revision, engine_root=None):
-    """Re-hash a registered PDK; drift fails loudly naming the file."""
+    """Re-hash a registered PDK; drift fails loudly naming the file.
+
+    Args:
+        pdk_id: Canonical display id (either spelling resolves).
+        revision: PDK revision pin.
+        engine_root: Explicit root; resolved when omitted.
+
+    Returns:
+        Verification record (ok, id, revision, path, hashes,
+            file_count).
+
+    Raises:
+        PdkError: invalid_pdk for a bad revision, unknown_pdk for
+            a missing store entry, pdk_drift for any change.
+    """
     root = resolve_engine_root(engine_root)
     validate_tree(root, kind="engine_root")
     slug = slugify(pdk_id)
@@ -319,7 +374,18 @@ def verify_pdk(pdk_id, revision, engine_root=None):
 
 
 def list_pdks(engine_root=None):
-    """List registered PDKs in canonical (id, revision) order."""
+    """List registered PDKs in canonical (id, revision) order.
+
+    Args:
+        engine_root: Explicit root; resolved when omitted.
+
+    Returns:
+        Entry records (id, revision, path, hashes, counts,
+            registered_at), sorted by (id, revision).
+
+    Raises:
+        PdkError: invalid_pdk for a store entry without a manifest.
+    """
     root = resolve_engine_root(engine_root)
     validate_tree(root, kind="engine_root")
     pdks_root = join_contained(root, "pdks")
@@ -358,6 +424,21 @@ def resolve_deck(pdk_id, revision, deck, engine_root=None):
 
     The file's current hash must match the manifest; drift, unknown
     decks, and unknown id/rev all raise (never silent substitute).
+
+    Args:
+        pdk_id: Canonical display id (either spelling resolves).
+        revision: PDK revision pin.
+        deck: Deck relpath under the store entry.
+        engine_root: Explicit root; resolved when omitted.
+
+    Returns:
+        Deck record with store path and current sha256.
+
+    Raises:
+        PdkError: invalid_pdk for a bad revision, unknown_pdk for
+            a missing entry or deck, pdk_drift for hash/symlink
+            changes or a missing file, path codes for an escaping
+            deck relpath.
     """
     root = resolve_engine_root(engine_root)
     validate_tree(root, kind="engine_root")
@@ -410,6 +491,19 @@ def pdk_ingredient(pdk_id, revision, engine_root=None):
     of recording a stale hash. `pdk_tree_hash` is the
     content-addressed cross-machine identity (unlike
     `pdk_manifest_hash`, it ignores `registered_at`/source).
+
+    Args:
+        pdk_id: Canonical display id (either spelling resolves).
+        revision: PDK revision pin.
+        engine_root: Explicit root; resolved when omitted.
+
+    Returns:
+        Ingredient closure (pdk_id, pdk_revision,
+            pdk_manifest_hash, pdk_tree_hash).
+
+    Raises:
+        PdkError: unknown_pdk for a missing entry, pdk_drift when
+            the store changed since registration.
     """
     result = verify_pdk(pdk_id, revision, engine_root=engine_root)
     return {

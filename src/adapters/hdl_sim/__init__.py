@@ -73,13 +73,64 @@ def _parse_sim(text):
 
 
 class HdlSimAdapter(ToolAdapter):
+    """run_hdl_test via Icarus: compile plus timed Verilog sim.
+
+    Serves the run_hdl_test operation with deck.tool `icarus` (the
+    only tool). Compiles the sources with iverilog, runs the sim
+    under vvp with a timeout, and parses compile diagnostics plus
+    FATAL/ERROR assertion lines.
+
+    Job keys:
+        sources (required): Verilog source paths, bench included.
+        defines: Verilog `define list, optional =value each.
+        timeout_s: Sim budget in seconds (default 120).
+        tool_dir: Directory holding iverilog/vvp; PATH otherwise.
+        deck: Optional mapping; deck.tool must be icarus here.
+        workdir: Run directory (default ".").
+
+    Args:
+        runner: Optional isolated runner; direct subprocess when None.
+
+    Caution: $error exits 0 and hangs raise instead of hanging the
+        engine — the verdict always comes from parsed output, never
+        the exit code alone.
+    """
+
     def __init__(self, runner=None):
         self._runner = runner
 
     def capabilities(self, target):
+        """Report the served operation, tool, sim, and defines.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one bench per job).
+
+        Returns:
+            Capability mapping with operations, tool, sim, and
+                defines.
+        """
         return {"operations": [OPERATION], "tool": "icarus", "sim": "vvp", "defines": True}
 
     def preflight(self, job):
+        """Check operation, timeout, sources, defines, and tools.
+
+        Cheap deterministic checks first, tool resolution last.
+
+        Args:
+            job: Solver job with operation run_hdl_test plus
+                sources, defines, and timeout inputs.
+
+        Returns:
+            Checked mapping with resolved iverilog/vvp paths,
+                sources, timeout_s, and defines.
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, invalid_command for a bad timeout or
+                defines, invalid_reference for missing sources,
+                missing_dependency for unresolvable tools.
+        """
         # Cheap deterministic checks first: operation, timeout, sources.
         # Tool resolution last, since it depends on the machine.
         if job.get("operation") != OPERATION:
@@ -120,6 +171,24 @@ class HdlSimAdapter(ToolAdapter):
         return checked
 
     def execute(self, job):
+        """Compile with iverilog, then run the sim under vvp.
+
+        A failed compile returns its block with no run; the verdict
+        still comes from parse, never the exit code alone.
+
+        Args:
+            job: Solver job with operation run_hdl_test plus
+                sources, defines, and timeout inputs.
+
+        Returns:
+            Native output with exit_code plus compile and run
+                blocks (run is None when the build failed).
+
+        Raises:
+            AdapterError: invalid_reference for a missing workdir,
+                runner_unavailable on a sim timeout, plus the
+                preflight codes (execute re-checks first).
+        """
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
         if not Path(workdir).is_dir():
@@ -155,6 +224,22 @@ class HdlSimAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        """Parse compile diagnostics plus sim assertion lines.
+
+        Failed compiles and crashed sims with nothing parseable
+        synthesize error violations rather than going clean.
+
+        Args:
+            native_output: Native output with compile and run blocks.
+
+        Returns:
+            {total, violations[]} with file/line locations and
+                sim_time where the sim reports it.
+
+        Raises:
+            AdapterError: runner_unavailable when a compiled run
+                has no run block.
+        """
         compile_block = native_output.get("compile") or {}
         diags = _parse_compile(
             compile_block.get("stdout", "") + "\n" + compile_block.get("stderr", "")

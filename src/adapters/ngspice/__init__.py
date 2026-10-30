@@ -176,7 +176,22 @@ def _read_source(path):
 
 def build_deck(title, corner, temp_c, params, options, model_lib, bodies,
                analyses, measurements):
-    """Render the corner deck (preamble + bodies + .control)."""
+    """Render the corner deck (preamble + bodies + .control).
+
+    Args:
+        title: Deck title line (without the `*`).
+        corner: Model corner named on the .lib line.
+        temp_c: Temperature in C for the .temp line.
+        params: Cleaned .param name/value mapping.
+        options: Cleaned .option lines.
+        model_lib: Store model library path, or None for model-free.
+        bodies: Netlist body texts (.end lines already stripped).
+        analyses: .control analysis lines (op when empty).
+        measurements: Cleaned measurement items (let/print pairs).
+
+    Returns:
+        Rendered corner deck text.
+    """
     head = [
         f"* {title}",
         f"* corner: {corner} temp: {temp_c}C "
@@ -200,13 +215,79 @@ def build_deck(title, corner, temp_c, params, options, model_lib, bodies,
 
 
 class NgspiceAdapter(ToolAdapter):
+    """run_spice via ngspice: corner sims with measured bounds.
+
+    Serves the run_spice operation with deck.tool `ngspice` (the
+    only tool). Stages a corner deck (preamble + netlist bodies +
+    generated .control), runs it in batch, and parses meas_* values
+    against min/max bounds; bound misses are FAIL, valueless sims
+    synthesize sim_fail violations.
+
+    Job keys:
+        sources (required): Netlist source paths staged as bodies.
+        measurements (required): [{name, expr, unit?, min?, max?}]
+            with numeric min and/or max each.
+        analyses: .control analysis lines (default op).
+        options: .option lines (default [wnflag=1]).
+        params: .param name/value mapping.
+        corner: Model corner (default tt).
+        temp_c: Temperature in C (default 27).
+        title: Deck title line.
+        pdk: {id, revision, model_rel?, engine_root?} pin for PDK
+            models via the store; omitted sims model-free.
+        timeout_s: Sim budget in seconds (default 120).
+        tool_dir: Directory holding ngspice; PATH otherwise.
+        deck: Optional mapping; deck.tool must be ngspice here.
+        workdir: Run directory (default ".").
+
+    Args:
+        runner: Optional isolated runner; direct subprocess when None.
+
+    Caution: Verdicts always come from parsed output, never the exit
+        code — and PDK models resolve through the store, so a wrong
+        revision or tampered model fails loudly instead of simming
+        against substitutes.
+    """
+
     def __init__(self, runner=None):
         self._runner = runner
 
     def capabilities(self, target):
+        """Report the served operation and tool name.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one corner per job).
+
+        Returns:
+            Capability mapping with operations and tool.
+        """
         return {"operations": [OPERATION], "tool": "ngspice"}
 
     def preflight(self, job):
+        """Check operation, inputs, deck shape, PDK pin, and binary.
+
+        Cheap deterministic checks first, PDK resolution next (a
+        wrong rev must fail before any sim), tool resolution last.
+
+        Args:
+            job: Solver job with operation run_spice plus sources,
+                measurements, analyses, and deck inputs.
+
+        Returns:
+            Checked mapping with the resolved ngspice path,
+                sources, measurements, analyses, options, params,
+                corner, temp_c, title, model_lib, and timeout_s.
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, invalid_command for bad inputs (timeout,
+                measurements, analyses, options, params, corner,
+                temp_c, title), invalid_reference for missing
+                sources, store codes (unknown_pdk, pdk_drift, ...)
+                for a bad PDK pin, missing_dependency for an
+                unresolvable ngspice.
+        """
         # Cheap deterministic checks first: operation, timeout,
         # sources, measurements, deck shape. PDK resolution next
         # (wrong rev must fail before any sim). Tool resolution
@@ -266,6 +347,22 @@ class NgspiceAdapter(ToolAdapter):
         return checked
 
     def execute(self, job):
+        """Stage the corner deck plus .spiceinit, then run ngspice.
+
+        Args:
+            job: Solver job with operation run_spice plus sources,
+                measurements, analyses, and deck inputs.
+
+        Returns:
+            Native output with exit_code, stdout/stderr, log, deck,
+                sources, and measurements.
+
+        Raises:
+            AdapterError: invalid_reference for a missing workdir
+                or unreadable netlist, runner_unavailable on a sim
+                timeout, plus the preflight codes (execute
+                re-checks first).
+        """
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
         if not Path(workdir).is_dir():
@@ -311,6 +408,24 @@ class NgspiceAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        """Parse meas_* values against bounds with engine margins.
+
+        Bound misses are FAIL (margin always engine-computed, never
+        left to the caller); expected measurements with no value
+        synthesize sim_fail violations quoting ngspice's error text.
+
+        Args:
+            native_output: Native output with stdout/stderr/log,
+                sources, and the expected measurements.
+
+        Returns:
+            {total, violations[], measurements[]} with value, unit,
+                target, margin, and status per measurement.
+
+        Raises:
+            AdapterError: runner_unavailable when ngspice produced
+                no output at all.
+        """
         sources = native_output.get("sources") or []
         first_source = sources[0] if sources else ""
         chunks = [

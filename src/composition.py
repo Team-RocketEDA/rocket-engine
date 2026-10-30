@@ -52,6 +52,18 @@ _WIRED_QUERIES = frozenset(
     }
 )
 
+# Wired query -> ProjectService method serving it. Engine.submit keeps
+# its explicit dispatch (argument checks differ per query); this map
+# is the docs/help seam — scripts/api_spec.py and the MCP server read
+# handler docstrings through it, so a rewired query updates here.
+QUERY_METHODS = {
+    "get_project_snapshot": "snapshot",
+    "get_events_since": "events_since",
+    "list_projects": "list_projects",
+    "list_docs": "list_docs",
+    "read_doc": "read_doc",
+}
+
 # CRUD mutations + rewind execute immediately inside submit()
 # (run_job precedent): revision gate + idempotency + event logging,
 # no queue, no solver. Engine.run delegates them back to submit so
@@ -337,6 +349,23 @@ class Engine:
         self._solvers.setdefault(operation, {})[name] = adapter
         return {"operation": operation, "tool": name}
 
+    def solvers_for(self, operation):
+        """Return the tool-keyed solvers serving one operation.
+
+        Introspection for docs and MCP help: per-operation prose
+        derives from the serving adapters' docstrings, so this map
+        is the seam — never a second source. Deck-tool selection
+        reads the keys; the default is the first registered.
+
+        Args:
+            operation: Cataloged operation name.
+
+        Returns:
+            Mapping of deck-tool key to serving adapter; empty
+            when no solver is registered.
+        """
+        return dict(self._solvers.get(operation) or {})
+
     def findings(self, run_id, limit=50, cursor=None):
         """Read a page of findings for a completed run.
 
@@ -351,7 +380,26 @@ class Engine:
         return self._execution.findings(run_id, limit=limit, cursor=cursor)
 
     def _run_queued(self, command):
-        """Execute an admitted request by id (phase 2 of submit-then-run)."""
+        """Execute an admitted request by id (phase 2 of submit-then-run).
+
+        Request keys:
+            request_id (required): Envelope id admitted by an
+                earlier submit.
+
+        Args:
+            command: Envelope whose arguments carry request_id, the
+                id admitted by an earlier submit.
+
+        Returns:
+            Completion mapping with run_id, state, verdict, and
+            operation for the admitted command.
+
+        Raises:
+            ProjectError: invalid_command when the arguments lack a
+                request_id, unknown_request for an id never
+                admitted, unsupported_operation when the admitted
+                operation has no registered solver.
+        """
         arguments = dict(command.get("arguments") or {})
         request_id = arguments.get("request_id")
         if request_id is None:

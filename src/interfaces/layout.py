@@ -25,7 +25,13 @@ _GITIGNORE_HEADER = (
 
 
 class LayoutError(ContractError):
-    """Layout-schema violation with a stable machine code."""
+    """Layout-schema violation with a stable machine code.
+
+    Args:
+        code: Stable machine-readable error code.
+        message: Human-readable detail.
+        fields: Itemized fields, when the error names any.
+    """
 
 
 def _yaml():
@@ -75,7 +81,19 @@ def _check_entry_struct(entry, where):
 
 
 def load_schema(path=None):
-    """Load and structurally validate the folder schema."""
+    """Load and structurally validate the folder schema.
+
+    Args:
+        path: Schema YAML path; the bundled schema when omitted.
+
+    Returns:
+        Validated schema mapping.
+
+    Raises:
+        LayoutError: invalid_schema for an unloadable file, a wrong
+            schema_version, a missing section, a malformed entry,
+            or a bad policy_template.
+    """
     schema_path = Path(path) if path is not None else _SCHEMA_PATH
     try:
         data = _yaml().load(schema_path.read_text())
@@ -115,13 +133,35 @@ def _is_empty(value):
 
 
 def template_defaults(schema=None):
-    """Return a copy of the policy template defaults."""
+    """Return a copy of the policy template defaults.
+
+    Args:
+        schema: Schema mapping; loaded when omitted.
+
+    Returns:
+        Deep copy of the policy template defaults.
+    """
     data = schema if schema is not None else load_schema()
     return copy.deepcopy(data["policy_template"]["defaults"])
 
 
 def validate_policy(policy, schema=None):
-    """Enforce present + non-empty on every template-required key."""
+    """Enforce present + non-empty on every template-required key.
+
+    Zero-silent-defaults: required entries must be present and
+    non-empty; dict defaults recurse one level.
+
+    Args:
+        policy: Policy mapping to validate.
+        schema: Schema mapping; loaded when omitted.
+
+    Returns:
+        Ok mapping when every required key passes.
+
+    Raises:
+        LayoutError: invalid_policy for a non-mapping policy,
+            missing_policy/empty_policy naming the failed key.
+    """
     data = schema if schema is not None else load_schema()
     template = data["policy_template"]
     if not isinstance(policy, dict):
@@ -257,7 +297,23 @@ def _check_entries(base, entries):
 
 
 def validate_tree(root, kind="engine_root", schema=None):
-    """Check a tree against the schema; refuse newer stamps first."""
+    """Check a tree against the schema; refuse newer stamps first.
+
+    Args:
+        root: Tree root to check.
+        kind: Tree kind (engine_root or linked_project).
+        schema: Schema mapping; loaded when omitted.
+
+    Returns:
+        Ok mapping with kind, supported schema_version, and folder
+            version.
+
+    Raises:
+        LayoutError: invalid_kind for an unknown kind,
+            unsupported_version for a newer-than-known stamp,
+            missing_entry/empty_entry/type_mismatch for failed
+            entries, policy codes for a bad policy file.
+    """
     if kind not in ("engine_root", "linked_project"):
         raise LayoutError("invalid_kind", f"Unknown tree kind: {kind}.")
     data = schema if schema is not None else load_schema()
@@ -300,7 +356,18 @@ def _gitignore_patterns(entries, prefix=""):
 
 
 def derive_gitignore(kind=None, schema=None):
-    """Derive canonical gitignore lines from tracked=False entries."""
+    """Derive canonical gitignore lines from tracked=False entries.
+
+    Args:
+        kind: Tree kind to derive for; both kinds when omitted.
+        schema: Schema mapping; loaded when omitted.
+
+    Returns:
+        Canonical gitignore text with the derived header.
+
+    Raises:
+        LayoutError: invalid_kind for an unknown kind.
+    """
     data = schema if schema is not None else load_schema()
     if kind is not None and kind not in ("engine_root", "linked_project"):
         raise LayoutError("invalid_kind", f"Unknown tree kind: {kind}.")
@@ -313,7 +380,20 @@ def derive_gitignore(kind=None, schema=None):
 
 
 def verify_gitignore(text, kind=None, schema=None):
-    """Verify a gitignore covers every derived pattern (extras allowed)."""
+    """Verify a gitignore covers every derived pattern (extras allowed).
+
+    Args:
+        text: Gitignore text to verify.
+        kind: Tree kind to verify for; both kinds when omitted.
+        schema: Schema mapping; loaded when omitted.
+
+    Returns:
+        Ok mapping when every derived pattern is covered.
+
+    Raises:
+        LayoutError: invalid_kind for an unknown kind,
+            gitignore_mismatch naming the missing patterns.
+    """
     expected = derive_gitignore(kind=kind, schema=schema)
     want = [line for line in expected.splitlines() if line and not line.startswith("#")]
     have = {

@@ -51,7 +51,21 @@ def _reject_nonfinite_and_depth(data, depth=0):
 
 
 def validate_document(text):
-    """Parse and strictly validate one YAML record. Returns the mapping."""
+    """Parse and strictly validate one YAML record.
+
+    Rejects anchors, aliases, merge keys, non-finite scalars,
+    over-deep nesting, oversize bytes, missing required fields, and
+    unknown fields — gate every external byte here.
+
+    Args:
+        text: YAML record text to validate.
+
+    Returns:
+        Validated record mapping.
+
+    Raises:
+        ContractError: invalid_yaml for any rejection.
+    """
     if not isinstance(text, str):
         raise ContractError("invalid_yaml", "Document must be text.")
     if len(text.encode("utf-8")) > MAX_DOCUMENT_BYTES:

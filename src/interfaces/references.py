@@ -38,7 +38,22 @@ def _scan(root):
 
 
 def resolve_reference(ref, root, path=None):
-    """Resolve an exact {scope, id, revision} reference inside root."""
+    """Resolve an exact {scope, id, revision} reference inside root.
+
+    Args:
+        ref: Reference mapping with scope, id, and revision.
+        root: Store root the resolution stays inside.
+        path: Optional direct path under root; scans the store
+            when omitted.
+
+    Returns:
+        Matching validated record mapping.
+
+    Raises:
+        ContractError: invalid_reference for an escape, a mismatch
+            at path, or an unknown reference; invalid_yaml when a
+            direct path cannot load.
+    """
     root = Path(root).resolve()
     if path is not None:
         target = (root / path).resolve()
@@ -65,7 +80,21 @@ def resolve_reference(ref, root, path=None):
 
 
 def check_connection(text, endpoint_a, endpoint_b):
-    """Check two endpoints for unit/port compatibility."""
+    """Check two endpoints for unit/port compatibility.
+
+    Args:
+        text: Validated-record YAML text holding the port table.
+        endpoint_a: First (instance, port) endpoint.
+        endpoint_b: Second (instance, port) endpoint.
+
+    Returns:
+        Compatibility mapping (compatible True).
+
+    Raises:
+        ContractError: invalid_yaml for a bad record,
+            invalid_reference for an unknown port,
+            incompatible_port for mismatched wavelength units.
+    """
     data = validate_document(text)
     ports = data.get("ports", {})
 

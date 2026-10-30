@@ -153,10 +153,46 @@ def _parse_lyrdb(xml_text):
 
 
 class KlayoutDrcAdapter(ToolAdapter):
+    """run_drc via KLayout: synthetic checks or foundry .lydrc decks.
+
+    Serves the run_drc operation with deck.tool `klayout`. Two
+    modes: synthetic width/space checks over one layer from
+    `rules`, or a foundry .lydrc deck over `gds_file` with
+    violations parsed from the report database. Locations are
+    metric bbox_um.
+
+    Job keys:
+        gds_file (required): GDS layout under check.
+        rules: Synthetic check {layer [l, d], width_um, space_um,
+            name?} — one check form is required (rules or a deck
+            file).
+        deck_file: Foundry .lydrc deck path (deck mode).
+        deck: Optional mapping; deck.tool selects the solver
+            (klayout here), deck.path/deck_file/file names the
+            deck in deck mode.
+        workdir: Run directory (default ".").
+
+    Args:
+        runner: Optional isolated runner; direct subprocess when None.
+
+    Caution: KLayout exits 0 regardless — the verdict always comes
+        from parsed output, never the exit code.
+    """
+
     def __init__(self, runner=None):
         self._runner = runner
 
     def capabilities(self, target):
+        """Report the served operation, tool, rules, and deck kinds.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one GDS per job).
+
+        Returns:
+            Capability mapping with operations, tool, rules, and
+                decks.
+        """
         return {
             "operations": [OPERATION],
             "tool": "klayout",
@@ -165,6 +201,22 @@ class KlayoutDrcAdapter(ToolAdapter):
         }
 
     def preflight(self, job):
+        """Check operation, klayout binary, GDS, and one check form.
+
+        Args:
+            job: Solver job with operation run_drc plus gds_file
+                and rules or deck inputs.
+
+        Returns:
+            Checked mapping with gds_file plus deck_file (deck
+                mode) or rules (synthetic mode).
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, missing_dependency for a missing klayout
+                binary, invalid_reference for a missing GDS or deck
+                file, invalid_command for a malformed rules mapping.
+        """
         if job.get("operation") != OPERATION:
             raise AdapterError(
                 "unsupported_operation",
@@ -183,6 +235,21 @@ class KlayoutDrcAdapter(ToolAdapter):
         return {"gds_file": gds_file, "rules": _rules_or_raise(job.get("rules"))}
 
     def execute(self, job):
+        """Run the deck batch or render and run the check script.
+
+        Args:
+            job: Solver job with operation run_drc plus gds_file
+                and rules or deck inputs.
+
+        Returns:
+            Native output with exit_code, stdout/stderr, plus the
+                report XML (deck mode) or rules (synthetic mode).
+
+        Raises:
+            AdapterError: invalid_reference for a missing workdir,
+                runner_unavailable when klayout produces no report,
+                plus the preflight codes (execute re-checks first).
+        """
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
         if not Path(workdir).is_dir():
@@ -234,6 +301,21 @@ class KlayoutDrcAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        """Parse the lyrdb report or the synthetic TOTAL/VIOL lines.
+
+        Args:
+            native_output: Native output with the report XML/file
+                (deck mode) or klayout stdout (synthetic mode).
+
+        Returns:
+            {total, violations[]} with rule, message, and metric
+                bbox_um where the deck reports geometry.
+
+        Raises:
+            AdapterError: runner_unavailable when the deck run has
+                no report, the report is not valid XML, or the
+                synthetic output has no TOTAL line.
+        """
         if "report_xml" in native_output or "report_file" in native_output:
             xml_text = native_output.get("report_xml")
             if xml_text is None:

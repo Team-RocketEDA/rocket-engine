@@ -16,7 +16,16 @@ CIRCULAX_PIN = "0.2.5"
 
 
 def circulax_version():
-    """Proven solver version, observable per run (uv.lock pin)."""
+    """Proven solver version, observable per run (uv.lock pin).
+
+    Returns:
+        Installed circulax version, or "unknown" when the package
+            carries no version attribute.
+
+    Raises:
+        AdapterError: missing_dependency when circulax is not
+            importable.
+    """
     try:
         import circulax
     except ImportError as exc:
@@ -31,9 +40,21 @@ def circulax_version():
 def run_rc_step(*, R=1e3, C=1e-9, V=1.0, t1=5e-6, points=11, dt0=1e-8):
     """Run the RC step transient live; return the cap voltage trace.
 
-    Returns `{circulax_version, R, C, V, t_s[], vc_V[], final_V}` —
-    plain floats, JSON-friendly. Raises `missing_dependency` where
-    circulax is uninstalled, `invalid_command` on bad parameters.
+    Args:
+        R: Resistance in ohms (positive).
+        C: Capacitance in farads (positive).
+        V: Step voltage in volts.
+        t1: End time in seconds (positive).
+        points: Samples on the grid (at least 2).
+        dt0: Initial solver step in seconds (positive).
+
+    Returns:
+        `{circulax_version, R, C, V, t_s[], vc_V[], final_V}` —
+            plain floats, JSON-friendly.
+
+    Raises:
+        AdapterError: invalid_command on bad parameters,
+            missing_dependency where circulax is uninstalled.
     """
     if not R > 0 or not C > 0 or not t1 > 0 or not dt0 > 0:
         raise AdapterError(

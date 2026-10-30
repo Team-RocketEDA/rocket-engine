@@ -22,11 +22,27 @@ _DRIVE_RE = re.compile(r"^[A-Za-z]:")
 
 
 class PathError(ContractError):
-    """Path-safety violation with a stable machine code."""
+    """Path-safety violation with a stable machine code.
+
+    Args:
+        code: Stable machine-readable error code.
+        message: Human-readable detail.
+        fields: Itemized fields, when the error names any.
+    """
 
 
 def to_unix(value):
-    """Fold backslashes to forward slashes; spaces survive verbatim."""
+    """Fold backslashes to forward slashes; spaces survive verbatim.
+
+    Args:
+        value: Path text or Path to normalize.
+
+    Returns:
+        Unix-normalized path text.
+
+    Raises:
+        PathError: invalid_path for non-text input.
+    """
     if isinstance(value, Path):
         value = str(value)
     if not isinstance(value, str):
@@ -35,12 +51,33 @@ def to_unix(value):
 
 
 def is_slug(value):
-    """True when value matches the minted-strict slug charset."""
+    """True when value matches the minted-strict slug charset.
+
+    Args:
+        value: Candidate slug text.
+
+    Returns:
+        True when the value is a valid slug.
+    """
     return isinstance(value, str) and _SLUG_RE.match(value) is not None
 
 
 def slugify(display_name):
-    """Map a display name onto the strict slug charset (never rejects spaces)."""
+    """Map a display name onto the strict slug charset.
+
+    Never rejects spaces: runs of non-slug characters fold to one
+    dash, lowercased.
+
+    Args:
+        display_name: Display text to mint from.
+
+    Returns:
+        Minted slug.
+
+    Raises:
+        PathError: invalid_slug for non-text input or a name that
+            mints no slug.
+    """
     if not isinstance(display_name, str):
         raise PathError(
             "invalid_slug", f"Display name must be text, got {type(display_name).__name__}."
@@ -52,7 +89,18 @@ def slugify(display_name):
 
 
 def mint_slug(display_name, taken):
-    """Mint a slug with append-only dedup (`adc-2` -> `adc-2-1`)."""
+    """Mint a slug with append-only dedup (`adc-2` -> `adc-2-1`).
+
+    Args:
+        display_name: Display text to mint from.
+        taken: Container of already-taken slugs.
+
+    Returns:
+        Fresh slug, suffixed when the base is taken.
+
+    Raises:
+        PathError: invalid_slug for a name that mints no slug.
+    """
     base = slugify(display_name)
     if base not in taken:
         return base
@@ -70,18 +118,45 @@ class SlugStore:
         self._pairs = []
 
     def mint(self, display_name):
+        """Mint and store a slug for one display name.
+
+        Args:
+            display_name: Display text to mint from.
+
+        Returns:
+            Fresh slug stored against the display name.
+
+        Raises:
+            PathError: invalid_slug for a name that mints no slug.
+        """
         slug = mint_slug(display_name, self._by_slug)
         self._by_slug[slug] = display_name
         self._pairs.append((display_name, slug))
         return slug
 
     def display_for(self, slug):
+        """Render the display name stored for one slug.
+
+        Args:
+            slug: Slug to look up.
+
+        Returns:
+            Stored display name.
+
+        Raises:
+            PathError: unknown_slug for an unstored slug.
+        """
         try:
             return self._by_slug[slug]
         except KeyError:
             raise PathError("unknown_slug", f"Unknown slug: {slug}.") from None
 
     def pairs(self):
+        """Stored (display_name, slug) pairs in mint order.
+
+        Returns:
+            Copy of the stored pair list.
+        """
         return list(self._pairs)
 
     def __contains__(self, slug):
@@ -108,6 +183,18 @@ def join_contained(root, *parts):
 
     Backslashes are folded, spaces survive, `.` segments pass through,
     and the resolved candidate must stay inside the resolved root.
+
+    Args:
+        root: Root text or Path every part joins under.
+        parts: Relative path parts to join.
+
+    Returns:
+        Resolved candidate path, contained in the resolved root.
+
+    Raises:
+        PathError: invalid_path for a non-text root, path_escape
+            for absolute inputs, `..` segments, unresolvable joins,
+            or symlink escapes.
     """
     if isinstance(root, Path):
         root_text = str(root)

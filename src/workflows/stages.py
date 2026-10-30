@@ -124,6 +124,16 @@ def applicable_stages(flow, available_backends):
     Scripted entrypoints need no backend. A stage whose tool
     entrypoints are all available is ready; otherwise it stays
     required-but-blocked (never silently dropped).
+
+    Args:
+        flow: Flow inventory to plan (digital/analog/photonic/mixed).
+        available_backends: Installed backend entrypoint names.
+
+    Returns:
+        Stage list with per-stage readiness (ready/blocked).
+
+    Raises:
+        ValueError: Unknown flow name.
     """
     try:
         stages = STAGES[flow]

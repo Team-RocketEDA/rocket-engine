@@ -44,7 +44,19 @@ _INSTANCE_RE = re.compile(r"Instance:\s+(\S+)")
 
 
 def slice_subckt(text, cell):
-    """Return the wrapped `.subckt cell ... .ends` block from a library."""
+    """Return the wrapped `.subckt cell ... .ends` block from a library.
+
+    Args:
+        text: Netlist library text to slice.
+        cell: Subcircuit name to select (case-insensitive).
+
+    Returns:
+        The wrapped .subckt block with its closing .ends.
+
+    Raises:
+        AdapterError: invalid_command when the cell is absent or
+            has no closing .ends.
+    """
     lines = text.splitlines()
     start = next(
         (
@@ -75,6 +87,18 @@ def flatten_spice(text, cell=None):
     A bare netlist passes through; a single `.subckt` wrapper is
     dropped; a library needs `cell` to select its block, else the
     call refuses instead of guessing.
+
+    Args:
+        text: Netlist text to normalize.
+        cell: Subcircuit to select from a library, or None for a
+            bare or single-wrapper netlist.
+
+    Returns:
+        Top-level netlist text with .subckt/.ends lines dropped.
+
+    Raises:
+        AdapterError: invalid_command for an ambiguous multi-block
+            library without cell, or a missing/unclosed block.
     """
     if cell is not None:
         text = slice_subckt(text, cell)
@@ -90,7 +114,12 @@ def flatten_spice(text, cell=None):
 
 
 def netgen_env():
-    """Process env for netgen: DISPLAY scrubbed, the rest intact."""
+    """Process env for netgen: DISPLAY scrubbed, the rest intact.
+
+    Returns:
+        Process environment mapping without DISPLAY (netgen's Tk
+            init fails against an unreachable display).
+    """
     env = dict(os.environ)
     env.pop("DISPLAY", None)
     return env
@@ -130,6 +159,10 @@ def resolve_netgen():
     live Oct 2026). Denylist: only observed impostor markers
     reject; an unknown banner admits — NGSPICE-LIVE promotes this
     to a strict allowlist once the real binary is verifiable.
+
+    Returns:
+        Path to a usable LVS netgen, or None when missing or
+            rejected by the banner probe.
     """
     found = shutil.which("netgen")
     if found is None:
@@ -204,13 +237,66 @@ def _parse_mismatches(report):
 
 
 class NetgenLvsAdapter(ToolAdapter):
+    """run_lvs via Netgen: layout vs schematic, TOP-level compare.
+
+    Serves the run_lvs operation with deck.tool `netgen` (the only
+    tool). Both netlists flatten to top level first (a library file
+    needs `cell` to select its block), then the one-shot batch LVS
+    runs; the result is {match, total, violations[]} with net and
+    device mismatches.
+
+    Job keys:
+        layout_spice (required): Layout netlist path.
+        schematic_spice (required): Schematic netlist path.
+        setup_file (required): Netgen setup path — one setup form
+            is required (setup_file or deck.path/setup_file/setup/
+            file).
+        deck: Optional mapping naming the setup file (see above).
+        cell: .subckt block to select from library netlists.
+        workdir: Run directory (default ".").
+
+    Args:
+        runner: Optional isolated runner; direct subprocess when None.
+
+    Caution: Netgen exits 0 on match and mismatch alike — the
+        verdict always comes from parsed output, never the exit
+        code. PATH presence is not enough: same-named impostor
+        binaries are rejected by banner probe.
+    """
+
     def __init__(self, runner=None):
         self._runner = runner
 
     def capabilities(self, target):
+        """Report the served operation and tool name.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one netlist pair per job).
+
+        Returns:
+            Capability mapping with operations and tool.
+        """
         return {"operations": [OPERATION], "tool": "netgen"}
 
     def preflight(self, job):
+        """Check operation, banner-proved binary, setup, and netlists.
+
+        Args:
+            job: Solver job with operation run_lvs plus netlist,
+                setup, and cell inputs.
+
+        Returns:
+            Checked mapping with setup_file, both netlist paths,
+                and cell when given.
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, missing_dependency for a missing netgen
+                or a banner-rejected impostor, invalid_reference
+                for missing netlist files, invalid_command when no
+                setup form is given.
+        """
         if job.get("operation") != OPERATION:
             raise AdapterError(
                 "unsupported_operation",
@@ -235,6 +321,26 @@ class NetgenLvsAdapter(ToolAdapter):
         return checked
 
     def execute(self, job):
+        """Flatten both sides, then run the one-shot batch LVS.
+
+        Batch runs with DISPLAY scrubbed: netgen's Tk init fails
+        against an unreachable display.
+
+        Args:
+            job: Solver job with operation run_lvs plus netlist,
+                setup, and cell inputs.
+
+        Returns:
+            Native output with exit_code, stdout/stderr, report
+                file/text, and both netlist paths.
+
+        Raises:
+            AdapterError: invalid_reference for a missing workdir,
+                invalid_command for an ambiguous library without
+                cell, runner_unavailable when netgen produces no
+                report, plus the preflight codes (execute
+                re-checks first).
+        """
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
         if not Path(workdir).is_dir():
@@ -281,6 +387,24 @@ class NetgenLvsAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        """Parse the match line or the net/device mismatches.
+
+        A match returns zero violations; mismatches parse per net
+        and instance; anything without a verdict raises instead of
+        guessing.
+
+        Args:
+            native_output: Native output with the report text/file
+                or stdout fallback.
+
+        Returns:
+            {match, total, violations[]} with lvs_net_mismatch and
+                lvs_device_mismatch rules.
+
+        Raises:
+            AdapterError: runner_unavailable when the output has no
+                LVS verdict.
+        """
         report = native_output.get("report_text")
         if report is None:
             report_file = native_output.get("report_file")

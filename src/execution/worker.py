@@ -61,6 +61,13 @@ def worker_profile(tool_paths=(), extra_unset=()):
     against an unreachable display); callers add more via extra_unset.
     Namespaces stay ["user"] here — CellRunner upgrades to net where
     the kernel proves it, and says so on every result.
+
+    Args:
+        tool_paths: Resolved tool binary paths to bind read-only.
+        extra_unset: Extra env names scrubbed inside workers.
+
+    Returns:
+        Cell sandbox profile mapping.
     """
     profile = default_profile(tool_paths)
     profile["env_unset"] = list(profile.get("env_unset", [])) + list(extra_unset)
@@ -81,12 +88,33 @@ class CredentialGate:
         self._revoked = set()
 
     def issue(self, run_id):
+        """Issue one random token scoped to a live run.
+
+        Args:
+            run_id: Run the token is scoped to.
+
+        Returns:
+            Token hex string.
+        """
         token = secrets.token_hex(_TOKEN_BYTES)
         with self._lock:
             self._live[token] = run_id
         return token
 
     def invoke(self, token, call=None):
+        """Accept a token only while its run lives.
+
+        Args:
+            token: Token to invoke with.
+            call: Call descriptor recorded on acceptance.
+
+        Returns:
+            Acceptance with run_id, call, and accepted True.
+
+        Raises:
+            ExecutionError: credential_revoked for an expired token,
+                credential_unknown for a never-issued token.
+        """
         with self._lock:
             if token in self._live:
                 return {
@@ -105,6 +133,14 @@ class CredentialGate:
         )
 
     def revoke(self, run_id):
+        """Expire every token scoped to one run.
+
+        Args:
+            run_id: Run whose tokens expire.
+
+        Returns:
+            Mapping with run_id and whether any token expired.
+        """
         with self._lock:
             expired = [
                 token for token, owner in self._live.items() if owner == run_id
@@ -145,7 +181,16 @@ def _confirm_tree_dead(pgid, grace_s=_KILL_CONFIRM_GRACE_S):
 
 
 class CellRunner:
-    """Admit approved cells; run each in a fresh isolated worker."""
+    """Admit approved cells; run each in a fresh isolated worker.
+
+    Args:
+        binary: bwrap binary name or path.
+        profile: Sandbox profile; worker_profile() when omitted.
+        artifacts_root: Harvest destination root; temp dir default.
+        default_timeout_s: Cell budget when the call omits one.
+        require_net: Refuse admission unless net isolation probes;
+            degrade loudly to user-only otherwise.
+    """
 
     def __init__(self, binary="bwrap", profile=None, artifacts_root=None,
                  default_timeout_s=120, require_net=False):
@@ -224,10 +269,21 @@ class CellRunner:
 
     @property
     def admission(self):
+        """Isolation admission record, stamped on every result.
+
+        Returns:
+            Admission mapping copy (admitted, reason,
+                network_isolated).
+        """
         return dict(self._admission)
 
     @property
     def gate(self):
+        """Execution-scoped credential gate for cell IPC.
+
+        Returns:
+            Credential gate.
+        """
         return self._gate
 
     def run_cell(self, session, approval_id, code, history_cursor,
@@ -240,6 +296,27 @@ class CellRunner:
         isolation admission. Without admission the call raises
         isolation_unavailable and nothing runs anywhere — no host
         fallback, ever.
+
+        Args:
+            session: Console session admitting the approval.
+            approval_id: Approval bound by request_cell_approval.
+            code: Full worker source; must match the binding.
+            history_cursor: History position to re-check.
+            env_digest: Environment digest to re-check.
+            expected_revision: Revision to re-check.
+            artifacts: Scratch-relative paths to harvest.
+            timeout_s: Cell budget; runner default when omitted.
+            on_live: Optional callback while the worker is live.
+
+        Returns:
+            Terminal cell record (completed/failed/timeout/crashed)
+                with stdio, artifacts, and kill confirmations.
+
+        Raises:
+            ExecutionError: invalid_reference for escaping artifact
+                paths, approval_invalid for binding drift,
+                isolation_unavailable without admission,
+                runner_unavailable when the worker cannot spawn.
         """
         names = _validate_artifacts(artifacts)
         session.admit_cell(

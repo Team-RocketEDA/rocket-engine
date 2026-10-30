@@ -73,8 +73,14 @@ def _reference_section(reference, name):
     """Extract the `### name` section body from rendered reference."""
     marker = f"### {name}\n"
     start = reference.index(marker) + len(marker)
-    nxt = reference.find("\n### ", start)
-    end = len(reference) if nxt == -1 else nxt + 1
+    hits = [
+        c for c in (
+            reference.find("\n### ", start),
+            reference.find("\n## ", start),
+        )
+        if c != -1
+    ]
+    end = min(hits) + 1 if hits else len(reference)
     return reference[start:end].strip() + "\n"
 
 
@@ -103,7 +109,10 @@ def test_help_text_matches_reference_section():
     api_spec = _load_spec()
     reference = api_spec.render_reference()
     help_texts = api_spec.build_help()
-    for name in ("run_drc", "read_doc", "write_doc"):
+    for name in (
+        "run_drc", "run_spice", "read_doc", "get_project_snapshot",
+        "write_doc", "run_job",
+    ):
         assert name in _wired_names(), name
         assert help_texts[name]["text"] == _reference_section(reference, name)
 
@@ -117,6 +126,12 @@ def test_help_summary_comes_from_handler_docstring():
     assert help_texts["read_doc"]["summary"] == _handler_summary(
         "rocket_engine.project.service", "ProjectService.read_doc"
     )
+    assert help_texts["write_doc"]["summary"] == _handler_summary(
+        "rocket_engine.project.service", "ProjectService.write_doc"
+    )
+    assert help_texts["run_job"]["summary"] == _handler_summary(
+        "rocket_engine.composition", "Engine._run_queued"
+    )
 
 
 def test_mcp_description_matches_docs_summary():
@@ -125,7 +140,10 @@ def test_mcp_description_matches_docs_summary():
     api_spec = _load_spec()
     help_texts = api_spec.build_help()
     by_name = {tool.name: tool.description for tool in tool_definitions()}
-    for name in ("run_drc", "read_doc"):
+    for name in (
+        "run_drc", "run_spice", "read_doc", "get_project_snapshot",
+        "write_doc", "run_job", "run_formal", "api_search",
+    ):
         assert by_name[name] == help_texts[name]["summary"], name
 
 

@@ -17,8 +17,9 @@ by nature, so the guard does not require it.
 
 Usage: python scripts/check_docstrings.py [paths...]
 With no paths, scans the enforced-files manifest below. Slice
-API-GEN-A enforces the composition root, the op dispatcher, and
-the transport/CLIMCP surface; solver adapters migrate in API-GEN-B.
+API-GEN-B enforces the full src tree: every adapter
+preflight/execute/parse, every transport/CLI handler, and every
+public helper they stand on.
 """
 
 import ast
@@ -27,16 +28,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Repo-relative manifest: only these files are enforced this slice.
-# Entries may be paths or globs; only *.py files are scanned.
+# Repo-relative manifest: the full src tree (API-GEN-B).
+# Entries may be paths, dirs, or globs; only *.py files are scanned.
 ENFORCED = (
-    "src/composition.py",
-    "src/execution/dispatch.py",
-    "src/adapters/mcp/__init__.py",
-    "src/adapters/mcp/server.py",
-    "src/adapters/ipc/__init__.py",
-    "src/adapters/http/__init__.py",
-    "src/adapters/cli/*.py",
+    "src",
 )
 
 _SECTIONS = frozenset({
@@ -54,10 +49,15 @@ def enforced_files(root=None):
     for entry in ENFORCED:
         if "*" in entry:
             files.extend(p for p in sorted(root.glob(entry)) if p.is_file())
-        else:
-            candidate = root / entry
-            if candidate.is_file():
-                files.append(candidate)
+            continue
+        candidate = root / entry
+        if candidate.is_dir():
+            files.extend(
+                p for p in sorted(candidate.rglob("*.py"))
+                if "__pycache__" not in p.parts
+            )
+        elif candidate.is_file():
+            files.append(candidate)
     return sorted(p for p in files if p.suffix == ".py")
 
 

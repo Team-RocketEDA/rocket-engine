@@ -32,7 +32,16 @@ NY = 41
 
 
 def meow_version():
-    """Proven solver version, observable per run (uv.lock pin)."""
+    """Proven solver version, observable per run (uv.lock pin).
+
+    Returns:
+        Installed meow version, or "unknown" when the package
+            carries no version attribute.
+
+    Raises:
+        AdapterError: missing_dependency when meow is not
+            importable.
+    """
     try:
         import meow
     except ImportError as exc:
@@ -45,7 +54,15 @@ def meow_version():
 
 
 def tidy3d_version():
-    """FDE backend version, read from metadata (never a client import)."""
+    """FDE backend version, read from metadata (never a client import).
+
+    Returns:
+        Installed tidy3d version from package metadata.
+
+    Raises:
+        AdapterError: missing_dependency when tidy3d is not
+            installed.
+    """
     try:
         return _metadata.version("tidy3d")
     except _metadata.PackageNotFoundError as exc:
@@ -65,8 +82,20 @@ def run_eme_smoke(*, widths_um=(0.5,), wl_um=WL_UM, cell_length_um=CELL_UM,
     reflection, s21_phase_rad, ports}` — plain floats, JSON-friendly.
     `transmission`/`reflection` are |S21|^2/|S11|^2 of the
     fundamental; `neff_*` is the input guide's modal basis.
-    Raises `missing_dependency` where meow is uninstalled,
-    `invalid_command` on bad parameters.
+
+    Args:
+        widths_um: Strip widths in um, one cross-section each.
+        wl_um: Wavelength in um (positive).
+        cell_length_um: EME cell length in um (positive).
+        num_modes: Modes per cross-section (at least 1).
+
+    Returns:
+        Fundamental S-parameter evidence mapping (versions,
+            widths, modal basis, transmission/reflection, ports).
+
+    Raises:
+        AdapterError: invalid_command on bad parameters,
+            missing_dependency where meow is uninstalled.
     """
     try:
         widths = [float(w) for w in widths_um]

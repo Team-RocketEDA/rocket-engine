@@ -38,6 +38,12 @@ def tool_roots(tool_paths):
 
     A tool under `*/bin/` binds its grandparent (the suite root);
     anywhere else binds its parent directory. Deduped, order kept.
+
+    Args:
+        tool_paths: Resolved tool binary paths to cover.
+
+    Returns:
+        (src, dest) ro-bind pairs covering the tools.
     """
     roots = []
     for path in tool_paths:
@@ -49,7 +55,14 @@ def tool_roots(tool_paths):
 
 
 def default_profile(tool_paths=()):
-    """Sandbox profile from the verified probe recipe, plus tool roots."""
+    """Sandbox profile from the verified probe recipe, plus tool roots.
+
+    Args:
+        tool_paths: Resolved tool binary paths to bind read-only.
+
+    Returns:
+        Profile mapping (namespaces, binds, tmpfs, env, unsets).
+    """
     return {
         "namespaces": ["user"],
         "binds_ro": list(_SYSTEM_BINDS_RO) + tool_roots(tool_paths),
@@ -70,6 +83,12 @@ def clean_stream(data):
 
     Truncation counts exact input bytes; a split multibyte tail decodes
     as U+FFFD, which the marker line explains by construction.
+
+    Args:
+        data: Raw stream bytes to clean.
+
+    Returns:
+        Decoded text, stripped, bounded, truncation marked.
     """
     total = len(data)
     text = data[:_OUTPUT_LIMIT_BYTES].decode("utf-8", "replace")
@@ -106,6 +125,12 @@ def pgid_survivors(pgid):
 
     Excludes this process. Used to CONFIRM a tree kill, never to
     select new victims: kill by group first, then scan.
+
+    Args:
+        pgid: Process group id to scan.
+
+    Returns:
+        Surviving pids in the group (Linux /proc scan).
     """
     me = os.getpid()
     found = []
@@ -129,6 +154,14 @@ def pgid_survivors(pgid):
 
 
 class BwrapRunner:
+    """Bubblewrap-confined subprocess runs under one profile.
+
+    Args:
+        profile: Sandbox profile mapping (namespaces, binds,
+            tmpfs, env, unsets).
+        binary: bwrap binary name or path.
+    """
+
     def __init__(self, profile, binary="bwrap"):
         self._profile = dict(profile)
         self._binary = binary
@@ -173,12 +206,37 @@ class BwrapRunner:
         after a passing preflight, or let PATH lookup resolve it at
         spawn. Unset entries are emitted last, so unset wins on a
         set/unset conflict by construction.
+
+        Args:
+            workdir: Directory bound read-write at its host path.
+            command: Command argv to run inside the sandbox.
+            extra_binds: Per-run (src, dest) ro-bind pairs.
+            extra_env: Per-run env mapping emitted as --setenv.
+
+        Returns:
+            Sandbox argv for one run.
         """
         return self._argv(
             self._binary, workdir, command, extra_binds, extra_env
         )
 
     def preflight(self, timeout_s=30):
+        """Prove the profile on a trivial command before real work.
+
+        Unprovable profiles refuse loudly instead of degrading
+        silently.
+
+        Args:
+            timeout_s: Probe budget in seconds.
+
+        Returns:
+            Readiness mapping with the resolved binary.
+
+        Raises:
+            ExecutionError: missing_dependency when bwrap is not
+                found, runner_unavailable when the probe fails or
+                times out.
+        """
         binary = self._resolve()
         with tempfile.TemporaryDirectory(prefix="bwrap_probe_") as tmp:
             try:
@@ -201,6 +259,26 @@ class BwrapRunner:
         return {"ready": True, "binary": binary}
 
     def run(self, command, workdir, timeout_s=120, extra_binds=(), input_text=None):
+        """Run one command confined, budgeted, with cleaned streams.
+
+        Timeouts kill the whole process group, then raise — never a
+        hanging engine or a partial pass.
+
+        Args:
+            command: Command argv to run inside the sandbox.
+            workdir: Directory bound read-write at its host path.
+            timeout_s: Run budget in seconds.
+            extra_binds: Per-run (src, dest) ro-bind pairs.
+            input_text: Stdin text, or None for no pipe.
+
+        Returns:
+            Completed process with cleaned stdout/stderr text.
+
+        Raises:
+            ExecutionError: missing_dependency when bwrap is not
+                found, invalid_reference for a missing workdir,
+                runner_unavailable on timeout.
+        """
         binary = self._resolve()
         if not Path(workdir).is_dir():
             raise ExecutionError(

@@ -50,13 +50,60 @@ def _box_for(cell_file):
 
 
 class MagicDrcAdapter(ToolAdapter):
+    """run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.
+
+    Serves the run_drc operation with deck.tool `magic` (the
+    operation default). Tcl over stdin against a loaded cell; the
+    result is {total, violations[]} with rule/message plus
+    lambda-unit bbox areas.
+
+    Job keys:
+        cell (required): Cell name loaded inside magic.
+        cell_file (required): Path to the .mag cell file.
+        tech: Magic tech name (default scmos).
+        deck: Optional mapping; deck.tool selects the solver
+            (magic here, klayout for the KLayout path).
+        workdir: Run directory (default ".").
+
+    Args:
+        runner: Optional isolated runner; direct subprocess when None.
+
+    Caution: Magic exits 0 even for broken cells and unknown techs —
+        the verdict always comes from parsed output, never the exit
+        code. Timeout is fixed at 120 s.
+    """
+
     def __init__(self, runner=None):
         self._runner = runner
 
     def capabilities(self, target):
+        """Report the served operation, tech, and tool name.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one tech per job).
+
+        Returns:
+            Capability mapping with operations, tech, and tool.
+        """
         return {"operations": [OPERATION], "tech": "scmos", "tool": "magic"}
 
     def preflight(self, job):
+        """Check operation, magic binary, tech probe, and cell file.
+
+        Args:
+            job: Solver job with operation run_drc plus cell,
+                cell_file, and tech inputs.
+
+        Returns:
+            Checked mapping with tech, cell, and cell_file.
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, missing_dependency for a missing magic
+                binary or unloadable tech, invalid_reference for a
+                missing cell file.
+        """
         if job.get("operation") != OPERATION:
             raise AdapterError(
                 "unsupported_operation",
@@ -78,6 +125,22 @@ class MagicDrcAdapter(ToolAdapter):
         return {"tech": tech, "cell": job.get("cell"), "cell_file": cell_file}
 
     def execute(self, job):
+        """Run magic DRC: a count pass, then per-area detail.
+
+        Args:
+            job: Solver job with operation run_drc plus cell,
+                cell_file, and tech inputs.
+
+        Returns:
+            Native output with exit_code, combined stdout/stderr,
+                tech, and cell.
+
+        Raises:
+            AdapterError: missing_dependency when the tech fails
+                to load mid-run, runner_unavailable when magic
+                output carries no DRC total line, plus the
+                preflight codes (execute re-checks first).
+        """
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
         box = _box_for(checked["cell_file"])
@@ -123,6 +186,19 @@ class MagicDrcAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        """Parse the DRC total plus per-area rule boxes.
+
+        Args:
+            native_output: Native output with magic stdout.
+
+        Returns:
+            {total, violations[]} with rule plus lambda-unit
+                bbox areas.
+
+        Raises:
+            AdapterError: runner_unavailable when the output has no
+                DRC total line.
+        """
         stdout = native_output.get("stdout", "")
         match = _TOTAL_RE.search(stdout)
         if match is None:

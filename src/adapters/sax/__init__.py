@@ -192,13 +192,65 @@ def _target_line(spec_text):
 
 
 class SaxAdapter(ToolAdapter):
+    """run_optical via SAX: frequency-domain photonic circuit sim.
+
+    Serves the run_optical operation with deck.tool `sax` (the only
+    tool). Stages the sim driver plus a job JSON, runs it under a
+    timeout, and parses the JSON envelope: spectra plus per-target
+    transmission measurements against min_db/max_db bounds.
+
+    Job keys:
+        sources (required): Exactly one circuit spec YAML path.
+        timeout_s: Sim budget in seconds (default 120).
+        tool_dir: Directory holding the sim python; the engine
+            interpreter otherwise.
+        deck: Optional mapping; deck.tool must be sax here.
+        workdir: Run directory (default ".").
+
+    Args:
+        runner: Optional isolated runner; direct subprocess when None.
+
+    Caution: Missed target bounds are FAIL and a malformed circuit
+        synthesizes an error violation with file/line — the verdict
+        always comes from parsed output, never the exit code.
+    """
+
     def __init__(self, runner=None):
         self._runner = runner
 
     def capabilities(self, target):
+        """Report the served operation and tool name.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one circuit per job).
+
+        Returns:
+            Capability mapping with operations and tool.
+        """
         return {"operations": [OPERATION], "tool": "sax"}
 
     def preflight(self, job):
+        """Check operation, timeout, spec shape, and sim python.
+
+        Cheap deterministic checks first, tool resolution last, the
+        runner probe closing it out.
+
+        Args:
+            job: Solver job with operation run_optical plus the
+                circuit spec source and timeout inputs.
+
+        Returns:
+            Checked mapping with the resolved python, spec, spec
+                text, parsed doc, and timeout_s.
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, invalid_command for a bad timeout or
+                circuit spec, invalid_reference unless exactly one
+                readable spec source is given, missing_dependency
+                for an unresolvable sim python.
+        """
         # Cheap deterministic checks first: operation, timeout,
         # sources, spec shape. Tool resolution last, since it depends
         # on the machine; the runner probe closes it out.
@@ -238,6 +290,21 @@ class SaxAdapter(ToolAdapter):
         return checked
 
     def execute(self, job):
+        """Stage the driver plus job JSON, then run the sim.
+
+        Args:
+            job: Solver job with operation run_optical plus the
+                circuit spec source and timeout inputs.
+
+        Returns:
+            Native output with exit_code, stdout/stderr, spec,
+                spec_text, and the parsed targets.
+
+        Raises:
+            AdapterError: invalid_reference for a missing workdir,
+                runner_unavailable on a sim timeout, plus the
+                preflight codes (execute re-checks first).
+        """
         checked = self.preflight(job)
         workdir = job.get("workdir", ".")
         if not Path(workdir).is_dir():
@@ -274,6 +341,26 @@ class SaxAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
+        """Parse the driver envelope into spectra and measurements.
+
+        Malformed circuits synthesize one error violation with
+        file/line rather than parsing as clean; target bounds miss
+        with engine-computed margins.
+
+        Args:
+            native_output: Native output with the driver stdout
+                envelope, spec, spec_text, and targets.
+
+        Returns:
+            {total, violations[], measurements[], spectra[],
+                sax_version} with dB values and margins.
+
+        Raises:
+            AdapterError: missing_dependency when the sim python
+                has no sax, runner_unavailable when the driver
+                printed no JSON envelope, no result, or misses a
+                target pair.
+        """
         spec = native_output.get("spec", "")
         try:
             envelope = json.loads(native_output.get("stdout", ""))
