@@ -204,3 +204,31 @@ def test_constraints_yaml_becomes_targets(tmp_path):
         "power_uw": {"max": 500, "unit": "uW"},
     }
     assert load_constraints(tmp_path / "missing") is None
+
+
+def test_bound_server_keeps_files_inside_the_project(tmp_path):
+    from rocket_engine.adapters.mcp.server import make_handlers
+
+    (tmp_path / "design").mkdir()
+    (tmp_path / "design" / "opamp.cir").write_text("* opamp\n")
+    seen = []
+
+    class Recording(StandInSpice):
+        def execute(self, job):
+            seen.append(job)
+            return super().execute(job)
+
+    from rocket_engine.composition import Engine
+
+    engine = Engine(PROJECT, actor="mcp")
+    engine.register_solver("run_spice", Recording({"dc_gain_db": 61.0}), tool="ngspice")
+    _, call = make_handlers(lambda project_id: engine, project_scope=PROJECT, project_dir=tmp_path)
+
+    _call(call, "run_spice", {"sources": ["design/opamp.cir"], "measurements": [dict(GAIN, min=60)]})
+    assert seen[0]["sources"] == [str(tmp_path / "design" / "opamp.cir")]
+    assert seen[0]["workdir"] == str(tmp_path / "results" / "engine-runs")
+    assert (tmp_path / "results" / "engine-runs").is_dir()
+
+    result, body = _call(call, "run_spice", {"sources": ["../outside.cir"], "measurements": [dict(GAIN, min=60)]})
+    assert result.is_error is True and body["code"] == "invalid_reference"
+    assert len(seen) == 1
