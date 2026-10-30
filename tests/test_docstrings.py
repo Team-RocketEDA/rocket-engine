@@ -28,6 +28,18 @@ def test_enforced_files_have_google_docstrings():
     assert violations == [], violations
 
 
+def test_enforced_manifest_covers_full_tree():
+    checker = _load_checker()
+    enforced = {Path(p).resolve() for p in checker.enforced_files()}
+    wanted = {
+        p.resolve()
+        for p in (ROOT / "src").rglob("*.py")
+        if "__pycache__" not in p.parts
+    }
+    assert wanted != set()
+    assert wanted <= enforced, sorted(str(p) for p in wanted - enforced)
+
+
 def test_scanner_flags_bad_docstring_naming_endpoint(tmp_path):
     checker = _load_checker()
     planted = tmp_path / "bad_endpoint.py"
