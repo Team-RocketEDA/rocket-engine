@@ -29,7 +29,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
-- [GDSFACTORY-SMOKE] Layout smoke proof
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -76,3 +75,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SAX-LIVE] Prove run_optical live with SAX
 - [CIRCULAX-LIVE] Time-domain smoke proof
 - [MEOW-LIVE] EME smoke + tidy3d-locality verdict
+- [GDSFACTORY-SMOKE] Layout smoke proof
