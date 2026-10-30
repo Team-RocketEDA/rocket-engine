@@ -68,6 +68,22 @@ def test_run_unregistered_operation_raises(tmp_path):
         raise AssertionError("expected unsupported_operation for run_em")
 
 
+def test_submit_unwired_operation_raises():
+    engine = Engine(PROJECT, actor="tester")
+    try:
+        engine.submit(
+            {
+                "project_id": PROJECT,
+                "operation": "run_syntax",
+                "arguments": {"expected_revision": "p12"},
+            }
+        )
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "unsupported_operation"
+    else:
+        raise AssertionError("expected unsupported_operation for run_syntax")
+
+
 @needs_magic
 def test_run_records_not_run_on_preflight_refusal(tmp_path):
     engine = Engine(PROJECT, actor="tester")

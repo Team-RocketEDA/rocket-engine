@@ -97,6 +97,43 @@ def test_server_rejects_missing_project_id():
     assert "project_id" in _text(result).lower()
 
 
+def test_server_returns_error_result_on_engine_project_error():
+    from rocket_engine.project.errors import ProjectError
+
+    module = _load()
+
+    class _RaisingEngine:
+        def submit(self, command):
+            raise ProjectError(
+                "revision_conflict", "Expected revision p12, got None."
+            )
+
+    _, call = module.make_handlers(lambda project_id: _RaisingEngine())
+    result = asyncio.run(_call(call, "run_drc", {"project_id": PROJECT}))
+    assert result.isError is True
+    payload = json.loads(_text(result))
+    assert payload["ok"] is False
+    assert payload["code"] == "revision_conflict"
+
+
+def test_server_reports_unwired_operation_as_error():
+    from rocket_engine.composition import Engine
+
+    module = _load()
+    _, call = module.make_handlers(
+        lambda project_id: Engine(project_id, actor="test")
+    )
+    result = asyncio.run(
+        _call(
+            call,
+            "run_syntax",
+            {"project_id": PROJECT, "expected_revision": "p12"},
+        )
+    )
+    assert result.isError is True
+    assert "unsupported_operation" in _text(result)
+
+
 def test_stdio_smoke_initialize_list_call():
     proc = subprocess.Popen(
         [sys.executable, "-m", "rocket_engine.adapters.mcp.server"],
