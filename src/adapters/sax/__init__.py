@@ -307,7 +307,12 @@ class SaxAdapter(ToolAdapter):
             }
             if error.get("line") is not None:
                 violation["line"] = error["line"]
-            return {"total": 1, "violations": [violation], "measurements": []}
+            return {
+                "total": 1,
+                "violations": [violation],
+                "measurements": [],
+                "sax_version": envelope.get("sax_version"),
+            }
         result = envelope.get("result") or {}
         grid = result.get("wavelength_nm")
         transmission = result.get("transmission")
@@ -396,6 +401,7 @@ class SaxAdapter(ToolAdapter):
             "violations": violations,
             "measurements": measurements,
             "spectra": spectra,
+            "sax_version": envelope.get("sax_version"),
         }
 
     @staticmethod

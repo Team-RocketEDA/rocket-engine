@@ -5,8 +5,8 @@ wrong operation, bad timeouts, missing/extra sources, unparseable
 specs, and unresolvable interpreters; execute stages the sim driver
 plus a job JSON into the workdir and runs
 `python sax_driver.py sax_job.json`; parse normalizes the JSON
-envelope into `{total, violations[], measurements[], spectra[]}`
-with file/line locations where meaningful.
+envelope into `{total, violations[], measurements[], spectra[],
+sax_version}` with file/line locations where meaningful.
 
 Verified against sax 0.18.2 on MZI/ring fixtures
 (`tests/adapters/fixtures/sax/`). The balanced MZI reproduces its
