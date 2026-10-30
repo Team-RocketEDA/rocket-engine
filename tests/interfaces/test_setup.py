@@ -196,8 +196,11 @@ def test_fresh_machine_names_every_missing_tool_with_remedy(tmp_path, monkeypatc
     states = {e["id"]: e["state"] for e in report["catalogue"]["entries"]}
     assert states != {}
     assert set(states.values()) <= {"missing", "gated"}
-    assert "gdsfactoryplus" not in sys.modules
-    assert "tidy3d" not in sys.modules
+    # The report itself imports no cloud clients (diff, not global
+    # state: earlier suites may legitimately import tidy3d).
+    before_modules = set(sys.modules)
+    _submit(engine, {"engine_root": str(tmp_path / "nostore")})
+    assert {"gdsfactoryplus", "tidy3d"} & (set(sys.modules) - before_modules) == set()
 
 
 def test_single_tool_install_flips_exactly_its_state(tmp_path, monkeypatch):
