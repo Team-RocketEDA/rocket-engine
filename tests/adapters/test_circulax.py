@@ -56,8 +56,7 @@ def test_circulax_transient_rc_charges_to_source():
 
     got = run_rc_step(R=1e3, C=1e-9, V=1.0, t1=T1_S, points=11)
     assert got["t_s"] == pytest.approx([i * 0.5e-6 for i in range(11)], abs=1e-12)
-    by_t = dict(zip(got["t_s"], got["vc_V"]))
-    assert by_t[1e-6] == pytest.approx(0.6321, abs=1e-3)
+    assert got["vc_V"][2] == pytest.approx(0.6321, abs=1e-3)  # t=1us
     assert got["final_V"] == pytest.approx(0.9933, abs=1e-3)
     assert got["final_V"] > THRESHOLD_V
 
