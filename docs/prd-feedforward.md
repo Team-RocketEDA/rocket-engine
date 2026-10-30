@@ -160,3 +160,109 @@ Proposed text: state the end goal as complete agentic design for
 every domain; confine "partial" to hackathon demo scoping with
 its reason (reference-design readiness), never as a project
 category. No domain is permanently partial.
+
+## F10 — Engine owns the project ledger; revisions advance, events are durable and attributed
+
+Amends: PRD plans/blueprint execution layers; proposes invariant I30.
+
+Background: the engine serves two writers (human in the IDE,
+rocket-fuel agent over MCP) plus headless clients. ADR-001 split
+byte ownership (managed vs linked trees) but truth ownership was
+undecided. Engine-side, the revision gate exists but the revision
+never advances, the event log is in-memory with only `job_queued`,
+and mutations carry no actor — so lost updates, silent
+divergence, and unattributable agent edits are all possible
+today. ADR-002 assigns the ledger (revisions, event log, run
+evidence index, capability state) to the engine for every
+project, with actor attribution on every mutation.
+
+Proposed invariant I30 (for `behavior-invariants.yaml`):
+
+```yaml
+- id: I30
+  step: B9
+  name: Advancing revisions, durable attributed events
+  given: A project mutated through any engine surface (CRUD, run, console)
+  when: A mutation lands
+  then: Advance the project revision and append an actor-attributed event (human / rocket-fuel / system) to the durable log; reject stale expected_revision with revision_conflict instead of merging or overwriting
+  evidence: not_run
+```
+
+## F11 — Uniform document CRUD; atomic multi-document commits
+
+Amends: PRD tools-research/suggested-api.md; proposes invariant I31.
+
+Background: the engine has zero project-management actions —
+no list/create projects, no component or script operations.
+The project is already modeled as an addressed tree
+(`layout_schema.yaml`), so per-content-type verbs
+(`create_component`, …) would multiply surface without adding
+power. The agreed direction is uniform document ops over
+(project, path): list/read/write/delete plus one atomic batch,
+with components and scripts as conventional paths. The batch
+op is what makes agent multi-file edits land cleanly instead
+of half-failing.
+
+Proposed invariant I31 (for `behavior-invariants.yaml`):
+
+```yaml
+- id: I31
+  step: B9
+  name: Atomic multi-document commits
+  given: A batch of document writes/deletes against one expected revision
+  when: The batch is applied
+  then: Land every mutation under a single new revision or land none; on any validation failure report which document failed and leave the revision untouched
+  evidence: not_run
+```
+
+## F12 — Local-first hot path; cloud is BYOC opt-in; degradation is a verdict
+
+Amends: PRD tech-stack cloud posture; proposes invariant I32.
+
+Background: the engine already practices this — the no-cloud
+import guard fails the suite on violations, the Meow slice
+proved tidy3d mode-solving with the network amputated and no
+credentials, cloud-capable packages ride unused off the hot
+path, and missing tools/keys report loud typed unavailability
+instead of fake results. The doctrine was never written down.
+Policy: everything the gate and demos need runs on-device with
+no account; cloud-backed solvers activate solely on
+user-supplied keys from the secure store (CLOUD-AUTH) and
+never on a default path; auth is opt-in, always.
+
+Proposed invariant I32 (for `behavior-invariants.yaml`):
+
+```yaml
+- id: I32
+  step: B10
+  name: Local-first hot path with BYOC cloud degradation
+  given: A solver with an optional cloud backend (gdsfactory+, tidy3d web)
+  when: No user-supplied credential is present
+  then: Run the local path or report loud typed unavailability naming the remedy; never require an account, never call the network, and never fake the verdict
+  evidence: not_run
+```
+
+## F13 — Repo topology: RocketIDE converges, UIUX presents, fuel agents, engine arbitrates
+
+Amends: PRD plans/blueprint repo map. No invariant (org
+structure, not behavior).
+
+Background: the org now splits four ways. RocketIDE becomes
+the convergence repo (other repos as submodules plus build
+scripts that bundle and ship). UIUX holds the actual IDE
+frontend. rocket_fuel holds the opencode-based design agent
+and its permission policy. rocket-engine holds verification,
+project truth (ADR-002), and provisioning. Seams that must be
+codesigned, not guessed: the engine↔fuel MCP contract
+(fuel's `mcp-stub` pins to the engine's generated contract
+artifact), the engine↔UIUX API types (generated, never
+hand-written), and the shared audit ids (request/run) so both
+audit trails join.
+
+The engine additionally exposes a Vivado-style setup surface:
+a checkbox menu of provisionable tooling (engines, PDKs,
+decks) with install state, backed by capability reporting
+(get_capabilities) and the provision/install machinery
+(B10/PROV). The convergence build scripts live in RocketIDE
+(out of engine scope); the engine side is the reporting +
+provision surface they drive.
