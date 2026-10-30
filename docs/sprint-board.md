@@ -32,7 +32,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
-- [SAX-LIVE] Prove run_optical live with SAX
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -76,3 +75,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [FETCH-HARDEN] Harden fixture fetch pins + license gate
 - [SCENARIO-PATH] Pin scenario gate to dev-PATH
 - [PDK-DISPLAY] Preserve canonical PDK display id in store records
+- [SAX-LIVE] Prove run_optical live with SAX
