@@ -43,15 +43,17 @@ _SCHEMAS = {
             "measurements": {
                 "type": "array",
                 "description": "What to measure. Names must match metrics in constraints.yaml; "
-                               "targets are filled in from there.",
+                               "targets (and the measurement formula, when the project defines it) "
+                               "are filled in from there.",
                 "items": {
                     "type": "object",
                     "properties": {
                         "name": {"type": "string", "description": "Metric name, e.g. dc_gain_db."},
-                        "expr": {"type": "string", "description": "ngspice expression, e.g. vdb(out)[0]."},
+                        "expr": {"type": "string", "description": "ngspice expression, e.g. vdb(out)[0]. "
+                                 "Omit when constraints.yaml defines it."},
                         "unit": {"type": "string"},
                     },
-                    "required": ["name", "expr"],
+                    "required": ["name"],
                 },
             },
             "analyses": {"type": "array", "items": {"type": "string"},
@@ -185,7 +187,7 @@ def build_server(engine_factory, project_scope=None, project_dir=None):
 
 
 def load_constraints(project_dir):
-    """constraints.yaml checks -> {metric: {min|max, unit}} (>= is min, <= is max)."""
+    """constraints.yaml checks -> {metric: {min|max, unit[, expr, control]}} (>= is min, <= is max)."""
     path = Path(project_dir) / "constraints.yaml"
     if not path.is_file():
         return None
@@ -194,7 +196,13 @@ def load_constraints(project_dir):
     for check in data.get("checks", []):
         bound = {">=": "min", "<=": "max"}.get(check.get("comparison"))
         if bound and check.get("metric"):
-            targets.setdefault(check["metric"], {"unit": check.get("unit", "")})[bound] = check["value"]
+            target = targets.setdefault(check["metric"], {"unit": check.get("unit", "")})
+            target[bound] = check["value"]
+            # Optional: how the metric is measured (ngspice expr plus control lines such as meas).
+            if check.get("expr"):
+                target["expr"] = check["expr"]
+            if check.get("control"):
+                target["control"] = list(check["control"])
     return targets
 
 

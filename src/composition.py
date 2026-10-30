@@ -226,6 +226,7 @@ class Engine:
         if not isinstance(measurements, list):
             return arguments  # the adapter's preflight reports the shape error
         filled = []
+        control = []
         for item in measurements:
             if not isinstance(item, dict):
                 filled.append(item)
@@ -246,8 +247,23 @@ class Engine:
                 )
             bounds = {key: target[key] for key in ("min", "max") if target.get(key) is not None}
             unit = item.get("unit") or target.get("unit", "")
-            filled.append({**item, **bounds, "unit": unit})
-        return {**arguments, "measurements": filled}
+            item = {**item, **bounds, "unit": unit}
+            # How a metric is measured is part of the target: a caller formula could read anything.
+            if target.get("expr") is not None:
+                if item.get("expr") not in (None, "", target["expr"]):
+                    raise ProjectError(
+                        "invalid_command",
+                        f"How {metric!r} is measured comes from the project's constraints; omit expr.",
+                    )
+                item["expr"] = target["expr"]
+                for line in target.get("control") or []:
+                    if line not in control:
+                        control.append(line)
+            filled.append(item)
+        updated = {**arguments, "measurements": filled}
+        if control:
+            updated["analyses"] = list(arguments.get("analyses") or []) + control
+        return updated
 
     def _query(self, name, arguments):
         if name == "get_project_snapshot":
