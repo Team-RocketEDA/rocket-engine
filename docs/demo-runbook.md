@@ -38,9 +38,9 @@ iff all four pass.
 
 Offline note: the transcript below was recorded in an offline
 sandbox, so the proof shell also exported
-`UV_CACHE_DIR=/tmp/uv-cache UV_OFFLINE=1` (uv run from a warm
-cache copy; no PyPI route). On a networked machine omit those two
-variables. The bwrap probe line below (`No permissions to create a
+`UV_CACHE_DIR=/tmp/uv-cache UV_OFFLINE=1` (provisioning from a
+warm cache copy; no PyPI route). On a networked machine omit those
+two variables. The bwrap probe line below (`No permissions to create a
 new namespace`) is a sandbox artifact too — presence is still
 detected correctly.
 

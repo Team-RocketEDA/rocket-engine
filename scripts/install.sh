@@ -2,9 +2,10 @@
 # DEMO-PATH slice: provision the engine's locked Python env + register the
 # demo PDK + probe batch-tool capabilities.
 #
-# STATUS (2026-10-30): venv bootstrap, locked sync, engine import check,
-# PDK register, and the tool-capability probe below are real and runnable
-# (proven on the demo machine; see docs/demo-runbook.md). Pinned tool
+# STATUS (2026-10-30): venv bootstrap, locked sync, sealed package
+# install, engine import check, PDK register, and the tool-capability
+# probe below are real and runnable (proven on the demo machine; see
+# docs/demo-runbook.md). Pinned tool
 # installs (oss-cad-suite tarball, apt pins, source builds) are NOT here
 # yet: they stay B10-owned, with `tests/installed/` asserting pins.
 #
@@ -87,10 +88,12 @@ fi
 
 if [ "$MODE" = "--install" ]; then
     command -v uv >/dev/null 2>&1 || { echo "install.sh: uv not on PATH" >&2; echo "next: install uv (https://docs.astral.sh/uv/), then retry" >&2; exit 1; }
-    echo "==> venv + locked sync"
-    (cd "$ROOT" && uv venv --clear --python 3.12 && uv sync --locked --group dev) || exit 1
+    echo "==> venv + locked sync (deps only: the editable project install is broken for the src-as-root layout)"
+    (cd "$ROOT" && uv venv --clear --python 3.12 && uv sync --locked --group dev --no-install-project) || exit 1
+    echo "==> engine package install (sealed copy)"
+    (cd "$ROOT" && uv pip install --python .venv/bin/python --no-deps .) || exit 1
     echo "==> engine import check"
-    (cd "$ROOT" && uv run --locked python -c "import rocket_engine; print('ok')") || exit 1
+    (cd "$ROOT" && .venv/bin/python -c "import rocket_engine; print('ok')") || exit 1
     echo "==> PDK register"
     bash "$0" --pdk-only || exit 1
 fi

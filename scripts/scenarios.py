@@ -23,7 +23,7 @@ scenarios/README.md. Fixture cells resolve under
 tests/adapters/fixtures/drc/.
 
 Usage:
-    uv run --locked python scripts/scenarios.py scenarios/ [--json] [-q]
+    .venv/bin/python scripts/scenarios.py scenarios/ [--json] [-q]
 """
 
 import argparse

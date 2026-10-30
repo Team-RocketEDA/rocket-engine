@@ -122,6 +122,11 @@ def test_install_seals_the_engine_package():
     text = INSTALL.read_text()
     assert "uv pip install" in text, text
     assert "--no-deps" in text, text
+    # `uv sync` must skip the project (its editable build is
+    # dist-info-only for src-as-root) and no `uv run` may appear:
+    # plain `uv run` re-syncs and clobbers the sealed copy.
+    assert "--no-install-project" in text, text
+    assert "uv run" not in text, text
 
 
 def test_install_unknown_mode_prints_usage():

@@ -10,7 +10,7 @@ Run the gate with oss-cad-suite on PATH:
 
 ```sh
 export PATH="$HOME/tools/oss-cad-suite/bin:$PATH"
-uv run --locked python scripts/scenarios.py scenarios/
+.venv/bin/python scripts/scenarios.py scenarios/
 ```
 
 `scripts/demo.sh` and `docs/demo-runbook.md` set this up; CI must too.

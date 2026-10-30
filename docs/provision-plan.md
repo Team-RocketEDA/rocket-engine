@@ -32,9 +32,8 @@ install: simulators, PDKs, and decks.
 Fresh tree from `git archive HEAD` in `/tmp/proof`, fresh venv, locked sync:
 
 ```sh
-uv venv --python 3.12
-uv sync --locked --group dev
-uv run --locked pytest -q   # 51 passed
+bash scripts/install.sh --install   # one command: venv + locked deps + sealed package
+.venv/bin/pytest -q                 # 51 passed
 ```
 
 Result: **51 passed**. The locked Python env reproduces from zero.

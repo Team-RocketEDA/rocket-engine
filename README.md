@@ -34,6 +34,15 @@ requirements live in the [PRD](../PRD/README.md).
 
 I am just assuming you cloned all of Team Rocket's repos under one folder, such that all the repos are siblings.
 
+## Setup (one command)
+
+`scripts/install.sh --install` is the only supported provision: it
+recreates `.venv`, installs the locked deps (`uv.lock`, npm-ci
+exact), seals a copy of the engine into it, registers the PDK, and
+probes the batch toolchain. Never provision by hand-running `uv`
+pieces or touching `site-packages` — a stray symlink there once
+led `uv` to wipe `src/`. After editing `src/`, re-run `--install`.
+
 ## Where do I go?
 
 | Goal | Read |
@@ -242,7 +251,7 @@ no stages), Tidy3D-required paths (commercial must never be required).
    the change must prove.
 2. Write the failing test under the owning module's `tests/`.
 3. Implement the smallest change through the owning module's public port.
-4. Run `uv run --locked pytest tests/<module>`; full suite before merge.
+4. Run `.venv/bin/pytest tests/<module>` (never plain `uv run`: it re-syncs and clobbers the sealed package); full suite before merge.
 5. Record RED/GREEN evidence and fixture/tool hashes in the PR or TDD note.
 
 Planned stack: CPython 3.12, Pydantic v2, ruamel.yaml, FastAPI +
