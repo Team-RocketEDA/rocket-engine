@@ -340,3 +340,52 @@ def test_live_ngspice_opamp_over_bound_server(tmp_path):
     assert measured["ugbw_mhz"]["status"] == "pass" and measured["ugbw_mhz"]["value"] > 10
     _, logs = _call(call, "get_logs", {"run_id": ack["run_id"], "query": "meas_dc_gain_db"})
     assert logs["matched"] >= 1
+
+
+def test_bound_server_writes_evidence_into_the_project(tmp_path):
+    import subprocess
+
+    from rocket_engine.adapters.mcp.server import make_handlers
+
+    (tmp_path / "design").mkdir()
+    (tmp_path / "design" / "opamp.cir").write_text("* opamp\n")
+    git = ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "add", "-A"], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "start"], check=True)
+    head = subprocess.run([*git, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+
+    engine = _engine({"dc_gain_db": 52.0})
+    _, call = make_handlers(lambda project_id: engine, project_scope=PROJECT, project_dir=tmp_path)
+    _, ack = _call(call, "run_spice", {"sources": ["design/opamp.cir"], "measurements": [dict(GAIN, min=60)]})
+
+    evidence = json.loads((tmp_path / "results" / "engine-runs" / f"{ack['run_id']}.json").read_text())
+    assert evidence["run_id"] == ack["run_id"]
+    assert evidence["operation"] == "run_spice"
+    assert evidence["verdict"]["status"] == "FAIL"
+    assert evidence["verdict"]["measurements"][0]["value"] == 52.0
+    assert evidence["source_commit"] == head and evidence["source_dirty"] is False
+    assert evidence["producer"] == "rocket-engine"
+    assert "meas_dc_gain_db = 52.0" in evidence["log"]
+    assert evidence["finished_at"].endswith("Z")
+
+
+@pytest.mark.skipif(shutil.which("ngspice") is None, reason="ngspice not on PATH")
+def test_one_shot_call_runs_a_job_and_writes_evidence(tmp_path, capsys):
+    from rocket_engine.adapters.mcp.server import main
+
+    (tmp_path / "design").mkdir()
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "design" / "opamp.cir").write_text(OPAMP)
+    (tmp_path / "tests" / "tb_opamp.cir").write_text(TESTBENCH)
+    (tmp_path / "constraints.yaml").write_text(
+        "checks:\n"
+        "  - {metric: dc_gain_db, comparison: '>=', value: 60, unit: dB, expr: 'vdb(out)[0]'}\n"
+    )
+    code = main(["--project", PROJECT, "--project-dir", str(tmp_path), "--call", "run_spice", "--args",
+                 json.dumps({"sources": ["design/opamp.cir", "tests/tb_opamp.cir"],
+                             "analyses": ["ac dec 50 1 1e10"], "measurements": [{"name": "dc_gain_db"}]})])
+    assert code == 0
+    status = json.loads(capsys.readouterr().out)
+    assert status["state"] == "completed" and status["verdict"]["status"] == "FAIL"
+    assert (tmp_path / "results" / "engine-runs" / f"{status['run_id']}.json").is_file()
