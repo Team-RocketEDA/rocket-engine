@@ -22,6 +22,12 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [API-GENERALIZE] Frontend protocol: queue, microcommits, catalogue, symbols
+- [LEDGER-DURABLE] Durable attributed event log + advancing revisions
+- [CRUD-API] Uniform document CRUD over the project tree
+- [API-GEN] Docstring-mandated generated API contract
+- [REWIND] Restorable project snapshots
+- [FUEL-CONTRACT] Pin fuel mcp-stub to the engine contract
+- [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
 ## Ready
 
 
@@ -76,3 +82,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CIRCULAX-LIVE] Time-domain smoke proof
 - [MEOW-LIVE] EME smoke + tidy3d-locality verdict
 - [GDSFACTORY-SMOKE] Layout smoke proof
+- [E2E-AUDIT] E2E routing audit (submit honesty, run_job, run_syntax)
