@@ -16,6 +16,13 @@ engine's needs, and every other tool gets the same treatment from
 its own documentation. A recipe that cannot cite its upstream doc
 is not done.
 
+Prefix rule: source builds configure with `--prefix` (or the
+tool's equivalent) into the app-owned tools dir, never into the
+system. System stays clean; a failed provision degrades one
+adapter, and the engine reports WHICH tool failed + why + the
+doc-cited fix, so the UI can overlay it and the user can repair
+or re-point by hand.
+
 ## Ambient census (2026-10-30, x86-64, Python 3.12.3, uv 0.13.5, dev-PATH = oss-cad-suite + ~/tools/bin)
 
 | Tool | State | Note |
