@@ -364,3 +364,27 @@ def test_broken_expectation_names_the_step(tmp_path):
     result = runner.run_scenario(bad)
     assert result["passed"] is False
     assert "step 3 (assert_verdict)" in result["failures"][0]
+
+
+def test_lvs_startup_rejects_mesher_impostor(tmp_path, monkeypatch):
+    # RED: an impostor netgen on PATH must fail at startup with
+    # a naming cause — never slip to a mid-run error.
+    runner = _load_runner()
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "magic").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    (bindir / "magic").chmod(0o755)
+    (bindir / "netgen").write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "-help" ]; then echo "NETGEN-x Schoeberl"; exit 0; fi\n'
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    (bindir / "netgen").chmod(0o755)
+    monkeypatch.setenv("PATH", str(bindir))
+    result = runner.run_scenario(ROOT / "scenarios" / "lvs_sky130_pass.yaml")
+    assert result["passed"] is False
+    assert result["failures"][0].startswith("startup"), result["failures"]
+    assert "netgen" in result["failures"][0]
+    assert "not the LVS netgen" in result["failures"][0]
+    assert "NGSPICE-LIVE" in result["failures"][0]
