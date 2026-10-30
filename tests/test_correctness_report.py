@@ -32,6 +32,20 @@ def _fixture(tmp_path):
     (bad / "native.log").write_text(
         "=== compile stdout ===\nMONITOR TIMEOUT: reset stuck low\n"
     )
+    (bad / "run_record.json").write_text(
+        json.dumps(
+            {
+                "case": "serv_reset_break-0",
+                "ingredients": {
+                    "sources": [
+                        {"name": "mzi.gds", "sha256": "abc123"},
+                        {"name": "serv_top.v", "sha256": "def456"},
+                    ]
+                },
+            }
+        )
+        + "\n"
+    )
     report = {
         "verdict": "FAIL",
         "flows": {
@@ -135,3 +149,29 @@ def test_report_links_case_artifacts_and_failure_excerpt(tmp_path):
     assert "MONITOR TIMEOUT" in html
     # Accessible table wiring survives: caption + scoped headers.
     assert "<caption>" in html and 'scope="col"' in html
+
+
+def test_report_embeds_plotly_flow_chart(tmp_path):
+    mod = load_gen()
+    report_json = _fixture(tmp_path)
+    html = mod.render_html(
+        json.loads(report_json.read_text()), tmp_path / "cases"
+    )
+    assert "cdn.plot.ly/plotly" in html
+    assert 'id="flow-chart"' in html
+    # Chart data carries the real per-flow counts; tables stay the
+    # screen-reader source of truth.
+    assert "digital" in html and "photonic" in html
+
+
+def test_report_embeds_threejs_layout_viewer(tmp_path):
+    mod = load_gen()
+    report_json = _fixture(tmp_path)
+    html = mod.render_html(
+        json.loads(report_json.read_text()), tmp_path / "cases"
+    )
+    assert "three.js" in html
+    assert 'id="layout-viewer"' in html
+    # GDS sources referenced by run records are linked, not rendered
+    # as fake geometry.
+    assert "mzi.gds" in html
