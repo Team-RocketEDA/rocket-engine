@@ -183,6 +183,68 @@ def test_register_solver_wires_custom_operation(tmp_path):
     assert out["verdict"]["status"] == "PASS"
 
 
+def test_run_job_executes_queued_request():
+    engine = Engine(PROJECT, actor="tester")
+    engine.register_solver("run_em", FakeAdapter())
+    ack = engine.submit(
+        {
+            "project_id": PROJECT,
+            "operation": "run_em",
+            "arguments": {"expected_revision": "p12"},
+            "request_id": "req_job_001",
+        }
+    )
+    assert ack["state"] == "queued"
+    out = engine.run(
+        {
+            "project_id": PROJECT,
+            "operation": "run_job",
+            "arguments": {"request_id": "req_job_001"},
+        }
+    )
+    assert out["state"] == "completed"
+    assert out["operation"] == "run_em"
+    assert out["verdict"]["status"] == "PASS"
+
+
+def test_run_job_unknown_request_raises():
+    engine = Engine(PROJECT, actor="tester")
+    try:
+        engine.run(
+            {
+                "project_id": PROJECT,
+                "operation": "run_job",
+                "arguments": {"request_id": "req_nope"},
+            }
+        )
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "unknown_request"
+    else:
+        raise AssertionError("expected unknown_request")
+
+
+def test_submit_run_job_executes_immediately():
+    engine = Engine(PROJECT, actor="tester")
+    engine.register_solver("run_em", FakeAdapter())
+    engine.submit(
+        {
+            "project_id": PROJECT,
+            "operation": "run_em",
+            "arguments": {"expected_revision": "p12"},
+            "request_id": "req_job_002",
+        }
+    )
+    out = engine.submit(
+        {
+            "project_id": PROJECT,
+            "operation": "run_job",
+            "arguments": {"request_id": "req_job_002"},
+        }
+    )
+    assert out["state"] == "completed"
+    assert out["verdict"]["status"] == "PASS"
+
+
 class FailingAdapter(FakeAdapter):
     def execute(self, job):
         from rocket_engine.adapters.errors import AdapterError

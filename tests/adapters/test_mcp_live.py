@@ -43,6 +43,40 @@ def test_mcp_submit_round_trips_through_real_engine():
     assert engine.snapshot()["event_cursor"] == 1
 
 
+def test_mcp_two_phase_submit_then_run_executes():
+    from rocket_engine.composition import Engine  # RED: missing root
+
+    class _Fake:
+        def capabilities(self, target):
+            return {"operations": ["run_em"]}
+
+        def preflight(self, job):
+            return {"ready": True}
+
+        def execute(self, job):
+            return {"exit_code": 0, "stdout": "fake", "stderr": ""}
+
+        def parse(self, native_output):
+            return {"total": 0, "violations": []}
+
+    engine = Engine(PROJECT, actor="tester")
+    engine.register_solver("run_em", _Fake())
+    transport = _transport(engine)
+    ack = transport.handle(
+        _call("run_em", _submit_args(), call_id="req_2phase_001")
+    )
+    assert ack["state"] == "queued"
+    out = transport.handle(
+        _call(
+            "run_job",
+            {"project_id": PROJECT, "request_id": "req_2phase_001"},
+            call_id="req_2phase_002",
+        )
+    )
+    assert out["state"] == "completed"
+    assert out["verdict"]["status"] == "PASS"
+
+
 def test_mcp_submit_is_idempotent_on_envelope_id():
     from rocket_engine.composition import Engine  # RED: missing root
 
