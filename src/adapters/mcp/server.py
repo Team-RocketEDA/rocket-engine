@@ -20,6 +20,11 @@ from . import McpTransport
 
 
 def tool_definitions():
+    """Build one MCP tool per cataloged operation/query.
+
+    Returns:
+        Tool list with per-operation descriptions, sorted by name.
+    """
     tools = []
     for name in sorted(OPERATIONS | QUERIES):
         kind = "operation" if name in OPERATIONS else "query"
@@ -45,6 +50,20 @@ def _error(code, message):
 
 
 def make_handlers(engine_factory, project_scope=None):
+    """Build transport-free list/call handlers over McpTransport.
+
+    Handlers route through McpTransport so validation stays
+    single-sourced; engines are cached per project id.
+
+    Args:
+        engine_factory: Callable turning a project id into an
+            engine.
+        project_scope: Optional scope enforced on every call.
+
+    Returns:
+        (list_tools, call_tool) async handler pair. Call failures
+            become error results, never exceptions.
+    """
     engines = {}
 
     def _engine_for(project_id):
@@ -78,6 +97,16 @@ def make_handlers(engine_factory, project_scope=None):
 
 
 def build_server(engine_factory, project_scope=None):
+    """Build the MCP server with list/call handlers attached.
+
+    Args:
+        engine_factory: Callable turning a project id into an
+            engine.
+        project_scope: Optional scope enforced on every call.
+
+    Returns:
+        Configured MCP server (stdio wiring stays in main).
+    """
     list_handler, call_handler = make_handlers(engine_factory,
                                                project_scope)
     return Server("rocket-engine",
@@ -86,6 +115,14 @@ def build_server(engine_factory, project_scope=None):
 
 
 def main(argv=None):
+    """Serve the MCP stdio server until stdin closes.
+
+    Args:
+        argv: Unused; accepted for entry-point parity.
+
+    Returns:
+        Process exit code (0 on a clean stdio shutdown).
+    """
     from ...composition import Engine
 
     server = build_server(lambda pid: Engine(pid, actor="mcp"))

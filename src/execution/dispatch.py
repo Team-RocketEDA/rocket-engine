@@ -46,6 +46,18 @@ def parse_op_tokens(tokens):
     YAML-scalar values (`benches=[ac,tran]`, `deck={tool: klayout}`).
     Unparseable values pass through as raw strings: the CLI owns
     lexical shape, the engine owns semantic validation.
+
+    Args:
+        tokens: Pre-split op call; first token is the operation,
+            the rest are `key=value` pairs.
+
+    Returns:
+        (operation, arguments) pair with YAML-scalar values.
+
+    Raises:
+        UsageError: invalid_command for an empty call or a
+            malformed argument, unsupported_operation for an
+            unknown operation.
     """
     tokens = list(tokens)
     if not tokens:
@@ -65,7 +77,19 @@ def parse_op_tokens(tokens):
 
 
 def parse_op_call(text):
-    """Parse one op-call line (batch/REPL path) via `parse_op_tokens`."""
+    """Parse one op-call line (batch/REPL path) via `parse_op_tokens`.
+
+    Args:
+        text: One op-call line, shell-split before validation.
+
+    Returns:
+        (operation, arguments) pair with YAML-scalar values.
+
+    Raises:
+        UsageError: invalid_command when the line cannot be split
+            or an argument is malformed, unsupported_operation
+            for an unknown operation.
+    """
     try:
         tokens = shlex.split(text)
     except ValueError as exc:
@@ -76,7 +100,13 @@ def parse_op_call(text):
 
 
 class OpDispatcher:
-    """Route validated op calls to the engine port."""
+    """Route validated op calls to the engine port.
+
+    Args:
+        engine: Duck-typed engine port (`run`/`submit`).
+        project_id: Project id stamped on every command.
+        actor: Actor stamped on every command.
+    """
 
     def __init__(self, engine, project_id="default", actor="cli"):
         self._engine = engine
@@ -85,13 +115,41 @@ class OpDispatcher:
 
     @property
     def project_id(self):
+        """Project id stamped on every dispatched command.
+
+        Returns:
+            Bound project id.
+        """
         return self._project_id
 
     @property
     def actor(self):
+        """Actor stamped on every dispatched command.
+
+        Returns:
+            Bound actor name.
+        """
         return self._actor
 
     def execute(self, operation, arguments, request_id=None):
+        """Route one validated op call to the engine port.
+
+        Queries read via `engine.submit`; operations execute via
+        `engine.run`. Engine failures propagate untouched so callers
+        report them honestly.
+
+        Args:
+            operation: Cataloged operation or query name.
+            arguments: Operation arguments (deck.tool selects the
+                solver for runs).
+            request_id: Envelope id; generated when omitted.
+
+        Returns:
+            Engine result for the operation or query.
+
+        Raises:
+            UsageError: unsupported_operation for an unknown name.
+        """
         _check_name(operation)
         command = {
             "project_id": self._project_id,
@@ -104,6 +162,19 @@ class OpDispatcher:
         return self._engine.run(command)
 
     def execute_line(self, line, request_id=None):
+        """Parse one op-call line and route it to the engine port.
+
+        Args:
+            line: One op-call line (`operation [key=value ...]`).
+            request_id: Envelope id; generated when omitted.
+
+        Returns:
+            (operation, result) pair for the routed call.
+
+        Raises:
+            UsageError: invalid_command for a malformed line,
+                unsupported_operation for an unknown name.
+        """
         operation, arguments = parse_op_call(line)
         return operation, self.execute(
             operation, arguments, request_id=request_id

@@ -53,6 +53,16 @@ _LOCATION_KEYS = (
 
 
 class Engine:
+    """Composition root: one bound project plus its solvers and services.
+
+    Args:
+        project_id: Project this engine is bound to; cross-project
+            envelopes are denied, never routed.
+        actor: Attribution for mutations this engine submits
+            (human / rocket-fuel / system).
+        catalog_root: Root the component catalog resolves against.
+    """
+
     def __init__(self, project_id, actor, catalog_root="."):
         self._project_id = project_id
         self._project = ProjectService(project_id, actor)
@@ -70,12 +80,49 @@ class Engine:
         self._yaml = YAML(typ="safe")
 
     def snapshot(self):
+        """Read the current project snapshot.
+
+        Returns:
+            Snapshot mapping for the bound project.
+        """
         return self._project.snapshot()
 
     def events_since(self, cursor):
+        """Read ledger events after a cursor.
+
+        Args:
+            cursor: Opaque position from a previous read.
+
+        Returns:
+            Events appended after the cursor, oldest first.
+        """
         return self._project.events_since(cursor)
 
     def submit(self, command):
+        """Admit an operation (phase 1) or serve a wired query.
+
+        Operations queue through the project service with revision
+        gating and envelope-id idempotency; only wired queries read
+        state, the rest honestly report unwired.
+
+        Args:
+            command: Envelope with project_id, operation, arguments,
+                and request_id.
+
+        Returns:
+            Admission ack for operations, or the snapshot for the
+            wired get_project_snapshot query.
+
+        Raises:
+            ProjectError: cross_project_denied for a foreign
+                envelope, unsupported_operation for an unwired or
+                unknown name, revision_conflict for a stale
+                expected_revision.
+
+        Caution: Bound to one project: cross-project envelopes are
+            denied, never routed — and a stale expected_revision
+            fails instead of merging.
+        """
         envelope = command.get("project_id")
         if envelope != self._project_id:
             raise ProjectError(
@@ -108,11 +155,33 @@ class Engine:
         )
 
     def register_solver(self, operation, adapter, tool=None):
+        """Register a solver adapter under an operation name.
+
+        Args:
+            operation: Cataloged operation the adapter serves.
+            adapter: ToolAdapter owning the preflight/execute/parse
+                round trip.
+            tool: Deck-tool key selecting this adapter; defaults to
+                the adapter class name.
+
+        Returns:
+            Mapping with the operation and tool key registered.
+        """
         name = tool if tool is not None else type(adapter).__name__
         self._solvers.setdefault(operation, {})[name] = adapter
         return {"operation": operation, "tool": name}
 
     def findings(self, run_id, limit=50, cursor=None):
+        """Read a page of findings for a completed run.
+
+        Args:
+            run_id: Run whose findings to read.
+            limit: Maximum findings in this page.
+            cursor: Opaque position from a previous page, if any.
+
+        Returns:
+            Finding page for the run.
+        """
         return self._execution.findings(run_id, limit=limit, cursor=cursor)
 
     def _run_queued(self, command):
@@ -136,6 +205,31 @@ class Engine:
         )
 
     def run(self, command):
+        """Execute an operation synchronously through its solver.
+
+        `deck.tool` selects the registered solver, defaulting to
+        the first registered; solver violations nest into findings
+        and the verdict is evaluated from the native exit code.
+
+        Args:
+            command: Envelope with project_id, operation, and
+                arguments (deck.tool selects the solver).
+
+        Returns:
+            Completion mapping with run_id, state, verdict, and
+            operation. Adapter failures become not_run verdicts,
+            never exceptions.
+
+        Raises:
+            ProjectError: cross_project_denied for a foreign
+                envelope, unsupported_operation for an unregistered
+                operation or unknown deck tool, invalid_command
+                when run_job lacks a request_id argument.
+
+        Caution: Runs the solver now and records the verdict —
+            exit zero is not PASS; read the verdict, never the
+            exit path.
+        """
         envelope = command.get("project_id")
         if envelope != self._project_id:
             raise ProjectError(

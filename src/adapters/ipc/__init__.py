@@ -11,11 +11,33 @@ from ..errors import AdapterError
 
 
 class IpcTransport:
+    """Electron stdio transport over an engine: envelopes in, events out.
+
+    Args:
+        engine: Engine the envelopes submit against.
+        project_id: Optional scope; frames for another project are
+            denied, never routed.
+    """
+
     def __init__(self, engine, project_id=None):
         self._engine = engine
         self._project_id = project_id
 
     def handle(self, text):
+        """Route one JSON envelope through the engine.
+
+        Args:
+            text: Raw JSON frame with project_id, operation,
+                arguments, and an optional request_id.
+
+        Returns:
+            Engine admission ack or query result for the frame.
+
+        Raises:
+            AdapterError: invalid_command for a missing
+                project_id, cross_project_denied for a frame
+                outside the bound scope.
+        """
         frame = parse_json(text)
         if frame.get("project_id") is None:
             raise AdapterError("invalid_command", "Missing project_id in frame.")
