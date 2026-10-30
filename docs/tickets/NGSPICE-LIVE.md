@@ -30,3 +30,18 @@ ticket turns the skips green there.
 - Full suite on tools PATH shows the ngspice/LVS live tests
   passing (not skipped); scenarios all-PASS with store + tools.
 - Versions + install recipe recorded in the demo runbook.
+
+## Field notes (2026-10-30)
+
+- User machine now has ngspice 42 (`/usr/bin/ngspice`) and real
+  LVS Netgen 1.5.326 (`~/tools/bin/netgen`, opencircuitdesign
+  source build) — the "no binaries" premise above is stale for
+  that machine; the sandbox still lacks them.
+- Impostor trap, caught live: the `netgen` apt package is the
+  Schoeberl mesh generator (same name). `resolve_netgen()` in
+  `src/adapters/lvs_netgen/` now denylists its banner markers;
+  promote to a strict allowlist here once the real banner is
+  verified in the proof environment.
+- The `-help` identity probe prints Tk noise to stderr on the
+  real binary but exits fast; re-verify probe choice against the
+  installed binary when running the live proofs.
