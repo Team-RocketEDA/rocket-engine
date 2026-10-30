@@ -22,7 +22,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [API-GENERALIZE] Frontend protocol: queue, microcommits, catalogue, symbols
-- [GDSFACTORY-SMOKE] Layout smoke proof
 ## Ready
 
 
@@ -30,6 +29,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
+- [GDSFACTORY-SMOKE] Layout smoke proof
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
