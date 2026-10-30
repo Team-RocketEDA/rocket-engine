@@ -23,7 +23,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
 - [LEDGER-DURABLE] Durable attributed event log + advancing revisions
 - [CRUD-API] Uniform document CRUD over the project tree
-- [API-GEN] Docstring-mandated generated API contract
 - [REWIND] Restorable project snapshots
 - [FUEL-CONTRACT] Pin fuel mcp-stub to the engine contract
 - [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
@@ -42,6 +41,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Doing
 
 
+- [API-GEN] Docstring-mandated generated API contract
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
