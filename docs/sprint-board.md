@@ -37,7 +37,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [FUEL-CONTRACT] Pin fuel mcp-stub to the engine contract
-- [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -93,3 +92,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [REWIND] Restorable project snapshots
 - [PR3-MERGE] Merge fuel-mcp-fixes (PR #3) into GREEN-the-tests with consolidation
 - [API-GEN] Docstring-mandated generated API contract
+- [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
