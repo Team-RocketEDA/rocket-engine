@@ -1,6 +1,6 @@
 # API-GEN: Docstring-mandated generated API contract
 
-*Status: Backlog · Size: M · Roadmap: management-plane*
+*Status: Done · Size: M · Roadmap: management-plane*
 
 ## Why
 
@@ -53,3 +53,50 @@ reviewable per-endpoint shape.
 - Remainder for slice B: solver-adapter migration, manifest
   widening, generator (reference + JSON Schema + MCP help),
   `docs/engine-api.md` becomes generated output.
+
+## Field notes — slice B (2026-10-30, Done, closes ticket)
+
+- RED `c2aaa07`: `tests/test_api_spec.py` (reference covers every
+  wired op/query via a behavioral Engine.submit probe oracle,
+  schemas per wired op, help text == reference section, help
+  summaries == live handler docstrings, MCP descriptions == help
+  summaries, freshness pins for all three generated files) plus a
+  full-tree manifest-coverage test in `tests/test_docstrings.py`.
+- GREEN `c1b0aaf`: guard manifest widened to the full `src` tree
+  (274 violations → 0 across 33 files); every adapter
+  preflight/execute/parse plus transports, execution, interfaces,
+  library, mutate, and workflows now carry Google-style
+  docstrings. Adapter class docstrings carry the migrated §1
+  endpoint prose plus machine-readable `Job keys:` sections.
+- Generator `scripts/api_spec.py` (stdlib-only AST, no imports):
+  `docs/engine-api.md` (reference tables + per-endpoint sections +
+  generator-owned appendix), `docs/api-schema.json` (schema per
+  op/query, required-ness from signatures and `(required)`
+  markers, `expected_revision` injected from
+  `ProjectService.submit`'s own arg text), `docs/api-help.json`
+  (identical to the reference section bodies — the double-use).
+  `--check` is the freshness gate (default).
+- Seams: `composition.QUERY_METHODS` (query → method map),
+  `Engine.solvers_for` (introspection for docs/MCP),
+  `Engine._run_queued` `Request keys:` (run_job contract).
+  `server.describe_tool` reads serving handler docstrings at
+  runtime; unwired names honestly say so (same template both
+  sides, equality-pinned).
+- `.venv` mirror verified with `diff -rq` (only `__pycache__`
+  differs). Gates: new tests + docstring guard + mcp neighbors
+  (test_mcp_server, test_mcp_live, test_transports) + no-cloud →
+  34 passed. Full suite: 808 passed, 33 skipped (live-skips).
+- Verify: guard green on full tree; deliberate breakage
+  (`SaxAdapter.preflight` Args removed) failed naming the
+  endpoint, then reverted clean.
+- Residuals (non-blocking): §1 prose controls (`cancel_run`,
+  `approve_console`, `submit_revision`) are not in vocabulary and
+  have no handler — footnoted as out-of-contract in the appendix
+  (follow-up unowned; not in API-GENERALIZE scope). `deck`
+  subschemas stay prose (top-level `deck` key only). Cursor
+  optionality for `get_events_since` rides a one-line
+  `_QUERY_DEFAULTS` citing `Engine._query_events_since`.
+  `MagicDrcAdapter` documents `cell` required though preflight
+  does not check it (missing check = hardening item, behavior
+  untouched). `server.py` reads `Engine._run_queued.__doc__`
+  (same-package help introspection, never called).

@@ -38,7 +38,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Doing
 
 
-- [API-GEN] Docstring-mandated generated API contract
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -93,3 +92,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CRUD-API] Uniform document CRUD over the project tree
 - [REWIND] Restorable project snapshots
 - [PR3-MERGE] Merge fuel-mcp-fixes (PR #3) into GREEN-the-tests with consolidation
+- [API-GEN] Docstring-mandated generated API contract
