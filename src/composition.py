@@ -4,10 +4,12 @@ Adapters construct against this, never against services directly. The
 root owns no domain logic: it routes cataloged names (see
 `interfaces.vocabulary`) to live module state. Operations queue through
 the project service with revision gating and envelope-id idempotency;
-every accepted mutation advances the revision and appends an
-actor-attributed event to the durable ledger (LEDGER-DURABLE/I30),
-and every run appends its completion with a verdict link. Only
-wired queries read state, the rest honestly report unwired.
+CRUD mutations (CRUD-API/I31) execute immediately through the same
+admission machinery with no queue and no solver; every accepted
+mutation advances the revision and appends an actor-attributed event
+to the durable ledger (LEDGER-DURABLE/I30), and every run appends its
+completion with a verdict link. Only wired queries read state, the
+rest honestly report unwired.
 Two-phase execution: `submit(op)` admits and returns an ack, then
 `run_job(request_id)` executes the admitted command — over `run()`
 directly or over submit-only transports via `submit(run_job)`.
@@ -40,7 +42,23 @@ from .library.catalog import Catalog
 from .project.errors import ProjectError
 from .project.service import ProjectService
 
-_WIRED_QUERIES = frozenset({"get_project_snapshot", "get_events_since"})
+_WIRED_QUERIES = frozenset(
+    {
+        "get_project_snapshot",
+        "get_events_since",
+        "list_projects",
+        "list_docs",
+        "read_doc",
+    }
+)
+
+# CRUD mutations execute immediately inside submit() (run_job
+# precedent): revision gate + idempotency + event logging, no queue,
+# no solver. Engine.run delegates them back to submit so the CLI
+# `run` path shares the one implementation.
+_CRUD_OPERATIONS = frozenset(
+    {"create_project", "write_doc", "delete_doc", "apply_mutations"}
+)
 
 # Adapter violation key -> finding location key. bbox keeps its legacy
 # lambda-units name; everything else passes through unchanged.
@@ -72,6 +90,7 @@ class Engine:
 
     def __init__(self, project_id, actor, catalog_root=".", engine_root=None):
         self._project_id = project_id
+        self._actor = actor
         self._project = ProjectService(project_id, actor, engine_root=engine_root)
         self._execution = ExecutionService(project_id)
         self._catalog = Catalog(catalog_root)
@@ -118,25 +137,36 @@ class Engine:
         """Admit an operation (phase 1) or serve a wired query.
 
         Operations queue through the project service with revision
-        gating and envelope-id idempotency; only wired queries read
-        state, the rest honestly report unwired.
+        gating and envelope-id idempotency; CRUD mutations execute
+        immediately through the same admission machinery (no queue,
+        no solver); only wired queries read state, the rest
+        honestly report unwired.
 
         Args:
             command: Envelope with project_id, operation, arguments,
                 and request_id.
 
         Returns:
-            Admission ack for operations, the snapshot for the
-            wired get_project_snapshot query, or the event page
-            for the wired get_events_since query.
+            Admission ack for queued operations, the immediate
+            mutation mapping (new revision + events + approval-UI
+            fields) for CRUD operations, the snapshot for the
+            wired get_project_snapshot query, the event page for
+            get_events_since, or the project/document listing for
+            the CRUD queries.
 
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unwired or
                 unknown name, revision_conflict for a stale
                 expected_revision, invalid_command for a malformed
-                get_events_since cursor, resync_required when a
-                get_events_since contiguity demand cannot be met.
+                get_events_since cursor or a malformed mutation,
+                resync_required when a get_events_since contiguity
+                demand cannot be met, invalid_project for a bad
+                project id, project_exists for a duplicate create,
+                unknown_document for a missing document,
+                invalid_path or path_escape for a bad document
+                path, request_conflict for a reused envelope id
+                with new text.
 
         Caution: Bound to one project: cross-project envelopes are
             denied, never routed — and a stale expected_revision
@@ -152,6 +182,16 @@ class Engine:
         arguments = dict(command.get("arguments") or {})
         if name == "get_events_since":
             return self._query_events_since(arguments)
+        if name == "list_projects":
+            return self._project.list_projects()
+        if name == "list_docs":
+            return self._project.list_docs(prefix=arguments.get("prefix"))
+        if name == "read_doc":
+            if "path" not in arguments:
+                raise ProjectError(
+                    "invalid_command", "read_doc needs a path argument."
+                )
+            return self._project.read_doc(arguments["path"])
         if name in _WIRED_QUERIES:
             return self._project.snapshot()
         if name in QUERIES or name not in OPERATIONS:
@@ -162,6 +202,8 @@ class Engine:
             # Phase 2 executes immediately: admission (and its revision
             # gate) already happened at submit time.
             return self.run(command)
+        if name in _CRUD_OPERATIONS:
+            return self._submit_crud(name, arguments, command)
         if not self._solvers.get(name):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
@@ -199,6 +241,57 @@ class Engine:
             "events": events,
             "cursor": self._project.snapshot()["event_cursor"],
         }
+
+    def _submit_crud(self, name, arguments, command):
+        """Execute one CRUD mutation immediately (no queue, no solver)."""
+        buf = io.StringIO()
+        self._yaml.dump({"operation": name, "arguments": arguments}, buf)
+        command_text = buf.getvalue()
+        request_id = str(command.get("request_id") or uuid.uuid4().hex)
+        if name == "create_project":
+            if "new_project_id" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "create_project needs a new_project_id argument.",
+                )
+            return self._project.create_project(
+                arguments["new_project_id"], request_id, command_text
+            )
+        if name == "write_doc":
+            if "path" not in arguments or "content" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "write_doc needs path and content arguments.",
+                )
+            return self._project.write_doc(
+                arguments["path"],
+                arguments["content"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "delete_doc":
+            if "path" not in arguments:
+                raise ProjectError(
+                    "invalid_command", "delete_doc needs a path argument."
+                )
+            return self._project.delete_doc(
+                arguments["path"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if "mutations" not in arguments:
+            raise ProjectError(
+                "invalid_command",
+                "apply_mutations needs a mutations argument.",
+            )
+        return self._project.apply_mutations(
+            arguments["mutations"],
+            request_id,
+            command_text,
+            expected_revision=arguments.get("expected_revision"),
+        )
 
     def register_solver(self, operation, adapter, tool=None):
         """Register a solver adapter under an operation name.
@@ -327,6 +420,8 @@ class Engine:
         `deck.tool` selects the registered solver, defaulting to
         the first registered; solver violations nest into findings
         and the verdict is evaluated from the native exit code.
+        CRUD mutations delegate to submit's immediate path so the
+        CLI `run` spelling shares the one implementation.
 
         Args:
             command: Envelope with project_id, operation, and
@@ -338,12 +433,17 @@ class Engine:
             never exceptions. Every judged run appends
             run_completed (PASS/FAIL) or run_failed (NOT_RUN) to
             the ledger with the engine's actor and the verdict.
+            CRUD operations return the immediate mutation mapping
+            instead (new revision + events + approval-UI fields).
 
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unregistered
                 operation or unknown deck tool, invalid_command
-                when run_job lacks a request_id argument.
+                when run_job lacks a request_id argument or a CRUD
+                mutation is malformed, revision_conflict for a
+                stale CRUD expected_revision, unknown_document for
+                a missing CRUD document.
 
         Caution: Runs the solver now and records the verdict —
             exit zero is not PASS; read the verdict, never the
@@ -358,6 +458,8 @@ class Engine:
         name = command.get("operation")
         if name == "run_job":
             return self._run_queued(command)
+        if name in _CRUD_OPERATIONS:
+            return self.submit(command)
         return self._run_operation(
             name,
             dict(command.get("arguments") or {}),

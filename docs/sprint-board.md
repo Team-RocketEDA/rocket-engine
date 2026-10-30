@@ -21,7 +21,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
-- [CRUD-API] Uniform document CRUD over the project tree
 - [REWIND] Restorable project snapshots
 - [FUEL-CONTRACT] Pin fuel mcp-stub to the engine contract
 - [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
@@ -41,6 +40,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [API-GEN] Docstring-mandated generated API contract
+- [CRUD-API] Uniform document CRUD over the project tree
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
