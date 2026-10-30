@@ -91,6 +91,37 @@ records, findings, events) uses canonical ordering — sorted
 keys, seq-ordered events — so regenerability comparisons are
 diffs of substance, never of serialization order.
 
+## Ledger durability + retention (LEDGER-DURABLE/I30)
+
+Managed and linked projects alike keep their ledger under
+`ENGINE_ROOT/projects/<id>/`: `events.yaml` (seq-ordered
+actor-attributed events) plus `ledger.yaml` (current revision +
+admitted-request identity for idempotent replay and `run_job`
+lookup). The ledger is engine truth, not caller bytes, so linked
+trees never carry it — the engine still writes into caller trees
+only under `.rocket/`. Both files are schematized (optional,
+engine-owned) in `layout_schema.yaml`; the writer also creates
+`runs/` alongside so `validate_tree` stays green.
+
+- Every accepted mutation advances the revision and appends its
+  event; `run()` appends `run_completed` (PASS/FAIL verdict) or
+  `run_failed` (NOT_RUN) with the run's verdict, never a bare id.
+- Retention keeps the newest 10,000 events per project
+  (constructor-overridable), trimmed oldest-first on append; the
+  `ledger.yaml` head is never trimmed.
+- `resync_required` means the reader's `require_contiguous_from`
+  fell below the retained head (history aged out) or ahead of the
+  live cursor (reader ahead of truth). Either way the reader must
+  re-read the snapshot plus the full retained log and reset its
+  cursor — never assume the gap is empty.
+- Writes are atomic per file (sibling temp + rename), events
+  before head; a crash between the two can leave an event ahead of
+  its head, which the next accepted mutation reconciles by
+  re-advancing from the head. Reads and mutations reload durable
+  state first, so sequential writers through separate handles stay
+  ordered; truly concurrent writers need an external lock (future
+  work, not this slice).
+
 ## Why this split
 
 - The IDE cannot own the layout: headless clients (MCP, CLI, CI)

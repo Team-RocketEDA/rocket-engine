@@ -41,7 +41,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [API-GEN] Docstring-mandated generated API contract
-- [LEDGER-DURABLE] Durable attributed event log + advancing revisions
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -92,3 +91,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [E2E-AUDIT] E2E routing audit (submit honesty, run_job, run_syntax)
 - [DRC-GREEN] Magic/KLayout DRC adapter GREEN
 - [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
+- [LEDGER-DURABLE] Durable attributed event log + advancing revisions
