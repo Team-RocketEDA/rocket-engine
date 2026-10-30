@@ -106,6 +106,23 @@ bound project) and starts the new ledger clean at `p12`.
 Errors: `unknown_document`, `project_exists`, `invalid_project`,
 `invalid_path` / `path_escape` alongside the ledger codes.
 
+Rewind (REWIND, implemented): restorable per-revision snapshots of
+managed bytes. Every accepted mutation stores its previous revision
+(when missing) and its new revision under
+`snapshots/<revision>/` (in-memory map without an engine root);
+the immediate `rewind` operation takes `{target_revision,
+expected_revision}` and restores the target bytes byte-identically
+under a new head revision with a single `project_rewound` event —
+history stays append-only, the head never moves backward. `runs/`,
+the ledger, and the snapshots themselves are never restored or
+deleted. Responses carry the CRUD approval-UI fields plus
+`target_revision` and `external_files`; linked projects bind
+`linked_root`, and rewind lists caller files outside `.rocket/` as
+left untouched without writing to the caller tree. Errors:
+`unknown_revision` for a target with no snapshot,
+`invalid_command` for a target that equals the live head,
+alongside the ledger codes.
+
 ## 3. Common result envelope
 
 Every check result carries: `run_id`, `check_id`, `status`,

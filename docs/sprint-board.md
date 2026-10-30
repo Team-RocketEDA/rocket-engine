@@ -21,7 +21,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
-- [REWIND] Restorable project snapshots
 - [FUEL-CONTRACT] Pin fuel mcp-stub to the engine contract
 - [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
@@ -93,3 +92,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
 - [LEDGER-DURABLE] Durable attributed event log + advancing revisions
 - [CRUD-API] Uniform document CRUD over the project tree
+- [REWIND] Restorable project snapshots

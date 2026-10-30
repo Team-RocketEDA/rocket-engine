@@ -137,6 +137,28 @@ filter. Writes are atomic per file (sibling temp + rename);
 and rolls back best-effort on a mid-batch I/O failure, so a
 half-landed batch is never a visible state.
 
+## Snapshot storage (REWIND)
+
+Every head is restorable: each accepted mutation stores the
+managed bytes for its previous revision (when missing) and its new
+revision under `ENGINE_ROOT/projects/<id>/snapshots/<revision>/`
+(in-memory map when no engine root). Captures are atomic per
+snapshot (sibling temp dir + rename, stale temps swept);
+per-file writes are atomic renames. `rewind` deletes every managed
+file, prunes emptied doc dirs, and rewrites the target bytes
+byte-identically, then advances from the live head with a single
+`project_rewound` event — history append-only, never rewritten.
+`runs/`, `ledger.yaml`, `events.yaml`, and `snapshots/` are
+engine-owned and excluded from captures, restores, and document
+paths; `snapshots/` is schematized (optional, tracked) in
+`layout_schema.yaml`, so the derived gitignore is unchanged and
+the schema stays v1. Linked caller trees are never written: only
+engine-tracked bytes restore, and files outside `.rocket/` are
+reported in the response (and as paths on the event) as left
+untouched. Revisions that advanced before this slice have no
+snapshots and rewind to them fails `unknown_revision`; snapshots
+have no retention bound yet (compaction is future work).
+
 ## Why this split
 
 - The IDE cannot own the layout: headless clients (MCP, CLI, CI)
