@@ -112,6 +112,18 @@ def test_install_recreates_an_existing_venv():
     assert "uv venv --clear" in text, text
 
 
+def test_install_seals_the_engine_package():
+    # Regression pin: `uv sync` leaves rocket-engine editable, and
+    # the editable install is broken for the src-as-root layout
+    # (dist-info only, import fails). --install must seal a copy
+    # via uv pip after syncing deps. Never hand-install the
+    # package any other way (a stray site-packages symlink once
+    # led uv to wipe src/).
+    text = INSTALL.read_text()
+    assert "uv pip install" in text, text
+    assert "--no-deps" in text, text
+
+
 def test_install_unknown_mode_prints_usage():
     proc = run_install(["--bogus"])
     assert proc.returncode == 2, proc.stdout + proc.stderr
