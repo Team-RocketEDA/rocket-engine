@@ -84,6 +84,10 @@ class Engine:
             raise ProjectError(
                 "unsupported_operation", f"Operation not wired yet: {name}."
             )
+        if not self._solvers.get(name):
+            raise ProjectError(
+                "unsupported_operation", f"No solver registered: {name}."
+            )
         buf = io.StringIO()
         self._yaml.dump({"operation": name, "arguments": arguments}, buf)
         request_id = command.get("request_id") or uuid.uuid4().hex

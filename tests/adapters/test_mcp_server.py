@@ -110,7 +110,7 @@ def test_server_returns_error_result_on_engine_project_error():
 
     _, call = module.make_handlers(lambda project_id: _RaisingEngine())
     result = asyncio.run(_call(call, "run_drc", {"project_id": PROJECT}))
-    assert result.isError is True
+    assert result.is_error is True
     payload = json.loads(_text(result))
     assert payload["ok"] is False
     assert payload["code"] == "revision_conflict"
@@ -130,7 +130,7 @@ def test_server_reports_unwired_operation_as_error():
             {"project_id": PROJECT, "expected_revision": "p12"},
         )
     )
-    assert result.isError is True
+    assert result.is_error is True
     assert "unsupported_operation" in _text(result)
 
 

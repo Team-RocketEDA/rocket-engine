@@ -14,6 +14,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
 
 from ...interfaces.vocabulary import OPERATIONS, QUERIES
+from ...project.errors import ProjectError
 from ..errors import AdapterError
 from . import McpTransport
 
@@ -68,7 +69,7 @@ def make_handlers(engine_factory, project_scope=None):
                 "params": {"name": params.name, "arguments": arguments},
                 "id": uuid.uuid4().hex,
             }))
-        except AdapterError as exc:
+        except (AdapterError, ProjectError) as exc:
             return _error(exc.code, str(exc))
         return CallToolResult(content=[TextContent(
             type="text", text=json.dumps(result))])
