@@ -36,3 +36,17 @@ below closes a divergence vector.
   all through the duplex channel, no console needed.
 - Kill-and-reboot mid-queue: log replays, every request still
   acked exactly once.
+
+## Revision (2026-10-30): partially superseded, narrowed
+
+- Slice 1 (durable log half) → LEDGER-DURABLE. The worker
+  pool half (in-order drain, backpressure/refusal shape,
+  boot replay) REMAINS here.
+- Slice 2 (microcommits) → CRUD-API (`apply_mutations` batch).
+- Slice 3 (catalogue index + `place_cell`) REMAINS here —
+  no other ticket covers the component catalogue.
+- Slice 4 (raw asset serving, I29) REMAINS here — no other
+  ticket covers verbatim PDK byte serving.
+- New scope: pool/drain/backpressure + catalogue/place_cell
+  + raw serving. Kill-and-reboot acceptance stays (needs
+  pool, not just log).

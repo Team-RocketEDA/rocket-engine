@@ -10,7 +10,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Backlog
 
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
-- [B10] install.sh + tests/installed + capability matrix
+- [B10] tests/installed + capability matrix (install.sh landed; matrix → ENGINE-SETUP)
 
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
@@ -18,10 +18,9 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
-- [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
-- [API-GENERALIZE] Frontend protocol: queue, microcommits, catalogue, symbols
+- [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
 - [LEDGER-DURABLE] Durable attributed event log + advancing revisions
 - [CRUD-API] Uniform document CRUD over the project tree
 - [API-GEN] Docstring-mandated generated API contract
@@ -34,7 +33,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Doing
 
 
-- [DRC-GREEN] Magic/KLayout DRC adapter GREEN
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -83,3 +81,5 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MEOW-LIVE] EME smoke + tidy3d-locality verdict
 - [GDSFACTORY-SMOKE] Layout smoke proof
 - [E2E-AUDIT] E2E routing audit (submit honesty, run_job, run_syntax)
+- [DRC-GREEN] Magic/KLayout DRC adapter GREEN
+- [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist

@@ -1,6 +1,6 @@
 # NGSPICE-LIVE: Live ngspice/netgen proofs where the binaries exist
 
-*Status: Backlog · Depends: SIM-SKY130, EXTRACT-SKY130 · Size: S · Roadmap: orch-build-mvp*
+*Status: Done · Depends: SIM-SKY130, EXTRACT-SKY130 · Size: S · Roadmap: orch-build-mvp*
 
 ## Why
 
@@ -45,3 +45,19 @@ ticket turns the skips green there.
 - The `-help` identity probe prints Tk noise to stderr on the
   real binary but exits fast; re-verify probe choice against the
   installed binary when running the live proofs.
+
+## Closing notes (2026-10-30, tools PATH + live store)
+
+- ngspice/LVS files (`test_ngspice`, `test_extract_sky130`)
+  live-green inside a 96 passed / 1 skipped combined run —
+  the single skip is the inverted missing-binary test
+  (correctly skipping because ngspice IS present). Bandgap
+  DC, RC divider, LVS pass/fail paths: all executed, none
+  environmentally skipped.
+- Scenarios 26/0; gate 4/4 (44/0/0). Versions recorded:
+  ngspice-42 (`/usr/bin`, KLU solver), Netgen 1.5.326
+  (`~/tools/bin`, opencircuitdesign source build) —
+  runbook + provision-plan table.
+- Residual (non-blocking): promote the netgen banner
+  denylist to a strict allowlist; refresh the runbook's
+  unprovisioned-baseline transcript.
