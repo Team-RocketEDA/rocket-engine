@@ -8,6 +8,7 @@ server neither binds a project nor describes tool arguments.
 
 import asyncio
 import json
+import shutil
 
 import pytest
 
@@ -232,3 +233,110 @@ def test_bound_server_keeps_files_inside_the_project(tmp_path):
     result, body = _call(call, "run_spice", {"sources": ["../outside.cir"], "measurements": [dict(GAIN, min=60)]})
     assert result.is_error is True and body["code"] == "invalid_reference"
     assert len(seen) == 1
+
+
+# --- measurement definitions come from constraints too; live ngspice proof ---
+
+MEASURED = {
+    "dc_gain_db": {"min": 60.0, "unit": "dB", "expr": "vdb(out)[0]"},
+    "ugbw_mhz": {"min": 10.0, "unit": "MHz", "expr": "ugbw_hz/1e6",
+                 "control": ["meas ac ugbw_hz when vdb(out)=0"]},
+}
+
+
+def test_measurement_definition_comes_from_constraints():
+    from rocket_engine.project.errors import ProjectError
+
+    seen = []
+
+    class Recording(StandInSpice):
+        def execute(self, job):
+            seen.append(job)
+            return super().execute(job)
+
+    from rocket_engine.composition import Engine
+
+    engine = Engine(PROJECT, actor="mcp", constraints=MEASURED)
+    engine.register_solver("run_spice", Recording({"ugbw_mhz": 33.6}), tool="ngspice")
+    with pytest.raises(ProjectError) as err:
+        _submit(engine, "run_spice", {"expected_revision": "p12", "analyses": ["ac dec 50 1 1e10"],
+                                       "measurements": [{"name": "ugbw_mhz", "expr": "100"}]})
+    assert "omit expr" in str(err.value)
+
+    _submit(engine, "run_spice", {"expected_revision": "p12", "analyses": ["ac dec 50 1 1e10"],
+                                   "measurements": [{"name": "ugbw_mhz"}]}, request_id="r2")
+    engine.drain()
+    assert seen[0]["measurements"] == [{"name": "ugbw_mhz", "expr": "ugbw_hz/1e6", "min": 10.0, "unit": "MHz"}]
+    assert seen[0]["analyses"] == ["ac dec 50 1 1e10", "meas ac ugbw_hz when vdb(out)=0"]
+
+
+def test_constraints_yaml_carries_measurement_definitions(tmp_path):
+    from rocket_engine.adapters.mcp.server import load_constraints
+
+    (tmp_path / "constraints.yaml").write_text(
+        "checks:\n"
+        "  - metric: ugbw_mhz\n"
+        "    comparison: '>='\n"
+        "    value: 10\n"
+        "    unit: MHz\n"
+        "    expr: ugbw_hz/1e6\n"
+        "    control: ['meas ac ugbw_hz when vdb(out)=0']\n"
+    )
+    assert load_constraints(tmp_path) == {"ugbw_mhz": MEASURED["ugbw_mhz"] | {"min": 10}}
+
+
+OPAMP = """* Two-stage Miller op-amp, generic 1.8 V level-1 models (demo only, not a foundry PDK)
+* L2 = second-stage channel length (um); CC = Miller compensation (pF)
+.param L2=0.5
+.param CC=1.0
+.model nch nmos level=1 vto=0.45 kp=250u lambda=0.2
+.model pch pmos level=1 vto=-0.45 kp=100u lambda=0.2
+* channel-length modulation falls as L grows, so a longer second stage has higher gain
+.model nch2 nmos level=1 vto=0.45 kp=250u lambda={0.08/L2}
+.model pch2 pmos level=1 vto=-0.45 kp=100u lambda={0.08/L2}
+.subckt opamp inp inn out vdd vss bias
+M1 n1 inn tail vss nch W=4u L=1u
+M2 n2 inp tail vss nch W=4u L=1u
+M3 n1 n1 vdd vdd pch W=8u L=1u
+M4 n2 n1 vdd vdd pch W=8u L=1u
+M5 tail bias vss vss nch W=4u L=1u
+M6 out n2 vdd vdd pch2 W={40*L2*1e-6} L={L2*1e-6}
+M7 out bias vss vss nch2 W={20*L2*1e-6} L={L2*1e-6}
+CC n2 out {CC*1e-12}
+.ends opamp
+"""
+TESTBENCH = """* Open-loop AC testbench: 1 GOhm / 1 F keeps the DC point closed-loop, AC open-loop
+VDD vdd 0 1.8
+VBIAS bias 0 0.75
+VCM inp 0 0.9 AC 1
+RF out inn 1G
+CF inn 0 1
+CL out 0 2p
+XOA inp inn out vdd 0 bias opamp
+"""
+
+
+@pytest.mark.skipif(shutil.which("ngspice") is None, reason="ngspice not on PATH")
+def test_live_ngspice_opamp_over_bound_server(tmp_path):
+    from rocket_engine.adapters.mcp.server import make_handlers
+    from rocket_engine.composition import Engine
+
+    (tmp_path / "design").mkdir()
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "design" / "opamp.cir").write_text(OPAMP)
+    (tmp_path / "tests" / "tb_opamp.cir").write_text(TESTBENCH)
+    engine = Engine(PROJECT, actor="mcp", constraints=MEASURED)
+    _, call = make_handlers(lambda project_id: engine, project_scope=PROJECT, project_dir=tmp_path)
+
+    _, ack = _call(call, "run_spice", {
+        "sources": ["design/opamp.cir", "tests/tb_opamp.cir"], "analyses": ["ac dec 50 1 1e10"],
+        "measurements": [{"name": "dc_gain_db"}, {"name": "ugbw_mhz"}],
+    })
+    _, status = _call(call, "get_job_status", {"run_id": ack["run_id"]})
+    verdict = status["verdict"]
+    assert verdict["status"] == "FAIL"
+    measured = {m["name"]: m for m in verdict["measurements"]}
+    assert measured["dc_gain_db"]["status"] == "fail" and 55 < measured["dc_gain_db"]["value"] < 57
+    assert measured["ugbw_mhz"]["status"] == "pass" and measured["ugbw_mhz"]["value"] > 10
+    _, logs = _call(call, "get_logs", {"run_id": ack["run_id"], "query": "meas_dc_gain_db"})
+    assert logs["matched"] >= 1
