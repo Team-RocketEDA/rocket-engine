@@ -49,9 +49,9 @@
   },
   "get_check_results": {
     "kind": "query",
-    "summary": "Declared query `get_check_results`; no handler wired yet.",
-    "text": "Declared query `get_check_results`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Read the latest check verdict per operation.",
+    "text": "Read the latest check verdict per operation.\n\nHandler: `rocket_engine.composition.Engine.check_results`.\n\nArguments:\n\n- `operation`: Restrict to one operation; all latest verdicts when omitted.\n\nReturns:\n\nMapping of operation to run state plus the current project revision.\n",
+    "wired": true
   },
   "get_events_since": {
     "kind": "query",
@@ -61,15 +61,15 @@
   },
   "get_job_status": {
     "kind": "query",
-    "summary": "Declared query `get_job_status`; no handler wired yet.",
-    "text": "Declared query `get_job_status`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Read one run's state, verdict, and evidence links.",
+    "text": "Read one run's state, verdict, and evidence links.\n\nHandler: `rocket_engine.composition.Engine.job_status`.\n\nArguments:\n\n- `run_id`: Run to inspect (the submit-ack id, shared with the execution record).\n\nReturns:\n\nRun state mapping with state, verdict, and log links.\n\nRaises:\n\nExecutionError: unknown_run for an unregistered id.\n",
+    "wired": true
   },
   "get_logs": {
     "kind": "query",
-    "summary": "Declared query `get_logs`; no handler wired yet.",
-    "text": "Declared query `get_logs`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Search and page one run's captured native log.",
+    "text": "Search and page one run's captured native log.\n\nHandler: `rocket_engine.composition.Engine.run_logs`.\n\nArguments:\n\n- `run_id`: Run whose log to read.\n- `query`: Case-insensitive substring filter; all lines when omitted.\n- `offset`: First matching line to return (0-based).\n- `limit`: Maximum lines per page (capped server-side).\n\nReturns:\n\nPage mapping with numbered lines, totals, and a more flag.\n\nRaises:\n\nExecutionError: unknown_run for an unregistered id. ProjectError: invalid_command for a non-int offset or limit.\n",
+    "wired": true
   },
   "get_project_snapshot": {
     "kind": "query",
@@ -97,9 +97,9 @@
   },
   "list_job_kinds": {
     "kind": "query",
-    "summary": "Declared query `list_job_kinds`; no handler wired yet.",
-    "text": "Declared query `list_job_kinds`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "List registered operations with their deck tools.",
+    "text": "List registered operations with their deck tools.\n\nHandler: `rocket_engine.composition.Engine.job_kinds`.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping of job kinds with operation names and the tool keys each accepts.\n",
+    "wired": true
   },
   "list_projects": {
     "kind": "query",

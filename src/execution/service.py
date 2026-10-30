@@ -35,18 +35,20 @@ class ExecutionService:
         except KeyError:
             raise ExecutionError("unknown_run", f"Unknown run: {run_id}.") from None
 
-    def dispatch(self, operation, target, snapshot_id):
+    def dispatch(self, operation, target, snapshot_id, run_id=None):
         """Queue one run and return its id.
 
         Args:
             operation: Operation the run executes.
             target: Run target descriptor.
             snapshot_id: Evidence snapshot the run pins.
+            run_id: Optional caller-supplied id so the queued ack and
+                its result share one id; generated when omitted.
 
         Returns:
             Admission with run_id, queued state, and snapshot_id.
         """
-        run_id = uuid.uuid4().hex
+        run_id = run_id or uuid.uuid4().hex
         self._runs[run_id] = {
             "run_id": run_id,
             "operation": operation,
@@ -57,6 +59,16 @@ class ExecutionService:
             "findings": [],
         }
         return {"run_id": run_id, "state": "queued", "snapshot_id": snapshot_id}
+
+    def known(self, run_id):
+        return run_id in self._runs
+
+    def status(self, run_id):
+        record = self._require(run_id)
+        return {
+            key: record.get(key)
+            for key in ("run_id", "operation", "state", "snapshot_id", "verdict")
+        }
 
     def mark_running(self, run_id):
         """Mark a queued run running.

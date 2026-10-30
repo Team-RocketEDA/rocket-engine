@@ -58,15 +58,15 @@ text, identical to the section bodies below.
 | `api_info` | no | — | Declared query `api_info`; no handler wired yet. |
 | `api_search` | no | — | Declared query `api_search`; no handler wired yet. |
 | `get_capabilities` | yes | `rocket_engine.composition.Engine.capabilities` | Report per-solver availability, store state, and the provision menu. |
-| `get_check_results` | no | — | Declared query `get_check_results`; no handler wired yet. |
+| `get_check_results` | yes | `rocket_engine.composition.Engine.check_results` | Read the latest check verdict per operation. |
 | `get_events_since` | yes | `rocket_engine.project.service.ProjectService.events_since` | Read retained events after a cursor, oldest first. |
-| `get_job_status` | no | — | Declared query `get_job_status`; no handler wired yet. |
-| `get_logs` | no | — | Declared query `get_logs`; no handler wired yet. |
+| `get_job_status` | yes | `rocket_engine.composition.Engine.job_status` | Read one run's state, verdict, and evidence links. |
+| `get_logs` | yes | `rocket_engine.composition.Engine.run_logs` | Search and page one run's captured native log. |
 | `get_project_snapshot` | yes | `rocket_engine.project.service.ProjectService.snapshot` | Read the ledger head: project, revision, and event cursor. |
 | `get_python_console` | no | — | Declared query `get_python_console`; no handler wired yet. |
 | `list_artifacts` | no | — | Declared query `list_artifacts`; no handler wired yet. |
 | `list_docs` | yes | `rocket_engine.project.service.ProjectService.list_docs` | List documents, optionally filtered by a path prefix. |
-| `list_job_kinds` | no | — | Declared query `list_job_kinds`; no handler wired yet. |
+| `list_job_kinds` | yes | `rocket_engine.composition.Engine.job_kinds` | List registered operations with their deck tools. |
 | `list_projects` | yes | `rocket_engine.project.service.ProjectService.list_projects` | List projects under the engine root, bound always included. |
 | `plan_checks` | no | — | Declared query `plan_checks`; no handler wired yet. |
 | `read_doc` | yes | `rocket_engine.project.service.ProjectService.read_doc` | Read one document as text at the current head. |
@@ -666,9 +666,17 @@ Caution: Read-only: never creates the store skeleton and never attempts network 
 
 ### get_check_results
 
-Declared query `get_check_results`; no handler wired yet.
+Read the latest check verdict per operation.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.check_results`.
+
+Arguments:
+
+- `operation`: Restrict to one operation; all latest verdicts when omitted.
+
+Returns:
+
+Mapping of operation to run state plus the current project revision.
 
 ### get_events_since
 
@@ -693,15 +701,42 @@ Caution: The log is retention-bounded, not infinite — a reader gone longer tha
 
 ### get_job_status
 
-Declared query `get_job_status`; no handler wired yet.
+Read one run's state, verdict, and evidence links.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.job_status`.
+
+Arguments:
+
+- `run_id`: Run to inspect (the submit-ack id, shared with the execution record).
+
+Returns:
+
+Run state mapping with state, verdict, and log links.
+
+Raises:
+
+ExecutionError: unknown_run for an unregistered id.
 
 ### get_logs
 
-Declared query `get_logs`; no handler wired yet.
+Search and page one run's captured native log.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.run_logs`.
+
+Arguments:
+
+- `run_id`: Run whose log to read.
+- `query`: Case-insensitive substring filter; all lines when omitted.
+- `offset`: First matching line to return (0-based).
+- `limit`: Maximum lines per page (capped server-side).
+
+Returns:
+
+Page mapping with numbered lines, totals, and a more flag.
+
+Raises:
+
+ExecutionError: unknown_run for an unregistered id. ProjectError: invalid_command for a non-int offset or limit.
 
 ### get_project_snapshot
 
@@ -749,9 +784,17 @@ ProjectError: invalid_path for a non-text prefix; path_escape for an escaping pr
 
 ### list_job_kinds
 
-Declared query `list_job_kinds`; no handler wired yet.
+List registered operations with their deck tools.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.job_kinds`.
+
+Arguments:
+
+- _(none)_
+
+Returns:
+
+Mapping of job kinds with operation names and the tool keys each accepts.
 
 ### list_projects
 

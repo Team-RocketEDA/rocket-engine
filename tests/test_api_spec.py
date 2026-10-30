@@ -33,6 +33,7 @@ def _wired_names():
     In-memory engine: queueing mutates nothing on disk.
     """
     from rocket_engine.composition import Engine
+    from rocket_engine.execution.errors import ExecutionError
     from rocket_engine.interfaces.vocabulary import OPERATIONS, QUERIES
     from rocket_engine.project.errors import ProjectError
 
@@ -51,6 +52,9 @@ def _wired_names():
         except ProjectError as exc:
             if exc.code != "unsupported_operation":
                 wired.add(name)
+        except ExecutionError:
+            # A wired execution-backed query proving its handler.
+            wired.add(name)
         else:
             wired.add(name)
     return wired
