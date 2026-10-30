@@ -21,7 +21,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
-- [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
@@ -38,6 +37,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [FUEL-CONTRACT] Pin fuel mcp-stub to the engine contract
+- [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
