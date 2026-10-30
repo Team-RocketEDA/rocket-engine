@@ -670,6 +670,48 @@ def test_sdtop_operator_files_match_snapshot():
         assert OPERATORS[operator]["design"] == "sd_top", operator
 
 
+def test_sdtop_staging_emits_top_level_wrapper(tmp_path):
+    # The PEX is a bare .subckt (133 devices, .ends, no top-level
+    # instantiation): fed to ngspice as-is the top circuit is empty
+    # ("KLU Matrix is empty"). The mixed-flow testbench must stage a
+    # top-level wrapper instantiating sd_top with supplies, clock,
+    # stimulus, and probes. No ngspice needed: this pins the staged
+    # bytes, so the failure below is the bench contract, not the sim.
+    _require_sdtop()
+    staged = _stage_good_analog(tmp_path / "good")
+    names = sorted(Path(p).name for p in staged["sources"])
+    assert names == [PEX_NAME, "sd_top_tb.spice"], names
+    wrapper = Path(staged["workdir"]) / "sd_top_tb.spice"
+    text = wrapper.read_text()
+    # Top-level instantiation honoring the PEX port order
+    # (UA0 UO0 UO1 CLK VDPWR UA1 VGND VAPWR) plus supplies, clock,
+    # stimulus, and probe loads. The wrapper instantiates; it must
+    # not redefine the macro.
+    assert "XDUT ua0 uo0 uo1 clk vdpwr ua1 vgnd vapwr sd_top" in text
+    assert ".subckt sd_top" not in text
+    # Settled-window transient mean of the integrator monitor: the
+    # static loop has no in-band OP (CLK low rails low, CLK high
+    # rails high), so an ["op"] probe cannot grade the [0.8, 1.0] V
+    # window; the 50 MHz clocked run settles UA1 at ~0.9 V.
+    assert staged["measurements"][0]["expr"] == "mean(v(ua1))"
+    assert staged["analyses"] == ["tran 0.5n 2u 1u"]
+
+
+def test_sdtop_staging_clamps_unbinned_startup_fet(tmp_path):
+    # X99 (bias-startup PFET, w=5 l=50) sits outside every hv-FET
+    # model bin (lmax 20.2 um) in the registered store, so ngspice
+    # aborts ("could not find a valid modelname") once a wrapper
+    # instantiates the macro. Staging clamps the STAGED copy to the
+    # top bin edge (l=20, settled-mean shift vs l=15 is 38 uV);
+    # vendored bytes stay pristine.
+    _require_sdtop()
+    staged = _stage_good_analog(tmp_path / "good")
+    staged_pex = Path(staged["workdir"]) / PEX_NAME
+    assert "w=5 l=50" not in staged_pex.read_text()
+    assert staged_pex.read_text().count("w=5 l=20") == 1
+    assert "w=5 l=50" in PEX.read_text()
+
+
 # Canned-parse proofs (no tool needed): the analog verdict mapping is
 # pinned even where ngspice is absent (NGSPICE-LIVE quarantine).
 
