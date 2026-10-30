@@ -87,6 +87,25 @@ fell outside retained history — re-read the snapshot plus the full
 log and reset the cursor. Retention keeps the newest 10,000 events
 per project, oldest-first trim; see `docs/storage-policy.md`.
 
+CRUD (CRUD-API/I31, implemented): uniform document ops over
+`(project, path)` — queries `list_projects` / `list_docs` /
+`read_doc`, immediate mutations `create_project` / `write_doc` /
+`delete_doc` / `apply_mutations` (no queue, no solver; the CLI
+`run` spelling delegates to the same path). Writes gate on
+`expected_revision` and return the new revision plus the appended
+event (`doc_written`, `doc_deleted`, `mutations_applied`);
+`apply_mutations` lands every mutation under one new revision or
+lands none, naming the failed document. Components and scripts are
+conventional paths (`components/…`, `scripts/…`) — no per-content
+verbs. Every mutation response carries `actor`, `diff_summary`,
+`revision_transition {from, to}`, and `rewind_handle
+{project_id, revision, request_id}` for the approval UI.
+`create_project` takes `new_project_id` (the envelope keeps the
+bound project) and starts the new ledger clean at `p12`.
+`delete_project` and `run_script` are explicitly out of scope.
+Errors: `unknown_document`, `project_exists`, `invalid_project`,
+`invalid_path` / `path_escape` alongside the ledger codes.
+
 ## 3. Common result envelope
 
 Every check result carries: `run_id`, `check_id`, `status`,

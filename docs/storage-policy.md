@@ -122,6 +122,21 @@ engine-owned) in `layout_schema.yaml`; the writer also creates
   ordered; truly concurrent writers need an external lock (future
   work, not this slice).
 
+## Document storage (CRUD-API/I31)
+
+Managed-project documents live beside the ledger as plain files
+under `ENGINE_ROOT/projects/<id>/` (in-memory map when no engine
+root). `ledger.yaml`, `events.yaml`, and `runs/` are engine-owned
+and rejected as document paths; everything else is addressable by
+its unix path, including the conventional `components/` and
+`scripts/` prefixes (no per-content verbs, no schema gate on
+contents). Documents are UTF-8 text capped at 1 MB; `list_docs`
+excludes engine-owned entries and accepts a segment-aware prefix
+filter. Writes are atomic per file (sibling temp + rename);
+`apply_mutations` validates the whole batch before anything lands
+and rolls back best-effort on a mid-batch I/O failure, so a
+half-landed batch is never a visible state.
+
 ## Why this split
 
 - The IDE cannot own the layout: headless clients (MCP, CLI, CI)
