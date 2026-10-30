@@ -4,6 +4,18 @@ How the engine's native toolchain gets installed and pinned. Python deps
 are already locked in `uv.lock`; this doc covers everything `uv` cannot
 install: simulators, PDKs, and decks.
 
+## External dependency guideline (standing)
+
+Read the docs, read the docs, read the docs. Every provision recipe
+MUST use the tool's own documented, most-correct install method —
+never a stale convenience channel. apt lags upstream by years for
+the tools we care about: Magic/Netgen-family tools install from
+source (clone → configure → make → install, per the
+rtimothyedwards sites) with configure flags chosen for the
+engine's needs, and every other tool gets the same treatment from
+its own documentation. A recipe that cannot cite its upstream doc
+is not done.
+
 ## Ambient census (2026-10-28, x86-64, Python 3.12.3, uv 0.13.5)
 
 | Tool | State | Note |
