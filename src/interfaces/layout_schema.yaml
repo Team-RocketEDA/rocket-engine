@@ -140,6 +140,31 @@ engine_root:
               admitted-request identity for idempotent replay and
               run_job lookup. Absent until the first accepted
               mutation; rewritten atomically on every mutation.
+          - name: snapshots
+            type: dir
+            match: exact
+            required: false
+            tracked: true
+            created_by: engine
+            mutable: true
+            description: >-
+              Restorable per-revision snapshots (REWIND): byte copies
+              of managed documents at each revision, restored by
+              rewind. Absent until the first snapshotted mutation;
+              never hand-edited.
+            children:
+              - name: <revision>
+                type: dir
+                match: pattern
+                pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
+                required: false
+                tracked: true
+                created_by: engine
+                mutable: false
+                children: []
+                description: >-
+                  One revision snapshot with the managed bytes as
+                  restored by rewind. Immutable once written.
           - name: runs
             type: dir
             match: exact

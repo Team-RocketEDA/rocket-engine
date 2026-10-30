@@ -12,19 +12,29 @@ history get `resync_required` and must re-read from the snapshot.
 
 Documents (CRUD-API/I31) live beside the ledger: files under the
 project dir for durable projects, an in-memory map otherwise.
-`ledger.yaml`, `events.yaml`, and `runs/` are engine-owned and
-rejected as document paths; everything else — including the
-conventional `components/` and `scripts/` prefixes — is a plain
-document addressed by its unix path. Single writes/deletes and the
-atomic `apply_mutations` batch reuse the same admission machinery
-as `submit` (idempotent request ids, revision gate, one new
-revision, one event, atomic persist).
+`ledger.yaml`, `events.yaml`, `runs/`, and `snapshots/` are
+engine-owned and rejected as document paths; everything else —
+including the conventional `components/` and `scripts/` prefixes —
+is a plain document addressed by its unix path. Single
+writes/deletes and the atomic `apply_mutations` batch reuse the
+same admission machinery as `submit` (idempotent request ids,
+revision gate, one new revision, one event, atomic persist).
+
+Snapshots (REWIND) capture every head: each accepted mutation
+stores the managed bytes for its previous revision (when missing)
+and its new revision under `snapshots/<revision>/` (an in-memory
+map without an engine root). `rewind` restores the target bytes
+under a new head revision with a `project_rewound` event — history
+stays append-only, never rewritten. Linked caller trees stay
+untouched: only engine-tracked bytes restore, and files outside
+`.rocket/` are reported, never written.
 """
 
 import hashlib
 import io
 import os
 import re
+import shutil
 import tempfile
 import uuid
 from pathlib import Path
@@ -38,6 +48,8 @@ DEFAULT_MAX_RETAINED_EVENTS = 10000
 _MAX_DOC_BYTES = 1_000_000
 _EVENTS_FILENAME = "events.yaml"
 _LEDGER_FILENAME = "ledger.yaml"
+_SNAPSHOTS_DIRNAME = "snapshots"
+_LINKED_CARVEOUT = ".rocket"
 _REVISION_RE = re.compile(r"^(.*?)(\d+)$")
 _PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
 _RUN_OUTCOMES = ("run_completed", "run_failed")
@@ -66,6 +78,23 @@ def _atomic_write_text(path, text):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _atomic_write_bytes(path, data):
+    """Write bytes through a sibling temp file, then rename."""
+    fd, tmp = tempfile.mkstemp(
+        dir=str(path.parent), prefix=f"{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
         os.replace(tmp, path)
     except BaseException:
         try:
@@ -126,12 +155,15 @@ def _check_reserved_doc(canonical, original):
 
     Raises:
         ProjectError: invalid_path when the path names the ledger,
-            the event log, or anything under `runs/`.
+            the event log, or anything under `runs/` or
+            `snapshots/`.
     """
     if (
         canonical in _RESERVED_DOCS
         or canonical == "runs"
         or canonical.startswith("runs/")
+        or canonical == _SNAPSHOTS_DIRNAME
+        or canonical.startswith(_SNAPSHOTS_DIRNAME + "/")
     ):
         raise ProjectError(
             "invalid_path",
@@ -188,6 +220,10 @@ class ProjectService:
             bytes). None keeps the in-memory behavior.
         max_retained_events: Retention bound; only the newest events
             are kept, trimmed oldest-first on every append.
+        linked_root: Caller tree for linked projects; rewind
+            reports files outside `.rocket/` and never writes to
+            this tree. None means a managed project with no
+            external report.
 
     Caution: A stale expected_revision fails with revision_conflict
         instead of merging — callers must re-read the snapshot and
@@ -198,7 +234,8 @@ class ProjectService:
     """
 
     def __init__(self, project_id, actor, current_revision="p12",
-                 engine_root=None, max_retained_events=None):
+                 engine_root=None, max_retained_events=None,
+                 linked_root=None):
         if max_retained_events is None:
             max_retained_events = DEFAULT_MAX_RETAINED_EVENTS
         if (
@@ -217,8 +254,12 @@ class ProjectService:
         self._requests = {}
         self._events = []
         self._docs = {}
+        self._snapshots = {}
         self._yaml = YAML(typ="safe")
         self._dir = None
+        self._linked_root = (
+            Path(linked_root) if linked_root is not None else None
+        )
         if engine_root is not None:
             if not isinstance(project_id, str) or not _PROJECT_ID_RE.match(
                 project_id
@@ -384,6 +425,201 @@ class ProjectService:
         if self._dir is not None:
             self._persist()
 
+    def _snapshot_exists(self, revision):
+        """True when a restorable snapshot exists for a revision."""
+        if self._dir is None:
+            return revision in self._snapshots
+        try:
+            path = join_contained(
+                self._dir, _SNAPSHOTS_DIRNAME, revision
+            )
+        except Exception:
+            return False
+        return path.is_dir()
+
+    def _capture_snapshot(self, revision):
+        """Store the current managed bytes under one revision id.
+
+        Overwrites any previous capture for that id; empty trees
+        leave an empty marker dir so the revision stays restorable.
+        """
+        if self._dir is None:
+            self._snapshots[revision] = dict(self._docs)
+            return
+        try:
+            dest = join_contained(
+                self._dir, _SNAPSHOTS_DIRNAME, revision
+            )
+        except Exception as exc:
+            raise ProjectError(
+                "invalid_ledger",
+                f"Cannot snapshot revision {revision}: {exc}.",
+            ) from exc
+        try:
+            if dest.is_symlink() or dest.is_file():
+                dest.unlink()
+            elif dest.is_dir():
+                shutil.rmtree(dest)
+            dest.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ProjectError(
+                "invalid_ledger",
+                f"Cannot snapshot revision {revision}: {exc}.",
+            ) from exc
+        for rel, _size in self._iter_doc_files():
+            try:
+                data = self._doc_path(rel).read_bytes()
+            except OSError as exc:
+                raise ProjectError(
+                    "invalid_ledger",
+                    f"Cannot snapshot {rel}: {exc}.",
+                ) from exc
+            target = dest / rel
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                _atomic_write_bytes(target, data)
+            except OSError as exc:
+                raise ProjectError(
+                    "invalid_ledger",
+                    f"Cannot snapshot {rel}: {exc}.",
+                ) from exc
+
+    def _ensure_snapshot(self, revision):
+        if not self._snapshot_exists(revision):
+            self._capture_snapshot(revision)
+
+    def _load_snapshot(self, revision):
+        """Current snapshot bytes, or None when unrestorable."""
+        if self._dir is None:
+            snap = self._snapshots.get(revision)
+            return dict(snap) if snap is not None else None
+        try:
+            src_dir = join_contained(
+                self._dir, _SNAPSHOTS_DIRNAME, revision
+            )
+        except Exception:
+            return None
+        if not src_dir.is_dir():
+            return None
+        found = {}
+        for target in sorted(src_dir.rglob("*")):
+            if not target.is_file():
+                continue
+            try:
+                rel = target.relative_to(src_dir).as_posix()
+            except ValueError:
+                continue
+            try:
+                found[rel] = target.read_bytes()
+            except OSError as exc:
+                raise ProjectError(
+                    "invalid_ledger",
+                    f"Cannot read snapshot {revision}/{rel}: {exc}.",
+                ) from exc
+        return found
+
+    def _current_bytes(self):
+        """All managed bytes for rollback staging."""
+        found = {}
+        for rel, _size in self._iter_doc_files():
+            try:
+                found[rel] = self._doc_path(rel).read_bytes()
+            except OSError as exc:
+                raise ProjectError(
+                    "invalid_ledger",
+                    f"Cannot stage {rel}: {exc}.",
+                ) from exc
+        return found
+
+    def _clear_docs(self):
+        """Delete every managed file, then prune emptied doc dirs."""
+        for rel, _size in self._iter_doc_files():
+            target = self._doc_path(rel)
+            try:
+                target.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                raise ProjectError(
+                    "invalid_ledger",
+                    f"Cannot clear {rel}: {exc}.",
+                ) from exc
+        for target in sorted(self._dir.rglob("*"), reverse=True):
+            if not target.is_dir() or target == self._dir:
+                continue
+            try:
+                rel = target.relative_to(self._dir).as_posix()
+            except ValueError:
+                continue
+            if rel == "runs" or rel.startswith("runs/"):
+                continue
+            if rel == _SNAPSHOTS_DIRNAME or rel.startswith(
+                _SNAPSHOTS_DIRNAME + "/"
+            ):
+                continue
+            try:
+                target.rmdir()
+            except OSError:
+                pass
+
+    def _write_bytes_map(self, mapping):
+        for rel, data in mapping.items():
+            target = self._doc_path(rel)
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                _atomic_write_bytes(target, data)
+            except OSError as exc:
+                raise ProjectError(
+                    "invalid_ledger",
+                    f"Cannot restore {rel}: {exc}.",
+                ) from exc
+
+    def _restore_snapshot_bytes(self, snapshot, pre):
+        """Replace managed bytes; best-effort rollback to pre."""
+        try:
+            self._clear_docs()
+            self._write_bytes_map(snapshot)
+        except ProjectError:
+            try:
+                self._clear_docs()
+                self._write_bytes_map(pre)
+            except Exception:
+                pass
+            raise
+
+    def _linked_external_files(self):
+        """Caller files outside `.rocket/`, sorted, never touched."""
+        if self._linked_root is None:
+            return []
+        root = self._linked_root
+        try:
+            if not root.is_dir():
+                return []
+        except OSError:
+            return []
+        found = []
+        try:
+            targets = sorted(root.rglob("*"))
+        except OSError:
+            return []
+        for target in targets:
+            try:
+                if not target.is_file():
+                    continue
+                rel = target.relative_to(root).as_posix()
+            except (OSError, ValueError):
+                continue
+            if rel == _LINKED_CARVEOUT or rel.startswith(
+                _LINKED_CARVEOUT + "/"
+            ):
+                continue
+            try:
+                size = target.stat().st_size
+            except OSError:
+                continue
+            found.append({"path": rel, "bytes": size})
+        return sorted(found, key=lambda e: e["path"])
+
     def submit(self, command_text, request_id, expected_revision=None):
         """Admit one mutation: replay idempotent resubmits, else gate and log.
 
@@ -433,10 +669,13 @@ class ProjectService:
                 "revision_conflict",
                 f"Expected revision {self._current_revision}, got {want}.",
             )
+        self._ensure_snapshot(want)
+        advanced = _advance_revision(want)
+        self._capture_snapshot(advanced)
         digest = hashlib.sha1(
             f"{self._project_id}:{want}:{command_text}".encode("utf-8")
         ).hexdigest()[:12]
-        self._current_revision = _advance_revision(want)
+        self._current_revision = advanced
         ack = {
             "request_id": request_id,
             "project_id": self._project_id,
@@ -762,7 +1001,11 @@ class ProjectService:
                 rel = target.relative_to(self._dir).as_posix()
             except ValueError:
                 continue
-            if rel in _RESERVED_DOCS or rel.startswith("runs/"):
+            if (
+                rel in _RESERVED_DOCS
+                or rel.startswith("runs/")
+                or rel.startswith(_SNAPSHOTS_DIRNAME + "/")
+            ):
                 continue
             try:
                 size = target.stat().st_size
@@ -1062,10 +1305,23 @@ class ProjectService:
                 f"Document exceeds the size limit: {path}.",
             )
         self._gate_revision(expected_revision)
+        previous = self._current_revision
+        self._ensure_snapshot(previous)
         old = self._read_doc_text(canonical, path)
         self._write_doc_text(canonical, content, path)
-        previous = self._current_revision
-        self._current_revision = _advance_revision(previous)
+        advanced = _advance_revision(previous)
+        try:
+            self._capture_snapshot(advanced)
+        except ProjectError:
+            try:
+                if old is None:
+                    self._delete_doc_path(canonical, path)
+                else:
+                    self._write_doc_text(canonical, old, path)
+            except Exception:
+                pass
+            raise
+        self._current_revision = advanced
         new_bytes = len(content.encode("utf-8"))
         if old is None:
             diff = f"created {canonical} ({new_bytes} bytes)"
@@ -1147,9 +1403,19 @@ class ProjectService:
                 "unknown_document", f"No such document: {path}."
             )
         self._gate_revision(expected_revision)
-        self._delete_doc_path(canonical, path)
         previous = self._current_revision
-        self._current_revision = _advance_revision(previous)
+        self._ensure_snapshot(previous)
+        self._delete_doc_path(canonical, path)
+        advanced = _advance_revision(previous)
+        try:
+            self._capture_snapshot(advanced)
+        except ProjectError:
+            try:
+                self._write_doc_text(canonical, old, path)
+            except Exception:
+                pass
+            raise
+        self._current_revision = advanced
         diff = f"deleted {canonical} ({len(old.encode('utf-8'))} bytes)"
         record = self._append_event(
             "doc_deleted",
@@ -1303,6 +1569,8 @@ class ProjectService:
                 )
             prepared.append((op, canonical, content, old, raw_path))
         self._gate_revision(expected_revision)
+        previous = self._current_revision
+        self._ensure_snapshot(previous)
         applied = []
         try:
             for op, canonical, content, _old, raw_path in prepared:
@@ -1338,8 +1606,22 @@ class ProjectService:
                 "invalid_ledger",
                 f"Batch write failed; rolled back: {exc}.",
             ) from exc
-        previous = self._current_revision
-        self._current_revision = _advance_revision(previous)
+        advanced = _advance_revision(previous)
+        try:
+            self._capture_snapshot(advanced)
+        except ProjectError:
+            for _op, canonical, _content, old, _raw in reversed(prepared):
+                try:
+                    if old is None:
+                        self._delete_doc_path(canonical, canonical)
+                    else:
+                        self._write_doc_text(
+                            canonical, old, canonical
+                        )
+                except Exception:
+                    pass
+            raise
+        self._current_revision = advanced
         parts = []
         results = []
         for op, canonical, content, old, _raw in prepared:
@@ -1395,6 +1677,129 @@ class ProjectService:
             },
             "events": [record],
             "results": results,
+            "event_cursor": self._cursor(),
+            "request_id": request_id,
+        }
+        self._requests[request_id] = (command_text, response)
+        self._persist_after_mutation()
+        return response
+
+    def rewind(self, target_revision, request_id, command_text,
+               expected_revision=None):
+        """Restore managed bytes to a prior revision under a new head.
+
+        The target snapshot replaces every managed document
+        byte-identically; runs, the ledger, and the snapshots
+        themselves are left alone. History stays append-only: the
+        restore advances from the live head and appends a single
+        `project_rewound` event recording the target. Linked caller
+        trees are never written — files outside `.rocket/` are
+        listed in the response as left untouched.
+
+        Args:
+            target_revision: Snapshot revision to restore.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with revision transition, target
+            revision, new head, actor, diff summary, external-file
+            report, rewind handle, the appended event, cursor, and
+            request id.
+
+        Raises:
+            ProjectError: request_conflict for a reused id with new
+                text; invalid_command for a missing target or a
+                target that equals the live head; unknown_revision
+                for a revision with no snapshot; revision_conflict
+                for a stale head; invalid_ledger when the durable
+                restore fails (best-effort rollback already
+                attempted).
+
+        Caution: Rewinding advances — the new head is not the target
+            id, and stale writers fail instead of merging. Caller
+            files outside `.rocket/` are reported, never touched.
+        """
+        self._refresh_durable()
+        replay = self._check_replay(request_id, command_text)
+        if replay is not None:
+            return replay
+        if not isinstance(target_revision, str) or not target_revision:
+            raise ProjectError(
+                "invalid_command",
+                "rewind needs a target_revision argument.",
+            )
+        snapshot = self._load_snapshot(target_revision)
+        if snapshot is None:
+            raise ProjectError(
+                "unknown_revision",
+                f"No snapshot for revision: {target_revision}.",
+            )
+        if target_revision == self._current_revision:
+            raise ProjectError(
+                "invalid_command",
+                f"Already at revision {target_revision}.",
+            )
+        self._gate_revision(expected_revision)
+        previous = self._current_revision
+        self._ensure_snapshot(previous)
+        if self._dir is None:
+            self._docs = dict(snapshot)
+        else:
+            pre = self._current_bytes()
+            self._restore_snapshot_bytes(snapshot, pre)
+        advanced = _advance_revision(previous)
+        if self._dir is None:
+            self._snapshots[advanced] = dict(self._docs)
+        else:
+            try:
+                self._capture_snapshot(advanced)
+            except ProjectError:
+                try:
+                    self._clear_docs()
+                    self._write_bytes_map(pre)
+                except Exception:
+                    pass
+                raise
+        self._current_revision = advanced
+        external = self._linked_external_files()
+        count = len(snapshot)
+        noun = "doc" if count == 1 else "docs"
+        diff = (
+            f"rewound {previous} to {target_revision} "
+            f"(restored {count} {noun} as {advanced})"
+        )
+        record = self._append_event(
+            "project_rewound",
+            request_id,
+            {
+                "revision": self._current_revision,
+                "operation": "rewind",
+                "target_revision": target_revision,
+                "previous_revision": previous,
+                "diff_summary": diff,
+                "external_files": [e["path"] for e in external],
+            },
+        )
+        response = {
+            "project_id": self._project_id,
+            "previous_revision": previous,
+            "current_revision": self._current_revision,
+            "revision_transition": {
+                "from": previous,
+                "to": self._current_revision,
+            },
+            "target_revision": target_revision,
+            "actor": self._actor,
+            "diff_summary": diff,
+            "external_files": external,
+            "rewind_handle": {
+                "project_id": self._project_id,
+                "revision": previous,
+                "request_id": request_id,
+            },
+            "events": [record],
             "event_cursor": self._cursor(),
             "request_id": request_id,
         }

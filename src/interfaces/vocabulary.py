@@ -12,6 +12,7 @@ OPERATIONS = frozenset(
         "run_post_layout", "run_em", "run_thermal", "python_execute",
         "run_view_sync", "run_job",
         "create_project", "write_doc", "delete_doc", "apply_mutations",
+        "rewind",
     }
 )
 QUERIES = frozenset(

@@ -4,12 +4,12 @@ Adapters construct against this, never against services directly. The
 root owns no domain logic: it routes cataloged names (see
 `interfaces.vocabulary`) to live module state. Operations queue through
 the project service with revision gating and envelope-id idempotency;
-CRUD mutations (CRUD-API/I31) execute immediately through the same
-admission machinery with no queue and no solver; every accepted
-mutation advances the revision and appends an actor-attributed event
-to the durable ledger (LEDGER-DURABLE/I30), and every run appends its
-completion with a verdict link. Only wired queries read state, the
-rest honestly report unwired.
+CRUD mutations (CRUD-API/I31) and rewind (REWIND) execute immediately
+through the same admission machinery with no queue and no solver;
+every accepted mutation advances the revision and appends an
+actor-attributed event to the durable ledger (LEDGER-DURABLE/I30),
+and every run appends its completion with a verdict link. Only wired
+queries read state, the rest honestly report unwired.
 Two-phase execution: `submit(op)` admits and returns an ack, then
 `run_job(request_id)` executes the admitted command — over `run()`
 directly or over submit-only transports via `submit(run_job)`.
@@ -52,12 +52,18 @@ _WIRED_QUERIES = frozenset(
     }
 )
 
-# CRUD mutations execute immediately inside submit() (run_job
-# precedent): revision gate + idempotency + event logging, no queue,
-# no solver. Engine.run delegates them back to submit so the CLI
-# `run` path shares the one implementation.
+# CRUD mutations + rewind execute immediately inside submit()
+# (run_job precedent): revision gate + idempotency + event logging,
+# no queue, no solver. Engine.run delegates them back to submit so
+# the CLI `run` path shares the one implementation.
 _CRUD_OPERATIONS = frozenset(
-    {"create_project", "write_doc", "delete_doc", "apply_mutations"}
+    {
+        "create_project",
+        "write_doc",
+        "delete_doc",
+        "apply_mutations",
+        "rewind",
+    }
 )
 
 # Adapter violation key -> finding location key. bbox keeps its legacy
@@ -86,12 +92,19 @@ class Engine:
         engine_root: Engine root for ledger durability; the log
             persists under `projects/<project_id>/` beneath it.
             None keeps the in-memory ledger.
+        linked_root: Caller tree for linked projects; rewind
+            reports files outside `.rocket/` and never writes
+            there. None means a managed project.
     """
 
-    def __init__(self, project_id, actor, catalog_root=".", engine_root=None):
+    def __init__(self, project_id, actor, catalog_root=".",
+                 engine_root=None, linked_root=None):
         self._project_id = project_id
         self._actor = actor
-        self._project = ProjectService(project_id, actor, engine_root=engine_root)
+        self._project = ProjectService(
+            project_id, actor, engine_root=engine_root,
+            linked_root=linked_root,
+        )
         self._execution = ExecutionService(project_id)
         self._catalog = Catalog(catalog_root)
         self._solvers = {
@@ -137,10 +150,10 @@ class Engine:
         """Admit an operation (phase 1) or serve a wired query.
 
         Operations queue through the project service with revision
-        gating and envelope-id idempotency; CRUD mutations execute
-        immediately through the same admission machinery (no queue,
-        no solver); only wired queries read state, the rest
-        honestly report unwired.
+        gating and envelope-id idempotency; CRUD mutations and
+        rewind execute immediately through the same admission
+        machinery (no queue, no solver); only wired queries read
+        state, the rest honestly report unwired.
 
         Args:
             command: Envelope with project_id, operation, arguments,
@@ -149,24 +162,26 @@ class Engine:
         Returns:
             Admission ack for queued operations, the immediate
             mutation mapping (new revision + events + approval-UI
-            fields) for CRUD operations, the snapshot for the
-            wired get_project_snapshot query, the event page for
-            get_events_since, or the project/document listing for
-            the CRUD queries.
+            fields) for CRUD/rewind operations, the snapshot for
+            the wired get_project_snapshot query, the event page
+            for get_events_since, or the project/document listing
+            for the CRUD queries.
 
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unwired or
                 unknown name, revision_conflict for a stale
                 expected_revision, invalid_command for a malformed
-                get_events_since cursor or a malformed mutation,
-                resync_required when a get_events_since contiguity
-                demand cannot be met, invalid_project for a bad
-                project id, project_exists for a duplicate create,
-                unknown_document for a missing document,
-                invalid_path or path_escape for a bad document
-                path, request_conflict for a reused envelope id
-                with new text.
+                get_events_since cursor, a malformed mutation, or
+                a rewind that lacks a target or targets the live
+                head, resync_required when a get_events_since
+                contiguity demand cannot be met, invalid_project
+                for a bad project id, project_exists for a
+                duplicate create, unknown_document for a missing
+                document, unknown_revision for a rewind target
+                with no snapshot, invalid_path or path_escape for
+                a bad document path, request_conflict for a reused
+                envelope id with new text.
 
         Caution: Bound to one project: cross-project envelopes are
             denied, never routed — and a stale expected_revision
@@ -243,7 +258,7 @@ class Engine:
         }
 
     def _submit_crud(self, name, arguments, command):
-        """Execute one CRUD mutation immediately (no queue, no solver)."""
+        """Execute one CRUD/rewind mutation immediately (no queue)."""
         buf = io.StringIO()
         self._yaml.dump({"operation": name, "arguments": arguments}, buf)
         command_text = buf.getvalue()
@@ -277,6 +292,18 @@ class Engine:
                 )
             return self._project.delete_doc(
                 arguments["path"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "rewind":
+            if "target_revision" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "rewind needs a target_revision argument.",
+                )
+            return self._project.rewind(
+                arguments["target_revision"],
                 request_id,
                 command_text,
                 expected_revision=arguments.get("expected_revision"),
@@ -420,8 +447,8 @@ class Engine:
         `deck.tool` selects the registered solver, defaulting to
         the first registered; solver violations nest into findings
         and the verdict is evaluated from the native exit code.
-        CRUD mutations delegate to submit's immediate path so the
-        CLI `run` spelling shares the one implementation.
+        CRUD/rewind mutations delegate to submit's immediate path
+        so the CLI `run` spelling shares the one implementation.
 
         Args:
             command: Envelope with project_id, operation, and
@@ -433,17 +460,21 @@ class Engine:
             never exceptions. Every judged run appends
             run_completed (PASS/FAIL) or run_failed (NOT_RUN) to
             the ledger with the engine's actor and the verdict.
-            CRUD operations return the immediate mutation mapping
-            instead (new revision + events + approval-UI fields).
+            CRUD/rewind operations return the immediate mutation
+            mapping instead (new revision + events + approval-UI
+            fields).
 
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unregistered
                 operation or unknown deck tool, invalid_command
-                when run_job lacks a request_id argument or a CRUD
-                mutation is malformed, revision_conflict for a
-                stale CRUD expected_revision, unknown_document for
-                a missing CRUD document.
+                when run_job lacks a request_id argument, a CRUD
+                mutation is malformed, or a rewind lacks a target
+                or targets the live head, revision_conflict for a
+                stale CRUD/rewind expected_revision,
+                unknown_document for a missing CRUD document,
+                unknown_revision for a rewind target with no
+                snapshot.
 
         Caution: Runs the solver now and records the verdict —
             exit zero is not PASS; read the verdict, never the
