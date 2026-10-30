@@ -66,13 +66,15 @@ so the break is behavioral, not syntactic.
   node or commented device). No value changes — the topology break
   unloads the divider, `out` rises to the 1.8 V rail, and the vout
   measurement misses. Same quarantine/parse story as sizing.
-- `bandgap_sizing_out_of_spec` (3 variants): n_r2 51 → 50 / 52 /
-  54, so Vref = 1.1744 / 1.22507 / 1.233 V against the DR-005
-  [1.176, 1.224] V bound (the netlist header's own issue-#178
-  sizing table). Needs ngspice + the sky130 store, otherwise
-  quarantined (see `docs/tickets/NGSPICE-LIVE.md`); the verdict
-  mapping is pinned by canned-envelope parse tests and the
-  recorded-log oracle (tt_27c_3.30v: 1.210323 / 1.186357 /
+- `bandgap_sizing_out_of_spec` (3 variants): n_r2 51 → 46 / 54 /
+  55, so Vref = 1.166 / 1.237 / 1.246 V against the DR-005
+  [1.176, 1.224] V bound. The header's issue-#178 numbers (50 →
+  1.1744, 52 → 1.22507) are sweep extremes: at the gate's tt/27C
+  single corner they read 1.2016 / 1.2194 V (in-band), so the
+  variants are strengthened past that. Needs ngspice + the sky130
+  store, otherwise quarantined (see `docs/tickets/NGSPICE-LIVE.md`);
+  the verdict mapping is pinned by canned-envelope parse tests
+  and the recorded-log oracle (tt_27c_3.30v: 1.210323 / 1.186357 /
   1.216902).
 - `bandgap_open_net` (2 variants): XR2A lifted from `VOUT`
   (renamed net VOUT_OPEN or commented device). No value changes
@@ -157,13 +159,14 @@ recheck`, and the `ngspice_bandgap` scenario backend (the PDK
 pin is resolved by each caller from its own store).
 
 - `bandgap_sizing_out_of_spec` (3 variants): the Kuijk-core
-  resistor ratio `n_r2` 51 → 50 (K low, vref_min 1.1744 below
-  the 1.176 V floor), 52 (K high, vref_max up to 1.22507 above
-  the 1.224 V ceiling), or 54 (pre-DR-003 overshoot ~1.233 V)
-  — the netlist header's own issue-#178 sizing table. Live
-  needs ngspice + the sky130 store (quarantined per
-  NGSPICE-LIVE); the verdict mapping is pinned by
-  canned-envelope parse tests and the recorded-log oracle.
+  resistor ratio `n_r2` 51 → 46 (K low, 1.166 V below the
+  1.176 V floor), 54 (K high, 1.237 V above the 1.224 V
+  ceiling), or 55 (extreme, 1.246 V) — live-verified at the
+  gate's tt/27C single corner (the header's 50/52 numbers are
+  sweep extremes that read in-band at tt/27C). Live needs
+  ngspice + the sky130 store (quarantined per NGSPICE-LIVE);
+  the verdict mapping is pinned by canned-envelope parse tests
+  and the recorded-log oracle.
 - `bandgap_open_net` (2 variants): XR2A lifted from `VOUT`
   onto `VOUT_OPEN` (feedback cut) or commented out (R2A leg
   open). The topology break pushes Vref outside DR-005 with

@@ -217,20 +217,21 @@ def analog_open_net(text, variant):
 def bandgap_sizing_out_of_spec(text, variant):
     """Move n_r2 off its 51 nominal; Vref leaves DR-005 [1.176, 1.224] V.
 
-    Expected values are the netlist header's own documented numbers
-    (issue #178 sizing table): n_r2=50 vref_min 1.1744 below the
-    floor, n_r2=52 vref_max up to 1.22507 above the ceiling,
-    n_r2=54 the pre-DR-003 ~1.233 V overshoot. Live where ngspice
-    + the sky130 store exist, otherwise quarantined (see
-    docs/tickets/NGSPICE-LIVE.md); the verdict mapping is pinned
-    by canned-envelope parse tests.
+    Expected values are live-verified at the gate's single corner
+    (ngspice + the sky130 store, tt/27C; otherwise quarantined, see
+    docs/tickets/NGSPICE-LIVE.md): the header's documented 1.1744 /
+    1.22507 numbers are sweep extremes, but at tt/27C n_r2=50 reads
+    1.2016 V and n_r2=52 reads 1.2194 V — both in-band, so the gate
+    PASSes them. The variants are strengthened past that: n_r2=46
+    reads 1.166 V, n_r2=54 reads 1.237 V, n_r2=55 reads 1.246 V.
+    The verdict mapping is pinned by canned-envelope parse tests.
     """
     old = ".param n_r2=51"
     _once(text, old, "bandgap_sizing_out_of_spec")
     alts = [
-        (50, 1.1744, "n_r2 51 -> 50 (K low, vref_min below the 1.176 V floor)"),
-        (52, 1.22507, "n_r2 51 -> 52 (K high, vref_max above the 1.224 V ceiling)"),
-        (54, 1.233, "n_r2 51 -> 54 (pre-DR-003 overshoot, vref above ceiling)"),
+        (46, 1.166, "n_r2 51 -> 46 (K low, vref below the 1.176 V floor)"),
+        (54, 1.237, "n_r2 51 -> 54 (K high, vref above the 1.224 V ceiling)"),
+        (55, 1.246, "n_r2 51 -> 55 (extreme, vref further above ceiling)"),
     ]
     n_r2, expected_vref, desc = alts[variant % len(alts)]
     extra = {
