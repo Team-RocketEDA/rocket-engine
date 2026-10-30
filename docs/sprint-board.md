@@ -22,7 +22,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [API-GENERALIZE] Frontend protocol: queue, microcommits, catalogue, symbols
-- [CIRCULAX-LIVE] Time-domain smoke proof
 - [MEOW-LIVE] EME smoke + tidy3d-locality verdict
 - [GDSFACTORY-SMOKE] Layout smoke proof
 ## Ready
@@ -76,3 +75,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SCENARIO-PATH] Pin scenario gate to dev-PATH
 - [PDK-DISPLAY] Preserve canonical PDK display id in store records
 - [SAX-LIVE] Prove run_optical live with SAX
+- [CIRCULAX-LIVE] Time-domain smoke proof
