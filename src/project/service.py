@@ -74,6 +74,20 @@ class ProjectService:
         ack["event_cursor"] = self._cursor()
         return ack
 
+    def command_for(self, request_id):
+        """Return the admitted (command, ack) for a queued request.
+
+        Phase 2 of submit-then-run: unknown ids raise
+        `unknown_request` instead of running a stranger's job.
+        """
+        try:
+            command_text, ack = self._requests[str(request_id)]
+        except KeyError:
+            raise ProjectError(
+                "unknown_request", f"No queued request: {request_id}."
+            ) from None
+        return self._yaml.load(command_text), ack
+
     def snapshot(self):
         return {
             "project_id": self._project_id,

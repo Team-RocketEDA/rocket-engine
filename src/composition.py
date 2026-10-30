@@ -5,6 +5,9 @@ root owns no domain logic: it routes cataloged names (see
 `interfaces.vocabulary`) to live module state. Operations queue through
 the project service with revision gating and envelope-id idempotency;
 only wired queries read state, the rest honestly report unwired.
+Two-phase execution: `submit(op)` admits and returns an ack, then
+`run_job(request_id)` executes the admitted command — over `run()`
+directly or over submit-only transports via `submit(run_job)`.
 `run()` executes registered solvers synchronously. Each operation
 maps to named solvers; `deck.tool` selects one, defaulting to the
 first registered (run_drc: magic, then klayout; run_optical: sax;
@@ -87,6 +90,10 @@ class Engine:
             raise ProjectError(
                 "unsupported_operation", f"Operation not wired yet: {name}."
             )
+        if name == "run_job":
+            # Phase 2 executes immediately: admission (and its revision
+            # gate) already happened at submit time.
+            return self.run(command)
         if not self._solvers.get(name):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
@@ -108,6 +115,26 @@ class Engine:
     def findings(self, run_id, limit=50, cursor=None):
         return self._execution.findings(run_id, limit=limit, cursor=cursor)
 
+    def _run_queued(self, command):
+        arguments = dict(command.get("arguments") or {})
+        request_id = arguments.get("request_id")
+        if request_id is None:
+            raise ProjectError(
+                "invalid_command", "run_job needs a request_id argument."
+            )
+        stored, ack = self._project.command_for(request_id)
+        run_arguments = dict(stored.get("arguments") or {})
+        # Submit-time admission data stays out of the solver job.
+        run_arguments.pop("expected_revision", None)
+        return self.run(
+            {
+                "project_id": self._project_id,
+                "operation": stored.get("operation"),
+                "arguments": run_arguments,
+                "snapshot_id": ack.get("snapshot_id", ""),
+            }
+        )
+
     def run(self, command):
         envelope = command.get("project_id")
         if envelope != self._project_id:
@@ -116,6 +143,8 @@ class Engine:
                 f"Bound to {self._project_id}, got {envelope}.",
             )
         name = command.get("operation")
+        if name == "run_job":
+            return self._run_queued(command)
         solvers = self._solvers.get(name) or {}
         if not solvers:
             raise ProjectError(

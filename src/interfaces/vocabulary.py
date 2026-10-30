@@ -10,7 +10,7 @@ OPERATIONS = frozenset(
         "run_connectivity", "run_drc", "run_lvs", "run_erc", "run_spice",
         "run_optical", "run_digital_flow", "run_timing", "run_extraction",
         "run_post_layout", "run_em", "run_thermal", "python_execute",
-        "run_view_sync",
+        "run_view_sync", "run_job",
     }
 )
 QUERIES = frozenset(
