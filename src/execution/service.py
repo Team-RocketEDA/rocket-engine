@@ -61,9 +61,29 @@ class ExecutionService:
         return {"run_id": run_id, "state": "queued", "snapshot_id": snapshot_id}
 
     def known(self, run_id):
+        """Check whether a run id is registered.
+
+        Args:
+            run_id: Run id to look up.
+
+        Returns:
+            True when the id has a run record.
+        """
         return run_id in self._runs
 
     def status(self, run_id):
+        """Read one run's state, verdict, and evidence links.
+
+        Args:
+            run_id: Run to inspect.
+
+        Returns:
+            Run state mapping with run_id, operation, state,
+            snapshot_id, and verdict.
+
+        Raises:
+            ExecutionError: unknown_run for an untracked id.
+        """
         record = self._require(run_id)
         return {
             key: record.get(key)
