@@ -71,10 +71,10 @@ Proofs (all observed this session):
   ack echoes request, completion judges PASS, `job_queued`
   + `run_completed` carry `(request_id, run_id)` with actor
   `rocket-fuel` — artifact envelopes equal observed keys.
-- Suites: 18/18 new, 85/85 neighbors (api_spec, engine_run,
-  docstrings, project, mcp_server, transports);
-  `api_spec --check`, `contract --check`, `check_docstrings`
-  all clean.
+- Suites: full `pytest tests` 826 passed / 33 skipped / 0
+  failed (live-tool env, 25 min); 18/18 new contract+drift
+  tests; `api_spec --check`, `contract --check`,
+  `check_docstrings` all clean.
 
 Fuel-side recipe (full text in `docs/fuel-contract.md`):
 
