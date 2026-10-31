@@ -40,7 +40,8 @@ def test_mcp_submit_round_trips_through_real_engine():
     ack = _transport(engine).handle(_call("run_drc", _submit_args()))
     assert ack["state"] == "completed"
     assert {"run_id", "snapshot_id", "event_cursor"} <= set(ack)
-    assert engine.snapshot()["event_cursor"] == 2
+    assert engine.snapshot()["event_cursor"] == 3
+    assert [e["event"] for e in engine.events_since(0)][1] == "run_started"
 
 
 def test_mcp_two_phase_submit_then_run_executes():
@@ -113,7 +114,7 @@ def test_mcp_query_snapshot_reads_real_state():
     # LEDGER-DURABLE: one accepted mutation advances p12 -> p13.
     assert ack["current_revision"] == "p13"
     assert snap["current_revision"] == "p13"
-    assert snap["event_cursor"] == 2
+    assert snap["event_cursor"] == 3
 
 
 def test_mcp_live_enforces_scope():
