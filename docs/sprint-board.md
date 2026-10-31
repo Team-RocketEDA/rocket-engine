@@ -27,6 +27,9 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [ENGINE-ECS] Entity store + component CRUD + addressing + events
 - [WIRE-PLACE] Wire/junction entities + connect ops + stable net IDs
 - [ASAP7-DRC-DECK] Clean-room KLayout DRC deck transcribed from the DRM
+- [REPLAY-SAFE] Report-not-run survivors + explicit resume + poison quarantine
+- [CONSOLE-ROUTE] Console mutations route to golden recipe via admission
+- [COALESCE-I33] Request coalescing per I33 (revision-pinned, force bypass)
 
 ## Doing
 

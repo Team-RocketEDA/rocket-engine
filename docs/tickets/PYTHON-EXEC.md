@@ -45,3 +45,12 @@ place AND program.
   ledger with actor + revision; traversal rejected;
   approval-denied stays distinct from run failure.
 - Contract + api_spec regen; full suite + gate green.
+
+## Field notes (2026-11-01): console routes to the recipe
+
+- A script that edits the project is an INGREDIENT, not
+  exhaust (I28): console tier-2 mutations (cell add, wire,
+  doc writes) route through ProjectService admission —
+  expected_revision gating, ledger events, idempotency —
+  the same verbs as CRUD/MCP. The console is a client,
+  never a side-channel writer. See CONSOLE-ROUTE.

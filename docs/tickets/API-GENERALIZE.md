@@ -136,12 +136,27 @@ client-side orchestration to get wrong.
 
 ## Field notes (2026-11-01): replay scope, async boundary, coalescing
 
-- Replay replays SURVIVORS only: ledger-admitted runs with
-  no completion event get executed after reboot. Finished
-  runs are NEVER re-executed, and no transcript of
-  completed job_ids is ever re-run to reconstruct state —
-  runs are reproducible from (snapshot + deck + params),
+- Replay NEVER fires naively or automatically — every
+  replay surface (boot survivors, run replay, resume-all)
+  is gated by an explicit user decision. Boot reports
+  SURVIVORS only: ledger-admitted runs with no completion
+  event are listed, never executed. Finished runs are
+  NEVER re-executed, and no transcript of completed
+  job_ids is ever re-run to reconstruct state — runs are
+  reproducible from (snapshot + deck + params),
   resubmit-when-wanted covers everything.
+- Survivor taxonomy (retryable vs poison): never-started
+  queued jobs are RETRYABLE (resume offered, one click);
+  interrupted-mid-execution jobs are AMBIGUOUS (outage or
+  poison — explicit resume, once); a content key
+  interrupted twice is POISON, quarantined, resume only
+  with force. Quarantine reasons are typed codes with
+  user-facing messages (friendly, no internals) plus
+  full context logged dev-side. Pkill-then-boot says:
+  "last session ended unexpectedly, N runs unfinished,
+  nothing re-ran automatically" + per-run Resume/Discard.
+  Unattended auto-resume is an explicit opt-in mode only
+  (flag/config), backlog, never the default.
 - Console restores-as-idle: history + cwd + env persist
   across close (MATLAB shape), kernel starts fresh, zero
   auto-rerun. Session close drops runs, never replays them.
