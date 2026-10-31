@@ -30,7 +30,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
-- [FORMAL-EDGE] Vacuity guard + ifdef-aware property sites
 - [LVS-ESCAPE] Bulk-rename mutant escapes LVS 3/3 seeds
 - [EXTRACT-GDS] run_extraction must accept GDS, not .mag-only
 - [SETUP-HONESTY] No false-ready probes, fresh tests, capable readiness
@@ -131,3 +130,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
 - [MEOW-STDOUT] Harden run_em envelope against solver chatter
 - [ADAPTER-PARSE-HARDEN] Envelope parsing for sax/circulax/gdsfactory
+- [FORMAL-EDGE] Vacuity guard + ifdef-aware property sites

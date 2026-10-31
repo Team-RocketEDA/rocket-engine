@@ -1,0 +1,102 @@
+diff --git a/src/adapters/formal_sby/__init__.py b/src/adapters/formal_sby/__init__.py
+--- a/src/adapters/formal_sby/__init__.py
++++ b/src/adapters/formal_sby/__init__.py
+@@ -6,8 +6,8 @@
+ `sby -f` under a timeout in its own process group, and parse the
+ machine-readable status file plus the DONE summary line
+ (PASS rc 0, FAIL rc 2, UNKNOWN rc 4, ERROR rc 16). Verdicts always
+-carry scope (proven/bounded/unknown/timeout) with assumptions and
+-counterexamples — never a bare PASS.
++carry scope (proven/bounded/bounded-vacuous/unknown/timeout) with
++assumptions and counterexamples — never a bare PASS.
+ 
+ Tool resolution: an explicit job `tool_dir` wins, else PATH. The
+ sby banner is version-asserted (an impostor binary refuses as
+@@ -26,6 +26,7 @@
+ from ...execution.runner import clean_stream, tool_roots
+ from ...interfaces import ToolAdapter
+ from ..errors import AdapterError
++from .formal_edge import guard_vacuous_pass, property_sites
+ 
+ OPERATION = "run_formal"
+ _TIMEOUT_S = 300
+@@ -68,27 +69,16 @@
+ _PROP_RE = re.compile(r"\b(assert|assume|cover)\s*\(")
+ 
+ 
+-def _property_sites(sources):
+-    """Assume/assert/cover sites by file and line (evidence-grade).
++def _property_sites(sources, defines=None):
++    """Active assume/assert/cover sites by file and line (evidence-grade).
+ 
+-    Line comments are stripped before matching; a site is one
+-    matched keyword per line. Unreadable sources are skipped, never
+-    fatal — the sites annotate the verdict, they are not the verdict.
++    Ifdef-aware delegate to formal_edge.property_sites: define lines
++    never count and ifdef branches resolve against the active
++    defines (FORMAL assumed, matching sby read -formal). Unreadable
++    sources are skipped, never fatal — the sites annotate the
++    verdict, they are not the verdict.
+     """
+-    assumptions, properties = [], []
+-    for source in sources:
+-        try:
+-            text = Path(source).read_text(encoding="utf-8", errors="replace")
+-        except OSError:
+-            continue
+-        for lineno, line in enumerate(text.splitlines(), start=1):
+-            for match in _PROP_RE.finditer(line.split("//", 1)[0]):
+-                entry = {"file": str(source), "line": lineno}
+-                if match.group(1) == "assume":
+-                    assumptions.append(entry)
+-                else:
+-                    properties.append({**entry, "kind": match.group(1)})
+-    return assumptions, properties
++    return property_sites(sources, defines=defines)
+ 
+ 
+ def _split_at(token):
+@@ -247,8 +237,9 @@
+     sources, runs it bounded and cancellable, and parses the sby
+     status plus the DONE summary into a scoped verdict: prove PASS
+     is proven, bmc/cover PASS is bounded to the depth, FAIL carries
+-    counterexamples, inconclusive runs are unknown, and wall-clock
+-    exhaustion is timeout — never a bare PASS.
++    counterexamples, inconclusive runs are unknown, wall-clock
++    exhaustion is timeout, and zero-property PASS is bounded-vacuous
++    FAIL — never a bare PASS.
+ 
+     Job keys:
+         sources (required): RTL source paths carrying the design
+@@ -457,7 +448,10 @@
+         with neither the output refuses as runner_unavailable —
+         unparseable never parses as clean. Timeout natives report
+         scope timeout; FAIL/UNKNOWN/ERROR always carry error
+-        findings, so PASS always means some scope was earned.
++        findings, so PASS always means at least one property was
++        checked in some scope; zero-property sby PASS reports scope
++        bounded-vacuous with a formal_vacuous error (engine FAIL),
++        never a bare PASS.
+ 
+         Args:
+             native_output: Native output from execute with the
+@@ -538,6 +532,19 @@
+             }
+         )
+         if status == "PASS":
++            vacuous = guard_vacuous_pass(
++                properties,
++                mode=native_output.get("mode"),
++                depth=native_output.get("depth"),
++            )
++            if vacuous is not None:
++                measures["scope"] = vacuous["scope"]
++                measures["vacuous"] = True
++                return {
++                    "total": 1,
++                    "violations": [vacuous["violation"]],
++                    "measurements": measures,
++                }
+             scope = "proven" if native_output.get("mode") == "prove" else "bounded"
+             measures["scope"] = scope
+             return {"total": 0, "violations": [], "measurements": measures}

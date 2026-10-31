@@ -944,8 +944,9 @@ tool). Generates a formal.sby task from the job's project
 sources, runs it bounded and cancellable, and parses the sby
 status plus the DONE summary into a scoped verdict: prove PASS
 is proven, bmc/cover PASS is bounded to the depth, FAIL carries
-counterexamples, inconclusive runs are unknown, and wall-clock
-exhaustion is timeout — never a bare PASS.
+counterexamples, inconclusive runs are unknown, wall-clock
+exhaustion is timeout, and zero-property PASS is bounded-vacuous
+FAIL — never a bare PASS.
 
 Arguments:
 
