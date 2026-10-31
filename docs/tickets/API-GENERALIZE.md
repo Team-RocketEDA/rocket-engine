@@ -78,3 +78,26 @@ reason `skipped_after_failure`, never silently skipped.
 for both shapes. Rationale: agents think in scripts, not
 single shots — one ID to track, deterministic order, no
 client-side orchestration to get wrong.
+
+## Field notes (2026-11-01): gating policy decisions
+
+- Verdicts CAN gate (`gate_on_verdict`): a FAIL verdict
+  blocks downstream steps unless the call carries `force`.
+  Force bypasses verdict gates ONLY — hard `depends_on`
+  failures (error/NOT_RUN state, no data produced) are
+  NEVER forceable. No flag runs a step whose inputs don't
+  exist.
+- Malformed batch (bad step args, unknown dep id):
+  reject-all at admission. No partial execution of a
+  misunderstood batch.
+- `depends_on` is maintainer-owned, NEVER an API argument:
+  engine flow templates declare the step DAG; callers
+  submit steps, the engine knows the dependencies.
+- Sequential execution only. Threadpooling/parallel
+  scheduling is backlog, post-MVP, only if performance
+  demands it. Stay lean.
+- The engine provisions ALL IDs (job, step, run). Callers
+  track what they're given; nothing caller-minted except
+  `request_id` for dedupe.
+- MVP bar: a verification engine strong enough for an AI
+  agent to make a chip literally today.
