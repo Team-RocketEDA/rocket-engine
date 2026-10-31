@@ -1,0 +1,31 @@
+diff --git a/tests/validate/test_mixed.py b/tests/validate/test_mixed.py
+--- a/tests/validate/test_mixed.py
++++ b/tests/validate/test_mixed.py
+@@ -974,18 +974,22 @@
+     assert "36" in text
+ 
+ 
+-def test_seam_status_honest_no_closed_loop():
+-    # The engine has no coupled mixed-signal solver: run_hdl_test and
+-    # run_spice are separate operations with no joint deck. This test
+-    # fails if anyone claims a closed loop by wiring a fake joint op.
++def test_seam_closed_loop_wired():
++    # SEAM-COSIM closed the loop: run_cosim couples a live analog
++    # tran to the RTL in one engine run with joint verdicts. The
++    # one-way pex_bits handoff test above stays as the
++    # recorded-vector regression; this probe pins the wiring shape
++    # (single cosim tool; the halves keep their single tools).
+     from rocket_engine.composition import Engine
++    from rocket_engine.interfaces.vocabulary import OPERATIONS
+ 
+     engine = Engine("validate_m_seam_probe", actor="validate-m")
+     solvers = engine._solvers
+-    assert "run_cosim" not in solvers
++    assert set(solvers.get("run_cosim", {})) == {"cosim"}
+     assert "run_mixed_signal" not in solvers
+     assert set(solvers.get("run_hdl_test", {})) == {"icarus"}
+     assert set(solvers.get("run_spice", {})) == {"ngspice"}
++    assert "run_cosim" in OPERATIONS
+ 
+ 
+ # Staging guards: unknown designs and missing pieces fail loudly.

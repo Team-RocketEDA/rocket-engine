@@ -31,7 +31,7 @@ netgen; run_spice: ngspice;
 run_post_layout: ngspice; run_syntax: slang; run_hdl_test: icarus;
 run_synth: yosys; run_connectivity: connectgraph; run_erc: connectgraph;
 run_formal: sby; run_view_sync: connectgraph;
-generate_views: gdsfactory).
+generate_views: gdsfactory; run_cosim: cosim).
 Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
 """
@@ -40,6 +40,7 @@ import uuid
 
 from .adapters.circulax.adapter import CirculaxAdapter
 from .adapters.connectivity import ConnectivityAdapter
+from .adapters.cosim import CosimAdapter
 from .adapters.drc import MagicDrcAdapter
 from .adapters.drc_kl import KlayoutDrcAdapter
 from .adapters.errors import AdapterError
@@ -284,6 +285,7 @@ class Engine:
             "run_formal": {"sby": FormalSbyAdapter()},
             "run_view_sync": {"connectgraph": ViewSyncAdapter()},
             "generate_views": {"gdsfactory": GdsfactoryViewsAdapter()},
+            "run_cosim": {"cosim": CosimAdapter()},
         }
         self._constraints = dict(constraints) if constraints is not None else None
         self._logs = {}

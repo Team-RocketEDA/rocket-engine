@@ -11,7 +11,7 @@ OPERATIONS = frozenset(
         "run_connectivity", "run_drc", "run_lvs", "run_erc", "run_spice",
         "run_optical", "run_digital_flow", "run_timing", "run_extraction",
         "run_post_layout", "run_em", "run_thermal", "python_execute",
-        "run_view_sync", "run_job",
+        "run_view_sync", "run_cosim", "run_job",
         "resume_run", "discard_run", "resume_all_retryable",
         "create_project", "write_doc", "delete_doc", "apply_mutations",
         "rewind", "place_cell", "write_settings",

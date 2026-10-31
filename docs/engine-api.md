@@ -47,6 +47,7 @@ text, identical to the section bodies below.
 | `resume_run` | no | — | Declared operation `resume_run`; no handler wired yet. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
 | `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
+| `run_cosim` | yes | `cosim` (default) | run_cosim via ngspice plus icarus: coupled mixed-signal verdicts. |
 | `run_digital_flow` | no | — | Declared operation `run_digital_flow`; no handler wired yet. |
 | `run_drc` | yes | `magic` (default), `klayout` | run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes. |
 | `run_em` | yes | `meow` (default) | run_em via meow: EME mode/field solving with convergence evidence. |
@@ -626,6 +627,53 @@ Raises:
 (parse) AdapterError: runner_unavailable when the output has no findings list.
 
 Caution: run_erc fails on unconnected pins while run_connectivity only warns — same findings, different policy; read the verdict, never the exit path.
+
+### run_cosim
+
+run_cosim via ngspice plus icarus: coupled mixed-signal verdicts.
+
+Tools: `cosim` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.cosim.CosimAdapter`.
+
+#### Tool `cosim`
+
+run_cosim via ngspice plus icarus: coupled mixed-signal verdicts.
+
+Serves the run_cosim operation with deck.tool `cosim` (the only
+tool). Runs a transient on the analog half, samples the bitstream
+node mid-period, streams the live bits into the digital half's
+bench, and judges the joint verdict (SNDR gate plus RTL
+ones-density/counts/golden-model checks).
+
+Arguments:
+
+- `analog_sources` (required): Control-free SPICE body paths.
+- `digital_sources` (required): Verilog source paths, bench included; the bench reads cosim_bits.txt from its cwd.
+- `analog` (required): Loop mapping with clock_hz, nbits (power of two 64..8192), nsettle, sig_bin (4..band-4), sample_node, sample_threshold_v, and optional int_node, tstep_s, uic, gate_db, ones_min/ones_max, osr_fast/osr_prec, corner, temp_c, title, params, options, pdk.
+- `defines`: Extra Verilog `define list; COSIM_NBITS is added.
+- `timeout_s`: Per-half budget in seconds (default 300).
+- `analog_timeout_s`: Analog budget override.
+- `digital_timeout_s`: Digital budget override (default 120).
+- `tool_dir`: Directory holding ngspice/iverilog/vvp; PATH otherwise.
+- `deck`: Optional mapping; deck.tool must be cosim here.
+- `workdir`: Run directory (default "."); analog/ and digital/ subdirs are created beneath it.
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements[]} with rule measurement for quantitative misses, digital native rules passed through, and sim_fail for valueless halves.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad loop config, deck shape, timeout, or defines, or for a body carrying sim control, invalid_reference for missing sources, store codes (unknown_pdk, pdk_drift, ...) for a bad PDK pin, missing_dependency for unresolvable tools.
+
+(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a sim timeout, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when sampled bits exist but the digital block is missing.
+
+Caution: The verdict always comes from parsed output, never the exit code — and a tran that ends before the window closes fails loudly (sim_fail) instead of judging clamped tail bits.
 
 ### run_digital_flow
 
