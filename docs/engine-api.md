@@ -36,7 +36,7 @@ text, identical to the section bodies below.
 | `delete_wire` | yes | — | Delete one wire: gate, remove, advance, log. |
 | `detach_component` | yes | — | Detach one component from its entity. |
 | `discard_run` | no | — | Declared operation `discard_run`; no handler wired yet. |
-| `generate_views` | no | — | Declared operation `generate_views`; no handler wired yet. |
+| `generate_views` | yes | `gdsfactory` (default) | generate_views via gdsfactory: registered layout recipes. |
 | `materialize_nets` | yes | — | Extract connectivity, upsert Net entities: gate, run, log. |
 | `move_wire` | yes | — | Translate one wire: gate, transact, advance, log. |
 | `place_cell` | no | — | Declared operation `place_cell`; no handler wired yet. |
@@ -372,9 +372,49 @@ Declared operation `discard_run`; no handler wired yet.
 
 ### generate_views
 
-Declared operation `generate_views`; no handler wired yet.
+generate_views via gdsfactory: registered layout recipes.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `gdsfactory` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.gdsfactory.adapter.GdsfactoryViewsAdapter`.
+
+#### Tool `gdsfactory`
+
+generate_views via gdsfactory: registered layout recipes.
+
+Serves the generate_views operation with deck.tool `gdsfactory`
+(the only tool). Stages the views driver plus a job JSON, runs
+it under a timeout, and parses the JSON envelope: identity
+mappings (requested source to built/imported component),
+diagnostics (versions, PDK, roundtrip readback), and workdir
+artifacts (layouts plus pin/obstruction mappings).
+
+Arguments:
+
+- `recipe` (required): Registered recipe — import_gds, build_cells, export_gds, or export_oasis.
+- `sources` (required): Project inputs — exactly one view-spec YAML for build/export recipes, one or more .gds files for import_gds.
+- `pin_map`: Project macro pin-map YAML (import_gds only); binds pins/obstructions with provenance.
+- `cspdk_path`: Vendored cspdk tree when the package is not installed.
+- `timeout_s`: Layout budget in seconds (default 120).
+- `tool_dir`: Directory holding the layout python; the engine interpreter otherwise.
+- `deck`: Optional mapping; deck.tool must be gdsfactory here.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements[], mappings[], diagnostics{}, artifacts[], gdsfactory_version} with identity mappings, per-cell polygon/port/area measurements, and workdir artifact paths.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad recipe, timeout, spec shape, pin map, or export filename, invalid_reference unless the recipe's project sources exist and parse, missing_dependency for an unresolvable layout python.
+
+(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a recipe timeout, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: missing_dependency when the layout python has no gdsfactory or PDK, runner_unavailable when the driver printed no JSON envelope or no result.
+
+Caution: Unknown cells and unreadable GDS synthesize error violations with file/line — the verdict always comes from parsed output, never the exit code. GDS roundtrip readback is a diagnostic, never the verdict.
 
 ### materialize_nets
 

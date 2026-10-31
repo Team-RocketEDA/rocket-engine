@@ -8,8 +8,9 @@ polygon count, and bbox. Solver imports stay lazy so bare envs
 fail loud (`missing_dependency`), never fake-green. The cspdk
 tree is git-ignored vendor data: pass `cspdk_path`
 (`scripts/fetch_fixtures.py --only cspdk`) where the package
-is not installed. A full layout Engine adapter is follow-up,
-out of scope.
+is not installed. The full layout Engine adapter is
+GdsfactoryViewsAdapter (generate_views, adapter.py); this smoke is
+its qualification fixture.
 """
 
 import sys

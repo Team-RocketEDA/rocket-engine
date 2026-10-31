@@ -77,6 +77,12 @@ entries:
     python: [meow]
     remedy: "meow not installed, uv sync --group photonic (B10-owned tooling)"
     recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+  - id: gdsfactory
+    kind: python
+    label: gdsfactory (layout views)
+    python: [gdsfactory]
+    remedy: "gdsfactory not installed, uv sync --group layout (B10-owned tooling)"
+    recipe: "pyproject.toml [dependency-groups] layout: uv sync --group layout (B10)."
   - id: cvc
     kind: tool
     label: cvc

@@ -261,15 +261,162 @@
       "wired": false
     },
     "generate_views": {
-      "description": "Declared operation `generate_views`; no handler wired yet.",
-      "handlers": [],
+      "description": "generate_views via gdsfactory: registered layout recipes.",
+      "handlers": [
+        "rocket_engine.adapters.gdsfactory.adapter.GdsfactoryViewsAdapter"
+      ],
       "kind": "operation",
       "name": "generate_views",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "cspdk_path": {
+          "description": "Vendored cspdk tree when the package is not installed."
+        },
+        "deck": {
+          "description": "Optional mapping; deck.tool must be gdsfactory here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "pin_map": {
+          "description": "Project macro pin-map YAML (import_gds only); binds pins/obstructions with provenance."
+        },
+        "recipe": {
+          "description": "Registered recipe \u2014 import_gds, build_cells, export_gds, or export_oasis."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "sources": {
+          "description": "Project inputs \u2014 exactly one view-spec YAML for build/export recipes, one or more .gds files for import_gds."
+        },
+        "timeout_s": {
+          "description": "Layout budget in seconds (default 120)."
+        },
+        "tool_dir": {
+          "description": "Directory holding the layout python; the engine interpreter otherwise."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "recipe",
+        "sources"
+      ],
+      "returns": "{total, violations[], measurements[], mappings[], diagnostics{}, artifacts[], gdsfactory_version} with identity mappings, per-cell polygon/port/area measurements, and workdir artifact paths.",
+      "tools": {
+        "gdsfactory": {
+          "adapter": "rocket_engine.adapters.gdsfactory.adapter.GdsfactoryViewsAdapter",
+          "properties": {
+            "cspdk_path": {
+              "description": "Vendored cspdk tree when the package is not installed."
+            },
+            "deck": {
+              "description": "Optional mapping; deck.tool must be gdsfactory here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "pin_map": {
+              "description": "Project macro pin-map YAML (import_gds only); binds pins/obstructions with provenance."
+            },
+            "recipe": {
+              "description": "Registered recipe \u2014 import_gds, build_cells, export_gds, or export_oasis."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "sources": {
+              "description": "Project inputs \u2014 exactly one view-spec YAML for build/export recipes, one or more .gds files for import_gds."
+            },
+            "timeout_s": {
+              "description": "Layout budget in seconds (default 120)."
+            },
+            "tool_dir": {
+              "description": "Directory holding the layout python; the engine interpreter otherwise."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "recipe",
+            "sources"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "materialize_nets": {
       "description": "Extract connectivity, upsert Net entities: gate, run, log.",

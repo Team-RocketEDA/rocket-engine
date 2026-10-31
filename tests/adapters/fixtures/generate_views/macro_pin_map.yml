@@ -1,0 +1,11 @@
+# Project macro pin map: GDS import alone does not reconstruct macro
+# pins/obstructions (PRD boundary note), so the project binds them here
+# and the import recipe publishes them as artifacts with provenance.
+pin_map: macro-binding
+cells:
+  mzi_top:
+    pins:
+      o1: {layer: "1/0", x_um: 0.0, y_um: 0.0}
+      o2: {layer: "1/0", x_um: 100.0, y_um: 0.0}
+    obstructions:
+      - {layer: "1/0", bbox_um: [[-10.0, -10.0], [110.0, 10.0]]}

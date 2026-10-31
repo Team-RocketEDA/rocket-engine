@@ -30,7 +30,8 @@ then circulax; run_em: meow; run_extraction: magic; run_lvs:
 netgen; run_spice: ngspice;
 run_post_layout: ngspice; run_syntax: slang; run_hdl_test: icarus;
 run_synth: yosys; run_connectivity: connectgraph; run_erc: connectgraph;
-run_formal: sby; run_view_sync: connectgraph).
+run_formal: sby; run_view_sync: connectgraph;
+generate_views: gdsfactory).
 Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
 """
@@ -44,6 +45,7 @@ from .adapters.drc_kl import KlayoutDrcAdapter
 from .adapters.errors import AdapterError
 from .adapters.extract_magic import MagicExtractAdapter
 from .adapters.formal_sby import FormalSbyAdapter
+from .adapters.gdsfactory.adapter import GdsfactoryViewsAdapter
 from .adapters.hdl_sim import HdlSimAdapter
 from .adapters.lvs_netgen import NetgenLvsAdapter
 from .adapters.meow.adapter import MeowAdapter
@@ -281,6 +283,7 @@ class Engine:
             "run_erc": {"connectgraph": ConnectivityAdapter()},
             "run_formal": {"sby": FormalSbyAdapter()},
             "run_view_sync": {"connectgraph": ViewSyncAdapter()},
+            "generate_views": {"gdsfactory": GdsfactoryViewsAdapter()},
         }
         self._constraints = dict(constraints) if constraints is not None else None
         self._logs = {}

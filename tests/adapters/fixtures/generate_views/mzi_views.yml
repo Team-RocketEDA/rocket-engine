@@ -1,0 +1,9 @@
+# Project view spec (GENERATE-VIEWS proof as an op fixture): cspdk si340 MZI.
+# Proven smoke numbers: ports o1/o2/o3, n_polygons > 0 — the op must
+# agree with the run_layout_smoke qualification fixture on all three.
+views: mzi-project
+pdk: cspdk.si340
+cells:
+  - cell: mzi
+exports:
+  - filename: mzi.gds

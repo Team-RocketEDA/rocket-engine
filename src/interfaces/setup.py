@@ -67,6 +67,7 @@ SOLVER_DEPS = {
     ("run_erc", "connectgraph"): {},
     ("run_formal", "sby"): {"binaries": ["sby"]},
     ("run_view_sync", "connectgraph"): {},
+    ("generate_views", "gdsfactory"): {"python": ["gdsfactory"]},
 }
 
 
