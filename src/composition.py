@@ -35,10 +35,7 @@ Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
 """
 
-import io
 import uuid
-
-from ruamel.yaml import YAML
 
 from .adapters.circulax.adapter import CirculaxAdapter
 from .adapters.connectivity import ConnectivityAdapter
@@ -90,6 +87,7 @@ from .interfaces.layer_serving_stackup import (
 from .interfaces.runparams import RunParamsError, validate_run_request
 from .interfaces.setup import report_capabilities
 from .interfaces.vocabulary import OPERATIONS, QUERIES
+from .interfaces.yaml_dump import dump_yaml_text
 from .library.apig_catalog import (
     ApigCatalog,
     gdsfactory_provider,
@@ -284,7 +282,6 @@ class Engine:
             "run_formal": {"sby": FormalSbyAdapter()},
             "run_view_sync": {"connectgraph": ViewSyncAdapter()},
         }
-        self._yaml = YAML(typ="safe")
         self._constraints = dict(constraints) if constraints is not None else None
         self._logs = {}
         self._latest = {}
@@ -587,9 +584,9 @@ class Engine:
                 "unsupported_operation", f"No solver registered: {name}."
             )
         scope_request = self._admit_block_scope(name, arguments)
-        buf = io.StringIO()
-        self._yaml.dump({"operation": name, "arguments": arguments}, buf)
-        command_text = buf.getvalue()
+        command_text = dump_yaml_text(
+            {"operation": name, "arguments": arguments}
+        )
         request_id = command.get("request_id") or uuid.uuid4().hex
         # COALESCE-I33: identical concurrent content on an unchanged
         # revision executes once. The guard holds the whole admission
@@ -694,9 +691,9 @@ class Engine:
 
     def _submit_crud(self, name, arguments, command):
         """Execute one CRUD/rewind mutation immediately (no queue)."""
-        buf = io.StringIO()
-        self._yaml.dump({"operation": name, "arguments": arguments}, buf)
-        command_text = buf.getvalue()
+        command_text = dump_yaml_text(
+            {"operation": name, "arguments": arguments}
+        )
         request_id = str(command.get("request_id") or uuid.uuid4().hex)
         if name == "create_project":
             if "new_project_id" not in arguments:
@@ -1425,12 +1422,11 @@ class Engine:
             artifacts=arguments.get("artifacts", ()),
             timeout_s=arguments.get("timeout_s"),
         )
-        buf = io.StringIO()
-        self._yaml.dump(
-            {"operation": "python_execute", "arguments": arguments}, buf)
+        command_text = dump_yaml_text(
+            {"operation": "python_execute", "arguments": arguments})
         request_id = command.get("request_id") or uuid.uuid4().hex
         ack = self._project.submit(
-            buf.getvalue(),
+            command_text,
             str(request_id),
             expected_revision=arguments.get("expected_revision"),
         )
@@ -2379,10 +2375,9 @@ class Engine:
                     "location": location,
                 }
             )
-        buf = io.StringIO()
-        self._yaml.dump({"findings": findings}, buf)
+        findings_text = dump_yaml_text({"findings": findings})
         verdict = self._execution.evaluate(
-            run_id, native.get("exit_code", 0), buf.getvalue()
+            run_id, native.get("exit_code", 0), findings_text
         )
         # Keep measured values on PASS too: a verdict without numbers can't be reviewed.
         if result.get("measurements") is not None:
