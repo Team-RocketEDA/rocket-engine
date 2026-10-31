@@ -24,7 +24,15 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
 
-- [ASAP7-DRC-DECK] Clean-room KLayout DRC deck transcribed from the DRM
+- [SYNTH-YOSYS] run_synth via oss-cad-suite Yosys (RTL to mapped netlist)
+- [FORMAL-SBY] run_formal via sby (bounded proof, honestly reported)
+- [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
+- [POSTLAYOUT] run_post_layout via ngspice on extracted netlists
+- [PHOTONIC-WIRE] Wire proven photonic solvers to engine ops
+- [VIEW-SYNC] run_view_sync (intended vs extracted comparison)
+- [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
+- [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
+- [RUAMEL-DUMPER] Fresh dumpers for Engine/ProjectService YAML writes
 
 ## Doing
 
@@ -92,14 +100,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [REPLAY-SAFE] Report-not-run survivors + explicit resume + poison quarantine
 - [CONSOLE-ROUTE] Console mutations route to golden recipe via admission
 - [COALESCE-I33] Request coalescing per I33 (revision-pinned, force bypass)
-- [SYNTH-YOSYS] run_synth via oss-cad-suite Yosys (RTL to mapped netlist)
-- [FORMAL-SBY] run_formal via sby (bounded proof, honestly reported)
-- [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
-- [POSTLAYOUT] run_post_layout via ngspice on extracted netlists
-- [PHOTONIC-WIRE] Wire proven photonic solvers to engine ops
-- [VIEW-SYNC] run_view_sync (intended vs extracted comparison)
-- [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
-- [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
@@ -115,3 +115,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CONNECT-GRAPH] Shared connectivity extraction + raw-IR emitters
 - [LAYER-SERVING] Layer stackup + preset serving for viewer + 3D
 - [PYTHON-EXEC] Python execution API (inline lines + project script files)
+- [ASAP7-DRC-DECK] Clean-room KLayout DRC deck transcribed from the DRM
