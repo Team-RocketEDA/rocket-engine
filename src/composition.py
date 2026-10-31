@@ -123,6 +123,7 @@ class Engine:
         self._yaml = YAML(typ="safe")
         self._constraints = dict(constraints) if constraints is not None else None
         self._logs = {}
+        self._datasets = {}
         self._latest = {}
 
     def snapshot(self):
@@ -414,6 +415,7 @@ class Engine:
         self._logs[run_id] = native.get("log") or "\n".join(
             part for part in (native.get("stdout"), native.get("stderr")) if part
         )
+        self._datasets[run_id] = list(native.get("waveforms") or [])
         # Solver convention (see ToolAdapter.parse): violations carry
         # rule/severity/message plus flat location keys, nested here.
         findings = []
@@ -534,6 +536,21 @@ class Engine:
             The log text, or "" when the run captured none.
         """
         return self._logs.get(run_id, "")
+
+    def datasets(self, run_id):
+        """List the waveform files a run wrote (e.g. ngspice rawfiles).
+
+        Args:
+            run_id: Run id from a run_job result.
+
+        Returns:
+            List of {analysis, path} mappings; empty when the solver
+            wrote none.
+
+        Caution: Paths point into the solver workdir, which the next
+            run there overwrites; copy them to keep them.
+        """
+        return list(self._datasets.get(run_id, []))
 
     def _apply_targets(self, name, arguments):
         """Fill run_spice targets (and measurement formulas) from constraints."""

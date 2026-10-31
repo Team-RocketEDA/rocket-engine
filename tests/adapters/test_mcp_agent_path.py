@@ -395,4 +395,9 @@ def test_one_shot_call_runs_a_job_and_writes_evidence(tmp_path, capsys):
     assert code == 0
     status = json.loads(capsys.readouterr().out)
     assert status["state"] == "completed" and status["verdict"]["status"] == "FAIL"
-    assert (tmp_path / "results" / "engine-runs" / f"{status['run_id']}.json").is_file()
+    evidence = json.loads((tmp_path / "results" / "engine-runs" / f"{status['run_id']}.json").read_text())
+    # The AC sweep behind the verdict is kept as a dataset for clients to plot.
+    assert evidence["datasets"] == [{"analysis": "ac", "path": f"results/engine-runs/{status['run_id']}-ac.raw"}]
+    raw = (tmp_path / evidence["datasets"][0]["path"]).read_text()
+    assert "Plotname: AC Analysis" in raw and "v(out)" in raw
+    assert not list((tmp_path / "results" / "engine-runs").glob("waveforms-*.raw"))

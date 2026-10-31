@@ -15,6 +15,7 @@ runs alike.
 import argparse
 import asyncio
 import json
+import shutil
 import subprocess
 import uuid
 from datetime import datetime, timezone
@@ -165,7 +166,8 @@ def write_evidence(project_dir, engine, outcome, sources):
     """Persist a finished run as results/engine-runs/<run_id>.json.
 
     Only the engine writes there, so the IDE shows agent and manual runs
-    alike, and marks a verdict stale once the sources move past it.
+    alike, and marks a verdict stale once the sources move past it. Waveform
+    datasets (ngspice ASCII rawfiles) are kept as <run_id>-<analysis>.raw.
 
     Args:
         project_dir: Project folder the server is bound to.
@@ -188,7 +190,16 @@ def write_evidence(project_dir, engine, outcome, sources):
         "sources": [str(Path(s).relative_to(root)) if Path(s).is_relative_to(root) else s
                     for s in sources or []],
         "log": engine.log_text(outcome["run_id"]) if hasattr(engine, "log_text") else "",
+        "datasets": [],
     }
+    # Waveforms move next to the record under the run id, so the next run can't overwrite them.
+    for dataset in engine.datasets(outcome["run_id"]) if hasattr(engine, "datasets") else []:
+        source = Path(dataset["path"])
+        if not source.is_file():
+            continue
+        target = folder / f"{outcome['run_id']}-{dataset['analysis']}.raw"
+        shutil.move(str(source), target)
+        record["datasets"].append({"analysis": dataset["analysis"], "path": str(target.relative_to(root))})
     (folder / f"{outcome['run_id']}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
 
 
