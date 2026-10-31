@@ -168,7 +168,9 @@ _LOG_PAGE_MAX = 200
 # CRUD mutations + rewind execute immediately inside submit()
 # (run_job precedent): revision gate + idempotency + event logging,
 # no queue, no solver. Engine.run delegates them back to submit so
-# the CLI `run` path shares the one implementation.
+# the CLI `run` path shares the one implementation. Wire ops
+# (WIRE-PLACE) ride the same immediate path once the ENGINE-ECS
+# store lands; without it they report unsupported.
 _CRUD_OPERATIONS = frozenset(
     {
         "create_project",
@@ -182,6 +184,14 @@ _CRUD_OPERATIONS = frozenset(
         "detach_component",
         "delete_entity",
         "write_settings",
+        "place_wire",
+        "place_junction",
+        "connect_endpoint",
+        "move_wire",
+        "split_wire",
+        "delete_wire",
+        "delete_junction",
+        "materialize_nets",
     }
 )
 
@@ -705,6 +715,119 @@ class Engine:
                 arguments["entity"],
                 request_id,
                 command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "place_wire":
+            for key in ("segments", "layer", "endpoints"):
+                if key not in arguments:
+                    raise ProjectError(
+                        "invalid_command",
+                        f"place_wire needs a {key} argument.",
+                    )
+            return self._project.place_wire(
+                arguments["segments"],
+                arguments["layer"],
+                arguments["endpoints"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "place_junction":
+            for key in ("xy", "layer"):
+                if key not in arguments:
+                    raise ProjectError(
+                        "invalid_command",
+                        f"place_junction needs a {key} argument.",
+                    )
+            return self._project.place_junction(
+                arguments["xy"],
+                arguments["layer"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "connect_endpoint":
+            for key in ("wire_id", "end", "ref"):
+                if key not in arguments:
+                    raise ProjectError(
+                        "invalid_command",
+                        f"connect_endpoint needs a {key} argument.",
+                    )
+            return self._project.connect_endpoint(
+                arguments["wire_id"],
+                arguments["end"],
+                arguments["ref"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "move_wire":
+            for key in ("wire_id", "dx", "dy"):
+                if key not in arguments:
+                    raise ProjectError(
+                        "invalid_command",
+                        f"move_wire needs a {key} argument.",
+                    )
+            return self._project.move_wire(
+                arguments["wire_id"],
+                arguments["dx"],
+                arguments["dy"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "split_wire":
+            for key in ("wire_id", "at"):
+                if key not in arguments:
+                    raise ProjectError(
+                        "invalid_command",
+                        f"split_wire needs a {key} argument.",
+                    )
+            return self._project.split_wire(
+                arguments["wire_id"],
+                arguments["at"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "delete_wire":
+            if "wire_id" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "delete_wire needs a wire_id argument.",
+                )
+            return self._project.delete_wire(
+                arguments["wire_id"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "delete_junction":
+            if "junction_id" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "delete_junction needs a junction_id argument.",
+                )
+            return self._project.delete_junction(
+                arguments["junction_id"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "materialize_nets":
+            if "pins" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "materialize_nets needs a pins argument.",
+                )
+            return self._project.materialize_nets(
+                arguments["pins"],
+                request_id,
+                command_text,
+                labels=arguments.get("labels"),
+                ports=arguments.get("ports"),
+                cell=arguments.get("cell", "top"),
+                named_refs=arguments.get("named_refs"),
                 expected_revision=arguments.get("expected_revision"),
             )
         if "mutations" not in arguments:

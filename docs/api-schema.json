@@ -55,6 +55,37 @@
       "type": "object",
       "wired": true
     },
+    "connect_endpoint": {
+      "description": "Point one wire endpoint at a new terminus: gate, run, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.connect_endpoint"
+      ],
+      "kind": "operation",
+      "name": "connect_endpoint",
+      "properties": {
+        "end": {
+          "description": "\"a\" or \"b\" selecting the endpoint."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "ref": {
+          "description": "Pin/port/junction/net entity ID, or null to dangle the endpoint."
+        },
+        "wire_id": {
+          "description": "Wire entity to rewire."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_endpoint for a bad selector; unknown_ref for a missing entity; invalid_ref for a wire/self ref; unsupported_operation without the ENGINE-ECS entity store.",
+      "required": [
+        "wire_id",
+        "end",
+        "ref"
+      ],
+      "returns": "Mutation mapping with the connect receipt, revision transition, actor, diff summary, rewind handle, the appended event, cursor, and request id \u2014 or the unadvanced noop mapping when the ref is already set.",
+      "type": "object",
+      "wired": true
+    },
     "create_entity": {
       "description": "Create one entity with an engine-minted id.",
       "handlers": [
@@ -145,6 +176,52 @@
       "type": "object",
       "wired": true
     },
+    "delete_junction": {
+      "description": "Delete one unreferenced junction: gate, remove, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.delete_junction"
+      ],
+      "kind": "operation",
+      "name": "delete_junction",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "junction_id": {
+          "description": "Junction entity to delete."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_junction for a missing junction; junction_in_use naming the referencing wires; unsupported_operation without the ENGINE-ECS entity store.",
+      "required": [
+        "junction_id"
+      ],
+      "returns": "Mutation mapping with the delete receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "delete_wire": {
+      "description": "Delete one wire: gate, remove, advance, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.delete_wire"
+      ],
+      "kind": "operation",
+      "name": "delete_wire",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "wire_id": {
+          "description": "Wire entity to delete."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; unsupported_operation without the ENGINE-ECS entity store.",
+      "required": [
+        "wire_id"
+      ],
+      "returns": "Mutation mapping with the delete receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
     "detach_component": {
       "description": "Detach one component from its entity.",
       "handlers": [
@@ -183,6 +260,72 @@
       "type": "object",
       "wired": false
     },
+    "materialize_nets": {
+      "description": "Extract connectivity, upsert Net entities: gate, run, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.materialize_nets"
+      ],
+      "kind": "operation",
+      "name": "materialize_nets",
+      "properties": {
+        "cell": {
+          "description": "Top cell name."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "labels": {
+          "description": "Caller label records [{name, xy}]."
+        },
+        "named_refs": {
+          "description": "{entity ID: net name} for port-style refs."
+        },
+        "pins": {
+          "description": "Caller pin records [{entity, instance, pin, xy}]."
+        },
+        "ports": {
+          "description": "Caller port records [{name, direction}]."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; invalid_pin / invalid_label / invalid_port / invalid_cell / invalid_ref for malformed inputs; extraction_failed when extraction refuses the world; unsupported_operation without the ENGINE-ECS entity store.",
+      "required": [
+        "pins"
+      ],
+      "returns": "Mutation mapping with the materialize receipt (nets, created/updated/pruned, unresolved), revision transition, actor, diff summary, rewind handle, the appended event, cursor, and request id \u2014 or the unadvanced noop mapping when every Net matches.",
+      "type": "object",
+      "wired": true
+    },
+    "move_wire": {
+      "description": "Translate one wire: gate, transact, advance, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.move_wire"
+      ],
+      "kind": "operation",
+      "name": "move_wire",
+      "properties": {
+        "dx": {
+          "description": "Integer x translation."
+        },
+        "dy": {
+          "description": "Integer y translation."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "wire_id": {
+          "description": "Wire entity to move."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_geometry for non-integer deltas; unsupported_operation without the ENGINE-ECS entity store.",
+      "required": [
+        "wire_id",
+        "dx",
+        "dy"
+      ],
+      "returns": "Mutation mapping with the move receipt, revision transition, actor, diff summary, rewind handle, the appended event, cursor, and request id \u2014 or the unadvanced noop mapping for a zero move.",
+      "type": "object",
+      "wired": true
+    },
     "place_cell": {
       "description": "Declared operation `place_cell`; no handler wired yet.",
       "handlers": [],
@@ -193,6 +336,64 @@
       "returns": "",
       "type": "object",
       "wired": false
+    },
+    "place_junction": {
+      "description": "Place one junction dot: gate, transact, advance, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.place_junction"
+      ],
+      "kind": "operation",
+      "name": "place_junction",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "layer": {
+          "description": "Layer name for the dot."
+        },
+        "xy": {
+          "description": "Integer [x, y] dot position."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; invalid_junction for a malformed dot; unsupported_operation without the ENGINE-ECS entity store.",
+      "required": [
+        "xy",
+        "layer"
+      ],
+      "returns": "Mutation mapping with the junction receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "place_wire": {
+      "description": "Place one wire: gate, transact, advance, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.place_wire"
+      ],
+      "kind": "operation",
+      "name": "place_wire",
+      "properties": {
+        "endpoints": {
+          "description": "[a, b] endpoint mappings; each ref is a pin/port/junction/net entity ID or null when dangling."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "layer": {
+          "description": "Layer name for every segment."
+        },
+        "segments": {
+          "description": "Non-empty list of integer polylines."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_ref for a ref naming no entity; invalid_ref for a wire ref; invalid_wire for a malformed wire; unsupported_operation without the ENGINE-ECS entity store.",
+      "required": [
+        "segments",
+        "layer",
+        "endpoints"
+      ],
+      "returns": "Mutation mapping with the wire receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
+      "type": "object",
+      "wired": true
     },
     "python_execute": {
       "description": "Request one execution: persist the cell, open an approval.",
@@ -1762,6 +1963,33 @@
         "data"
       ],
       "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "split_wire": {
+      "description": "Split one wire at an interior point: gate, run, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.split_wire"
+      ],
+      "kind": "operation",
+      "name": "split_wire",
+      "properties": {
+        "at": {
+          "description": "Integer [x, y] point on the polyline interior."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "wire_id": {
+          "description": "Wire entity to split."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_split for a point off the interior or a multi-polyline wire; unsupported_operation without the ENGINE-ECS entity store.",
+      "required": [
+        "wire_id",
+        "at"
+      ],
+      "returns": "Mutation mapping with the split receipt (wire, junction, new_wire), revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
       "type": "object",
       "wired": true
     },

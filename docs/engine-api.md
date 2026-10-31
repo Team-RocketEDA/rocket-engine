@@ -27,13 +27,20 @@ text, identical to the section bodies below.
 |---|---|---|---|
 | `apply_mutations` | yes | — | Apply a batch atomically under one new revision (I31). |
 | `attach_component` | yes | — | Attach one new component (refuses overwrites). |
+| `connect_endpoint` | yes | — | Point one wire endpoint at a new terminus: gate, run, log. |
 | `create_entity` | yes | — | Create one entity with an engine-minted id. |
 | `create_project` | yes | — | Create one managed project at revision p12. |
 | `delete_doc` | yes | — | Delete one document: gate, remove, advance, log. |
 | `delete_entity` | yes | — | Delete one entity and its projected record. |
+| `delete_junction` | yes | — | Delete one unreferenced junction: gate, remove, log. |
+| `delete_wire` | yes | — | Delete one wire: gate, remove, advance, log. |
 | `detach_component` | yes | — | Detach one component from its entity. |
 | `generate_views` | no | — | Declared operation `generate_views`; no handler wired yet. |
+| `materialize_nets` | yes | — | Extract connectivity, upsert Net entities: gate, run, log. |
+| `move_wire` | yes | — | Translate one wire: gate, transact, advance, log. |
 | `place_cell` | no | — | Declared operation `place_cell`; no handler wired yet. |
+| `place_junction` | yes | — | Place one junction dot: gate, transact, advance, log. |
+| `place_wire` | yes | — | Place one wire: gate, transact, advance, log. |
 | `python_execute` | yes | — | Request one execution: persist the cell, open an approval. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
 | `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
@@ -54,6 +61,7 @@ text, identical to the section bodies below.
 | `run_timing` | no | — | Declared operation `run_timing`; no handler wired yet. |
 | `run_view_sync` | no | — | Declared operation `run_view_sync`; no handler wired yet. |
 | `set_component` | yes | — | Upsert one component payload (create or overwrite). |
+| `split_wire` | yes | — | Split one wire at an interior point: gate, run, log. |
 | `write_doc` | yes | — | Write one document: gate, store, advance, log. |
 | `write_settings` | yes | — | Write one settings kind: validate, gate, merge, log. |
 
@@ -150,6 +158,31 @@ Raises:
 ProjectError: component_exists when the component already lives on the entity; otherwise like set_component.
 
 Caution: Every accepted attach advances the revision — a second writer at the old head fails instead of merging.
+
+### connect_endpoint
+
+Point one wire endpoint at a new terminus: gate, run, log.
+
+Handler: `rocket_engine.project.service.ProjectService.connect_endpoint`.
+
+Geometry never moves — only the ref changes — and a
+no-change call returns the head unadvanced with an empty
+event list instead of logging a phantom revision.
+
+Arguments:
+
+- `wire_id` (required): Wire entity to rewire.
+- `end` (required): "a" or "b" selecting the endpoint.
+- `ref` (required): Pin/port/junction/net entity ID, or null to dangle the endpoint.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with the connect receipt, revision transition, actor, diff summary, rewind handle, the appended event, cursor, and request id — or the unadvanced noop mapping when the ref is already set.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_endpoint for a bad selector; unknown_ref for a missing entity; invalid_ref for a wire/self ref; unsupported_operation without the ENGINE-ECS entity store.
 
 ### create_entity
 
@@ -256,6 +289,47 @@ ProjectError: request_conflict for a reused id with new text; invalid_entity for
 
 Caution: Deleting advances the revision like any mutation — stale writers fail instead of merging.
 
+### delete_junction
+
+Delete one unreferenced junction: gate, remove, log.
+
+Handler: `rocket_engine.project.service.ProjectService.delete_junction`.
+
+Arguments:
+
+- `junction_id` (required): Junction entity to delete.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with the delete receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_junction for a missing junction; junction_in_use naming the referencing wires; unsupported_operation without the ENGINE-ECS entity store.
+
+### delete_wire
+
+Delete one wire: gate, remove, advance, log.
+
+Handler: `rocket_engine.project.service.ProjectService.delete_wire`.
+
+Referenced junctions persist; Net entities rematerialize
+on the next materialize_nets call.
+
+Arguments:
+
+- `wire_id` (required): Wire entity to delete.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with the delete receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; unsupported_operation without the ENGINE-ECS entity store.
+
 ### detach_component
 
 Detach one component from its entity.
@@ -291,11 +365,113 @@ Declared operation `generate_views`; no handler wired yet.
 
 `Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
 
+### materialize_nets
+
+Extract connectivity, upsert Net entities: gate, run, log.
+
+Handler: `rocket_engine.project.service.ProjectService.materialize_nets`.
+
+Extraction always rebuilds from the stored wires; Nets
+keyed by canonical name are created or refreshed, vanished
+names pruned, all in one revision. An unchanged world
+returns the head unadvanced with an empty event list.
+
+Arguments:
+
+- `pins` (required): Caller pin records [{entity, instance, pin, xy}].
+- `labels`: Caller label records [{name, xy}].
+- `ports`: Caller port records [{name, direction}].
+- `cell`: Top cell name.
+- `named_refs`: {entity ID: net name} for port-style refs.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with the materialize receipt (nets, created/updated/pruned, unresolved), revision transition, actor, diff summary, rewind handle, the appended event, cursor, and request id — or the unadvanced noop mapping when every Net matches.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; invalid_pin / invalid_label / invalid_port / invalid_cell / invalid_ref for malformed inputs; extraction_failed when extraction refuses the world; unsupported_operation without the ENGINE-ECS entity store.
+
+### move_wire
+
+Translate one wire: gate, transact, advance, log.
+
+Handler: `rocket_engine.project.service.ProjectService.move_wire`.
+
+Refs survive the move; a zero move returns the head
+unadvanced with an empty event list.
+
+Arguments:
+
+- `wire_id` (required): Wire entity to move.
+- `dx` (required): Integer x translation.
+- `dy` (required): Integer y translation.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with the move receipt, revision transition, actor, diff summary, rewind handle, the appended event, cursor, and request id — or the unadvanced noop mapping for a zero move.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_geometry for non-integer deltas; unsupported_operation without the ENGINE-ECS entity store.
+
 ### place_cell
 
 Declared operation `place_cell`; no handler wired yet.
 
 `Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+
+### place_junction
+
+Place one junction dot: gate, transact, advance, log.
+
+Handler: `rocket_engine.project.service.ProjectService.place_junction`.
+
+Arguments:
+
+- `xy` (required): Integer [x, y] dot position.
+- `layer` (required): Layer name for the dot.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with the junction receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; invalid_junction for a malformed dot; unsupported_operation without the ENGINE-ECS entity store.
+
+Caution: Every accepted placement advances the revision — a second writer at the old head fails instead of merging.
+
+### place_wire
+
+Place one wire: gate, transact, advance, log.
+
+Handler: `rocket_engine.project.service.ProjectService.place_wire`.
+
+A resubmitted envelope returns its stored response without
+advancing; a new envelope gates its expected_revision, and
+only an accepted placement advances the revision and
+appends the place_wire event carrying the entity receipt.
+
+Arguments:
+
+- `segments` (required): Non-empty list of integer polylines.
+- `layer` (required): Layer name for every segment.
+- `endpoints` (required): [a, b] endpoint mappings; each ref is a pin/port/junction/net entity ID or null when dangling.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with the wire receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_ref for a ref naming no entity; invalid_ref for a wire ref; invalid_wire for a malformed wire; unsupported_operation without the ENGINE-ECS entity store.
+
+Caution: Every accepted placement advances the revision — a second writer at the old head fails instead of merging.
 
 ### python_execute
 
@@ -852,6 +1028,29 @@ Raises:
 ProjectError: request_conflict for a reused id with new text; invalid_entity, invalid_component, or invalid_data for malformed parts; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable write fails.
 
 Caution: Every accepted write advances the revision — a second writer at the old head fails instead of merging.
+
+### split_wire
+
+Split one wire at an interior point: gate, run, log.
+
+Handler: `rocket_engine.project.service.ProjectService.split_wire`.
+
+The junction dot, the head rewrite, and the new tail wire
+land in one revision under one event.
+
+Arguments:
+
+- `wire_id` (required): Wire entity to split.
+- `at` (required): Integer [x, y] point on the polyline interior.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with the split receipt (wire, junction, new_wire), revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_split for a point off the interior or a multi-polyline wire; unsupported_operation without the ENGINE-ECS entity store.
 
 ### write_doc
 

@@ -15,6 +15,8 @@ OPERATIONS = frozenset(
         "rewind", "place_cell", "write_settings",
         "create_entity", "set_component", "attach_component",
         "detach_component", "delete_entity",
+        "place_wire", "place_junction", "connect_endpoint", "move_wire",
+        "split_wire", "delete_wire", "delete_junction", "materialize_nets",
     }
 )
 QUERIES = frozenset(
