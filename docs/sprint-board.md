@@ -33,6 +33,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 - [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
 - [RUAMEL-DUMPER] Fresh dumpers for Engine/ProjectService YAML writes
+- [GENERATE-VIEWS] Graduate gdsfactory smoke to a real generate_views op
 
 ## Doing
 
