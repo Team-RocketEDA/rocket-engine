@@ -49,6 +49,11 @@ from ruamel.yaml import YAML
 
 from ..composition import Engine
 from ..execution.console import ConsoleSession
+from ..execution.console_route import (
+    collect_run_ids,
+    is_tier2,
+    stamp_tier2_call,
+)
 from ..execution.dispatch import OpDispatcher
 from ..execution.errors import ExecutionError, UsageError
 from ..execution.worker import CellRunner
@@ -612,6 +617,7 @@ class StdioConsole:
                 "op_results": [],
                 "ops_ok": True,
                 "ops_skipped": 0,
+                "effects": {"run_ids": [], "replayed": True},
                 "cli_script": [],
                 "artifacts": [],
                 "rejected_artifacts": [],
@@ -637,6 +643,8 @@ class StdioConsole:
             "op_results": op_results,
             "ops_ok": all(item["ok"] for item in op_results),
             "ops_skipped": skipped,
+            "effects": {"run_ids": collect_run_ids(op_results),
+                        "replayed": True},
             "cli_script": [
                 format_op_call(op["operation"], op["arguments"]) for op in ops
             ],
@@ -699,14 +707,25 @@ class StdioConsole:
 
     def _replay(self, ops):
         replayed = []
+        try:
+            head = self._engine.snapshot()["current_revision"]
+        except Exception:
+            head = None
         for op in ops:
+            operation = op["operation"]
+            arguments = op["arguments"]
+            request_id = None
+            if head is not None and is_tier2(operation):
+                arguments, request_id = stamp_tier2_call(
+                    operation, arguments, head
+                )
             try:
                 payload = self._dispatch.execute(
-                    op["operation"], op["arguments"]
+                    operation, arguments, request_id=request_id
                 )
             except Exception as exc:  # per-op truth: record, never raise
                 replayed.append({
-                    "operation": op["operation"],
+                    "operation": operation,
                     "ok": False,
                     "error": {
                         "code": getattr(exc, "code", None)
@@ -716,7 +735,7 @@ class StdioConsole:
                 })
                 continue
             replayed.append({
-                "operation": op["operation"],
+                "operation": operation,
                 "ok": True,
                 "result": json.loads(json.dumps(payload, default=str)),
             })
