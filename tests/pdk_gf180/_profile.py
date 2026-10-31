@@ -59,3 +59,4 @@ def require_pdk():
     if parent not in sys.path:
         sys.path.insert(0, parent)
     return root
+    return root

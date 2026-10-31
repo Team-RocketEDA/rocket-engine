@@ -10,7 +10,7 @@ gdsfactoryplus cloud workflow, which the engine cannot use; engine
 KLayout batch rules stand in, with sources cited).
 """
 
-from . _profile import load_profile, pdk_root
+from . _profile import load_profile, require_pdk
 
 
 def test_profile_identifies_gf180():
@@ -45,8 +45,7 @@ def test_profile_lists_mcu_variant():
 
 def test_profile_tech_relpaths_resolve():
     profile = load_profile()  # RED: missing profile.yaml
-    root = pdk_root()
-    assert root is not None, "gf180mcu not resolvable (pip or $PDK_GF180_SRC)"
+    root = require_pdk()  # skip LOUDLY when gf180mcu is truly absent
     tech = profile["variants"]["mcu"]["tech"]
     assert tech["tech_name"] == "gf180mcu"
     for key in ("klayout_dir", "lyt", "lyp", "map", "layers_yaml"):
@@ -55,8 +54,7 @@ def test_profile_tech_relpaths_resolve():
 
 def test_profile_models_resolve():
     profile = load_profile()  # RED: missing profile.yaml
-    root = pdk_root()
-    assert root is not None, "gf180mcu not resolvable (pip or $PDK_GF180_SRC)"
+    root = require_pdk()  # skip LOUDLY when gf180mcu is truly absent
     models = profile["variants"]["mcu"]["models"]
     assert models["simulator"] == "ngspice"
     assert models["corner"] == "typical"
