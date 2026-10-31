@@ -101,3 +101,35 @@ client-side orchestration to get wrong.
   `request_id` for dedupe.
 - MVP bar: a verification engine strong enough for an AI
   agent to make a chip literally today.
+
+## Field notes (2026-11-01): gating gaps, decisions taken
+
+- Force touches gating ONLY: never bypasses admission
+  (malformed stays reject-all), prerequisite checks (no
+  deck/PDK, no run), or verdicts (forced runs report real
+  FAILs — force runs steps, never greens them).
+- Force permission (MVP): human approval per call, matching
+  the fuel permission model. Allowlist-per-flow is the
+  later relaxation. Agents never self-approve force.
+- Forced steps wear `forced: true, forced_by` in ledger +
+  provenance. A downstream green after a bypassed red gate
+  is legitimate only if inspectable.
+- One snapshot per job, frozen at submit; all steps read
+  it; recorded once. Mid-batch edits never change later
+  steps' inputs (I28 load-bearing).
+- Timeouts: per-step (timeout = error state → gates
+  dependents) plus a job-level ceiling. Static default +
+  explicit override for MVP; no silent hangs.
+- Cancellation reason: cancelled job marks remaining steps
+  `cancelled`, distinct from `skipped_after_failure` and
+  NOT_RUN — fail/gated/stopped stay three answers.
+- Step addressing: ack returns ordered step index →
+  step_id map; queries accept either. No invented
+  conventions.
+- Gate table v0 (lane's first deliverable): crash-states
+  gate dependents always; FAIL verdicts gate only where
+  the flow template says so (e.g. synth→sta); sweeps never
+  gate each other.
+- No auto-retry in MVP, stated explicitly: transient flake
+  → chain skipped → agent resubmits. Retries hide real
+  failures; nothing retries inside adapters.
