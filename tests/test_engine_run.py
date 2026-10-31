@@ -95,8 +95,9 @@ def test_submit_run_syntax_accepted():
             "arguments": {"expected_revision": "p12"},
         }
     )
-    assert ack["state"] == "queued"
+    assert ack["state"] == "completed"
     assert {"run_id", "snapshot_id", "event_cursor"} <= set(ack)
+    assert ack["verdict"]["status"] == "NOT_RUN"
 
 
 @needs_slang
@@ -194,7 +195,7 @@ def test_run_job_executes_queued_request():
             "request_id": "req_job_001",
         }
     )
-    assert ack["state"] == "queued"
+    assert ack["state"] == "completed"
     out = engine.run(
         {
             "project_id": PROJECT,

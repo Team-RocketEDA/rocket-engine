@@ -89,6 +89,18 @@
     "text": "Declared query `list_artifacts`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
     "wired": false
   },
+  "list_assets": {
+    "kind": "query",
+    "summary": "List PDK file metadata with per-file hash identity.",
+    "text": "List PDK file metadata with per-file hash identity.\n\nHandler: `rocket_engine.composition.Engine.list_assets`.\n\nArguments:\n\n- `pdk_id`: PDK id (either display spelling resolves).\n- `revision`: PDK revision pin.\n- `prefix`: Optional store-relative prefix filter.\n- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.\n\nReturns:\n\nMapping with asset_version, pdk_id, display_id, revision, sorted file entries (path, size, sha256), symlink entries, and the file count.\n\nRaises:\n\nProjectError: invalid_command when pdk id or revision is missing; invalid_reference for an unknown PDK or an escaping prefix.\n",
+    "wired": true
+  },
+  "list_cells": {
+    "kind": "query",
+    "summary": "List versioned component cells, optionally for one PDK.",
+    "text": "List versioned component cells, optionally for one PDK.\n\nHandler: `rocket_engine.composition.Engine.catalog_cells`.\n\nThe engine introspects cell libraries upstream and serves\nplain data (cell, PDK, ports, default params), so the\nfrontend never imports gdsfactory.\n\nArguments:\n\n- `pdk`: Restrict to one PDK label; all entries when omitted.\n\nReturns:\n\nListing with catalog_version and cells sorted by (pdk, cell).\n",
+    "wired": true
+  },
   "list_docs": {
     "kind": "query",
     "summary": "List documents, optionally filtered by a path prefix.",
@@ -106,6 +118,12 @@
     "summary": "List projects under the engine root, bound always included.",
     "text": "List projects under the engine root, bound always included.\n\nHandler: `rocket_engine.project.service.ProjectService.list_projects`.\n\nWithout an engine root the bound in-memory project is the\nwhole list; with one, every managed project dir plus the\nbound project is reported with its head revision.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping with the bound project id and the sorted project entries (project_id + current_revision).\n\nRaises:\n\nProjectError: invalid_ledger when a sibling ledger head is unreadable or corrupt.\n\nCaution: A corrupt sibling ledger fails the whole list loudly instead of being skipped.\n",
     "wired": true
+  },
+  "place_cell": {
+    "kind": "operation",
+    "summary": "Declared operation `place_cell`; no handler wired yet.",
+    "text": "Declared operation `place_cell`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
   },
   "plan_checks": {
     "kind": "query",
@@ -181,8 +199,8 @@
   },
   "run_job": {
     "kind": "operation",
-    "summary": "Execute an admitted request by id (phase 2 of submit-then-run).",
-    "text": "Execute an admitted request by id (phase 2 of submit-then-run).\n\nHandler: `rocket_engine.composition.Engine.run` (phase 2 executes an admitted request; submit admits first).\n\nArguments:\n\n- `request_id` (required): Envelope id admitted by an earlier submit.\n\nReturns:\n\nCompletion mapping with run_id, state, verdict, and operation for the admitted command.\n\nRaises:\n\nProjectError: invalid_command when the arguments lack a request_id, unknown_request for an id never admitted, unsupported_operation when the admitted operation has no registered solver.\n",
+    "summary": "Execute admitted requests by id: deferred singles, fetch, batches.",
+    "text": "Execute admitted requests by id: deferred singles, fetch, batches.\n\nHandler: `rocket_engine.composition.Engine.run` (phase 2 executes an admitted request; submit admits first).\n\nArguments:\n\n- `run_id`: Admitted run to execute or fetch.\n- `request_id`: Envelope id admitted by an earlier submit (resolves to its run when run_id is absent).\n- `run_ids`: Batch form \u2014 admitted runs to pump oldest listed first.\n\nReturns:\n\nCompletion mapping with run_id, state, verdict, and operation for a single id (stored, never re-executed, when the run already finished); batch mapping with run_ids, completions, and refused for the batch form (every listed id lands in exactly one of the two lists).\n\nRaises:\n\nProjectError: invalid_command when the arguments lack a run id or the batch list is malformed, unknown_request for an id never admitted, unsupported_operation when the admitted operation has no registered solver.\n",
     "wired": true
   },
   "run_lvs": {
@@ -232,6 +250,12 @@
     "summary": "Declared operation `run_view_sync`; no handler wired yet.",
     "text": "Declared operation `run_view_sync`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
     "wired": false
+  },
+  "serve_asset": {
+    "kind": "query",
+    "summary": "Serve one PDK file's bytes verbatim with hash identity.",
+    "text": "Serve one PDK file's bytes verbatim with hash identity.\n\nHandler: `rocket_engine.composition.Engine.serve_asset`.\n\nNo conversion, no rendering: the sha256 is computed over\nthe raw bytes, base64 is transport encoding only.\n\nArguments:\n\n- `pdk_id`: PDK id (either display spelling resolves).\n- `revision`: PDK revision pin.\n- `path`: Store-relative file path.\n- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.\n\nReturns:\n\nMapping with asset_version, pdk_id, display_id, revision, canonical path, size, sha256, and the verbatim bytes base64-encoded.\n\nRaises:\n\nProjectError: invalid_command when pdk id, revision, or path is missing; invalid_reference for an unknown PDK, a missing file, or an escaping path.\n\nCaution: No size cap \u2014 bulk reads belong to list_assets plus selective serve_asset calls, never a blind loop.\n",
+    "wired": true
   },
   "write_doc": {
     "kind": "operation",

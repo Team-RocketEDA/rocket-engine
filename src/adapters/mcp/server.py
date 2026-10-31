@@ -7,11 +7,12 @@ generated reference serves (ADR-003 double-use). build_server()
 is transport-free; only main() touches stdio.
 
 Bound to a project (`--project`), the server fills project_id and the
-current expected_revision itself; execution stays explicit (submit,
-then run_job — nothing runs implicitly), and run_spice targets come
-from the project's constraints.yaml (`--project-dir`): the agent
-never sets them. Finished runs are recorded under
-results/engine-runs for IDE and agent alike.
+current expected_revision itself; submit runs inline (same run_id ack
+shape plus the verdict), run_job stays for deferred/batch pumping
+plus idempotent fetch, and run_spice targets come from the
+project's constraints.yaml (`--project-dir`): the agent never sets
+them. Finished runs are recorded under results/engine-runs for IDE
+and agent alike.
 """
 
 import argparse
@@ -207,9 +208,9 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
     """Build transport-free list/call handlers over McpTransport.
 
     Handlers route through McpTransport so validation stays
-    single-sourced; engines are cached per project id. Execution
-    stays explicit: submit admits (state queued), run_job executes
-    — the handler never runs a job implicitly.
+    single-sourced; engines are cached per project id. Submit runs
+    inline (ack plus verdict); run_job stays the deferred/batch
+    pump and idempotent fetch.
 
     Args:
         engine_factory: Callable turning a project id into an
@@ -352,14 +353,25 @@ def _call_once(engine_factory, args):
         return result.is_error, json.loads(result.content[0].text)
 
     failed, body = invoke(args.call, json.loads(args.args))
-    if not failed and args.call in OPERATIONS and "run_id" in body:
+    if (
+        not failed
+        and args.call in OPERATIONS
+        and "run_id" in body
+        and "verdict" not in body
+    ):
         failed, body = invoke("run_job", {"run_id": body["run_id"]})
-        if not failed and args.project_dir is not None and body.get("state") == "completed":
-            engine = created.get(args.project)
-            if engine is not None:
-                write_evidence(args.project_dir, engine, [body], json.loads(args.args))
         if not failed and "run_id" in body:
             failed, body = invoke("get_job_status", {"run_id": body["run_id"]})
+    if (
+        not failed
+        and args.call in OPERATIONS
+        and args.project_dir is not None
+        and "run_id" in body
+        and body.get("state") == "completed"
+    ):
+        engine = created.get(args.project)
+        if engine is not None:
+            write_evidence(args.project_dir, engine, [body], json.loads(args.args))
     print(json.dumps(body))
     return 1 if failed else 0
 

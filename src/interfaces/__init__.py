@@ -1,6 +1,7 @@
 """Single source of truth for engine contracts: wire schemas, typed
 commands, events, and outbound ports. No I/O, no logic."""
 
+from .apig_assets import asset_manifest, list_assets, serve_asset
 from .documents import validate_document
 from .errors import ContractError
 from .ports import ToolAdapter
@@ -24,10 +25,13 @@ __all__ = [
     "ContractError",
     "RunParamsError",
     "ToolAdapter",
+    "asset_manifest",
     "check_connection",
     "freeze_run_request",
+    "list_assets",
     "parse_run_request",
     "resolve_reference",
+    "serve_asset",
     "validate_document",
     "validate_run_request",
 ]

@@ -222,7 +222,9 @@ def build_envelopes():
         }
     )
     assert ack["request_id"] == request_id, ack
-    assert ack["state"] == "queued", ack
+    assert ack["state"] == "completed", ack
+    assert ack["operation"] == "run_em", ack
+    assert ack["verdict"]["status"] == "PASS", ack
     completion = engine.submit(
         {
             "project_id": "contract-probe",

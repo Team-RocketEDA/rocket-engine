@@ -66,26 +66,29 @@ def _run_job(engine, run_id):
 def test_submitted_job_runs_under_the_same_run_id():
     engine = _engine({"dc_gain_db": 52.0})
     ack = _submit(engine, "run_spice", {"expected_revision": "p12", "measurements": [dict(GAIN, min=60)]})
-    assert ack["state"] == "queued"
-    assert _query(engine, "get_job_status", run_id=ack["run_id"])["state"] == "queued"
+    assert ack["state"] == "completed"
+    assert ack["verdict"]["status"] == "FAIL"
 
     done = _run_job(engine, ack["run_id"])
     assert done["run_id"] == ack["run_id"]
+    assert done["verdict"]["status"] == "FAIL"
     status = _query(engine, "get_job_status", run_id=ack["run_id"])
     assert status["state"] == "completed"
     assert status["verdict"]["status"] == "FAIL"
 
 
 def test_submit_leaves_job_queued_until_explicit_run_job():
-    # The drain decision: submit alone never executes; only run_job does.
+    # Submit-immediate: submit executes inline; queries never execute.
+    # (Historical name: submit used to queue until run_job.)
     engine = _engine({"dc_gain_db": 52.0})
     ack = _submit(engine, "run_spice", {"expected_revision": "p12", "measurements": [dict(GAIN, min=60)]})
-    assert ack["state"] == "queued"
+    assert ack["state"] == "completed"
     status = _query(engine, "get_job_status", run_id=ack["run_id"])
-    assert status["state"] == "queued" and status["verdict"] is None
-    # An unrelated query in between still runs nothing.
+    assert status["state"] == "completed" and status["verdict"]["status"] == "FAIL"
+    # An unrelated query in between still runs nothing (same verdict, no re-execution).
     _query(engine, "list_job_kinds")
-    assert _query(engine, "get_job_status", run_id=ack["run_id"])["state"] == "queued"
+    again = _query(engine, "get_job_status", run_id=ack["run_id"])
+    assert again["state"] == "completed" and again["verdict"] == status["verdict"]
 
 
 def test_run_job_accepts_envelope_request_id():
@@ -205,9 +208,9 @@ def test_bound_server_fills_project_and_revision_and_returns_results():
     _, call = make_handlers(lambda project_id: engine, project_scope=PROJECT)
 
     _, ack = _call(call, "run_spice", {"measurements": [GAIN]})
-    assert ack["state"] == "queued"
+    assert ack["state"] == "completed"
     _, queued = _call(call, "get_job_status", {"run_id": ack["run_id"]})
-    assert queued["state"] == "queued"
+    assert queued["state"] == "completed"
 
     _, done = _call(call, "run_job", {"run_id": ack["run_id"]})
     assert done["state"] == "completed" and done["run_id"] == ack["run_id"]
@@ -273,7 +276,7 @@ def test_bound_server_keeps_files_inside_the_project(tmp_path):
     _, call = make_handlers(lambda project_id: engine, project_scope=PROJECT, project_dir=tmp_path)
 
     _, ack = _call(call, "run_spice", {"sources": ["design/opamp.cir"], "measurements": [dict(GAIN, min=60)]})
-    assert ack["state"] == "queued" and seen == []
+    assert ack["state"] == "completed" and len(seen) == 1
     _, done = _call(call, "run_job", {"run_id": ack["run_id"]})
     assert done["state"] == "completed"
     assert seen[0]["sources"] == [str(tmp_path / "design" / "opamp.cir")]

@@ -166,9 +166,11 @@ def test_submit_run_job_round_trip_joins_request_and_run_ids():
             "request_id": request_id,
         }
     )
-    assert ack["state"] == "queued"
+    assert ack["state"] == "completed"
     assert ack["request_id"] == request_id
     assert ack["current_revision"] == "p13"
+    assert ack["operation"] == "run_em"
+    assert ack["verdict"]["status"] == "PASS"
     assert sorted(ack) == sorted(artifact["envelopes"]["ack"]["keys"])
 
     completion = engine.submit(

@@ -10,11 +10,13 @@ every accepted mutation advances the revision and appends an
 actor-attributed event to the durable ledger (LEDGER-DURABLE/I30),
 and every run appends its completion with a verdict link. Only wired
 queries read state, the rest honestly report unwired.
-Two-phase execution: `submit(op)` admits and returns an ack, then
-`run_job` executes the admitted command — over `run()` directly or
-over submit-only transports via `submit(run_job)`. The ack run_id is
-the execution id: `get_job_status` reports queued after submit and the
-verdict after `run_job`; nothing runs implicitly (no auto-drain).
+Submit-immediate execution (API-GENERALIZE): `submit(op)` admits and
+runs inline, returning the ack shape plus the verdict payload under
+the one run id; `run_job` stays for explicit/deferred/batch pumping
+plus idempotent result fetch — over `run()` directly or over
+submit-only transports via `submit(run_job)`. Replays return the
+stored completion without re-executing, and a fresh Engine drains
+crash survivors once (boot replay) on its first mutating call.
 With `constraints` (metric -> {min, max, unit[, expr, control]}),
 run_spice targets come from the project, never the caller:
 caller-supplied min/max — or a caller expr where the project defines
@@ -42,6 +44,12 @@ from .adapters.lvs_netgen import NetgenLvsAdapter
 from .adapters.ngspice import NgspiceAdapter
 from .adapters.sax import SaxAdapter
 from .adapters.syntax import SyntaxAdapter
+from .execution.apig_pool import (
+    ApigPool,
+    request_for_run,
+    stored_completion_from_events,
+)
+from .execution.apig_submit import merge_ack_completion
 from .execution.block_runs_scope import (
     BlockScopeError,
     build_scope_record,
@@ -54,10 +62,18 @@ from .execution.block_runs_scope import (
 )
 from .execution.errors import ExecutionError
 from .execution.service import ExecutionService
+from .interfaces import apig_assets
+from .interfaces.errors import ContractError
 from .interfaces.runparams import RunParamsError, validate_run_request
 from .interfaces.setup import report_capabilities
 from .interfaces.vocabulary import OPERATIONS, QUERIES
+from .library.apig_catalog import (
+    ApigCatalog,
+    gdsfactory_provider,
+    static_provider,
+)
 from .library.catalog import Catalog
+from .library.errors import LibraryError
 from .project.errors import ProjectError
 from .project.service import ProjectService
 
@@ -95,12 +111,19 @@ QUERY_ENGINE_METHODS = {
     "get_check_results": "check_results",
     "get_logs": "run_logs",
     "list_job_kinds": "job_kinds",
+    "list_cells": "catalog_cells",
+    "serve_asset": "serve_asset",
+    "list_assets": "list_assets",
 }
 
 # Job-result queries served from execution state (plus the captured run log).
 _JOB_QUERIES = frozenset(
     {"get_job_status", "get_check_results", "get_logs", "list_job_kinds"}
 )
+
+# Catalogue + raw-asset queries served from engine state (the cell
+# index and the PDK store); read-only, never replay the backlog.
+_APIG_QUERIES = frozenset({"list_cells", "serve_asset", "list_assets"})
 
 # A get_logs page never dumps more than this many lines at once.
 _LOG_PAGE_MAX = 200
@@ -154,11 +177,13 @@ class Engine:
         blocks: Optional block store for block-scoped runs (a
             mapping of id to block entity, or a list of block
             mappings); runs without a block target never read it.
+        pool_max_depth: Maximum undrained execution backlog;
+            admissions past it are refused, never queued.
     """
 
     def __init__(self, project_id, actor, catalog_root=".",
                  engine_root=None, linked_root=None, constraints=None,
-                 blocks=None):
+                 blocks=None, pool_max_depth=64):
         self._project_id = project_id
         self._actor = actor
         self._blocks = blocks if blocks is not None else {}
@@ -182,6 +207,13 @@ class Engine:
         self._logs = {}
         self._latest = {}
         self._run_jobs = {}
+        self._pool = ApigPool(
+            self._project, self._pool_execute, max_depth=pool_max_depth
+        )
+        self._cells = ApigCatalog(
+            catalog_root, providers=[gdsfactory_provider()]
+        )
+        self._replayed = False
 
     def snapshot(self):
         """Read the current project snapshot.
@@ -249,32 +281,38 @@ class Engine:
             self._solvers,
             target=target,
             engine_root=engine_root,
-            served=_CRUD_OPERATIONS | {"run_job"},
+            served=_CRUD_OPERATIONS | {"run_job", "place_cell"},
         )
 
     def submit(self, command):
-        """Admit an operation (phase 1) or serve a wired query.
+        """Admit and run an operation inline, or serve a wired query.
 
-        Operations queue through the project service with revision
-        gating and envelope-id idempotency; CRUD mutations and
-        rewind execute immediately through the same admission
-        machinery (no queue, no solver); only wired queries read
-        state, the rest honestly report unwired.
+        Solver operations admit through the project service with
+        revision gating and envelope-id idempotency, then execute
+        immediately: the returned mapping is the admission ack
+        shape plus the completion (state, verdict, operation) under
+        the one run id. CRUD mutations, rewind, and place_cell
+        execute immediately through the same admission machinery
+        (no queue, no solver); only wired queries read state, the
+        rest honestly report unwired.
 
         Args:
             command: Envelope with project_id, operation, arguments,
                 and request_id.
 
         Returns:
-            Admission ack for queued operations, the immediate
-            mutation mapping (new revision + events + approval-UI
-            fields) for CRUD/rewind operations, the snapshot for
-            the wired get_project_snapshot query, the capability
-            mapping for get_capabilities, the event page for
+            Merged ack-plus-completion for solver operations (ack
+            identity fields plus state, verdict, operation), the
+            immediate mutation mapping (new revision + events +
+            approval-UI fields) for CRUD/rewind/place_cell
+            operations, the snapshot for the wired
+            get_project_snapshot query, the capability mapping
+            for get_capabilities, the event page for
             get_events_since, the project/document listing for
             the CRUD queries, the status/checks/logs/kinds for
-            the job-result queries, or the completed mapping for
-            run_job.
+            the job-result queries, the cell listing or asset
+            bytes for the catalogue/asset queries, or the
+            stored-or-fresh completion for run_job.
 
         Raises:
             ProjectError: cross_project_denied for a foreign
@@ -289,20 +327,31 @@ class Engine:
                 for caller-supplied run_spice targets,
                 revision_conflict for a stale
                 expected_revision, invalid_command for a malformed
-                get_events_since cursor, a malformed mutation, or
-                a rewind that lacks a target or targets the live
-                head, resync_required when a get_events_since
-                contiguity demand cannot be met, invalid_project
-                for a bad project id, project_exists for a
-                duplicate create, unknown_document for a missing
-                document, unknown_revision for a rewind target
-                with no snapshot, invalid_path or path_escape for
-                a bad document path, request_conflict for a reused
-                envelope id with new text.
+                get_events_since cursor, a malformed mutation, a
+                place_cell without a cell, a serve_asset without
+                pdk id/revision/path, or a rewind that lacks a
+                target or targets the live head, resync_required
+                when a get_events_since contiguity demand cannot
+                be met, invalid_project for a bad project id,
+                project_exists for a duplicate create,
+                unknown_document for a missing document,
+                unknown_revision for a rewind target with no
+                snapshot, invalid_path or path_escape for a bad
+                document path, request_conflict for a reused
+                envelope id with new text, unknown_cell,
+                ambiguous_cell, unknown_param, incompatible_port,
+                or instance_exists for a bad placement,
+                invalid_reference for a bad asset address,
+                unknown_request for an id never admitted.
+            ExecutionError: pool_full when the execution backlog
+                is saturated — drain (run_job) before submitting
+                more; nothing was admitted.
 
         Caution: Bound to one project: cross-project envelopes are
             denied, never routed — and a stale expected_revision
-            fails instead of merging.
+            fails instead of merging. The first mutating call per
+            Engine also drains crash survivors (boot replay);
+            queries never do.
         """
         envelope = command.get("project_id")
         if envelope != self._project_id:
@@ -333,18 +382,23 @@ class Engine:
             return self._project.read_doc(arguments["path"])
         if name in _JOB_QUERIES:
             return self._query_job(name, arguments)
+        if name in _APIG_QUERIES:
+            return self._query_apig(name, arguments)
         if name in _WIRED_QUERIES:
             return self._project.snapshot()
         if name in QUERIES or name not in OPERATIONS:
             raise ProjectError(
                 "unsupported_operation", f"Operation not wired yet: {name}."
             )
+        self._replay_once()
         if name == "run_job":
-            # Phase 2 executes immediately: admission (and its revision
-            # gate) already happened at submit time.
+            # Deferred/batch pumping plus idempotent fetch: admission
+            # (and its revision gate) already happened at submit time.
             return self.run(command)
         if name in _CRUD_OPERATIONS:
             return self._submit_crud(name, arguments, command)
+        if name == "place_cell":
+            return self._submit_place_cell(arguments, command)
         if not self._solvers.get(name):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
@@ -353,15 +407,19 @@ class Engine:
         buf = io.StringIO()
         self._yaml.dump({"operation": name, "arguments": arguments}, buf)
         request_id = command.get("request_id") or uuid.uuid4().hex
-        ack = self._project.submit(
+        ack = self._pool.submit_request(
             buf.getvalue(),
             str(request_id),
             expected_revision=arguments.get("expected_revision"),
         )
-        # The ack run_id is the execution id: register its queued
-        # record now so get_job_status can poll it — and run_job can
-        # execute it — under the one id. A replay returns the same
-        # ack; its record already exists, so register it only once.
+        # SUBMIT-IMMEDIATE: the ack run_id is the execution id. A
+        # replay of a completed run returns the stored completion
+        # without re-executing; otherwise register the record (a
+        # replay returns the same ack, so register it only once)
+        # and drain this run inline.
+        stored = self._stored_completion(ack["run_id"])
+        if stored is not None:
+            return merge_ack_completion(ack, stored)
         if not self._execution.known(ack["run_id"]):
             target = {"cell": arguments.get("cell")}
             if scope_request is not None:
@@ -389,7 +447,8 @@ class Engine:
                     deck=arguments.get("deck"),
                     closure=scope_request["closure"],
                 )
-        return ack
+        completion = self._pool.drain_ids([ack["run_id"]])[0]
+        return merge_ack_completion(ack, completion)
 
     def _query_events_since(self, arguments):
         """Serve the wired get_events_since query (cursor + resync)."""
@@ -478,6 +537,339 @@ class Engine:
             command_text,
             expected_revision=arguments.get("expected_revision"),
         )
+
+    def _submit_place_cell(self, arguments, command):
+        """Place a catalogue cell immediately (no queue, no solver)."""
+        if "cell" not in arguments:
+            raise ProjectError(
+                "invalid_command", "place_cell needs a cell argument."
+            )
+        request_id = str(command.get("request_id") or uuid.uuid4().hex)
+        try:
+            return self._cells.place_cell(
+                self._project,
+                arguments["cell"],
+                request_id,
+                expected_revision=arguments.get("expected_revision"),
+                pdk=arguments.get("pdk"),
+                instance_id=arguments.get("instance_id"),
+                params=arguments.get("params"),
+                connections=arguments.get("connections"),
+            )
+        except LibraryError as exc:
+            raise ProjectError(exc.code, str(exc)) from exc
+
+    def _query_apig(self, name, arguments):
+        """Route a catalogue/asset query to its Engine reader."""
+        if name == "list_cells":
+            return self.catalog_cells(pdk=arguments.get("pdk"))
+        if name == "serve_asset":
+            return self.serve_asset(
+                arguments.get("pdk_id"),
+                arguments.get("revision"),
+                arguments.get("path"),
+                engine_root=arguments.get("engine_root"),
+            )
+        if name == "list_assets":
+            return self.list_assets(
+                arguments.get("pdk_id"),
+                arguments.get("revision"),
+                prefix=arguments.get("prefix"),
+                engine_root=arguments.get("engine_root"),
+            )
+        raise ProjectError("unsupported_operation", f"Operation not wired yet: {name}.")
+
+    def catalog_cells(self, pdk=None):
+        """List versioned component cells, optionally for one PDK.
+
+        The engine introspects cell libraries upstream and serves
+        plain data (cell, PDK, ports, default params), so the
+        frontend never imports gdsfactory.
+
+        Args:
+            pdk: Restrict to one PDK label; all entries when
+                omitted.
+
+        Returns:
+            Listing with catalog_version and cells sorted by
+                (pdk, cell).
+        """
+        return self._cells.list_cells(pdk=pdk)
+
+    def register_cells(self, entries, source="static"):
+        """Seed the component catalogue with static entries.
+
+        Args:
+            entries: Entry mappings with cell, pdk, pdk_revision,
+                ports, and default params.
+            source: Source label stamped on every entry.
+
+        Returns:
+            Mapping with the cell count now served.
+        """
+        self._cells.add_provider(static_provider(entries, source=source))
+        return {"cells": len(self._cells.list_cells()["cells"])}
+
+    def serve_asset(self, pdk_id=None, revision=None, path=None,
+                    engine_root=None):
+        """Serve one PDK file's bytes verbatim with hash identity.
+
+        No conversion, no rendering: the sha256 is computed over
+        the raw bytes, base64 is transport encoding only.
+
+        Args:
+            pdk_id: PDK id (either display spelling resolves).
+            revision: PDK revision pin.
+            path: Store-relative file path.
+            engine_root: Explicit store root; ROCKETEDA_HOME
+                resolution when omitted.
+
+        Returns:
+            Mapping with asset_version, pdk_id, display_id,
+                revision, canonical path, size, sha256, and the
+                verbatim bytes base64-encoded.
+
+        Raises:
+            ProjectError: invalid_command when pdk id, revision,
+                or path is missing; invalid_reference for an
+                unknown PDK, a missing file, or an escaping path.
+
+        Caution: No size cap — bulk reads belong to list_assets
+            plus selective serve_asset calls, never a blind loop.
+        """
+        if pdk_id is None or revision is None or path is None:
+            raise ProjectError(
+                "invalid_command",
+                "serve_asset needs pdk_id, revision, and path arguments.",
+            )
+        try:
+            return apig_assets.serve_asset(
+                pdk_id, revision, path, engine_root=engine_root
+            )
+        except ContractError as exc:
+            raise ProjectError(exc.code, str(exc)) from exc
+
+    def list_assets(self, pdk_id=None, revision=None, prefix=None,
+                    engine_root=None):
+        """List PDK file metadata with per-file hash identity.
+
+        Args:
+            pdk_id: PDK id (either display spelling resolves).
+            revision: PDK revision pin.
+            prefix: Optional store-relative prefix filter.
+            engine_root: Explicit store root; ROCKETEDA_HOME
+                resolution when omitted.
+
+        Returns:
+            Mapping with asset_version, pdk_id, display_id,
+                revision, sorted file entries (path, size,
+                sha256), symlink entries, and the file count.
+
+        Raises:
+            ProjectError: invalid_command when pdk id or revision
+                is missing; invalid_reference for an unknown PDK
+                or an escaping prefix.
+        """
+        if pdk_id is None or revision is None:
+            raise ProjectError(
+                "invalid_command",
+                "list_assets needs pdk_id and revision arguments.",
+            )
+        try:
+            return apig_assets.list_assets(
+                pdk_id, revision, prefix=prefix, engine_root=engine_root
+            )
+        except ContractError as exc:
+            raise ProjectError(exc.code, str(exc)) from exc
+
+    def _stored_completion(self, run_id):
+        """Stored completion for a finished run, without executing.
+
+        In-memory verdicts answer first; across a reboot the
+        ledger's run event answers instead. Runs that never
+        finished (or never ran) answer None.
+        """
+        try:
+            status = self._execution.status(run_id)
+        except ExecutionError:
+            status = None
+        if (
+            status is not None
+            and status.get("state") in ("completed", "cancelled")
+            and status.get("verdict") is not None
+        ):
+            pending = self._run_jobs.get(run_id, {})
+            return {
+                "run_id": run_id,
+                "state": status["state"],
+                "verdict": status["verdict"],
+                "operation": pending.get("operation"),
+            }
+        return stored_completion_from_events(
+            self._project.events_since(0), run_id
+        )
+
+    def _resolve_pending(self, request_id):
+        """Admitted (command, ack) for a queued request, registered.
+
+        Reboot path: unknown execution records are registered and
+        the run job stashed, so the pool runner finds both.
+        """
+        stored_command, ack = self._project.command_for(request_id)
+        run_id = ack.get("run_id")
+        if not self._execution.known(run_id):
+            self._execution.dispatch(
+                stored_command.get("operation"),
+                {"cell": (stored_command.get("arguments") or {}).get("cell")},
+                ack.get("snapshot_id", ""),
+                run_id=run_id,
+            )
+        self._run_jobs.setdefault(
+            run_id,
+            {
+                "operation": stored_command.get("operation"),
+                "arguments": dict(stored_command.get("arguments") or {}),
+                "snapshot_id": ack.get("snapshot_id", ""),
+                "request_id": str(request_id),
+            },
+        )
+        return stored_command, ack
+
+    def _pool_execute(self, operation, arguments, snapshot_id, request_id,
+                      run_id):
+        """Execute one pooled run through its solver, contained."""
+        if not self._solvers.get(operation):
+            self._latest[operation] = run_id
+            self._logs[run_id] = (
+                f"unsupported_operation: No solver registered: {operation}."
+            )
+            verdict = self._execution.record_not_run(
+                run_id, self._logs[run_id]
+            )
+            self._project.append_run_event(
+                "run_failed", run_id, operation, verdict, request_id
+            )
+            return {
+                "run_id": run_id,
+                "state": "completed",
+                "verdict": verdict,
+                "operation": operation,
+            }
+        run_arguments = dict(arguments)
+        run_arguments.pop("expected_revision", None)
+        return self._run_operation(
+            operation,
+            run_arguments,
+            snapshot_id,
+            request_id,
+            run_id=run_id,
+            contain=True,
+        )
+
+    def _run_batch(self, run_ids):
+        """Pump a batch of admitted runs oldest-listed first.
+
+        Finished runs contribute their stored completion without
+        re-executing; the rest are admitted to the pool (pool_full
+        refuses loudly past the bound) and drained in order. Every
+        listed id lands in exactly one of completions/refused.
+        """
+        if not isinstance(run_ids, list) or not run_ids:
+            raise ProjectError(
+                "invalid_command",
+                "run_job batch needs a non-empty run_ids list.",
+            )
+        completions = []
+        refused = []
+        seen = set()
+        admitted = []
+        for run_id in run_ids:
+            if run_id in seen:
+                refused.append({
+                    "run_id": run_id,
+                    "code": "duplicate_in_batch",
+                    "message": f"Run listed twice in one batch: {run_id}.",
+                })
+                continue
+            seen.add(run_id)
+            stored = self._stored_completion(run_id)
+            if stored is not None:
+                completions.append(stored)
+                continue
+            pending = self._run_jobs.get(run_id)
+            if pending is not None:
+                request_id = pending["request_id"]
+            else:
+                request_id = request_for_run(
+                    self._project.events_since(0), run_id
+                )
+            if request_id is None:
+                refused.append({
+                    "run_id": run_id,
+                    "code": "unknown_request",
+                    "message": f"No queued request: {run_id}.",
+                })
+                continue
+            stored_command, ack = self._project.command_for(request_id)
+            if not self._solvers.get(stored_command.get("operation")):
+                refused.append({
+                    "run_id": run_id,
+                    "code": "unsupported_operation",
+                    "message": (
+                        "No solver registered: "
+                        f"{stored_command.get('operation')}."
+                    ),
+                })
+                continue
+            self._resolve_pending(request_id)
+            try:
+                adopted = self._pool.adopt(
+                    request_id, run_id, stored_command,
+                    ack.get("snapshot_id", ""),
+                )
+            except ExecutionError as exc:
+                refused.append({
+                    "run_id": run_id,
+                    "code": exc.code,
+                    "message": str(exc),
+                })
+                continue
+            if not adopted:
+                stored = self._stored_completion(run_id)
+                if stored is not None:
+                    completions.append(stored)
+                    continue
+            admitted.append(run_id)
+        if admitted:
+            completions.extend(self._pool.drain_ids(admitted))
+        return {
+            "run_ids": list(run_ids),
+            "completions": completions,
+            "refused": refused,
+        }
+
+    def replay_pending(self):
+        """Drain crash-surviving admissions oldest first (boot replay).
+
+        Survivors are ledger admissions without a run event —
+        typically a kill between admit and drain. Finished runs
+        are never re-executed; unresolvable survivors are skipped
+        loudly in the report.
+
+        Returns:
+            Report with replayed run ids (seq order), their
+                completions, and skipped entries.
+        """
+        return self._pool.replay(
+            self._project.events_since(0), self._resolve_pending
+        )
+
+    def _replay_once(self):
+        """Drain crash survivors once per Engine (lazy boot replay)."""
+        if self._replayed:
+            return None
+        self._replayed = True
+        return self.replay_pending()
 
     def _select_solver(self, name, arguments):
         solvers = self._solvers.get(name) or {}
@@ -601,8 +993,18 @@ class Engine:
         """
         if "target" not in arguments:
             return None
+        target = arguments["target"]
+        if (
+            isinstance(target, dict)
+            and target.get("scope", "project") == "project"
+        ):
+            # Project scope serves every operation and carries no
+            # block: established callers (scenario harness, adapter
+            # tests) address cells at project scope, so pass those
+            # targets through untouched — only block scope engages.
+            return None
         try:
-            parsed = parse_target(arguments["target"])
+            parsed = parse_target(target)
             check_operation_scope(name, parsed["scope"])
             if parsed["scope"] != "block":
                 return None
@@ -799,35 +1201,70 @@ class Engine:
         return self._execution.findings(run_id, limit=limit, cursor=cursor)
 
     def _run_queued(self, command):
-        """Execute an admitted request by id (phase 2 of submit-then-run).
+        """Execute admitted requests by id: deferred singles, fetch, batches.
+
+        Submit already ran inline, so this is the explicit path:
+        deferred execution for admissions drained elsewhere
+        (crash survivors, staged backlog), idempotent fetch for
+        finished runs, and ordered batch pumping.
 
         Request keys:
-            request_id (required): Envelope id admitted by an
-                earlier submit.
+            run_id: Admitted run to execute or fetch.
+            request_id: Envelope id admitted by an earlier submit
+                (resolves to its run when run_id is absent).
+            run_ids: Batch form — admitted runs to pump oldest
+                listed first.
 
         Args:
-            command: Envelope whose arguments carry request_id, the
-                id admitted by an earlier submit.
+            command: Envelope whose arguments carry run_id,
+                request_id, or run_ids.
 
         Returns:
             Completion mapping with run_id, state, verdict, and
-            operation for the admitted command.
+            operation for a single id (stored, never
+            re-executed, when the run already finished); batch
+            mapping with run_ids, completions, and refused for
+            the batch form (every listed id lands in exactly
+            one of the two lists).
 
         Raises:
             ProjectError: invalid_command when the arguments lack a
-                request_id, unknown_request for an id never
-                admitted, unsupported_operation when the admitted
+                run id or the batch list is malformed,
+                unknown_request for an id never admitted,
+                unsupported_operation when the admitted
                 operation has no registered solver.
         """
         arguments = dict(command.get("arguments") or {})
+        if arguments.get("run_ids") is not None:
+            return self._run_batch(arguments.get("run_ids"))
         run_id = arguments.get("run_id")
         if run_id is not None:
-            try:
-                pending = self._run_jobs[run_id]
-            except KeyError:
-                raise ProjectError(
-                    "unknown_request", f"No queued request: {run_id}."
-                ) from None
+            # Idempotent fetch: a finished run returns its stored
+            # completion instead of executing again.
+            stored = self._stored_completion(run_id)
+            if stored is not None:
+                return stored
+            pending = self._run_jobs.get(run_id)
+            if pending is None:
+                # Reboot path: the admitting request survives in
+                # the ledger even though this process never saw it.
+                queued_request = request_for_run(
+                    self._project.events_since(0), run_id
+                )
+                if queued_request is None:
+                    raise ProjectError(
+                        "unknown_request", f"No queued request: {run_id}."
+                    ) from None
+                stored_command, ack = self._project.command_for(
+                    queued_request
+                )
+                pending = {
+                    "operation": stored_command.get("operation"),
+                    "arguments": dict(stored_command.get("arguments") or {}),
+                    "snapshot_id": ack.get("snapshot_id", ""),
+                    "request_id": str(queued_request),
+                }
+                self._run_jobs[run_id] = pending
             stored_operation = pending["operation"]
             run_arguments = dict(pending["arguments"])
             snapshot_id = pending["snapshot_id"]
@@ -836,17 +1273,30 @@ class Engine:
             request_id = arguments.get("request_id")
             if request_id is None:
                 raise ProjectError(
-                    "invalid_command", "run_job needs a run_id or request_id argument."
+                    "invalid_command",
+                    "run_job needs a run_id, request_id, or run_ids argument.",
                 )
-            stored, ack = self._project.command_for(request_id)
-            stored_operation = stored.get("operation")
-            run_arguments = dict(stored.get("arguments") or {})
+            stored_command, ack = self._project.command_for(request_id)
+            stored_operation = stored_command.get("operation")
+            run_arguments = dict(stored_command.get("arguments") or {})
             snapshot_id = ack.get("snapshot_id", "")
             request_id = str(request_id)
             run_id = ack.get("run_id")
+            completion = self._stored_completion(run_id)
+            if completion is not None:
+                return completion
         if not self._solvers.get(stored_operation):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {stored_operation}."
+            )
+        if not self._execution.known(run_id):
+            # Reboot path: the ledger admitted this run, but this
+            # process holds no execution record for it yet.
+            self._execution.dispatch(
+                stored_operation,
+                {"cell": run_arguments.get("cell")},
+                snapshot_id,
+                run_id=run_id,
             )
         # Submit-time admission data stays out of the solver job.
         # Targets were already filled at submit time; never re-fill
@@ -1016,9 +1466,9 @@ class Engine:
             never exceptions. Every judged run appends
             run_completed (PASS/FAIL) or run_failed (NOT_RUN) to
             the ledger with the engine's actor and the verdict.
-            CRUD/rewind operations return the immediate mutation
-            mapping instead (new revision + events + approval-UI
-            fields).
+            CRUD/rewind/place_cell operations return the immediate
+            mutation mapping instead (new revision + events +
+            approval-UI fields).
 
         Raises:
             ProjectError: cross_project_denied for a foreign
@@ -1033,9 +1483,10 @@ class Engine:
                 invalid_command when run_job lacks a
                 run_id/request_id argument, for caller-supplied
                 run_spice targets, when a CRUD
-                mutation is malformed, or a rewind lacks a target
-                or targets the live head, revision_conflict for a
-                stale CRUD/rewind expected_revision,
+                mutation or place_cell is malformed, or a rewind
+                lacks a target or targets the live head,
+                revision_conflict for a stale CRUD/rewind/
+                place_cell expected_revision,
                 unknown_document for a missing CRUD document,
                 unknown_revision for a rewind target with no
                 snapshot.
@@ -1050,10 +1501,11 @@ class Engine:
                 "cross_project_denied",
                 f"Bound to {self._project_id}, got {envelope}.",
             )
+        self._replay_once()
         name = command.get("operation")
         if name == "run_job":
             return self._run_queued(command)
-        if name in _CRUD_OPERATIONS:
+        if name in _CRUD_OPERATIONS or name == "place_cell":
             return self.submit(command)
         arguments = self._apply_targets(name, dict(command.get("arguments") or {}))
         arguments = self._apply_run_request(arguments)

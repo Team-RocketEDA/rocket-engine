@@ -78,6 +78,17 @@
       "type": "object",
       "wired": false
     },
+    "place_cell": {
+      "description": "Declared operation `place_cell`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "place_cell",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
     "python_execute": {
       "description": "Declared operation `python_execute`; no handler wired yet.",
       "handlers": [],
@@ -665,7 +676,7 @@
       "wired": true
     },
     "run_job": {
-      "description": "Execute an admitted request by id (phase 2 of submit-then-run).",
+      "description": "Execute admitted requests by id: deferred singles, fetch, batches.",
       "handlers": [
         "rocket_engine.composition.Engine.run",
         "rocket_engine.composition.Engine._run_queued"
@@ -674,14 +685,18 @@
       "name": "run_job",
       "properties": {
         "request_id": {
-          "description": "Envelope id admitted by an earlier submit."
+          "description": "Envelope id admitted by an earlier submit (resolves to its run when run_id is absent)."
+        },
+        "run_id": {
+          "description": "Admitted run to execute or fetch."
+        },
+        "run_ids": {
+          "description": "Batch form \u2014 admitted runs to pump oldest listed first."
         }
       },
-      "raises": "ProjectError: invalid_command when the arguments lack a request_id, unknown_request for an id never admitted, unsupported_operation when the admitted operation has no registered solver.",
-      "required": [
-        "request_id"
-      ],
-      "returns": "Completion mapping with run_id, state, verdict, and operation for the admitted command.",
+      "raises": "ProjectError: invalid_command when the arguments lack a run id or the batch list is malformed, unknown_request for an id never admitted, unsupported_operation when the admitted operation has no registered solver.",
+      "required": [],
+      "returns": "Completion mapping with run_id, state, verdict, and operation for a single id (stored, never re-executed, when the run already finished); batch mapping with run_ids, completions, and refused for the batch form (every listed id lands in exactly one of the two lists).",
       "type": "object",
       "wired": true
     },
@@ -1550,6 +1565,51 @@
       "type": "object",
       "wired": false
     },
+    "list_assets": {
+      "description": "List PDK file metadata with per-file hash identity.",
+      "handlers": [
+        "rocket_engine.composition.Engine.list_assets"
+      ],
+      "kind": "query",
+      "name": "list_assets",
+      "properties": {
+        "engine_root": {
+          "description": "Explicit store root; ROCKETEDA_HOME resolution when omitted."
+        },
+        "pdk_id": {
+          "description": "PDK id (either display spelling resolves)."
+        },
+        "prefix": {
+          "description": "Optional store-relative prefix filter."
+        },
+        "revision": {
+          "description": "PDK revision pin."
+        }
+      },
+      "raises": "ProjectError: invalid_command when pdk id or revision is missing; invalid_reference for an unknown PDK or an escaping prefix.",
+      "required": [],
+      "returns": "Mapping with asset_version, pdk_id, display_id, revision, sorted file entries (path, size, sha256), symlink entries, and the file count.",
+      "type": "object",
+      "wired": true
+    },
+    "list_cells": {
+      "description": "List versioned component cells, optionally for one PDK.",
+      "handlers": [
+        "rocket_engine.composition.Engine.catalog_cells"
+      ],
+      "kind": "query",
+      "name": "list_cells",
+      "properties": {
+        "pdk": {
+          "description": "Restrict to one PDK label; all entries when omitted."
+        }
+      },
+      "raises": "",
+      "required": [],
+      "returns": "Listing with catalog_version and cells sorted by (pdk, cell).",
+      "type": "object",
+      "wired": true
+    },
     "list_docs": {
       "description": "List documents, optionally filtered by a path prefix.",
       "handlers": [
@@ -1624,6 +1684,33 @@
         "path"
       ],
       "returns": "Mapping with project id, head revision, canonical path, content text, and byte size.",
+      "type": "object",
+      "wired": true
+    },
+    "serve_asset": {
+      "description": "Serve one PDK file's bytes verbatim with hash identity.",
+      "handlers": [
+        "rocket_engine.composition.Engine.serve_asset"
+      ],
+      "kind": "query",
+      "name": "serve_asset",
+      "properties": {
+        "engine_root": {
+          "description": "Explicit store root; ROCKETEDA_HOME resolution when omitted."
+        },
+        "path": {
+          "description": "Store-relative file path."
+        },
+        "pdk_id": {
+          "description": "PDK id (either display spelling resolves)."
+        },
+        "revision": {
+          "description": "PDK revision pin."
+        }
+      },
+      "raises": "ProjectError: invalid_command when pdk id, revision, or path is missing; invalid_reference for an unknown PDK, a missing file, or an escaping path.",
+      "required": [],
+      "returns": "Mapping with asset_version, pdk_id, display_id, revision, canonical path, size, sha256, and the verbatim bytes base64-encoded.",
       "type": "object",
       "wired": true
     }

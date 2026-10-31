@@ -1,5 +1,12 @@
 """Admission, queue, dispatch, isolated workers, cancel, evidence, evaluation. Owns execution."""
 
+from .apig_pool import (
+    ApigPool,
+    pending_from_events,
+    request_for_run,
+    stored_completion_from_events,
+)
+from .apig_submit import SubmitImmediate, merge_ack_completion
 from .block_runs_scope import (
     BLOCK_RUN_OPERATIONS,
     BLOCK_SCOPE,
@@ -28,6 +35,7 @@ __all__ = [
     "BLOCK_SCOPE",
     "PROJECT_SCOPE",
     "SUPPORTED_SCOPES",
+    "ApigPool",
     "BlockScopeError",
     "BwrapRunner",
     "CellRunner",
@@ -36,18 +44,23 @@ __all__ = [
     "ExecutionError",
     "ExecutionService",
     "OpDispatcher",
+    "SubmitImmediate",
     "UsageError",
     "build_scope_record",
     "check_operation_scope",
     "closure_hash",
     "get_help",
+    "merge_ack_completion",
     "narrow_job_for_block",
     "parse_op_call",
     "parse_op_tokens",
     "parse_target",
+    "pending_from_events",
+    "request_for_run",
     "resolve_block",
     "scope_provenance",
     "snapshot_closure",
     "stamp_verdict",
+    "stored_completion_from_events",
     "worker_profile",
 ]

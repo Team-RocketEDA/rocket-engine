@@ -29,6 +29,7 @@ text, identical to the section bodies below.
 | `create_project` | yes | — | Create one managed project at revision p12. |
 | `delete_doc` | yes | — | Delete one document: gate, remove, advance, log. |
 | `generate_views` | no | — | Declared operation `generate_views`; no handler wired yet. |
+| `place_cell` | no | — | Declared operation `place_cell`; no handler wired yet. |
 | `python_execute` | no | — | Declared operation `python_execute`; no handler wired yet. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
 | `run_connectivity` | no | — | Declared operation `run_connectivity`; no handler wired yet. |
@@ -39,7 +40,7 @@ text, identical to the section bodies below.
 | `run_extraction` | yes | `magic` (default) | run_extraction via Magic: .mag cells to .ext/.spice netlists. |
 | `run_formal` | no | — | Declared operation `run_formal`; no handler wired yet. |
 | `run_hdl_test` | yes | `icarus` (default) | run_hdl_test via Icarus: compile plus timed Verilog sim. |
-| `run_job` | yes | — | Execute an admitted request by id (phase 2 of submit-then-run). |
+| `run_job` | yes | — | Execute admitted requests by id: deferred singles, fetch, batches. |
 | `run_lvs` | yes | `netgen` (default) | run_lvs via Netgen: layout vs schematic, TOP-level compare. |
 | `run_optical` | yes | `sax` (default) | run_optical via SAX: frequency-domain photonic circuit sim. |
 | `run_post_layout` | no | — | Declared operation `run_post_layout`; no handler wired yet. |
@@ -65,11 +66,14 @@ text, identical to the section bodies below.
 | `get_project_snapshot` | yes | `rocket_engine.project.service.ProjectService.snapshot` | Read the ledger head: project, revision, and event cursor. |
 | `get_python_console` | no | — | Declared query `get_python_console`; no handler wired yet. |
 | `list_artifacts` | no | — | Declared query `list_artifacts`; no handler wired yet. |
+| `list_assets` | yes | `rocket_engine.composition.Engine.list_assets` | List PDK file metadata with per-file hash identity. |
+| `list_cells` | yes | `rocket_engine.composition.Engine.catalog_cells` | List versioned component cells, optionally for one PDK. |
 | `list_docs` | yes | `rocket_engine.project.service.ProjectService.list_docs` | List documents, optionally filtered by a path prefix. |
 | `list_job_kinds` | yes | `rocket_engine.composition.Engine.job_kinds` | List registered operations with their deck tools. |
 | `list_projects` | yes | `rocket_engine.project.service.ProjectService.list_projects` | List projects under the engine root, bound always included. |
 | `plan_checks` | no | — | Declared query `plan_checks`; no handler wired yet. |
 | `read_doc` | yes | `rocket_engine.project.service.ProjectService.read_doc` | Read one document as text at the current head. |
+| `serve_asset` | yes | `rocket_engine.composition.Engine.serve_asset` | Serve one PDK file's bytes verbatim with hash identity. |
 
 ## Operation reference
 
@@ -149,6 +153,12 @@ Caution: Deleting advances the revision like any mutation — stale writers fail
 ### generate_views
 
 Declared operation `generate_views`; no handler wired yet.
+
+`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+
+### place_cell
+
+Declared operation `place_cell`; no handler wired yet.
 
 `Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
 
@@ -378,21 +388,23 @@ Caution: $error exits 0 and hangs raise instead of hanging the engine — the ve
 
 ### run_job
 
-Execute an admitted request by id (phase 2 of submit-then-run).
+Execute admitted requests by id: deferred singles, fetch, batches.
 
 Handler: `rocket_engine.composition.Engine.run` (phase 2 executes an admitted request; submit admits first).
 
 Arguments:
 
-- `request_id` (required): Envelope id admitted by an earlier submit.
+- `run_id`: Admitted run to execute or fetch.
+- `request_id`: Envelope id admitted by an earlier submit (resolves to its run when run_id is absent).
+- `run_ids`: Batch form — admitted runs to pump oldest listed first.
 
 Returns:
 
-Completion mapping with run_id, state, verdict, and operation for the admitted command.
+Completion mapping with run_id, state, verdict, and operation for a single id (stored, never re-executed, when the run already finished); batch mapping with run_ids, completions, and refused for the batch form (every listed id lands in exactly one of the two lists).
 
 Raises:
 
-ProjectError: invalid_command when the arguments lack a request_id, unknown_request for an id never admitted, unsupported_operation when the admitted operation has no registered solver.
+ProjectError: invalid_command when the arguments lack a run id or the batch list is malformed, unknown_request for an id never admitted, unsupported_operation when the admitted operation has no registered solver.
 
 ### run_lvs
 
@@ -772,6 +784,45 @@ Declared query `list_artifacts`; no handler wired yet.
 
 `Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
 
+### list_assets
+
+List PDK file metadata with per-file hash identity.
+
+Handler: `rocket_engine.composition.Engine.list_assets`.
+
+Arguments:
+
+- `pdk_id`: PDK id (either display spelling resolves).
+- `revision`: PDK revision pin.
+- `prefix`: Optional store-relative prefix filter.
+- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.
+
+Returns:
+
+Mapping with asset_version, pdk_id, display_id, revision, sorted file entries (path, size, sha256), symlink entries, and the file count.
+
+Raises:
+
+ProjectError: invalid_command when pdk id or revision is missing; invalid_reference for an unknown PDK or an escaping prefix.
+
+### list_cells
+
+List versioned component cells, optionally for one PDK.
+
+Handler: `rocket_engine.composition.Engine.catalog_cells`.
+
+The engine introspects cell libraries upstream and serves
+plain data (cell, PDK, ports, default params), so the
+frontend never imports gdsfactory.
+
+Arguments:
+
+- `pdk`: Restrict to one PDK label; all entries when omitted.
+
+Returns:
+
+Listing with catalog_version and cells sorted by (pdk, cell).
+
 ### list_docs
 
 List documents, optionally filtered by a path prefix.
@@ -851,6 +902,32 @@ Mapping with project id, head revision, canonical path, content text, and byte s
 Raises:
 
 ProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.
+
+### serve_asset
+
+Serve one PDK file's bytes verbatim with hash identity.
+
+Handler: `rocket_engine.composition.Engine.serve_asset`.
+
+No conversion, no rendering: the sha256 is computed over
+the raw bytes, base64 is transport encoding only.
+
+Arguments:
+
+- `pdk_id`: PDK id (either display spelling resolves).
+- `revision`: PDK revision pin.
+- `path`: Store-relative file path.
+- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.
+
+Returns:
+
+Mapping with asset_version, pdk_id, display_id, revision, canonical path, size, sha256, and the verbatim bytes base64-encoded.
+
+Raises:
+
+ProjectError: invalid_command when pdk id, revision, or path is missing; invalid_reference for an unknown PDK, a missing file, or an escaping path.
+
+Caution: No size cap — bulk reads belong to list_assets plus selective serve_asset calls, never a blind loop.
 
 ## Appendix: envelopes, states, shapes, errors, transports
 

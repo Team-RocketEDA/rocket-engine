@@ -159,8 +159,13 @@ def test_two_writers_one_durable_root_no_lost_update(tmp_path):
     )
     assert follow["current_revision"] == "p14"
     events = human.events_since(0)
-    assert [e["seq"] for e in events] == [1, 2]
-    assert [e["actor"] for e in events] == ["human", "rocket-fuel"]
+    assert [e["seq"] for e in events] == [1, 2, 3, 4]
+    assert [e["actor"] for e in events] == [
+        "human", "human", "rocket-fuel", "rocket-fuel",
+    ]
+    assert [e["event"] for e in events] == [
+        "job_queued", "run_failed", "job_queued", "run_failed",
+    ]
 
 
 class _PassAdapter:
@@ -274,8 +279,10 @@ def test_get_events_since_query_wired_with_cursor_and_resync():
         }
     )
     assert page["project_id"] == PROJECT
-    assert [e["event"] for e in page["events"]] == ["job_queued"]
-    assert page["cursor"] == 1
+    assert [e["event"] for e in page["events"]] == [
+        "job_queued", "run_failed",
+    ]
+    assert page["cursor"] == 2
     empty = engine.submit(
         {
             "project_id": PROJECT,
