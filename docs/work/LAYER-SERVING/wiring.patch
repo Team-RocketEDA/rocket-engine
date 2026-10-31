@@ -1,0 +1,338 @@
+diff -ruN a/src/composition.py b/src/composition.py
+--- a/src/composition.py	2026-10-31 15:55:17.631725353 +0400
++++ b/src/composition.py	2026-10-31 15:55:17.653406471 +0400
+@@ -44,6 +44,12 @@
+ from .adapters.syntax import SyntaxAdapter
+ from .execution.errors import ExecutionError
+ from .execution.service import ExecutionService
++from .interfaces.layer_serving_stackup import (
++    PresetStore,
++    get_stackup,
++    viewer_rows,
++    viewer_rows_for_preset,
++)
+ from .interfaces.setup import report_capabilities
+ from .interfaces.vocabulary import OPERATIONS, QUERIES
+ from .library.catalog import Catalog
+@@ -84,6 +90,12 @@
+     "get_check_results": "check_results",
+     "get_logs": "run_logs",
+     "list_job_kinds": "job_kinds",
++    "get_layer_stackup": "layer_stackup",
++    "get_layer_rows": "layer_rows",
++    "list_layer_presets": "layer_presets",
++    "save_layer_preset": "layer_preset_save",
++    "delete_layer_preset": "layer_preset_delete",
++    "apply_layer_preset": "layer_preset_apply",
+ }
+ 
+ # Job-result queries served from execution state (plus the captured run log).
+@@ -91,6 +103,19 @@
+     {"get_job_status", "get_check_results", "get_logs", "list_job_kinds"}
+ )
+ 
++# Layer-serving queries (LAYER-SERVING): stackup/rows/presets served
++# from the PDK store plus Engine-memory user presets (PresetStore).
++_LAYER_QUERIES = frozenset(
++    {
++        "get_layer_stackup",
++        "get_layer_rows",
++        "list_layer_presets",
++        "save_layer_preset",
++        "delete_layer_preset",
++        "apply_layer_preset",
++    }
++)
++
+ # A get_logs page never dumps more than this many lines at once.
+ _LOG_PAGE_MAX = 200
+ 
+@@ -151,6 +176,7 @@
+             linked_root=linked_root,
+         )
+         self._execution = ExecutionService(project_id)
++        self._layer_presets = PresetStore()
+         self._catalog = Catalog(catalog_root)
+         self._solvers = {
+             "run_drc": {"magic": MagicDrcAdapter(), "klayout": KlayoutDrcAdapter()},
+@@ -257,8 +283,9 @@
+             mapping for get_capabilities, the event page for
+             get_events_since, the project/document listing for
+             the CRUD queries, the status/checks/logs/kinds for
+-            the job-result queries, or the completed mapping for
+-            run_job.
++            the job-result queries, the stackup/rows/presets for
++            the layer-serving queries, or the completed mapping
++            for run_job.
+ 
+         Raises:
+             ProjectError: cross_project_denied for a foreign
+@@ -266,9 +293,10 @@
+                 unknown name, invalid_command for caller-supplied
+                 run_spice targets, revision_conflict for a stale
+                 expected_revision, invalid_command for a malformed
+-                get_events_since cursor, a malformed mutation, or
++                get_events_since cursor, a malformed mutation,
+                 a rewind that lacks a target or targets the live
+-                head, resync_required when a get_events_since
++                head, or a layer query missing its pdk_id/name,
++                resync_required when a get_events_since
+                 contiguity demand cannot be met, invalid_project
+                 for a bad project id, project_exists for a
+                 duplicate create, unknown_document for a missing
+@@ -309,6 +337,8 @@
+             return self._project.read_doc(arguments["path"])
+         if name in _JOB_QUERIES:
+             return self._query_job(name, arguments)
++        if name in _LAYER_QUERIES:
++            return self._query_layer(name, arguments)
+         if name in _WIRED_QUERIES:
+             return self._project.snapshot()
+         if name in QUERIES or name not in OPERATIONS:
+@@ -611,6 +641,235 @@
+             return self.job_kinds()
+         raise ProjectError("unsupported_operation", f"Operation not wired yet: {name}.")
+ 
++    def layer_stackup(self, pdk_id, revision=None, engine_root=None):
++        """Serve one PDK's read-only layer stackup.
++
++        The viewer/3D authority: ordered layers, metal/tech
++        grouping, enabled set, colors, and Z heights parsed from
++        the registered PDK's KLayout tech files (hash-verified
++        through the PDK store).
++
++        Args:
++            pdk_id: Canonical display id (either spelling resolves).
++            revision: Revision pin; the newest registered revision
++                when omitted.
++            engine_root: Explicit store root; resolved when omitted.
++
++        Returns:
++            Stackup record with layers, enabled set, groups, and
++                Z completeness.
++
++        Raises:
++            ProjectError: invalid_command for a missing pdk_id.
++            PdkError: unknown_pdk for a missing store/id/revision
++                or .lyp deck, pdk_drift for a tampered file.
++            LayerServingError: unknown_stackup for a PDK with no
++                stackup mapping.
++        """
++        if not pdk_id:
++            raise ProjectError(
++                "invalid_command", "get_layer_stackup needs a pdk_id argument."
++            )
++        return get_stackup(pdk_id, revision=revision, engine_root=engine_root)
++
++    def layer_rows(self, pdk_id, preset=None, overrides=None, active=None,
++                   revision=None, engine_root=None):
++        """Render viewer rows for one PDK's stackup.
++
++        Row visibility defaults to the PDK flags; an explicit
++        preset applies first, then per-layer overrides, then the
++        active layer.
++
++        Args:
++            pdk_id: Canonical display id (either spelling resolves).
++            preset: Built-in or user preset to apply; PDK defaults
++                when omitted.
++            overrides: Sparse {layer name: visible} wins over the
++                preset map.
++            active: Active layer override; the preset active when
++                omitted.
++            revision: Revision pin; the newest registered revision
++                when omitted.
++            engine_root: Explicit store root; resolved when omitted.
++
++        Returns:
++            Page with stackup_ref, preset, flip, active, and
++                file-order rows.
++
++        Raises:
++            ProjectError: invalid_command for a missing pdk_id.
++            PdkError: unknown_pdk for a missing store/id/revision.
++            LayerServingError: unknown_stackup for an unmapped
++                PDK, unknown_preset for a missing preset,
++                invalid_preset for a stale user preset,
++                invalid_visibility for bad overrides/active.
++        """
++        if not pdk_id:
++            raise ProjectError(
++                "invalid_command", "get_layer_rows needs a pdk_id argument."
++            )
++        stackup = get_stackup(pdk_id, revision=revision, engine_root=engine_root)
++        if preset is None:
++            return viewer_rows(stackup, visibility=overrides, active=active)
++        return viewer_rows_for_preset(
++            self._layer_presets, stackup, preset,
++            overrides=overrides, active=active,
++        )
++
++    def layer_presets(self):
++        """List built-in plus user layer preset names.
++
++        Returns:
++            Mapping with preset name records (name + builtin),
++                built-ins first in pinned order.
++        """
++        return {"presets": self._layer_presets.list_presets()}
++
++    def layer_preset_save(self, pdk_id, name, layers, render_layers=None,
++                          flip=False, active=None, overwrite=False,
++                          revision=None, engine_root=None):
++        """Save a user layer preset against one PDK's stackup.
++
++        Missing layer names default to hidden; apply() resolves
++        the full map.
++
++        Args:
++            pdk_id: Canonical display id (either spelling resolves).
++            name: Preset name (built-in names are reserved).
++            layers: Sparse {layer name: visible} map.
++            render_layers: {toggle: bool} viewer aids; the default
++                set when omitted.
++            flip: View-from-bottom flag.
++            active: Active layer name, or None.
++            overwrite: Replace an existing user preset of the same
++                name instead of conflicting.
++            revision: Revision pin; the newest registered revision
++                when omitted.
++            engine_root: Explicit store root; resolved when omitted.
++
++        Returns:
++            Stored preset record (builtin False).
++
++        Raises:
++            ProjectError: invalid_command for a missing pdk_id.
++            PdkError: unknown_pdk for a missing store/id/revision.
++            LayerServingError: unknown_stackup for an unmapped
++                PDK, invalid_preset for a bad name/shape,
++                preset_conflict for a built-in name or an
++                existing preset without overwrite.
++
++        Caution: View state, not project state: presets live in
++            Engine memory (no revision advance, no ledger event)
++            and are lost on restart until a durable store lands.
++        """
++        if not pdk_id:
++            raise ProjectError(
++                "invalid_command", "save_layer_preset needs a pdk_id argument."
++            )
++        stackup = get_stackup(pdk_id, revision=revision, engine_root=engine_root)
++        return self._layer_presets.save(
++            stackup, name, layers, render_layers=render_layers,
++            flip=flip, active=active, overwrite=overwrite,
++        )
++
++    def layer_preset_delete(self, name):
++        """Delete one user layer preset (built-ins are undeletable).
++
++        Args:
++            name: Preset name to delete.
++
++        Returns:
++            Deletion record with the deleted name.
++
++        Raises:
++            ProjectError: invalid_command for a missing name.
++            LayerServingError: preset_conflict for a built-in
++                name; unknown_preset for a missing user preset.
++
++        Caution: In-memory only: deletes the Engine-memory preset,
++            no revision advance, no ledger event.
++        """
++        if not name:
++            raise ProjectError(
++                "invalid_command", "delete_layer_preset needs a name argument."
++            )
++        return self._layer_presets.delete(name)
++
++    def layer_preset_apply(self, pdk_id, name, revision=None, engine_root=None):
++        """Explicitly apply one layer preset to a Stackup.
++
++        Args:
++            pdk_id: Canonical display id (either spelling resolves).
++            name: Built-in or user preset name.
++            revision: Revision pin; the newest registered revision
++                when omitted.
++            engine_root: Explicit store root; resolved when omitted.
++
++        Returns:
++            Full preset record with the complete layers map,
++                renderLayers, flip, and active.
++
++        Raises:
++            ProjectError: invalid_command for a missing pdk_id
++                or name.
++            PdkError: unknown_pdk for a missing store/id/revision.
++            LayerServingError: unknown_stackup for an unmapped
++                PDK, unknown_preset for a missing preset,
++                invalid_preset for a stale user preset.
++        """
++        if not pdk_id:
++            raise ProjectError(
++                "invalid_command", "apply_layer_preset needs a pdk_id argument."
++            )
++        if not name:
++            raise ProjectError(
++                "invalid_command", "apply_layer_preset needs a name argument."
++            )
++        stackup = get_stackup(pdk_id, revision=revision, engine_root=engine_root)
++        return self._layer_presets.apply(stackup, name)
++
++    def _query_layer(self, name, arguments):
++        """Route a layer-serving query to its Engine reader."""
++        if name == "get_layer_stackup":
++            return self.layer_stackup(
++                arguments.get("pdk_id"),
++                revision=arguments.get("revision"),
++                engine_root=arguments.get("engine_root"),
++            )
++        if name == "get_layer_rows":
++            return self.layer_rows(
++                arguments.get("pdk_id"),
++                preset=arguments.get("preset"),
++                overrides=arguments.get("overrides"),
++                active=arguments.get("active"),
++                revision=arguments.get("revision"),
++                engine_root=arguments.get("engine_root"),
++            )
++        if name == "list_layer_presets":
++            return self.layer_presets()
++        if name == "save_layer_preset":
++            return self.layer_preset_save(
++                arguments.get("pdk_id"),
++                arguments.get("name"),
++                arguments.get("layers"),
++                render_layers=arguments.get("render_layers"),
++                flip=arguments.get("flip", False),
++                active=arguments.get("active"),
++                overwrite=arguments.get("overwrite", False),
++                revision=arguments.get("revision"),
++                engine_root=arguments.get("engine_root"),
++            )
++        if name == "delete_layer_preset":
++            return self.layer_preset_delete(arguments.get("name"))
++        if name == "apply_layer_preset":
++            return self.layer_preset_apply(
++                arguments.get("pdk_id"),
++                arguments.get("name"),
++                revision=arguments.get("revision"),
++                engine_root=arguments.get("engine_root"),
++            )
++        raise ProjectError("unsupported_operation", f"Operation not wired yet: {name}.")
++
+     def _logs_page(self, arguments):
+         run_id = arguments.get("run_id")
+         self._execution.status(run_id)  # unknown runs raise unknown_run
+diff -ruN a/src/interfaces/vocabulary.py b/src/interfaces/vocabulary.py
+--- a/src/interfaces/vocabulary.py	2026-10-31 15:55:17.630786143 +0400
++++ b/src/interfaces/vocabulary.py	2026-10-31 15:55:17.649166145 +0400
+@@ -22,5 +22,7 @@
+         "plan_checks", "get_job_status", "get_check_results",
+         "get_events_since", "list_artifacts", "get_logs",
+         "list_projects", "list_docs", "read_doc",
++        "get_layer_stackup", "get_layer_rows", "list_layer_presets",
++        "save_layer_preset", "delete_layer_preset", "apply_layer_preset",
+     }
+ )

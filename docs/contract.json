@@ -1756,6 +1756,56 @@
       "type": "object",
       "wired": false
     },
+    "apply_layer_preset": {
+      "description": "Explicitly apply one layer preset to a Stackup.",
+      "handlers": [
+        "rocket_engine.composition.Engine.layer_preset_apply"
+      ],
+      "kind": "query",
+      "name": "apply_layer_preset",
+      "properties": {
+        "engine_root": {
+          "description": "Explicit store root; resolved when omitted."
+        },
+        "name": {
+          "description": "Built-in or user preset name."
+        },
+        "pdk_id": {
+          "description": "Canonical display id (either spelling resolves)."
+        },
+        "revision": {
+          "description": "Revision pin; the newest registered revision when omitted."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing pdk_id or name. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, unknown_preset for a missing preset, invalid_preset for a stale user preset.",
+      "required": [
+        "pdk_id",
+        "name"
+      ],
+      "returns": "Full preset record with the complete layers map, renderLayers, flip, and active.",
+      "type": "object",
+      "wired": true
+    },
+    "delete_layer_preset": {
+      "description": "Delete one user layer preset (built-ins are undeletable).",
+      "handlers": [
+        "rocket_engine.composition.Engine.layer_preset_delete"
+      ],
+      "kind": "query",
+      "name": "delete_layer_preset",
+      "properties": {
+        "name": {
+          "description": "Preset name to delete."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing name. LayerServingError: preset_conflict for a built-in name; unknown_preset for a missing user preset.",
+      "required": [
+        "name"
+      ],
+      "returns": "Deletion record with the deleted name.",
+      "type": "object",
+      "wired": true
+    },
     "get_capabilities": {
       "description": "Report per-solver availability, store state, and the provision menu.",
       "handlers": [
@@ -1831,6 +1881,67 @@
       "raises": "ExecutionError: unknown_run for an unregistered id.",
       "required": [],
       "returns": "Run state mapping with state, verdict, and log links.",
+      "type": "object",
+      "wired": true
+    },
+    "get_layer_rows": {
+      "description": "Render viewer rows for one PDK's stackup.",
+      "handlers": [
+        "rocket_engine.composition.Engine.layer_rows"
+      ],
+      "kind": "query",
+      "name": "get_layer_rows",
+      "properties": {
+        "active": {
+          "description": "Active layer override; the preset active when omitted."
+        },
+        "engine_root": {
+          "description": "Explicit store root; resolved when omitted."
+        },
+        "overrides": {
+          "description": "Sparse {layer name: visible} wins over the preset map."
+        },
+        "pdk_id": {
+          "description": "Canonical display id (either spelling resolves)."
+        },
+        "preset": {
+          "description": "Built-in or user preset to apply; PDK defaults when omitted."
+        },
+        "revision": {
+          "description": "Revision pin; the newest registered revision when omitted."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, unknown_preset for a missing preset, invalid_preset for a stale user preset, invalid_visibility for bad overrides/active.",
+      "required": [
+        "pdk_id"
+      ],
+      "returns": "Page with stackup_ref, preset, flip, active, and file-order rows.",
+      "type": "object",
+      "wired": true
+    },
+    "get_layer_stackup": {
+      "description": "Serve one PDK's read-only layer stackup.",
+      "handlers": [
+        "rocket_engine.composition.Engine.layer_stackup"
+      ],
+      "kind": "query",
+      "name": "get_layer_stackup",
+      "properties": {
+        "engine_root": {
+          "description": "Explicit store root; resolved when omitted."
+        },
+        "pdk_id": {
+          "description": "Canonical display id (either spelling resolves)."
+        },
+        "revision": {
+          "description": "Revision pin; the newest registered revision when omitted."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision or .lyp deck, pdk_drift for a tampered file. LayerServingError: unknown_stackup for a PDK with no stackup mapping.",
+      "required": [
+        "pdk_id"
+      ],
+      "returns": "Stackup record with layers, enabled set, groups, and Z completeness.",
       "type": "object",
       "wired": true
     },
@@ -1995,6 +2106,20 @@
       "type": "object",
       "wired": true
     },
+    "list_layer_presets": {
+      "description": "List built-in plus user layer preset names.",
+      "handlers": [
+        "rocket_engine.composition.Engine.layer_presets"
+      ],
+      "kind": "query",
+      "name": "list_layer_presets",
+      "properties": {},
+      "raises": "",
+      "required": [],
+      "returns": "Mapping with preset name records (name + builtin), built-ins first in pinned order.",
+      "type": "object",
+      "wired": true
+    },
     "list_projects": {
       "description": "List projects under the engine root, bound always included.",
       "handlers": [
@@ -2060,6 +2185,52 @@
       "type": "object",
       "wired": true
     },
+    "save_layer_preset": {
+      "description": "Save a user layer preset against one PDK's stackup.",
+      "handlers": [
+        "rocket_engine.composition.Engine.layer_preset_save"
+      ],
+      "kind": "query",
+      "name": "save_layer_preset",
+      "properties": {
+        "active": {
+          "description": "Active layer name, or None."
+        },
+        "engine_root": {
+          "description": "Explicit store root; resolved when omitted."
+        },
+        "flip": {
+          "description": "View-from-bottom flag."
+        },
+        "layers": {
+          "description": "Sparse {layer name: visible} map."
+        },
+        "name": {
+          "description": "Preset name (built-in names are reserved)."
+        },
+        "overwrite": {
+          "description": "Replace an existing user preset of the same name instead of conflicting."
+        },
+        "pdk_id": {
+          "description": "Canonical display id (either spelling resolves)."
+        },
+        "render_layers": {
+          "description": "{toggle: bool} viewer aids; the default set when omitted."
+        },
+        "revision": {
+          "description": "Revision pin; the newest registered revision when omitted."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, invalid_preset for a bad name/shape, preset_conflict for a built-in name or an existing preset without overwrite.",
+      "required": [
+        "pdk_id",
+        "name",
+        "layers"
+      ],
+      "returns": "Stored preset record (builtin False).",
+      "type": "object",
+      "wired": true
+    },
     "serve_asset": {
       "description": "Serve one PDK file's bytes verbatim with hash identity.",
       "handlers": [
@@ -2088,7 +2259,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "c3c7999db2c8778cbb2136ba3e89d6d918a75ef21277bc640803dd437efb2b62",
+  "schema_sha256": "7bf55cf3f14dfd29636e4b147770496d22a05030f660fb07809bdb0eca624c8a",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

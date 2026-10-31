@@ -24,5 +24,7 @@ QUERIES = frozenset(
         "list_projects", "list_docs", "read_doc",
         "list_cells", "serve_asset", "list_assets",
         "read_settings", "get_resolved_config",
+        "get_layer_stackup", "get_layer_rows", "list_layer_presets",
+        "save_layer_preset", "delete_layer_preset", "apply_layer_preset",
     }
 )

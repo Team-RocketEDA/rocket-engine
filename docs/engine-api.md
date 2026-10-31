@@ -59,10 +59,14 @@ text, identical to the section bodies below.
 | `api_help` | no | — | Declared query `api_help`; no handler wired yet. |
 | `api_info` | no | — | Declared query `api_info`; no handler wired yet. |
 | `api_search` | no | — | Declared query `api_search`; no handler wired yet. |
+| `apply_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_apply` | Explicitly apply one layer preset to a Stackup. |
+| `delete_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_delete` | Delete one user layer preset (built-ins are undeletable). |
 | `get_capabilities` | yes | `rocket_engine.composition.Engine.capabilities` | Report per-solver availability, store state, and the provision menu. |
 | `get_check_results` | yes | `rocket_engine.composition.Engine.check_results` | Read the latest check verdict per operation. |
 | `get_events_since` | yes | `rocket_engine.project.service.ProjectService.events_since` | Read retained events after a cursor, oldest first. |
 | `get_job_status` | yes | `rocket_engine.composition.Engine.job_status` | Read one run's state, verdict, and evidence links. |
+| `get_layer_rows` | yes | `rocket_engine.composition.Engine.layer_rows` | Render viewer rows for one PDK's stackup. |
+| `get_layer_stackup` | yes | `rocket_engine.composition.Engine.layer_stackup` | Serve one PDK's read-only layer stackup. |
 | `get_logs` | yes | `rocket_engine.composition.Engine.run_logs` | Search and page one run's captured native log. |
 | `get_project_snapshot` | yes | `rocket_engine.project.service.ProjectService.snapshot` | Read the ledger head: project, revision, and event cursor. |
 | `get_python_console` | no | — | Declared query `get_python_console`; no handler wired yet. |
@@ -72,10 +76,12 @@ text, identical to the section bodies below.
 | `list_cells` | yes | `rocket_engine.composition.Engine.catalog_cells` | List versioned component cells, optionally for one PDK. |
 | `list_docs` | yes | `rocket_engine.project.service.ProjectService.list_docs` | List documents, optionally filtered by a path prefix. |
 | `list_job_kinds` | yes | `rocket_engine.composition.Engine.job_kinds` | List registered operations with their deck tools. |
+| `list_layer_presets` | yes | `rocket_engine.composition.Engine.layer_presets` | List built-in plus user layer preset names. |
 | `list_projects` | yes | `rocket_engine.project.service.ProjectService.list_projects` | List projects under the engine root, bound always included. |
 | `plan_checks` | no | — | Declared query `plan_checks`; no handler wired yet. |
 | `read_doc` | yes | `rocket_engine.project.service.ProjectService.read_doc` | Read one document as text at the current head. |
 | `read_settings` | yes | `rocket_engine.project.service.ProjectService.read_settings` | Read one settings kind at the current head. |
+| `save_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_save` | Save a user layer preset against one PDK's stackup. |
 | `serve_asset` | yes | `rocket_engine.composition.Engine.serve_asset` | Serve one PDK file's bytes verbatim with hash identity. |
 
 ## Operation reference
@@ -755,6 +761,47 @@ Declared query `api_search`; no handler wired yet.
 
 `Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
 
+### apply_layer_preset
+
+Explicitly apply one layer preset to a Stackup.
+
+Handler: `rocket_engine.composition.Engine.layer_preset_apply`.
+
+Arguments:
+
+- `pdk_id` (required): Canonical display id (either spelling resolves).
+- `name` (required): Built-in or user preset name.
+- `revision`: Revision pin; the newest registered revision when omitted.
+- `engine_root`: Explicit store root; resolved when omitted.
+
+Returns:
+
+Full preset record with the complete layers map, renderLayers, flip, and active.
+
+Raises:
+
+ProjectError: invalid_command for a missing pdk_id or name. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, unknown_preset for a missing preset, invalid_preset for a stale user preset.
+
+### delete_layer_preset
+
+Delete one user layer preset (built-ins are undeletable).
+
+Handler: `rocket_engine.composition.Engine.layer_preset_delete`.
+
+Arguments:
+
+- `name` (required): Preset name to delete.
+
+Returns:
+
+Deletion record with the deleted name.
+
+Raises:
+
+ProjectError: invalid_command for a missing name. LayerServingError: preset_conflict for a built-in name; unknown_preset for a missing user preset.
+
+Caution: In-memory only: deletes the Engine-memory preset, no revision advance, no ledger event.
+
 ### get_capabilities
 
 Report per-solver availability, store state, and the provision menu.
@@ -839,6 +886,58 @@ Run state mapping with state, verdict, and log links.
 Raises:
 
 ExecutionError: unknown_run for an unregistered id.
+
+### get_layer_rows
+
+Render viewer rows for one PDK's stackup.
+
+Handler: `rocket_engine.composition.Engine.layer_rows`.
+
+Row visibility defaults to the PDK flags; an explicit
+preset applies first, then per-layer overrides, then the
+active layer.
+
+Arguments:
+
+- `pdk_id` (required): Canonical display id (either spelling resolves).
+- `preset`: Built-in or user preset to apply; PDK defaults when omitted.
+- `overrides`: Sparse {layer name: visible} wins over the preset map.
+- `active`: Active layer override; the preset active when omitted.
+- `revision`: Revision pin; the newest registered revision when omitted.
+- `engine_root`: Explicit store root; resolved when omitted.
+
+Returns:
+
+Page with stackup_ref, preset, flip, active, and file-order rows.
+
+Raises:
+
+ProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, unknown_preset for a missing preset, invalid_preset for a stale user preset, invalid_visibility for bad overrides/active.
+
+### get_layer_stackup
+
+Serve one PDK's read-only layer stackup.
+
+Handler: `rocket_engine.composition.Engine.layer_stackup`.
+
+The viewer/3D authority: ordered layers, metal/tech
+grouping, enabled set, colors, and Z heights parsed from
+the registered PDK's KLayout tech files (hash-verified
+through the PDK store).
+
+Arguments:
+
+- `pdk_id` (required): Canonical display id (either spelling resolves).
+- `revision`: Revision pin; the newest registered revision when omitted.
+- `engine_root`: Explicit store root; resolved when omitted.
+
+Returns:
+
+Stackup record with layers, enabled set, groups, and Z completeness.
+
+Raises:
+
+ProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision or .lyp deck, pdk_drift for a tampered file. LayerServingError: unknown_stackup for a PDK with no stackup mapping.
 
 ### get_logs
 
@@ -982,6 +1081,20 @@ Returns:
 
 Mapping of job kinds with operation names and the tool keys each accepts.
 
+### list_layer_presets
+
+List built-in plus user layer preset names.
+
+Handler: `rocket_engine.composition.Engine.layer_presets`.
+
+Arguments:
+
+- _(none)_
+
+Returns:
+
+Mapping with preset name records (name + builtin), built-ins first in pinned order.
+
 ### list_projects
 
 List projects under the engine root, bound always included.
@@ -1052,6 +1165,37 @@ Mapping with project id, head revision, kind, stored flag, version, and the sett
 Raises:
 
 ProjectError: invalid_command for an unknown kind or stored settings that break the kind schema; invalid_document for stored settings that do not parse; future_format for a file newer than the head; missing_migration when no link covers the stored version.
+
+### save_layer_preset
+
+Save a user layer preset against one PDK's stackup.
+
+Handler: `rocket_engine.composition.Engine.layer_preset_save`.
+
+Missing layer names default to hidden; apply() resolves
+the full map.
+
+Arguments:
+
+- `pdk_id` (required): Canonical display id (either spelling resolves).
+- `name` (required): Preset name (built-in names are reserved).
+- `layers` (required): Sparse {layer name: visible} map.
+- `render_layers`: {toggle: bool} viewer aids; the default set when omitted.
+- `flip`: View-from-bottom flag.
+- `active`: Active layer name, or None.
+- `overwrite`: Replace an existing user preset of the same name instead of conflicting.
+- `revision`: Revision pin; the newest registered revision when omitted.
+- `engine_root`: Explicit store root; resolved when omitted.
+
+Returns:
+
+Stored preset record (builtin False).
+
+Raises:
+
+ProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, invalid_preset for a bad name/shape, preset_conflict for a built-in name or an existing preset without overwrite.
+
+Caution: View state, not project state: presets live in Engine memory (no revision advance, no ledger event) and are lost on restart until a durable store lands.
 
 ### serve_asset
 

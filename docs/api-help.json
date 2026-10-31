@@ -17,6 +17,12 @@
     "text": "Declared query `api_search`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
     "wired": false
   },
+  "apply_layer_preset": {
+    "kind": "query",
+    "summary": "Explicitly apply one layer preset to a Stackup.",
+    "text": "Explicitly apply one layer preset to a Stackup.\n\nHandler: `rocket_engine.composition.Engine.layer_preset_apply`.\n\nArguments:\n\n- `pdk_id` (required): Canonical display id (either spelling resolves).\n- `name` (required): Built-in or user preset name.\n- `revision`: Revision pin; the newest registered revision when omitted.\n- `engine_root`: Explicit store root; resolved when omitted.\n\nReturns:\n\nFull preset record with the complete layers map, renderLayers, flip, and active.\n\nRaises:\n\nProjectError: invalid_command for a missing pdk_id or name. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, unknown_preset for a missing preset, invalid_preset for a stale user preset.\n",
+    "wired": true
+  },
   "apply_mutations": {
     "kind": "operation",
     "summary": "Apply a batch atomically under one new revision (I31).",
@@ -33,6 +39,12 @@
     "kind": "operation",
     "summary": "Delete one document: gate, remove, advance, log.",
     "text": "Delete one document: gate, remove, advance, log.\n\nHandler: `rocket_engine.project.service.ProjectService.delete_doc`.\n\nArguments:\n\n- `path` (required): Document path to delete.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; revision_conflict for a stale head; invalid_ledger when the durable delete fails.\n\nCaution: Deleting advances the revision like any mutation \u2014 stale writers fail instead of merging.\n",
+    "wired": true
+  },
+  "delete_layer_preset": {
+    "kind": "query",
+    "summary": "Delete one user layer preset (built-ins are undeletable).",
+    "text": "Delete one user layer preset (built-ins are undeletable).\n\nHandler: `rocket_engine.composition.Engine.layer_preset_delete`.\n\nArguments:\n\n- `name` (required): Preset name to delete.\n\nReturns:\n\nDeletion record with the deleted name.\n\nRaises:\n\nProjectError: invalid_command for a missing name. LayerServingError: preset_conflict for a built-in name; unknown_preset for a missing user preset.\n\nCaution: In-memory only: deletes the Engine-memory preset, no revision advance, no ledger event.\n",
     "wired": true
   },
   "generate_views": {
@@ -63,6 +75,18 @@
     "kind": "query",
     "summary": "Read one run's state, verdict, and evidence links.",
     "text": "Read one run's state, verdict, and evidence links.\n\nHandler: `rocket_engine.composition.Engine.job_status`.\n\nArguments:\n\n- `run_id`: Run to inspect (the submit-ack id, shared with the execution record).\n\nReturns:\n\nRun state mapping with state, verdict, and log links.\n\nRaises:\n\nExecutionError: unknown_run for an unregistered id.\n",
+    "wired": true
+  },
+  "get_layer_rows": {
+    "kind": "query",
+    "summary": "Render viewer rows for one PDK's stackup.",
+    "text": "Render viewer rows for one PDK's stackup.\n\nHandler: `rocket_engine.composition.Engine.layer_rows`.\n\nRow visibility defaults to the PDK flags; an explicit\npreset applies first, then per-layer overrides, then the\nactive layer.\n\nArguments:\n\n- `pdk_id` (required): Canonical display id (either spelling resolves).\n- `preset`: Built-in or user preset to apply; PDK defaults when omitted.\n- `overrides`: Sparse {layer name: visible} wins over the preset map.\n- `active`: Active layer override; the preset active when omitted.\n- `revision`: Revision pin; the newest registered revision when omitted.\n- `engine_root`: Explicit store root; resolved when omitted.\n\nReturns:\n\nPage with stackup_ref, preset, flip, active, and file-order rows.\n\nRaises:\n\nProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, unknown_preset for a missing preset, invalid_preset for a stale user preset, invalid_visibility for bad overrides/active.\n",
+    "wired": true
+  },
+  "get_layer_stackup": {
+    "kind": "query",
+    "summary": "Serve one PDK's read-only layer stackup.",
+    "text": "Serve one PDK's read-only layer stackup.\n\nHandler: `rocket_engine.composition.Engine.layer_stackup`.\n\nThe viewer/3D authority: ordered layers, metal/tech\ngrouping, enabled set, colors, and Z heights parsed from\nthe registered PDK's KLayout tech files (hash-verified\nthrough the PDK store).\n\nArguments:\n\n- `pdk_id` (required): Canonical display id (either spelling resolves).\n- `revision`: Revision pin; the newest registered revision when omitted.\n- `engine_root`: Explicit store root; resolved when omitted.\n\nReturns:\n\nStackup record with layers, enabled set, groups, and Z completeness.\n\nRaises:\n\nProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision or .lyp deck, pdk_drift for a tampered file. LayerServingError: unknown_stackup for a PDK with no stackup mapping.\n",
     "wired": true
   },
   "get_logs": {
@@ -117,6 +141,12 @@
     "kind": "query",
     "summary": "List registered operations with their deck tools.",
     "text": "List registered operations with their deck tools.\n\nHandler: `rocket_engine.composition.Engine.job_kinds`.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping of job kinds with operation names and the tool keys each accepts.\n",
+    "wired": true
+  },
+  "list_layer_presets": {
+    "kind": "query",
+    "summary": "List built-in plus user layer preset names.",
+    "text": "List built-in plus user layer preset names.\n\nHandler: `rocket_engine.composition.Engine.layer_presets`.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping with preset name records (name + builtin), built-ins first in pinned order.\n",
     "wired": true
   },
   "list_projects": {
@@ -262,6 +292,12 @@
     "summary": "Declared operation `run_view_sync`; no handler wired yet.",
     "text": "Declared operation `run_view_sync`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
     "wired": false
+  },
+  "save_layer_preset": {
+    "kind": "query",
+    "summary": "Save a user layer preset against one PDK's stackup.",
+    "text": "Save a user layer preset against one PDK's stackup.\n\nHandler: `rocket_engine.composition.Engine.layer_preset_save`.\n\nMissing layer names default to hidden; apply() resolves\nthe full map.\n\nArguments:\n\n- `pdk_id` (required): Canonical display id (either spelling resolves).\n- `name` (required): Preset name (built-in names are reserved).\n- `layers` (required): Sparse {layer name: visible} map.\n- `render_layers`: {toggle: bool} viewer aids; the default set when omitted.\n- `flip`: View-from-bottom flag.\n- `active`: Active layer name, or None.\n- `overwrite`: Replace an existing user preset of the same name instead of conflicting.\n- `revision`: Revision pin; the newest registered revision when omitted.\n- `engine_root`: Explicit store root; resolved when omitted.\n\nReturns:\n\nStored preset record (builtin False).\n\nRaises:\n\nProjectError: invalid_command for a missing pdk_id. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, invalid_preset for a bad name/shape, preset_conflict for a built-in name or an existing preset without overwrite.\n\nCaution: View state, not project state: presets live in Engine memory (no revision advance, no ledger event) and are lost on restart until a durable store lands.\n",
+    "wired": true
   },
   "serve_asset": {
     "kind": "query",

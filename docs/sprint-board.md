@@ -24,7 +24,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
 
-- [LAYER-SERVING] Layer stackup + preset serving for viewer + 3D
 - [PYTHON-EXEC] Python execution API (inline lines + project script files)
 - [ENGINE-ECS] Entity store + component CRUD + addressing + events
 - [WIRE-PLACE] Wire/junction entities + connect ops + stable net IDs
@@ -104,3 +103,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CELL-LINK] Symbol↔cell linkage contract (CellLink component + resolvePin)
 - [SETTINGS-STORE] Engine settings store (design truth + migration mechanics)
 - [CONNECT-GRAPH] Shared connectivity extraction + raw-IR emitters
+- [LAYER-SERVING] Layer stackup + preset serving for viewer + 3D
