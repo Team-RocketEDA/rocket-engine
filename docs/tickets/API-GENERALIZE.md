@@ -50,3 +50,15 @@ below closes a divergence vector.
 - New scope: pool/drain/backpressure + catalogue/place_cell
   + raw serving. Kill-and-reboot acceptance stays (needs
   pool, not just log).
+
+## Field notes (2026-11-01): submit executes immediately
+
+Queue-by-default is rejected: `submit()` now executes the job
+immediately (inline, same `run_id` ack shape, same verdict
+payload). `run_job` stays for explicit/deferred/batch pumping
+plus idempotent result fetch. Rationale: a headless engine
+that parks work until someone remembers a second call is a
+scheduler, not an engine — running is the default, queueing
+the opt-in. Keep the ack shape stable; fuel harness already
+runs queued jobs before replying, so this tightens rather
+than breaks the agent path.
