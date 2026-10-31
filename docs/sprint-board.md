@@ -95,6 +95,10 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SYNTH-YOSYS] run_synth via oss-cad-suite Yosys (RTL to mapped netlist)
 - [FORMAL-SBY] run_formal via sby (bounded proof, honestly reported)
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
+- [POSTLAYOUT] run_post_layout via ngspice on extracted netlists
+- [PHOTONIC-WIRE] Wire proven photonic solvers to engine ops
+- [VIEW-SYNC] run_view_sync (intended vs extracted comparison)
+- [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
