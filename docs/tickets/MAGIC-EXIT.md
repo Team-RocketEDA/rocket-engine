@@ -54,3 +54,11 @@ on evidence, not vibes.
   IF a specific Magic-Tcl flow must be preserved mid-exit.
 - **Harness upskilling with skills:** parked for a later
   session (fuel-side); not part of this ticket.
+- **FasterCap evaluated 2026-11-01, parked:** field solver
+  only (capacitance matrix from pre-assigned conductor
+  surfaces) — it refines coupling caps but cannot do
+  connectivity/device-recognition/netlisting, so it does
+  NOT replace Magic. Optional stage-2 refiner after a
+  KLayout-shaped exit, never the exit itself. License
+  (research-distribution, non-OSI) needs checking before
+  it goes near the tree.
