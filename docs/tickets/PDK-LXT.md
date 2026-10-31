@@ -27,3 +27,18 @@ register, `resolve_deck` hash-pins it).
 
 - Proofs green; gated-deck flow honest (no deck → loud
   unavailability naming the fetch recipe, never fake-green).
+
+## Field notes (2026-11-01)
+
+- Canonical source confirmed: `github.com/Luxtelligence/
+  lxt_pdk_gf` (+ docs `luxtelligence.github.io/lxt_pdk_gf/`),
+  cloned shallow to `/tmp/pdk-sources/lxt` (6.9M). Two
+  variants: `lnoi400` (LiNbO3) + `ltoi300` (LiTaO3), each
+  with cells, compact models, sample notebooks, and
+  `klayout/*.lyp`.
+- Install per upstream docs: `pip install -e .` + `python
+  install_tech.py` (Python 3.12), restart KLayout.
+- DRC gate confirmed: `.lydrc` runsets live behind
+  `resources.luxtelligence.ai/request-access?resource=drc`
+  (request-a-download, not in the repo) — the ticket's
+  gated-deck acceptance stands as written.
