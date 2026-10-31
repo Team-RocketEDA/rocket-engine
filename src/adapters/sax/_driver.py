@@ -1,8 +1,9 @@
 """Staged SAX sim driver: job JSON in, result envelope JSON on stdout.
 
 The adapter copies this file into the run workdir next to `sax_job.json`
-and executes `python sax_driver.py sax_job.json`. Exactly one JSON
-document is printed to stdout; sax warnings go to stderr untouched.
+and executes `python sax_driver.py sax_job.json`. One marked JSON
+envelope is printed to stdout (ROCKETEDA_ENVELOPE_BEGIN/END);
+chatter outside the markers is tolerated and stays in logs.
 
 Envelope: `{"ok": true, "sax_version, "result": {wavelength_nm[],
 transmission{"a>b": []}, ports[]}}` or `{"ok": false, "error":
@@ -15,6 +16,9 @@ runner_unavailable rather than mistaking a tool crash for physics.
 import json
 import re
 import sys
+
+_ENVELOPE_BEGIN = "ROCKETEDA_ENVELOPE_BEGIN"
+_ENVELOPE_END = "ROCKETEDA_ENVELOPE_END"
 
 _QUOTED_RE = re.compile(r"""['\"]([^'\"]+)['\"]""")
 
@@ -51,6 +55,7 @@ def _find_line(text, token):
 
 
 def _fail(code, message, token, line):
+    print(_ENVELOPE_BEGIN)
     print(
         json.dumps(
             {
@@ -64,6 +69,7 @@ def _fail(code, message, token, line):
             }
         )
     )
+    print(_ENVELOPE_END)
 
 
 def main(argv):
@@ -120,6 +126,7 @@ def main(argv):
         token = _token(doc, message)
         _fail("invalid_circuit", message, token, _find_line(text, token))
         return 2
+    print(_ENVELOPE_BEGIN)
     print(
         json.dumps(
             {
@@ -133,6 +140,7 @@ def main(argv):
             }
         )
     )
+    print(_ENVELOPE_END)
     return 0
 
 

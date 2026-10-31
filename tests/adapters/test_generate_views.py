@@ -500,8 +500,10 @@ def test_generate_views_driver_reports_missing_solver_loudly(tmp_path):
         text=True,
         timeout=120,
     )
+    from rocket_engine.adapters.envelope import extract_envelope
+
     assert proc.returncode == 3
-    envelope = json.loads(proc.stdout)
+    envelope = extract_envelope(proc.stdout, tool="views")
     assert envelope["ok"] is False
     assert envelope["error"]["code"] == "missing_dependency"
 

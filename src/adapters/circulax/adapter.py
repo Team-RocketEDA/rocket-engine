@@ -42,6 +42,10 @@ try:
 except ImportError:
     from rocket_engine.interfaces import ToolAdapter
 try:
+    from ..envelope import extract_envelope
+except ImportError:
+    from rocket_engine.adapters.envelope import extract_envelope
+try:
     from ..errors import AdapterError
 except ImportError:
     from rocket_engine.adapters.errors import AdapterError
@@ -393,20 +397,9 @@ class CirculaxAdapter(ToolAdapter):
                 driver printed no JSON envelope or no result.
         """
         spec = native_output.get("spec", "")
-        try:
-            envelope = json.loads(native_output.get("stdout", ""))
-        except (TypeError, ValueError):
-            raise AdapterError(
-                "runner_unavailable",
-                "circulax driver printed no JSON envelope.",
-            ) from None
-        if not isinstance(envelope, dict) or not isinstance(
-            envelope.get("ok"), bool
-        ):
-            raise AdapterError(
-                "runner_unavailable",
-                "circulax driver printed no JSON envelope.",
-            )
+        envelope = extract_envelope(
+            native_output.get("stdout", ""), tool="circulax"
+        )
         if not envelope["ok"]:
             error = envelope.get("error") or {}
             code = error.get("code")

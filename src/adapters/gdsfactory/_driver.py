@@ -2,8 +2,9 @@
 
 The adapter copies this file into the run workdir next to
 `gf_views_job.json` and executes `python gf_views_driver.py
-gf_views_job.json`. Exactly one JSON document is printed to stdout;
-solver warnings go to stderr untouched.
+gf_views_job.json`. One marker-delimited JSON envelope is printed to stdout
+(ROCKETEDA_ENVELOPE_BEGIN/END); chatter outside the markers is
+tolerated and stays in logs.
 
 Every recipe consumes project inputs from the job: view-spec cells +
 params, project GDS paths, and the optional project pin map. Nothing
@@ -23,6 +24,9 @@ import json
 import sys
 from pathlib import Path
 
+_ENVELOPE_BEGIN = "ROCKETEDA_ENVELOPE_BEGIN"
+_ENVELOPE_END = "ROCKETEDA_ENVELOPE_END"
+
 _BOUNDARY_NOTE = (
     "GDS import alone does not reconstruct macro pins/obstructions "
     "(PRD boundary note); bind a project pin_map to publish them."
@@ -34,6 +38,7 @@ _BUILD_NOTE = (
 
 
 def _fail(code, message, token, line):
+    print(_ENVELOPE_BEGIN)
     print(
         json.dumps(
             {
@@ -47,6 +52,7 @@ def _fail(code, message, token, line):
             }
         )
     )
+    print(_ENVELOPE_END)
 
 
 def _find_line(text, token):
@@ -410,6 +416,7 @@ def main(argv):
         _fail("unsupported_format", str(exc), recipe,
               _find_line(text, recipe))
         return 2
+    print(_ENVELOPE_BEGIN)
     print(
         json.dumps(
             {
@@ -431,6 +438,7 @@ def main(argv):
             }
         )
     )
+    print(_ENVELOPE_END)
     return 0
 
 

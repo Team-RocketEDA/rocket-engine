@@ -33,7 +33,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [FORMAL-EDGE] Vacuity guard + ifdef-aware property sites
 - [LVS-ESCAPE] Bulk-rename mutant escapes LVS 3/3 seeds
 - [EXTRACT-GDS] run_extraction must accept GDS, not .mag-only
-- [ADAPTER-PARSE-HARDEN] Envelope parsing for sax/circulax/gdsfactory
 - [SETUP-HONESTY] No false-ready probes, fresh tests, capable readiness
 - [MIXED-TOP-TRIAGE] m4.5ab DRC, deck-mode cell arg, xschem top-LVS
 - [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
@@ -131,3 +130,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
 - [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
 - [MEOW-STDOUT] Harden run_em envelope against solver chatter
+- [ADAPTER-PARSE-HARDEN] Envelope parsing for sax/circulax/gdsfactory

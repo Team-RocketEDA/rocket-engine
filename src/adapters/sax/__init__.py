@@ -24,6 +24,7 @@ from ruamel.yaml import YAML
 from ...execution.errors import ExecutionError
 from ...execution.runner import tool_roots
 from ...interfaces import ToolAdapter
+from ..envelope import extract_envelope
 from ..errors import AdapterError
 
 OPERATION = "run_optical"
@@ -362,18 +363,9 @@ class SaxAdapter(ToolAdapter):
                 target pair.
         """
         spec = native_output.get("spec", "")
-        try:
-            envelope = json.loads(native_output.get("stdout", ""))
-        except (TypeError, ValueError):
-            raise AdapterError(
-                "runner_unavailable", "sax driver printed no JSON envelope."
-            ) from None
-        if not isinstance(envelope, dict) or not isinstance(
-            envelope.get("ok"), bool
-        ):
-            raise AdapterError(
-                "runner_unavailable", "sax driver printed no JSON envelope."
-            )
+        envelope = extract_envelope(
+            native_output.get("stdout", ""), tool="sax"
+        )
         if not envelope["ok"]:
             error = envelope.get("error") or {}
             code = error.get("code")

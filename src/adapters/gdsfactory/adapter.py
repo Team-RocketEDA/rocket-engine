@@ -43,6 +43,10 @@ try:
 except ImportError:
     from rocket_engine.interfaces import ToolAdapter
 try:
+    from ..envelope import extract_envelope
+except ImportError:
+    from rocket_engine.adapters.envelope import extract_envelope
+try:
     from ..errors import AdapterError
 except ImportError:
     from rocket_engine.adapters.errors import AdapterError
@@ -451,20 +455,9 @@ class GdsfactoryViewsAdapter(ToolAdapter):
         if not spec:
             sources = native_output.get("sources") or []
             spec = sources[0] if sources else ""
-        try:
-            envelope = json.loads(native_output.get("stdout", ""))
-        except (TypeError, ValueError):
-            raise AdapterError(
-                "runner_unavailable",
-                "views driver printed no JSON envelope.",
-            ) from None
-        if not isinstance(envelope, dict) or not isinstance(
-            envelope.get("ok"), bool
-        ):
-            raise AdapterError(
-                "runner_unavailable",
-                "views driver printed no JSON envelope.",
-            )
+        envelope = extract_envelope(
+            native_output.get("stdout", ""), tool="views"
+        )
         if not envelope["ok"]:
             error = envelope.get("error") or {}
             code = error.get("code")
