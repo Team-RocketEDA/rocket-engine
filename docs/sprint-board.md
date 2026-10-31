@@ -20,7 +20,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [PDK-VTT] VTT 3um SOI support (verify upstream first)
-- [PDK-ASAP7] ASAP7 predictive 7nm support (spike enablement first)
 - [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
@@ -101,3 +100,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-UBC] SiEPIC EBeam UBC support
 - [PDK-LXT] Luxelligence GF support (TFLN + gated DRC deck)
 - [PDK-SKY130GF] SkyWater pip distribution (decision + profile)
+- [PDK-ASAP7] ASAP7 predictive 7nm support (spike enablement first)
