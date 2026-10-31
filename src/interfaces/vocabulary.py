@@ -10,7 +10,8 @@ OPERATIONS = frozenset(
         "run_connectivity", "run_drc", "run_lvs", "run_erc", "run_spice",
         "run_optical", "run_digital_flow", "run_timing", "run_extraction",
         "run_post_layout", "run_em", "run_thermal", "python_execute",
-        "run_view_sync",
+        "run_view_sync", "run_job",
+        "create_project", "write_doc", "delete_doc", "apply_mutations",
     }
 )
 QUERIES = frozenset(
@@ -18,6 +19,7 @@ QUERIES = frozenset(
         "api_search", "api_info", "api_help", "get_python_console",
         "get_capabilities", "get_project_snapshot", "list_job_kinds",
         "plan_checks", "get_job_status", "get_check_results",
-        "list_artifacts", "get_logs",
+        "get_events_since", "list_artifacts", "get_logs",
+        "list_projects", "list_docs", "read_doc",
     }
 )

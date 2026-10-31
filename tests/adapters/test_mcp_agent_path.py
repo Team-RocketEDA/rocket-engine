@@ -2,7 +2,8 @@
 
 Uses the real Engine with a stand-in run_spice solver whose execute()
 fakes ngspice output; verdicts come from the real NgspiceAdapter.parse().
-Valid RED = Engine has no drain()/wired queries/constraints, and the MCP
+Runs are two-phase: submit admits, run_job executes and returns the
+verdict. Valid RED = no wired run queries/constraints/logs, and the MCP
 server neither binds a project nor describes tool arguments.
 """
 
@@ -57,14 +58,18 @@ def _query(engine, name, **arguments):
     return engine.submit({"project_id": PROJECT, "operation": name, "arguments": arguments})
 
 
-def test_submitted_job_runs_under_the_same_run_id():
+def _run(engine, ack):
+    return engine.submit({"project_id": PROJECT, "operation": "run_job",
+                          "arguments": {"request_id": ack["request_id"]}})
+
+
+def test_run_job_result_is_readable_by_run_id():
     engine = _engine({"dc_gain_db": 52.0})
     ack = _submit(engine, "run_spice", {"expected_revision": "p12", "measurements": [dict(GAIN, min=60)]})
     assert ack["state"] == "queued"
-    assert _query(engine, "get_job_status", run_id=ack["run_id"])["state"] == "queued"
 
-    engine.drain()
-    status = _query(engine, "get_job_status", run_id=ack["run_id"])
+    done = _run(engine, ack)
+    status = _query(engine, "get_job_status", run_id=done["run_id"])
     assert status["state"] == "completed"
     assert status["verdict"]["status"] == "FAIL"
 
@@ -72,8 +77,7 @@ def test_submitted_job_runs_under_the_same_run_id():
 def test_measurements_survive_a_pass():
     engine = _engine({"dc_gain_db": 62.5})
     ack = _submit(engine, "run_spice", {"expected_revision": "p12", "measurements": [dict(GAIN, min=60)]})
-    engine.drain()
-    verdict = _query(engine, "get_job_status", run_id=ack["run_id"])["verdict"]
+    verdict = _query(engine, "get_job_status", run_id=_run(engine, ack)["run_id"])["verdict"]
     assert verdict["status"] == "PASS"
     assert verdict["measurements"] == [{"name": "dc_gain_db", "value": 62.5, "unit": "dB",
                                         "target": {"min": 60}, "margin": 2.5, "status": "pass"}]
@@ -82,13 +86,13 @@ def test_measurements_survive_a_pass():
 def test_check_results_logs_and_job_kinds_are_wired():
     engine = _engine({"dc_gain_db": 52.0})
     ack = _submit(engine, "run_spice", {"expected_revision": "p12", "measurements": [dict(GAIN, min=60)]})
-    engine.drain()
+    run_id = _run(engine, ack)["run_id"]
 
     results = _query(engine, "get_check_results")
-    assert results["checks"]["run_spice"]["run_id"] == ack["run_id"]
+    assert results["checks"]["run_spice"]["run_id"] == run_id
     assert results["checks"]["run_spice"]["status"] == "FAIL"
 
-    logs = _query(engine, "get_logs", run_id=ack["run_id"], query="meas_")
+    logs = _query(engine, "get_logs", run_id=run_id, query="meas_")
     assert logs["lines"] == ["3: meas_dc_gain_db = 52.0"]
     assert logs["total_lines"] == 3
 
@@ -115,8 +119,7 @@ def test_targets_come_from_constraints_not_the_caller():
     assert "constraints" in str(err.value)
 
     ack = _submit(engine, "run_spice", {"expected_revision": "p12", "measurements": [GAIN]}, request_id="r2")
-    engine.drain()
-    verdict = _query(engine, "get_job_status", run_id=ack["run_id"])["verdict"]
+    verdict = _run(engine, ack)["verdict"]
     assert verdict["status"] == "FAIL"
     assert verdict["measurements"][0]["target"] == {"min": 60.0}
 
@@ -131,8 +134,7 @@ def test_a_crashing_solver_is_not_run_not_a_crash():
     engine = Engine(PROJECT, actor="mcp")
     engine.register_solver("run_spice", Boom({}), tool="ngspice")
     ack = _submit(engine, "run_spice", {"expected_revision": "p12", "measurements": [dict(GAIN, min=60)]})
-    engine.drain()
-    verdict = _query(engine, "get_job_status", run_id=ack["run_id"])["verdict"]
+    verdict = _run(engine, ack)["verdict"]
     assert verdict["status"] == "NOT_RUN"
     assert "solver exploded" in verdict["reason"]
 
@@ -154,6 +156,7 @@ def test_tools_describe_their_arguments():
     assert {"sources", "measurements"} <= set(spice["properties"])
     assert "min" not in json.dumps(spice["properties"]["measurements"])
     assert tools["get_logs"].input_schema["required"] == ["run_id"]
+    assert tools["run_job"].input_schema["required"] == ["request_id"]
 
 
 def test_bound_server_fills_project_and_revision_and_returns_results():
@@ -164,9 +167,9 @@ def test_bound_server_fills_project_and_revision_and_returns_results():
 
     _, ack = _call(call, "run_spice", {"measurements": [GAIN]})
     assert ack["state"] == "queued"
-    _, status = _call(call, "get_job_status", {"run_id": ack["run_id"]})
-    assert status["state"] == "completed"
-    assert status["verdict"]["status"] == "PASS"
+    _, done = _call(call, "run_job", {"request_id": ack["request_id"]})
+    assert done["state"] == "completed"
+    assert done["verdict"]["status"] == "PASS"
 
 
 def test_engine_errors_come_back_as_json_not_exceptions():
@@ -225,7 +228,8 @@ def test_bound_server_keeps_files_inside_the_project(tmp_path):
     engine.register_solver("run_spice", Recording({"dc_gain_db": 61.0}), tool="ngspice")
     _, call = make_handlers(lambda project_id: engine, project_scope=PROJECT, project_dir=tmp_path)
 
-    _call(call, "run_spice", {"sources": ["design/opamp.cir"], "measurements": [dict(GAIN, min=60)]})
+    _, ack = _call(call, "run_spice", {"sources": ["design/opamp.cir"], "measurements": [dict(GAIN, min=60)]})
+    _call(call, "run_job", {"request_id": ack["request_id"]})
     assert seen[0]["sources"] == [str(tmp_path / "design" / "opamp.cir")]
     assert seen[0]["workdir"] == str(tmp_path / "results" / "engine-runs")
     assert (tmp_path / "results" / "engine-runs").is_dir()
@@ -263,9 +267,9 @@ def test_measurement_definition_comes_from_constraints():
                                        "measurements": [{"name": "ugbw_mhz", "expr": "100"}]})
     assert "omit expr" in str(err.value)
 
-    _submit(engine, "run_spice", {"expected_revision": "p12", "analyses": ["ac dec 50 1 1e10"],
-                                   "measurements": [{"name": "ugbw_mhz"}]}, request_id="r2")
-    engine.drain()
+    ack = _submit(engine, "run_spice", {"expected_revision": "p12", "analyses": ["ac dec 50 1 1e10"],
+                                         "measurements": [{"name": "ugbw_mhz"}]}, request_id="r2")
+    _run(engine, ack)
     assert seen[0]["measurements"] == [{"name": "ugbw_mhz", "expr": "ugbw_hz/1e6", "min": 10.0, "unit": "MHz"}]
     assert seen[0]["analyses"] == ["ac dec 50 1 1e10", "meas ac ugbw_hz when vdb(out)=0"]
 
@@ -332,13 +336,13 @@ def test_live_ngspice_opamp_over_bound_server(tmp_path):
         "sources": ["design/opamp.cir", "tests/tb_opamp.cir"], "analyses": ["ac dec 50 1 1e10"],
         "measurements": [{"name": "dc_gain_db"}, {"name": "ugbw_mhz"}],
     })
-    _, status = _call(call, "get_job_status", {"run_id": ack["run_id"]})
-    verdict = status["verdict"]
+    _, done = _call(call, "run_job", {"request_id": ack["request_id"]})
+    verdict = done["verdict"]
     assert verdict["status"] == "FAIL"
     measured = {m["name"]: m for m in verdict["measurements"]}
     assert measured["dc_gain_db"]["status"] == "fail" and 55 < measured["dc_gain_db"]["value"] < 57
     assert measured["ugbw_mhz"]["status"] == "pass" and measured["ugbw_mhz"]["value"] > 10
-    _, logs = _call(call, "get_logs", {"run_id": ack["run_id"], "query": "meas_dc_gain_db"})
+    _, logs = _call(call, "get_logs", {"run_id": done["run_id"], "query": "meas_dc_gain_db"})
     assert logs["matched"] >= 1
 
 
@@ -358,9 +362,12 @@ def test_bound_server_writes_evidence_into_the_project(tmp_path):
     engine = _engine({"dc_gain_db": 52.0})
     _, call = make_handlers(lambda project_id: engine, project_scope=PROJECT, project_dir=tmp_path)
     _, ack = _call(call, "run_spice", {"sources": ["design/opamp.cir"], "measurements": [dict(GAIN, min=60)]})
+    assert list((tmp_path / "results" / "engine-runs").glob("*.json")) == []  # admitted, not run yet
+    _, done = _call(call, "run_job", {"request_id": ack["request_id"]})
 
-    evidence = json.loads((tmp_path / "results" / "engine-runs" / f"{ack['run_id']}.json").read_text())
-    assert evidence["run_id"] == ack["run_id"]
+    evidence = json.loads((tmp_path / "results" / "engine-runs" / f"{done['run_id']}.json").read_text())
+    assert evidence["run_id"] == done["run_id"]
+    assert evidence["sources"] == ["design/opamp.cir"]
     assert evidence["operation"] == "run_spice"
     assert evidence["verdict"]["status"] == "FAIL"
     assert evidence["verdict"]["measurements"][0]["value"] == 52.0

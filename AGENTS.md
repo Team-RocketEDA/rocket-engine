@@ -1,0 +1,77 @@
+# AGENTS.md — contributor contract for rocket-engine (human and agent)
+
+## The rule
+
+Every adapter operation/query handler carries a Google-style
+docstring: a one-line summary, then `Args:` naming every
+parameter, `Returns:` when it returns a value, `Raises:` when it
+can raise, and a `Caution:` line where the endpoint can bite.
+Constructor parameters live in the class docstring under `Args:`.
+New endpoints ship documented from day one — no undocumented
+handlers land, even behind a feature flag.
+
+## Why: docstrings are the contract (ADR-003)
+
+[ADR-003](docs/adr/003-docstring-generated-api-contract.md) makes
+docstrings the API contract source. One text feeds three
+consumers — the human API reference, per-operation JSON Schemas
+(IDE types, fuel stubs), and MCP tool descriptions plus help —
+so drift becomes structurally impossible. `docs/engine-api.md`
+endpoint prose migrates into docstrings; once generated, that
+file is output plus a pointer, never hand-edited again.
+
+## The two laws every endpoint doc respects
+
+- **BYOC doctrine ([F12/I32](docs/prd-feedforward.md)).** The hot
+  path is local-first; cloud backends are bring-your-own-credential
+  opt-in and degradation is a loud typed verdict, never a silent
+  fallback or a faked result. If your endpoint touches an
+  optional cloud path, document the gate, the key state, and the
+  remedy — never a default cloud path.
+- **Ledger law ([ADR-002](docs/adr/002-engine-owns-project-ledger.md)).**
+  The engine owns the project ledger: every mutation advances the
+  revision, stale `expected_revision` fails with
+  `revision_conflict` instead of merging, every event carries its
+  actor, and verdicts are engine-owned (clients ask for a run and
+  read back). Document revision, actor, and verdict behavior; never
+  promise a merge, an overwrite, or a client-written result.
+
+## Shape
+
+```python
+def run_widget(widget, timeout_s=30):
+    """Run a widget to completion.
+
+    Args:
+        widget: Widget to run.
+        timeout_s: Timeout in seconds.
+
+    Returns:
+        Result mapping with run evidence.
+
+    Raises:
+        ValueError: If the timeout is negative.
+
+    Caution: Irreversible once started — there is no cancel.
+    """
+```
+
+Write `Caution:` where the endpoint bites: side effects,
+irreversible actions, scope denials, silent-looking defaults,
+and anywhere exit-zero-is-not-PASS applies (the verdict lives in
+the payload, never in the exit path).
+
+## Enforcement
+
+`scripts/check_docstrings.py` is the gate — same posture as the
+no-cloud guard: missing or malformed endpoint docstrings fail
+loudly, naming the endpoint. Run it bare to scan the enforced
+manifest (`ENFORCED` in the script); pass paths to scan those.
+`tests/test_docstrings.py` pins the behavior: a deliberately
+broken docstring fails with the endpoint named, a good one
+passes, and the enforced tree scans clean.
+
+Slice note (API-GEN-A): the manifest enforces the composition
+root, the op dispatcher, the MCP/IPC/HTTP transports, and the
+CLI. Solver adapters migrate in API-GEN-B — but anything new
+anywhere follows this rule now.

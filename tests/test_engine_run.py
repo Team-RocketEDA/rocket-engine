@@ -17,6 +17,8 @@ FIXTURES = Path("tests/adapters/fixtures/drc")
 
 magic_present = shutil.which("magic") is not None
 needs_magic = pytest.mark.skipif(not magic_present, reason="magic not installed")
+slang_present = shutil.which("slang") is not None
+needs_slang = pytest.mark.skipif(not slang_present, reason="slang not on PATH")
 
 
 def _command(cell, tmp_path, **over):
@@ -68,6 +70,86 @@ def test_run_unregistered_operation_raises(tmp_path):
         raise AssertionError("expected unsupported_operation for run_em")
 
 
+def test_submit_unwired_operation_raises():
+    engine = Engine(PROJECT, actor="tester")
+    try:
+        engine.submit(
+            {
+                "project_id": PROJECT,
+                "operation": "run_formal",
+                "arguments": {"expected_revision": "p12"},
+            }
+        )
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "unsupported_operation"
+    else:
+        raise AssertionError("expected unsupported_operation for run_formal")
+
+
+def test_submit_run_syntax_accepted():
+    engine = Engine(PROJECT, actor="tester")
+    ack = engine.submit(
+        {
+            "project_id": PROJECT,
+            "operation": "run_syntax",
+            "arguments": {"expected_revision": "p12"},
+        }
+    )
+    assert ack["state"] == "queued"
+    assert {"run_id", "snapshot_id", "event_cursor"} <= set(ack)
+
+
+@needs_slang
+def test_run_syntax_clean_passes_live(tmp_path):
+    from rocket_engine.adapters.syntax import SyntaxAdapter  # noqa: F401
+
+    engine = Engine(PROJECT, actor="tester")
+    workdir = tmp_path / "work"
+    workdir.mkdir(exist_ok=True)
+    staged = workdir / "counter.v"
+    shutil.copy(
+        Path("tests/adapters/fixtures/syntax/counter.v"), staged
+    )
+    out = engine.run(
+        {
+            "project_id": PROJECT,
+            "operation": "run_syntax",
+            "arguments": {
+                "sources": [str(staged)],
+                "workdir": str(workdir),
+            },
+        }
+    )
+    assert out["state"] == "completed"
+    assert out["verdict"]["status"] == "PASS"
+    assert engine.findings(out["run_id"])["findings"] == []
+
+
+@needs_slang
+def test_run_syntax_broken_fails_with_span_live(tmp_path):
+    engine = Engine(PROJECT, actor="tester")
+    workdir = tmp_path / "work"
+    workdir.mkdir(exist_ok=True)
+    staged = workdir / "counter_broken.v"
+    shutil.copy(
+        Path("tests/adapters/fixtures/syntax/counter_broken.v"), staged
+    )
+    out = engine.run(
+        {
+            "project_id": PROJECT,
+            "operation": "run_syntax",
+            "arguments": {
+                "sources": [str(staged)],
+                "workdir": str(workdir),
+            },
+        }
+    )
+    assert out["verdict"]["status"] == "FAIL"
+    found = engine.findings(out["run_id"])["findings"]
+    assert any(f["severity"] == "error" for f in found)
+    assert all("line" in f["location"] for f in found)
+
+
 @needs_magic
 def test_run_records_not_run_on_preflight_refusal(tmp_path):
     engine = Engine(PROJECT, actor="tester")
@@ -98,6 +180,68 @@ def test_register_solver_wires_custom_operation(tmp_path):
     engine.register_solver("run_em", FakeAdapter())
     command = _command("good", tmp_path, operation="run_em")
     out = engine.run(command)
+    assert out["verdict"]["status"] == "PASS"
+
+
+def test_run_job_executes_queued_request():
+    engine = Engine(PROJECT, actor="tester")
+    engine.register_solver("run_em", FakeAdapter())
+    ack = engine.submit(
+        {
+            "project_id": PROJECT,
+            "operation": "run_em",
+            "arguments": {"expected_revision": "p12"},
+            "request_id": "req_job_001",
+        }
+    )
+    assert ack["state"] == "queued"
+    out = engine.run(
+        {
+            "project_id": PROJECT,
+            "operation": "run_job",
+            "arguments": {"request_id": "req_job_001"},
+        }
+    )
+    assert out["state"] == "completed"
+    assert out["operation"] == "run_em"
+    assert out["verdict"]["status"] == "PASS"
+
+
+def test_run_job_unknown_request_raises():
+    engine = Engine(PROJECT, actor="tester")
+    try:
+        engine.run(
+            {
+                "project_id": PROJECT,
+                "operation": "run_job",
+                "arguments": {"request_id": "req_nope"},
+            }
+        )
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "unknown_request"
+    else:
+        raise AssertionError("expected unknown_request")
+
+
+def test_submit_run_job_executes_immediately():
+    engine = Engine(PROJECT, actor="tester")
+    engine.register_solver("run_em", FakeAdapter())
+    engine.submit(
+        {
+            "project_id": PROJECT,
+            "operation": "run_em",
+            "arguments": {"expected_revision": "p12"},
+            "request_id": "req_job_002",
+        }
+    )
+    out = engine.submit(
+        {
+            "project_id": PROJECT,
+            "operation": "run_job",
+            "arguments": {"request_id": "req_job_002"},
+        }
+    )
+    assert out["state"] == "completed"
     assert out["verdict"]["status"] == "PASS"
 
 

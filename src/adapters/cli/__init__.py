@@ -234,7 +234,28 @@ def _run_repl(dispatch, options, stdin, stdout, stderr):
 
 
 def main(argv=None, engine=None, stdin=None, stdout=None, stderr=None):
-    """Run the CLI; return the process exit code (never raise for use)."""
+    """Run the CLI; return the process exit code (never raise for use).
+
+    Bare args drop into the REPL, `run` executes one op, `--batch`
+    executes op lines; usage and engine failures become exit codes,
+    never tracebacks.
+
+    Args:
+        argv: Argument vector without the program name; defaults to
+            sys.argv[1:].
+        engine: Engine to dispatch against; constructed from
+            --project/--actor when omitted.
+        stdin: Input stream for the REPL and `--batch -`.
+        stdout: Stream for results and machine envelopes.
+        stderr: Stream for human-readable errors plus usage.
+
+    Returns:
+        Process exit code: 0 execution-ok (even when the verdict
+        is FAIL), 1 engine error, 2 usage error.
+
+    Caution: Exit zero is not PASS — the verdict lives in the
+        payload; read it, never the exit code.
+    """
     argv = list(sys.argv[1:] if argv is None else argv)
     stdin = sys.stdin if stdin is None else stdin
     stdout = sys.stdout if stdout is None else stdout

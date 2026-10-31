@@ -29,9 +29,8 @@ class ExecutionService:
         except KeyError:
             raise ExecutionError("unknown_run", f"Unknown run: {run_id}.") from None
 
-    def dispatch(self, operation, target, snapshot_id, run_id=None):
-        # A caller-supplied run_id lets the queued ack and its result share one id.
-        run_id = run_id or uuid.uuid4().hex
+    def dispatch(self, operation, target, snapshot_id):
+        run_id = uuid.uuid4().hex
         self._runs[run_id] = {
             "run_id": run_id,
             "operation": operation,
@@ -43,10 +42,19 @@ class ExecutionService:
         }
         return {"run_id": run_id, "state": "queued", "snapshot_id": snapshot_id}
 
-    def known(self, run_id):
-        return run_id in self._runs
-
     def status(self, run_id):
+        """Read a run's state and verdict.
+
+        Args:
+            run_id: Run id issued by dispatch.
+
+        Returns:
+            Mapping with run_id, operation, state, snapshot_id and
+            verdict (None until the run completes).
+
+        Raises:
+            ExecutionError: unknown_run for an id never dispatched.
+        """
         record = self._require(run_id)
         return {
             key: record.get(key)

@@ -170,3 +170,47 @@ def test_linked_project_carve_out(tmp_path):
     with pytest.raises(Exception) as excinfo:
         validate_tree(root, kind="linked_project")
     assert _code(excinfo) == "missing_entry"
+
+
+# --- LEDGER-DURABLE: the durable event log fits the folder schema ---
+
+
+def _project_children():
+    from rocket_engine.interfaces.layout import load_schema  # RED: no ledger entries
+
+    for section in ("engine_root",):
+        for entry in load_schema()[section]:
+            if entry["name"] == "projects":
+                for child in entry["children"]:
+                    if child["name"] == "<id>":
+                        return {node["name"]: node for node in child["children"]}
+    raise AssertionError("projects/<id> missing from schema")
+
+
+def test_ledger_files_are_schematized_under_managed_projects():
+    children = _project_children()  # RED: entries missing
+    for name in ("events.yaml", "ledger.yaml"):
+        assert name in children, f"{name} not schematized"
+        assert children[name]["type"] == "file"
+        assert children[name]["required"] is False
+        assert children[name]["tracked"] is True
+        assert children[name]["created_by"] == "engine"
+
+
+def test_present_but_empty_events_file_fails(tmp_path):
+    from rocket_engine.interfaces.layout import validate_tree  # RED: file ignored
+
+    root = _make_engine_root(tmp_path / "root")
+    (root / "projects" / "demo" / "events.yaml").write_text("")
+    with pytest.raises(Exception) as excinfo:
+        validate_tree(root)
+    assert _code(excinfo) == "empty_entry"
+
+
+def test_ledger_files_do_not_pollute_the_gitignore():
+    from rocket_engine.interfaces.layout import (  # RED: entries missing
+        derive_gitignore,
+    )
+
+    _project_children()
+    assert derive_gitignore() == EXPECTED_GITIGNORE

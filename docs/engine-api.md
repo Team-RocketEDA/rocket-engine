@@ -73,6 +73,20 @@ carries artifact descriptors as files land. Console streams emit
 `console_output` chunks plus `approval_requested` / `approval_resolved`
 (proposed) for the trusted approval UI.
 
+Ledger (LEDGER-DURABLE/I30, implemented): every accepted mutation
+advances the project revision (`p12` → `p13` → …) and appends a
+seq-ordered actor-attributed event to the durable log at
+`projects/<id>/events.yaml` (`job_queued`, `run_completed`,
+`run_failed` — `run_failed` means NOT_RUN; a FAIL verdict is a
+completed run). Stale `expected_revision` fails `revision_conflict`
+instead of merging. The ack carries the advanced `current_revision`
+so writers follow the head. Read back via the `get_events_since`
+query (`{cursor, require_contiguous_from?}` → `{project_id,
+events, cursor}`); `resync_required` means the contiguity demand
+fell outside retained history — re-read the snapshot plus the full
+log and reset the cursor. Retention keeps the newest 10,000 events
+per project, oldest-first trim; see `docs/storage-policy.md`.
+
 ## 3. Common result envelope
 
 Every check result carries: `run_id`, `check_id`, `status`,

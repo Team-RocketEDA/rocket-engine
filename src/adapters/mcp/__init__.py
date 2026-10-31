@@ -12,6 +12,14 @@ from ..errors import AdapterError
 
 
 class McpTransport:
+    """MCP transport over an engine: tool calls in, bounded replies out.
+
+    Args:
+        engine: Engine the tool calls submit against.
+        project_id: Optional scope; calls for another project are
+            denied, never routed.
+    """
+
     host_execution_enabled = False
 
     def __init__(self, engine, project_id=None):
@@ -19,6 +27,26 @@ class McpTransport:
         self._project_id = project_id
 
     def handle(self, text):
+        """Route one tools/call message through the engine.
+
+        Args:
+            text: Raw JSON-RPC message with method tools/call and
+                params holding the tool name plus arguments
+                (project_id required).
+
+        Returns:
+            Engine admission ack or query result for the tool call.
+
+        Raises:
+            AdapterError: unsupported_operation for a foreign
+                method or an uncataloged tool, invalid_command for
+                a missing project_id, cross_project_denied for a
+                call outside the bound scope.
+
+        Caution: Only cataloged operations and read queries are
+            exposed — anything else, host shells first among them,
+            is rejected, never routed.
+        """
         message = parse_json(text)
         if message.get("method") != "tools/call":
             raise AdapterError(

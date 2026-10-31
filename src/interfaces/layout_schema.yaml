@@ -113,6 +113,33 @@ engine_root:
             description: >-
               Optional project-level override beside runs (KiCad-style:
               wins over global, loses to explicit run args).
+          - name: events.yaml
+            type: file
+            match: exact
+            required: false
+            tracked: true
+            created_by: engine
+            mutable: true
+            format: events
+            description: >-
+              Durable ordered event ledger (LEDGER-DURABLE/I30):
+              seq-ordered actor-attributed events (job_queued,
+              run_completed, run_failed). Absent until the first
+              engine-mediated mutation; trimmed oldest-first by the
+              retention bound, never edited by hand.
+          - name: ledger.yaml
+            type: file
+            match: exact
+            required: false
+            tracked: true
+            created_by: engine
+            mutable: true
+            format: ledger
+            description: >-
+              Ledger head (LEDGER-DURABLE/I30): current revision plus
+              admitted-request identity for idempotent replay and
+              run_job lookup. Absent until the first accepted
+              mutation; rewritten atomically on every mutation.
           - name: runs
             type: dir
             match: exact

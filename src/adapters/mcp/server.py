@@ -5,9 +5,11 @@ McpTransport so validation stays single-sourced. build_server()
 is transport-free; only main() touches stdio.
 
 Bound to a project (`--project`), the server fills project_id and the
-current expected_revision itself, runs queued jobs before replying so
-get_job_status has a result, and reads run_spice targets from the
-project's constraints.yaml (`--project-dir`): the agent never sets them.
+current expected_revision itself and reads run_spice targets from the
+project's constraints.yaml (`--project-dir`): the agent never sets
+them. Each finished run_job is written to
+results/engine-runs/<run_id>.json so the IDE sees agent and manual
+runs alike.
 """
 
 import argparse
@@ -31,14 +33,15 @@ from . import McpTransport
 
 _ENGINE_ERRORS = (AdapterError, ProjectError, ExecutionError)
 
-_RUN_ID = {"type": "string", "description": "run_id from the queued acknowledgement."}
+_RUN_ID = {"type": "string", "description": "run_id from a run_job result."}
 
 # Argument schemas for the tools an agent uses in the repair loop. Targets are
 # deliberately absent from run_spice: they come from the project's constraints.
 _SCHEMAS = {
     "run_spice": (
-        "Run an ngspice simulation and judge each measurement against the project's targets. "
-        "Returns a queued acknowledgement with run_id; read the verdict with get_job_status.",
+        "Admit an ngspice simulation whose measurements are judged against the project's "
+        "targets. Returns an acknowledgement with request_id; execute it with run_job "
+        "to get the verdict.",
         {
             "sources": {"type": "array", "items": {"type": "string"},
                         "description": "Netlist files to include, e.g. [\"design/opamp.cir\"]."},
@@ -66,7 +69,13 @@ _SCHEMAS = {
         },
         ["sources", "measurements"],
     ),
-    "get_job_status": ("State and verdict of a run, with measured values and margins.", {"run_id": _RUN_ID}, ["run_id"]),
+    "run_job": (
+        "Execute an admitted request (from run_spice or another operation) and return its "
+        "verdict, with measured values and margins.",
+        {"request_id": {"type": "string", "description": "request_id from the acknowledgement."}},
+        ["request_id"],
+    ),
+    "get_job_status": ("State and verdict of a run.", {"run_id": _RUN_ID}, ["run_id"]),
     "get_check_results": (
         "Latest verdict per operation for this project.",
         {"operation": {"type": "string", "description": "Only this operation, e.g. run_spice."}},
@@ -93,6 +102,11 @@ _ENVELOPE = {
 
 
 def tool_definitions():
+    """Build one MCP tool per cataloged operation/query.
+
+    Returns:
+        Tool list with per-operation descriptions, sorted by name.
+    """
     tools = []
     for name in sorted(OPERATIONS | QUERIES):
         kind = "operation" if name in OPERATIONS else "query"
@@ -147,31 +161,56 @@ def _source_state(root):
     return head.stdout.strip(), bool(status.stdout.strip())
 
 
-def write_evidence(project_dir, engine, outcomes, arguments):
-    """Persist each finished run under results/engine-runs/<run_id>.json, so the IDE
-    sees agent and manual runs alike. Only the engine writes here."""
+def write_evidence(project_dir, engine, outcome, sources):
+    """Persist a finished run as results/engine-runs/<run_id>.json.
+
+    Only the engine writes there, so the IDE shows agent and manual runs
+    alike, and marks a verdict stale once the sources move past it.
+
+    Args:
+        project_dir: Project folder the server is bound to.
+        engine: Engine that ran the job (supplies the run log).
+        outcome: run_job result with run_id, operation and verdict.
+        sources: Source paths the run read.
+    """
     root = Path(project_dir).resolve()
     folder = root / "results" / "engine-runs"
     folder.mkdir(parents=True, exist_ok=True)
     commit, dirty = _source_state(root)
-    finished = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    for outcome in outcomes:
-        record = {
-            "producer": "rocket-engine",
-            "run_id": outcome["run_id"],
-            "operation": outcome["operation"],
-            "verdict": outcome["verdict"],
-            "finished_at": finished,
-            "source_commit": commit,
-            "source_dirty": dirty,
-            "sources": [str(Path(s).relative_to(root)) if Path(s).is_relative_to(root) else s
-                        for s in arguments.get("sources") or []],
-            "log": engine.log_text(outcome["run_id"]) if hasattr(engine, "log_text") else "",
-        }
-        (folder / f"{outcome['run_id']}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+    record = {
+        "producer": "rocket-engine",
+        "run_id": outcome["run_id"],
+        "operation": outcome["operation"],
+        "verdict": outcome["verdict"],
+        "finished_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "source_commit": commit,
+        "source_dirty": dirty,
+        "sources": [str(Path(s).relative_to(root)) if Path(s).is_relative_to(root) else s
+                    for s in sources or []],
+        "log": engine.log_text(outcome["run_id"]) if hasattr(engine, "log_text") else "",
+    }
+    (folder / f"{outcome['run_id']}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
 
 
 def make_handlers(engine_factory, project_scope=None, project_dir=None):
+    """Build transport-free list/call handlers over McpTransport.
+
+    Handlers route through McpTransport so validation stays
+    single-sourced; engines are cached per project id.
+
+    Args:
+        engine_factory: Callable turning a project id into an
+            engine.
+        project_scope: Optional scope enforced on every call; also
+            fills project_id and expected_revision when omitted.
+        project_dir: Optional project folder: run_spice sources are
+            confined to it and finished runs are written under its
+            results/engine-runs/.
+
+    Returns:
+        (list_tools, call_tool) async handler pair. Call failures
+            become error results, never exceptions.
+    """
     engines = {}
 
     def _engine_for(project_id):
@@ -204,11 +243,9 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
                 "params": {"name": params.name, "arguments": arguments},
                 "id": uuid.uuid4().hex,
             }))
-            # Run what was just queued, so the agent's next get_job_status has a verdict.
-            if params.name in OPERATIONS and hasattr(engine, "drain"):
-                outcomes = engine.drain()
-                if project_dir is not None:
-                    write_evidence(project_dir, engine, outcomes, arguments)
+            if params.name == "run_job" and project_dir is not None and "verdict" in result:
+                admitted = engine.admitted(arguments["request_id"])
+                write_evidence(project_dir, engine, result, admitted["arguments"].get("sources"))
         except _ENGINE_ERRORS as exc:
             return _error(exc.code, str(exc))
         return CallToolResult(content=[TextContent(
@@ -218,6 +255,17 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
 
 
 def build_server(engine_factory, project_scope=None, project_dir=None):
+    """Build the MCP server with list/call handlers attached.
+
+    Args:
+        engine_factory: Callable turning a project id into an
+            engine.
+        project_scope: Optional scope enforced on every call.
+        project_dir: Optional bound project folder (see make_handlers).
+
+    Returns:
+        Configured MCP server (stdio wiring stays in main).
+    """
     list_handler, call_handler = make_handlers(engine_factory,
                                                project_scope, project_dir)
     return Server("rocket-engine",
@@ -226,7 +274,15 @@ def build_server(engine_factory, project_scope=None, project_dir=None):
 
 
 def load_constraints(project_dir):
-    """constraints.yaml checks -> {metric: {min|max, unit[, expr, control]}} (>= is min, <= is max)."""
+    """Read run_spice targets from a project's constraints.yaml.
+
+    Args:
+        project_dir: Project folder holding constraints.yaml.
+
+    Returns:
+        metric -> {min|max, unit[, expr, control]} (>= is min, <= is
+            max), or None when the project has no constraints.yaml.
+    """
     path = Path(project_dir) / "constraints.yaml"
     if not path.is_file():
         return None
@@ -256,19 +312,32 @@ def _call_once(engine_factory, args):
         return result.is_error, json.loads(result.content[0].text)
 
     failed, body = invoke(args.call, json.loads(args.args))
-    if not failed and args.call in OPERATIONS and "run_id" in body:
-        failed, body = invoke("get_job_status", {"run_id": body["run_id"]})
+    # Operations are two-phase: execute what was just admitted.
+    if not failed and args.call in OPERATIONS and "request_id" in body and "verdict" not in body:
+        failed, body = invoke("run_job", {"request_id": body["request_id"]})
     print(json.dumps(body))
     return 1 if failed else 0
 
 
 def main(argv=None):
+    """Serve the MCP stdio server until stdin closes.
+
+    Args:
+        argv: Command-line arguments (defaults to sys.argv):
+            --project binds the server to one project, --project-dir
+            names its folder (constraints and evidence), --call/--args
+            run one operation and print its result instead of serving.
+
+    Returns:
+        Process exit code (0 on a clean stdio shutdown or a
+            successful --call).
+    """
     from ...composition import Engine
 
     parser = argparse.ArgumentParser(prog="rocket-engine-mcp")
     parser.add_argument("--project", help="bind to this project id (fills project_id/expected_revision)")
     parser.add_argument("--project-dir", help="project folder; run_spice targets come from its constraints.yaml")
-    parser.add_argument("--call", help="run one operation through the same handlers, print its job status, exit")
+    parser.add_argument("--call", help="run one operation through the same handlers, print its result, exit")
     parser.add_argument("--args", default="{}", help="JSON arguments for --call")
     args = parser.parse_args(argv)
     constraints = load_constraints(args.project_dir) if args.project_dir else None

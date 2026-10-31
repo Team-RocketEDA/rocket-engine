@@ -10,7 +10,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Backlog
 
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
-- [B10] install.sh + tests/installed + capability matrix
+- [B10] tests/installed + capability matrix (install.sh landed; matrix → ENGINE-SETUP)
 
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
@@ -18,17 +18,29 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
-- [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
-- [API-GENERALIZE] Frontend protocol: queue, microcommits, catalogue, symbols
+- [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
+- [REWIND] Restorable project snapshots
+- [FUEL-CONTRACT] Pin fuel mcp-stub to the engine contract
+- [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
+- [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
+- [PDK-GF180] GF180MCU support (second CMOS node)
+- [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
+- [PDK-UBC] SiEPIC EBeam UBC support
+- [PDK-LXT] Luxelligence GF support (TFLN + gated DRC deck)
+- [PDK-SKY130GF] SkyWater pip distribution (decision + profile)
+- [PDK-VTT] VTT 3um SOI support (verify upstream first)
+- [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
+- [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
 
 
 ## Doing
 
 
-- [DRC-GREEN] Magic/KLayout DRC adapter GREEN
+- [API-GEN] Docstring-mandated generated API contract
+- [CRUD-API] Uniform document CRUD over the project tree
 ## Review
 
 - [PR-RED] RED-tests PR under user review (external)
@@ -76,3 +88,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CIRCULAX-LIVE] Time-domain smoke proof
 - [MEOW-LIVE] EME smoke + tidy3d-locality verdict
 - [GDSFACTORY-SMOKE] Layout smoke proof
+- [E2E-AUDIT] E2E routing audit (submit honesty, run_job, run_syntax)
+- [DRC-GREEN] Magic/KLayout DRC adapter GREEN
+- [NGSPICE-LIVE] Live ngspice/netgen proofs where the binaries exist
+- [LEDGER-DURABLE] Durable attributed event log + advancing revisions
