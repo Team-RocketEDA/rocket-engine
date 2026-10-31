@@ -170,7 +170,7 @@ def test_live_runs_triggered_carry_run_ids(tmp_path):
     proj = tmp_path / "proj"
     proj.mkdir()
     engine = Engine("runs-probe", actor="probe-agent")
-    engine.register_solver("run_em", _PassAdapter())
+    engine.register_solver("run_em", _PassAdapter(), tool="meow")
     dispatcher = OpDispatcher(engine, project_id="runs-probe",
                               actor="probe-agent")
     service = mod.PythonExecService(

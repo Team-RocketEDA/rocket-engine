@@ -25,8 +25,9 @@ caller-supplied min/max — or a caller expr where the project defines
 one — is refused.
 `run()` executes registered solvers synchronously. Each operation
 maps to named solvers; `deck.tool` selects one, defaulting to the
-first registered (run_drc: magic, then klayout; run_optical: sax;
-run_extraction: magic; run_lvs: netgen; run_spice: ngspice;
+first registered (run_drc: magic, then klayout; run_optical: sax,
+then circulax; run_em: meow; run_extraction: magic; run_lvs:
+netgen; run_spice: ngspice;
 run_post_layout: ngspice; run_syntax: slang; run_hdl_test: icarus;
 run_synth: yosys; run_connectivity: connectgraph; run_erc: connectgraph;
 run_formal: sby).
@@ -39,6 +40,7 @@ import uuid
 
 from ruamel.yaml import YAML
 
+from .adapters.circulax.adapter import CirculaxAdapter
 from .adapters.connectivity import ConnectivityAdapter
 from .adapters.drc import MagicDrcAdapter
 from .adapters.drc_kl import KlayoutDrcAdapter
@@ -47,6 +49,7 @@ from .adapters.extract_magic import MagicExtractAdapter
 from .adapters.formal_sby import FormalSbyAdapter
 from .adapters.hdl_sim import HdlSimAdapter
 from .adapters.lvs_netgen import NetgenLvsAdapter
+from .adapters.meow.adapter import MeowAdapter
 from .adapters.ngspice import NgspiceAdapter
 from .adapters.postlayout.adapter import PostLayoutAdapter
 from .adapters.sax import SaxAdapter
@@ -267,7 +270,8 @@ class Engine:
         self._solvers = {
             "run_drc": {"magic": MagicDrcAdapter(), "klayout": KlayoutDrcAdapter()},
             "run_hdl_test": {"icarus": HdlSimAdapter()},
-            "run_optical": {"sax": SaxAdapter()},
+            "run_optical": {"sax": SaxAdapter(), "circulax": CirculaxAdapter()},
+            "run_em": {"meow": MeowAdapter()},
             "run_extraction": {"magic": MagicExtractAdapter()},
             "run_lvs": {"netgen": NetgenLvsAdapter()},
             "run_spice": {"ngspice": NgspiceAdapter()},

@@ -61,7 +61,7 @@ def test_mcp_two_phase_submit_then_run_executes():
             return {"total": 0, "violations": []}
 
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_em", _Fake())
+    engine.register_solver("run_em", _Fake(), tool="meow")
     transport = _transport(engine)
     ack = transport.handle(
         _call("run_em", _submit_args(), call_id="req_2phase_001")

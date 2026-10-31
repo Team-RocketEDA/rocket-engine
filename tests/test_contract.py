@@ -55,7 +55,7 @@ def _probe_shapes():
     from rocket_engine.composition import Engine
 
     engine = Engine("contract-probe", actor="contract-probe")
-    engine.register_solver("run_em", _FakeAdapter())
+    engine.register_solver("run_em", _FakeAdapter(), tool="meow")
     request_id = uuid.uuid4().hex
     ack = engine.submit(
         {
@@ -156,7 +156,7 @@ def test_submit_run_job_round_trip_joins_request_and_run_ids():
 
     artifact = _read_artifact()
     engine = Engine("fuel-contract-e2e", actor="rocket-fuel")
-    engine.register_solver("run_em", _FakeAdapter())
+    engine.register_solver("run_em", _FakeAdapter(), tool="meow")
     request_id = f"fuel-{uuid.uuid4().hex}"
     ack = engine.submit(
         {

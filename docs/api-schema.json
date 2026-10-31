@@ -836,15 +836,142 @@
       "wired": true
     },
     "run_em": {
-      "description": "Declared operation `run_em`; no handler wired yet.",
-      "handlers": [],
+      "description": "run_em via meow: EME mode/field solving with convergence evidence.",
+      "handlers": [
+        "rocket_engine.adapters.meow.adapter.MeowAdapter"
+      ],
       "kind": "operation",
       "name": "run_em",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be meow here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "sources": {
+          "description": "Exactly one device spec YAML path."
+        },
+        "timeout_s": {
+          "description": "Sim budget in seconds (default 120)."
+        },
+        "tool_dir": {
+          "description": "Directory holding the sim python; the engine interpreter otherwise."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "returns": "{total, violations[], measurements[], modes, convergence, meow_version, tidy3d_version} with ratio values and margins.",
+      "tools": {
+        "meow": {
+          "adapter": "rocket_engine.adapters.meow.adapter.MeowAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be meow here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "sources": {
+              "description": "Exactly one device spec YAML path."
+            },
+            "timeout_s": {
+              "description": "Sim budget in seconds (default 120)."
+            },
+            "tool_dir": {
+              "description": "Directory holding the sim python; the engine interpreter otherwise."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sources"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "run_erc": {
       "description": "Shared-graph connectivity checks plus netlist emission.",
@@ -1610,7 +1737,8 @@
     "run_optical": {
       "description": "run_optical via SAX: frequency-domain photonic circuit sim.",
       "handlers": [
-        "rocket_engine.adapters.sax.SaxAdapter"
+        "rocket_engine.adapters.sax.SaxAdapter",
+        "rocket_engine.adapters.circulax.adapter.CirculaxAdapter"
       ],
       "kind": "operation",
       "name": "run_optical",
@@ -1677,6 +1805,70 @@
       ],
       "returns": "{total, violations[], measurements[], spectra[], sax_version} with dB values and margins.",
       "tools": {
+        "circulax": {
+          "adapter": "rocket_engine.adapters.circulax.adapter.CirculaxAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be circulax here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "sources": {
+              "description": "Exactly one circuit spec YAML path."
+            },
+            "timeout_s": {
+              "description": "Sim budget in seconds (default 120)."
+            },
+            "tool_dir": {
+              "description": "Directory holding the sim python; the engine interpreter otherwise."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sources"
+          ]
+        },
         "sax": {
           "adapter": "rocket_engine.adapters.sax.SaxAdapter",
           "properties": {

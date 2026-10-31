@@ -332,7 +332,7 @@ def test_unregistered_operations_report_unsupported(tmp_path, monkeypatch):
         op for op, detail in report["operations"].items()
         if detail["readiness"] == "unsupported"
     ]
-    assert "run_em" in orphans
+    assert "run_thermal" in orphans
     for op in orphans:
         assert report["operations"][op]["tools"] == {}
         assert "No solver registered" in report["operations"][op]["reason"]

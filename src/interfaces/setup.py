@@ -55,6 +55,8 @@ SOLVER_DEPS = {
     ("run_drc", "klayout"): {"binaries": ["klayout"]},
     ("run_hdl_test", "icarus"): {"binaries": ["iverilog", "vvp"]},
     ("run_optical", "sax"): {"python": ["sax"]},
+    ("run_optical", "circulax"): {"python": ["circulax"]},
+    ("run_em", "meow"): {"python": ["meow"]},
     ("run_extraction", "magic"): {"binaries": ["magic"]},
     ("run_lvs", "netgen"): {"binaries": ["netgen"], "banner": "lvs"},
     ("run_spice", "ngspice"): {"binaries": ["ngspice"]},

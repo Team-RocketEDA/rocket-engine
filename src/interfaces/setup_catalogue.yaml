@@ -65,6 +65,18 @@ entries:
     python: [sax]
     remedy: "sax not installed, uv sync --group photonic (B10-owned tooling)"
     recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+  - id: circulax
+    kind: python
+    label: Circulax (time-domain circuit sim)
+    python: [circulax]
+    remedy: "circulax not installed, uv sync --group photonic (B10-owned tooling)"
+    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+  - id: meow
+    kind: python
+    label: Meow (EME mode/field solver)
+    python: [meow]
+    remedy: "meow not installed, uv sync --group photonic (B10-owned tooling)"
+    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
   - id: cvc
     kind: tool
     label: cvc

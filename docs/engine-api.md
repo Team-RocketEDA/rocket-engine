@@ -49,14 +49,14 @@ text, identical to the section bodies below.
 | `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_digital_flow` | no | — | Declared operation `run_digital_flow`; no handler wired yet. |
 | `run_drc` | yes | `magic` (default), `klayout` | run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes. |
-| `run_em` | no | — | Declared operation `run_em`; no handler wired yet. |
+| `run_em` | yes | `meow` (default) | run_em via meow: EME mode/field solving with convergence evidence. |
 | `run_erc` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_extraction` | yes | `magic` (default) | run_extraction via Magic: .mag cells to .ext/.spice netlists. |
 | `run_formal` | yes | `sby` (default) | run_formal via sby: bounded proof with honestly scoped verdicts. |
 | `run_hdl_test` | yes | `icarus` (default) | run_hdl_test via Icarus: compile plus timed Verilog sim. |
 | `run_job` | yes | — | Execute admitted requests by id: deferred singles, fetch, batches. |
 | `run_lvs` | yes | `netgen` (default) | run_lvs via Netgen: layout vs schematic, TOP-level compare. |
-| `run_optical` | yes | `sax` (default) | run_optical via SAX: frequency-domain photonic circuit sim. |
+| `run_optical` | yes | `sax` (default), `circulax` | run_optical via SAX: frequency-domain photonic circuit sim. |
 | `run_post_layout` | yes | `ngspice` (default) | run_post_layout via ngspice: extracted sims with pre/post deltas. |
 | `run_spice` | yes | `ngspice` (default) | run_spice via ngspice: corner sims with measured bounds. |
 | `run_syntax` | yes | `slang` (default) | run_syntax via Slang: SystemVerilog lint with diagnostics. |
@@ -670,9 +670,45 @@ Caution: KLayout exits 0 regardless — the verdict always comes from parsed out
 
 ### run_em
 
-Declared operation `run_em`; no handler wired yet.
+run_em via meow: EME mode/field solving with convergence evidence.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `meow` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.meow.adapter.MeowAdapter`.
+
+#### Tool `meow`
+
+run_em via meow: EME mode/field solving with convergence evidence.
+
+Serves the run_em operation with deck.tool `meow` (the only
+tool). Stages the sim driver plus a job JSON, runs it under a
+timeout, and parses the JSON envelope: the fundamental
+S-parameters at the base mode count plus the refined-basis
+deltas (convergence evidence) against min/max bounds.
+
+Arguments:
+
+- `sources` (required): Exactly one device spec YAML path.
+- `timeout_s`: Sim budget in seconds (default 120).
+- `tool_dir`: Directory holding the sim python; the engine interpreter otherwise.
+- `deck`: Optional mapping; deck.tool must be meow here.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements[], modes, convergence, meow_version, tidy3d_version} with ratio values and margins.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad timeout or device spec, invalid_reference unless exactly one readable spec source is given, missing_dependency for an unresolvable sim python.
+
+(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a sim timeout, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: missing_dependency when the sim python has no meow, runner_unavailable when the driver printed no JSON envelope or no result.
+
+Caution: Missed S-parameter or convergence bounds are FAIL and a malformed device synthesizes an error violation with file/line — the verdict always comes from parsed output, never the exit code.
 
 ### run_erc
 
@@ -912,17 +948,17 @@ Caution: Netgen exits 0 on match and mismatch alike — the verdict always comes
 
 run_optical via SAX: frequency-domain photonic circuit sim.
 
-Tools: `sax` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+Tools: `sax` (default), `circulax` — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
 
-Handlers: `rocket_engine.adapters.sax.SaxAdapter`.
+Handlers: `rocket_engine.adapters.sax.SaxAdapter`, `rocket_engine.adapters.circulax.adapter.CirculaxAdapter`.
 
 #### Tool `sax`
 
 run_optical via SAX: frequency-domain photonic circuit sim.
 
-Serves the run_optical operation with deck.tool `sax` (the only
-tool). Stages the sim driver plus a job JSON, runs it under a
-timeout, and parses the JSON envelope: spectra plus per-target
+Serves the run_optical operation with deck.tool `sax` (the
+default tool). Stages the sim driver plus a job JSON, runs it
+under a timeout, and parses the JSON envelope: spectra plus per-target
 transmission measurements against min_db/max_db bounds.
 
 Arguments:
@@ -948,6 +984,40 @@ Raises:
 (parse) AdapterError: missing_dependency when the sim python has no sax, runner_unavailable when the driver printed no JSON envelope, no result, or misses a target pair.
 
 Caution: Missed target bounds are FAIL and a malformed circuit synthesizes an error violation with file/line — the verdict always comes from parsed output, never the exit code.
+
+#### Tool `circulax`
+
+run_optical via circulax: time-domain transient circuit sim.
+
+Serves the run_optical operation with deck.tool `circulax` (the
+second tool; sax stays the default). Stages the sim driver plus
+a job JSON, runs it under a timeout, and parses the JSON
+envelope: the observed voltage trace plus per-target
+measurements against min_V/max_V bounds.
+
+Arguments:
+
+- `sources` (required): Exactly one circuit spec YAML path.
+- `timeout_s`: Sim budget in seconds (default 120).
+- `tool_dir`: Directory holding the sim python; the engine interpreter otherwise.
+- `deck`: Optional mapping; deck.tool must be circulax here.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements[], transient, circulax_version} with volt values and margins.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad timeout or circuit spec, invalid_reference unless exactly one readable spec source is given, missing_dependency for an unresolvable sim python.
+
+(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a sim timeout, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: missing_dependency when the sim python has no circulax, runner_unavailable when the driver printed no JSON envelope or no result.
+
+Caution: Missed voltage bounds are FAIL and a malformed circuit synthesizes an error violation with file/line/sim_time — the verdict always comes from parsed output, never the exit code.
 
 ### run_post_layout
 

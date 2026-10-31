@@ -61,13 +61,13 @@ def test_run_drc_bad_cell_fails_with_violations(tmp_path):
 
 def test_run_unregistered_operation_raises(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    command = _command("good", tmp_path, operation="run_em")
+    command = _command("good", tmp_path, operation="run_thermal")
     try:
         engine.run(command)
     except Exception as exc:
         assert getattr(exc, "code", None) == "unsupported_operation"
     else:
-        raise AssertionError("expected unsupported_operation for run_em")
+        raise AssertionError("expected unsupported_operation for run_thermal")
 
 
 def test_submit_unwired_operation_raises():
@@ -76,14 +76,14 @@ def test_submit_unwired_operation_raises():
         engine.submit(
             {
                 "project_id": PROJECT,
-                "operation": "run_em",
+                "operation": "run_thermal",
                 "arguments": {"expected_revision": "p12"},
             }
         )
     except Exception as exc:
         assert getattr(exc, "code", None) == "unsupported_operation"
     else:
-        raise AssertionError("expected unsupported_operation for run_em")
+        raise AssertionError("expected unsupported_operation for run_thermal")
 
 
 def test_submit_run_syntax_accepted():
@@ -178,7 +178,7 @@ class FakeAdapter:
 
 def test_register_solver_wires_custom_operation(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_em", FakeAdapter())
+    engine.register_solver("run_em", FakeAdapter(), tool="meow")
     command = _command("good", tmp_path, operation="run_em")
     out = engine.run(command)
     assert out["verdict"]["status"] == "PASS"
@@ -186,7 +186,7 @@ def test_register_solver_wires_custom_operation(tmp_path):
 
 def test_run_job_executes_queued_request():
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_em", FakeAdapter())
+    engine.register_solver("run_em", FakeAdapter(), tool="meow")
     ack = engine.submit(
         {
             "project_id": PROJECT,
@@ -226,7 +226,7 @@ def test_run_job_unknown_request_raises():
 
 def test_submit_run_job_executes_immediately():
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_em", FakeAdapter())
+    engine.register_solver("run_em", FakeAdapter(), tool="meow")
     engine.submit(
         {
             "project_id": PROJECT,
@@ -255,7 +255,7 @@ class FailingAdapter(FakeAdapter):
 
 def test_run_records_not_run_when_tool_fails(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_em", FailingAdapter())
+    engine.register_solver("run_em", FailingAdapter(), tool="meow")
     command = _command("good", tmp_path, operation="run_em")
     out = engine.run(command)
     assert out["verdict"]["status"] == "NOT_RUN"
@@ -332,11 +332,11 @@ class NamedFake(FakeAdapter):
 
 def test_register_solver_names_tool_explicitly(tmp_path):
     engine = Engine(PROJECT, actor="tester")
-    engine.register_solver("run_em", NamedFake("rule-a"), tool="alpha")
-    engine.register_solver("run_em", NamedFake("rule-b"), tool="beta")
+    engine.register_solver("run_thermal", NamedFake("rule-a"), tool="alpha")
+    engine.register_solver("run_thermal", NamedFake("rule-b"), tool="beta")
 
     def _spice(deck):
-        command = _command("good", tmp_path, operation="run_em")
+        command = _command("good", tmp_path, operation="run_thermal")
         if deck is not None:
             command["arguments"]["deck"] = {"tool": deck}
         return engine.run(command)

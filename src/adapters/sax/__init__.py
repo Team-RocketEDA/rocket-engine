@@ -194,9 +194,9 @@ def _target_line(spec_text):
 class SaxAdapter(ToolAdapter):
     """run_optical via SAX: frequency-domain photonic circuit sim.
 
-    Serves the run_optical operation with deck.tool `sax` (the only
-    tool). Stages the sim driver plus a job JSON, runs it under a
-    timeout, and parses the JSON envelope: spectra plus per-target
+    Serves the run_optical operation with deck.tool `sax` (the
+    default tool). Stages the sim driver plus a job JSON, runs it
+    under a timeout, and parses the JSON envelope: spectra plus per-target
     transmission measurements against min_db/max_db bounds.
 
     Job keys:

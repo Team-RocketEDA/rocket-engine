@@ -211,7 +211,7 @@ def build_envelopes():
     from rocket_engine.project.errors import ProjectError
 
     engine = Engine("contract-probe", actor="contract-probe")
-    engine.register_solver("run_em", _PassAdapter())
+    engine.register_solver("run_em", _PassAdapter(), tool="meow")
     request_id = uuid.uuid4().hex
     ack = engine.submit(
         {
@@ -251,7 +251,7 @@ def build_envelopes():
     )
 
     failing = Engine("contract-probe-fail", actor="contract-probe")
-    failing.register_solver("run_em", _FailAdapter())
+    failing.register_solver("run_em", _FailAdapter(), tool="meow")
     failed_id = uuid.uuid4().hex
     failing.submit(
         {

@@ -126,7 +126,7 @@ def test_server_reports_unwired_operation_as_error():
     result = asyncio.run(
         _call(
             call,
-            "run_em",
+            "run_thermal",
             {"project_id": PROJECT, "expected_revision": "p12"},
         )
     )

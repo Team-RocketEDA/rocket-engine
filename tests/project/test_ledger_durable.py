@@ -241,7 +241,7 @@ def test_run_job_completion_links_the_queued_request():
     from rocket_engine.composition import Engine  # RED: run appends nothing
 
     engine = Engine(PROJECT, actor="human")
-    engine.register_solver("run_em", _PassAdapter())
+    engine.register_solver("run_em", _PassAdapter(), tool="meow")
     engine.submit(
         {
             "project_id": PROJECT,
