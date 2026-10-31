@@ -63,7 +63,7 @@ text, identical to the section bodies below.
 | `run_synth` | yes | `yosys` (default) | run_synth via Yosys: RTL to mapped netlist plus evidence. |
 | `run_thermal` | no | — | Declared operation `run_thermal`; no handler wired yet. |
 | `run_timing` | no | — | Declared operation `run_timing`; no handler wired yet. |
-| `run_view_sync` | no | — | Declared operation `run_view_sync`; no handler wired yet. |
+| `run_view_sync` | yes | `connectgraph` (default) | Intended-vs-extracted connectivity diff for photonic P14. |
 | `set_component` | yes | — | Upsert one component payload (create or overwrite). |
 | `split_wire` | yes | — | Split one wire at an interior point: gate, run, log. |
 | `write_doc` | yes | — | Write one document: gate, store, advance, log. |
@@ -1227,9 +1227,43 @@ Declared operation `run_timing`; no handler wired yet.
 
 ### run_view_sync
 
-Declared operation `run_view_sync`; no handler wired yet.
+Intended-vs-extracted connectivity diff for photonic P14.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `connectgraph` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.view_sync.ViewSyncAdapter`.
+
+#### Tool `connectgraph`
+
+Intended-vs-extracted connectivity diff for photonic P14.
+
+Serves run_view_sync with deck.tool `connectgraph` (the only
+tool). Both views arrive in the job; extraction, naming, and
+the diff all run in-process — no tool to resolve, no timeout.
+
+Arguments:
+
+- `intended` (required): Intended-view schematic record (see workflows.connectgraph for the shape).
+- `extracted` (required): Extracted-view schematic record.
+- `links`: CellLink block links correlating symbol pins to cell pins (default []).
+- `variant`: Variant selector applied to every link (default None, the stored base link).
+- `deck`: Optional mapping; deck.tool must be connectgraph here.
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[]} plus measurements with coverage and the text report.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation or deck tool, invalid_command for a missing view, a non-list links, or a non-string variant.
+
+(execute) AdapterError: invalid_command for a malformed view or bad identity mapping, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output has no findings list.
+
+Caution: FAIL-on-diff, PASS-with-coverage — the verdict judges finding severities, never the exit path; read the coverage statement before trusting a clean diff.
 
 ### set_component
 

@@ -66,6 +66,7 @@ SOLVER_DEPS = {
     ("run_connectivity", "connectgraph"): {},
     ("run_erc", "connectgraph"): {},
     ("run_formal", "sby"): {"binaries": ["sby"]},
+    ("run_view_sync", "connectgraph"): {},
 }
 
 

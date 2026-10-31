@@ -409,9 +409,9 @@
   },
   "run_view_sync": {
     "kind": "operation",
-    "summary": "Declared operation `run_view_sync`; no handler wired yet.",
-    "text": "Declared operation `run_view_sync`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Intended-vs-extracted connectivity diff for photonic P14.",
+    "text": "Intended-vs-extracted connectivity diff for photonic P14.\n\nTools: `connectgraph` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.view_sync.ViewSyncAdapter`.\n\n#### Tool `connectgraph`\n\nIntended-vs-extracted connectivity diff for photonic P14.\n\nServes run_view_sync with deck.tool `connectgraph` (the only\ntool). Both views arrive in the job; extraction, naming, and\nthe diff all run in-process \u2014 no tool to resolve, no timeout.\n\nArguments:\n\n- `intended` (required): Intended-view schematic record (see workflows.connectgraph for the shape).\n- `extracted` (required): Extracted-view schematic record.\n- `links`: CellLink block links correlating symbol pins to cell pins (default []).\n- `variant`: Variant selector applied to every link (default None, the stored base link).\n- `deck`: Optional mapping; deck.tool must be connectgraph here.\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\n{total, violations[]} plus measurements with coverage and the text report.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation or deck tool, invalid_command for a missing view, a non-list links, or a non-string variant.\n\n(execute) AdapterError: invalid_command for a malformed view or bad identity mapping, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no findings list.\n\nCaution: FAIL-on-diff, PASS-with-coverage \u2014 the verdict judges finding severities, never the exit path; read the coverage statement before trusting a clean diff.\n",
+    "wired": true
   },
   "save_layer_preset": {
     "kind": "query",

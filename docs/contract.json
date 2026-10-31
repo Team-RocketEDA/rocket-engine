@@ -2741,15 +2741,144 @@
       "wired": false
     },
     "run_view_sync": {
-      "description": "Declared operation `run_view_sync`; no handler wired yet.",
-      "handlers": [],
+      "description": "Intended-vs-extracted connectivity diff for photonic P14.",
+      "handlers": [
+        "rocket_engine.adapters.view_sync.ViewSyncAdapter"
+      ],
       "kind": "operation",
       "name": "run_view_sync",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be connectgraph here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "extracted": {
+          "description": "Extracted-view schematic record."
+        },
+        "intended": {
+          "description": "Intended-view schematic record (see workflows.connectgraph for the shape)."
+        },
+        "links": {
+          "description": "CellLink block links correlating symbol pins to cell pins (default [])."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "variant": {
+          "description": "Variant selector applied to every link (default None, the stored base link)."
+        }
+      },
+      "required": [
+        "intended",
+        "extracted"
+      ],
+      "returns": "{total, violations[]} plus measurements with coverage and the text report.",
+      "tools": {
+        "connectgraph": {
+          "adapter": "rocket_engine.adapters.view_sync.ViewSyncAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be connectgraph here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "extracted": {
+              "description": "Extracted-view schematic record."
+            },
+            "intended": {
+              "description": "Intended-view schematic record (see workflows.connectgraph for the shape)."
+            },
+            "links": {
+              "description": "CellLink block links correlating symbol pins to cell pins (default [])."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "variant": {
+              "description": "Variant selector applied to every link (default None, the stored base link)."
+            }
+          },
+          "required": [
+            "intended",
+            "extracted"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "set_component": {
       "description": "Upsert one component payload (create or overwrite).",
@@ -3503,7 +3632,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "36f147c804aa9835928ffce07b86e1a7ee96d47b14b4042c396934c96306f9d9",
+  "schema_sha256": "5749f3636271c069b9b7102c53a07ded134479b6fefc2a40ae3f046c5ac2a757",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

@@ -22,7 +22,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Ready
 
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
-- [VIEW-SYNC] run_view_sync (intended vs extracted comparison)
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 - [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
 - [RUAMEL-DUMPER] Fresh dumpers for Engine/ProjectService YAML writes
@@ -117,3 +116,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [FORMAL-SBY] run_formal via sby (bounded proof, honestly reported)
 - [POSTLAYOUT] run_post_layout via ngspice on extracted netlists
 - [PHOTONIC-WIRE] Wire proven photonic solvers to engine ops
+- [VIEW-SYNC] run_view_sync (intended vs extracted comparison)
