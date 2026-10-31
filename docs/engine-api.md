@@ -32,11 +32,11 @@ text, identical to the section bodies below.
 | `place_cell` | no | — | Declared operation `place_cell`; no handler wired yet. |
 | `python_execute` | no | — | Declared operation `python_execute`; no handler wired yet. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
-| `run_connectivity` | no | — | Declared operation `run_connectivity`; no handler wired yet. |
+| `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_digital_flow` | no | — | Declared operation `run_digital_flow`; no handler wired yet. |
 | `run_drc` | yes | `magic` (default), `klayout` | run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes. |
 | `run_em` | no | — | Declared operation `run_em`; no handler wired yet. |
-| `run_erc` | no | — | Declared operation `run_erc`; no handler wired yet. |
+| `run_erc` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_extraction` | yes | `magic` (default) | run_extraction via Magic: .mag cells to .ext/.spice netlists. |
 | `run_formal` | no | — | Declared operation `run_formal`; no handler wired yet. |
 | `run_hdl_test` | yes | `icarus` (default) | run_hdl_test via Icarus: compile plus timed Verilog sim. |
@@ -202,9 +202,42 @@ Caution: Rewinding advances — the new head is not the target id, and stale wri
 
 ### run_connectivity
 
-Declared operation `run_connectivity`; no handler wired yet.
+Shared-graph connectivity checks plus netlist emission.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `connectgraph` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.connectivity.ConnectivityAdapter`.
+
+#### Tool `connectgraph`
+
+Shared-graph connectivity checks plus netlist emission.
+
+Serves run_connectivity and run_erc with deck.tool
+`connectgraph` (the only tool). Extraction, naming, and emission
+all run in-process; there is no tool to resolve and no timeout.
+
+Arguments:
+
+- `schematic` (required): Schematic record (see workflows.connectgraph for the shape).
+- `languages`: Netlist languages for run_connectivity (default all of spice, verilog, vhdl).
+- `run_key`: Explicit extraction-cache key; uncached when omitted.
+- `deck`: Optional mapping; deck.tool must be connectgraph here.
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[]} plus measurements with netlists, the net table, counts, and skipped instances.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation or deck tool, invalid_command for a missing schematic or an unknown language.
+
+(execute) AdapterError: invalid_command for a malformed schematic, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output has no findings list.
+
+Caution: run_erc fails on unconnected pins while run_connectivity only warns — same findings, different policy; read the verdict, never the exit path.
 
 ### run_digital_flow
 
@@ -295,9 +328,42 @@ Declared operation `run_em`; no handler wired yet.
 
 ### run_erc
 
-Declared operation `run_erc`; no handler wired yet.
+Shared-graph connectivity checks plus netlist emission.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `connectgraph` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.connectivity.ConnectivityAdapter`.
+
+#### Tool `connectgraph`
+
+Shared-graph connectivity checks plus netlist emission.
+
+Serves run_connectivity and run_erc with deck.tool
+`connectgraph` (the only tool). Extraction, naming, and emission
+all run in-process; there is no tool to resolve and no timeout.
+
+Arguments:
+
+- `schematic` (required): Schematic record (see workflows.connectgraph for the shape).
+- `languages`: Netlist languages for run_connectivity (default all of spice, verilog, vhdl).
+- `run_key`: Explicit extraction-cache key; uncached when omitted.
+- `deck`: Optional mapping; deck.tool must be connectgraph here.
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[]} plus measurements with netlists, the net table, counts, and skipped instances.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation or deck tool, invalid_command for a missing schematic or an unknown language.
+
+(execute) AdapterError: invalid_command for a malformed schematic, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output has no findings list.
+
+Caution: run_erc fails on unconnected pins while run_connectivity only warns — same findings, different policy; read the verdict, never the exit path.
 
 ### run_extraction
 

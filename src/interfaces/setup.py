@@ -48,7 +48,8 @@ _CATALOGUE_PATH = Path(__file__).parent / "setup_catalogue.yaml"
 # `shutil.which`s (or `_resolve`s), the banner probe for netgen
 # (`adapters.lvs_netgen.resolve_netgen`), the import probe for sax.
 # A registered solver with no row fails loudly (unknown_solver),
-# so a new solver cannot slip into the menu undetected.
+# so a new solver cannot slip into the menu undetected. Pure-Python
+# solvers take an empty spec: always available, nothing to detect.
 SOLVER_DEPS = {
     ("run_drc", "magic"): {"binaries": ["magic"]},
     ("run_drc", "klayout"): {"binaries": ["klayout"]},
@@ -58,6 +59,8 @@ SOLVER_DEPS = {
     ("run_lvs", "netgen"): {"binaries": ["netgen"], "banner": "lvs"},
     ("run_spice", "ngspice"): {"binaries": ["ngspice"]},
     ("run_syntax", "slang"): {"binaries": ["slang"]},
+    ("run_connectivity", "connectgraph"): {},
+    ("run_erc", "connectgraph"): {},
 }
 
 

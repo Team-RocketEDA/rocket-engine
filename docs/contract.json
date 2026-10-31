@@ -187,15 +187,136 @@
       "wired": true
     },
     "run_connectivity": {
-      "description": "Declared operation `run_connectivity`; no handler wired yet.",
-      "handlers": [],
+      "description": "Shared-graph connectivity checks plus netlist emission.",
+      "handlers": [
+        "rocket_engine.adapters.connectivity.ConnectivityAdapter"
+      ],
       "kind": "operation",
       "name": "run_connectivity",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be connectgraph here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "languages": {
+          "description": "Netlist languages for run_connectivity (default all of spice, verilog, vhdl)."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "run_key": {
+          "description": "Explicit extraction-cache key; uncached when omitted."
+        },
+        "schematic": {
+          "description": "Schematic record (see workflows.connectgraph for the shape)."
+        }
+      },
+      "required": [
+        "schematic"
+      ],
+      "returns": "{total, violations[]} plus measurements with netlists, the net table, counts, and skipped instances.",
+      "tools": {
+        "connectgraph": {
+          "adapter": "rocket_engine.adapters.connectivity.ConnectivityAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be connectgraph here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "languages": {
+              "description": "Netlist languages for run_connectivity (default all of spice, verilog, vhdl)."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "run_key": {
+              "description": "Explicit extraction-cache key; uncached when omitted."
+            },
+            "schematic": {
+              "description": "Schematic record (see workflows.connectgraph for the shape)."
+            }
+          },
+          "required": [
+            "schematic"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "run_digital_flow": {
       "description": "Declared operation `run_digital_flow`; no handler wired yet.",
@@ -425,15 +546,136 @@
       "wired": false
     },
     "run_erc": {
-      "description": "Declared operation `run_erc`; no handler wired yet.",
-      "handlers": [],
+      "description": "Shared-graph connectivity checks plus netlist emission.",
+      "handlers": [
+        "rocket_engine.adapters.connectivity.ConnectivityAdapter"
+      ],
       "kind": "operation",
       "name": "run_erc",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be connectgraph here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "languages": {
+          "description": "Netlist languages for run_connectivity (default all of spice, verilog, vhdl)."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "run_key": {
+          "description": "Explicit extraction-cache key; uncached when omitted."
+        },
+        "schematic": {
+          "description": "Schematic record (see workflows.connectgraph for the shape)."
+        }
+      },
+      "required": [
+        "schematic"
+      ],
+      "returns": "{total, violations[]} plus measurements with netlists, the net table, counts, and skipped instances.",
+      "tools": {
+        "connectgraph": {
+          "adapter": "rocket_engine.adapters.connectivity.ConnectivityAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be connectgraph here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "languages": {
+              "description": "Netlist languages for run_connectivity (default all of spice, verilog, vhdl)."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "run_key": {
+              "description": "Explicit extraction-cache key; uncached when omitted."
+            },
+            "schematic": {
+              "description": "Schematic record (see workflows.connectgraph for the shape)."
+            }
+          },
+          "required": [
+            "schematic"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "run_extraction": {
       "description": "run_extraction via Magic: .mag cells to .ext/.spice netlists.",
@@ -1846,7 +2088,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "b5459f35d910eaf480ca23f357b7772270cbf2e986cb0d451448744440f8dcce",
+  "schema_sha256": "c3c7999db2c8778cbb2136ba3e89d6d918a75ef21277bc640803dd437efb2b62",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

@@ -1,0 +1,131 @@
+{
+  "cell": "top",
+  "generics": {},
+  "instances": [
+    {
+      "name": "X1",
+      "symbol": "inv"
+    },
+    {
+      "name": "X2",
+      "symbol": "inv"
+    }
+  ],
+  "labels": [
+    {
+      "name": "A",
+      "xy": [
+        -10,
+        10
+      ]
+    },
+    {
+      "name": "Y",
+      "xy": [
+        60,
+        10
+      ]
+    }
+  ],
+  "pins": [
+    {
+      "instance": "X1",
+      "pin": "A",
+      "xy": [
+        0,
+        10
+      ]
+    },
+    {
+      "instance": "X1",
+      "pin": "Y",
+      "xy": [
+        20,
+        10
+      ]
+    },
+    {
+      "instance": "X2",
+      "pin": "A",
+      "xy": [
+        30,
+        10
+      ]
+    },
+    {
+      "instance": "X2",
+      "pin": "Y",
+      "xy": [
+        50,
+        10
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "direction": "input",
+      "name": "A"
+    },
+    {
+      "direction": "output",
+      "name": "Y"
+    }
+  ],
+  "symbols": {
+    "inv": {
+      "format": {
+        "spice": "{name} {pin_nets} {symbol}",
+        "verilog": "{symbol} {name} (.A({pins[A]}), .Y({pins[Y]}));",
+        "vhdl": "{name} : entity work.{symbol} port map (A => {pins[A]}, Y => {pins[Y]});"
+      },
+      "pins": [
+        "A",
+        "Y"
+      ]
+    },
+    "nand2": {
+      "format": {
+        "spice": "{name} {pin_nets} {symbol}",
+        "verilog": "{symbol} {name} (.A({pins[A]}), .B({pins[B]}), .Y({pins[Y]}));",
+        "vhdl": "{name} : entity work.{symbol} port map (A => {pins[A]}, B => {pins[B]}, Y => {pins[Y]});"
+      },
+      "pins": [
+        "A",
+        "B",
+        "Y"
+      ]
+    }
+  },
+  "wires": [
+    [
+      [
+        -10,
+        10
+      ],
+      [
+        0,
+        10
+      ]
+    ],
+    [
+      [
+        20,
+        10
+      ],
+      [
+        30,
+        10
+      ]
+    ],
+    [
+      [
+        50,
+        10
+      ],
+      [
+        60,
+        10
+      ]
+    ]
+  ]
+}

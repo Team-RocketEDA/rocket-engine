@@ -163,9 +163,9 @@
   },
   "run_connectivity": {
     "kind": "operation",
-    "summary": "Declared operation `run_connectivity`; no handler wired yet.",
-    "text": "Declared operation `run_connectivity`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Shared-graph connectivity checks plus netlist emission.",
+    "text": "Shared-graph connectivity checks plus netlist emission.\n\nTools: `connectgraph` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.connectivity.ConnectivityAdapter`.\n\n#### Tool `connectgraph`\n\nShared-graph connectivity checks plus netlist emission.\n\nServes run_connectivity and run_erc with deck.tool\n`connectgraph` (the only tool). Extraction, naming, and emission\nall run in-process; there is no tool to resolve and no timeout.\n\nArguments:\n\n- `schematic` (required): Schematic record (see workflows.connectgraph for the shape).\n- `languages`: Netlist languages for run_connectivity (default all of spice, verilog, vhdl).\n- `run_key`: Explicit extraction-cache key; uncached when omitted.\n- `deck`: Optional mapping; deck.tool must be connectgraph here.\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\n{total, violations[]} plus measurements with netlists, the net table, counts, and skipped instances.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation or deck tool, invalid_command for a missing schematic or an unknown language.\n\n(execute) AdapterError: invalid_command for a malformed schematic, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no findings list.\n\nCaution: run_erc fails on unconnected pins while run_connectivity only warns \u2014 same findings, different policy; read the verdict, never the exit path.\n",
+    "wired": true
   },
   "run_digital_flow": {
     "kind": "operation",
@@ -187,9 +187,9 @@
   },
   "run_erc": {
     "kind": "operation",
-    "summary": "Declared operation `run_erc`; no handler wired yet.",
-    "text": "Declared operation `run_erc`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Shared-graph connectivity checks plus netlist emission.",
+    "text": "Shared-graph connectivity checks plus netlist emission.\n\nTools: `connectgraph` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.connectivity.ConnectivityAdapter`.\n\n#### Tool `connectgraph`\n\nShared-graph connectivity checks plus netlist emission.\n\nServes run_connectivity and run_erc with deck.tool\n`connectgraph` (the only tool). Extraction, naming, and emission\nall run in-process; there is no tool to resolve and no timeout.\n\nArguments:\n\n- `schematic` (required): Schematic record (see workflows.connectgraph for the shape).\n- `languages`: Netlist languages for run_connectivity (default all of spice, verilog, vhdl).\n- `run_key`: Explicit extraction-cache key; uncached when omitted.\n- `deck`: Optional mapping; deck.tool must be connectgraph here.\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\n{total, violations[]} plus measurements with netlists, the net table, counts, and skipped instances.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation or deck tool, invalid_command for a missing schematic or an unknown language.\n\n(execute) AdapterError: invalid_command for a malformed schematic, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no findings list.\n\nCaution: run_erc fails on unconnected pins while run_connectivity only warns \u2014 same findings, different policy; read the verdict, never the exit path.\n",
+    "wired": true
   },
   "run_extraction": {
     "kind": "operation",

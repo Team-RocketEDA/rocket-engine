@@ -180,10 +180,15 @@ def test_fresh_machine_names_every_missing_tool_with_remedy(tmp_path, monkeypatc
             assert detail["readiness"] == "unsupported", op
             assert "No solver registered" in detail["reason"], op
             continue
+        tools = detail["tools"]
+        if tools and all(e["available"] for e in tools.values()):
+            # Pure-Python solvers (empty spec) are always available.
+            assert detail["readiness"] == "ready", op
+            continue
         assert detail["readiness"] == "blocked", op
         assert detail["missing"] != [], op
         assert detail["remedy"].strip(), op
-        for tool, entry in detail["tools"].items():
+        for tool, entry in tools.items():
             assert entry["available"] is False, (op, tool)
             assert entry["missing"] != [], (op, tool)
             assert entry["remedy"].strip(), (op, tool)
