@@ -92,6 +92,9 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [REPLAY-SAFE] Report-not-run survivors + explicit resume + poison quarantine
 - [CONSOLE-ROUTE] Console mutations route to golden recipe via admission
 - [COALESCE-I33] Request coalescing per I33 (revision-pinned, force bypass)
+- [SYNTH-YOSYS] run_synth via oss-cad-suite Yosys (RTL to mapped netlist)
+- [FORMAL-SBY] run_formal via sby (bounded proof, honestly reported)
+- [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
