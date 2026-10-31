@@ -36,14 +36,32 @@ from .python_exec import (
     prelude_digest_for,
     resolve_script_path,
 )
+from .replay_safe import (
+    AMBIGUOUS,
+    POISON,
+    POISON_THRESHOLD,
+    REPLAY_SAFE_VERSION,
+    RETRYABLE,
+    ReplaySafe,
+    boot_message,
+    content_key_for,
+    interrupt_counts_from_events,
+    survivors_from_events,
+    user_message_for,
+)
 from .runner import BwrapRunner
 from .service import ExecutionService
 from .worker import CellRunner, CredentialGate, worker_profile
 
 __all__ = [
+    "AMBIGUOUS",
     "BLOCK_RUN_OPERATIONS",
     "BLOCK_SCOPE",
+    "POISON",
+    "POISON_THRESHOLD",
     "PROJECT_SCOPE",
+    "REPLAY_SAFE_VERSION",
+    "RETRYABLE",
     "SUPPORTED_SCOPES",
     "ApigPool",
     "BlockScopeError",
@@ -57,13 +75,17 @@ __all__ = [
     "OpDispatcher",
     "PythonExecRunner",
     "PythonExecService",
+    "ReplaySafe",
     "SubmitImmediate",
     "UsageError",
+    "boot_message",
     "build_scope_record",
     "build_worker_source",
     "check_operation_scope",
     "closure_hash",
+    "content_key_for",
     "get_help",
+    "interrupt_counts_from_events",
     "merge_ack_completion",
     "narrow_job_for_block",
     "not_run_verdict",
@@ -80,5 +102,7 @@ __all__ = [
     "snapshot_closure",
     "stamp_verdict",
     "stored_completion_from_events",
+    "survivors_from_events",
+    "user_message_for",
     "worker_profile",
 ]

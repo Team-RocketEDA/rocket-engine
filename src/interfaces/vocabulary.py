@@ -11,6 +11,7 @@ OPERATIONS = frozenset(
         "run_optical", "run_digital_flow", "run_timing", "run_extraction",
         "run_post_layout", "run_em", "run_thermal", "python_execute",
         "run_view_sync", "run_job",
+        "resume_run", "discard_run", "resume_all_retryable",
         "create_project", "write_doc", "delete_doc", "apply_mutations",
         "rewind", "place_cell", "write_settings",
         "create_entity", "set_component", "attach_component",
@@ -32,5 +33,6 @@ QUERIES = frozenset(
         "read_settings", "get_resolved_config",
         "get_layer_stackup", "get_layer_rows", "list_layer_presets",
         "save_layer_preset", "delete_layer_preset", "apply_layer_preset",
+        "list_survivors",
     }
 )

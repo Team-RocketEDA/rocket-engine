@@ -18,6 +18,7 @@
     "ledger_event": {
       "data_by_event": {
         "job_queued": [
+          "content_key",
           "operation",
           "revision",
           "run_id"
@@ -31,6 +32,11 @@
           "operation",
           "run_id",
           "verdict"
+        ],
+        "run_started": [
+          "content_key",
+          "operation",
+          "run_id"
         ]
       },
       "keys": [
@@ -312,6 +318,17 @@
       "type": "object",
       "wired": true
     },
+    "discard_run": {
+      "description": "Declared operation `discard_run`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "discard_run",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
     "generate_views": {
       "description": "Declared operation `generate_views`; no handler wired yet.",
       "handlers": [],
@@ -493,6 +510,28 @@
       "returns": "Approval handle with execution_id, approval_id, pending_approval state, code hash, and the run_id only when the caller prescribed one.",
       "type": "object",
       "wired": true
+    },
+    "resume_all_retryable": {
+      "description": "Declared operation `resume_all_retryable`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "resume_all_retryable",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "resume_run": {
+      "description": "Declared operation `resume_run`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "resume_run",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
     },
     "rewind": {
       "description": "Restore managed bytes to a prior revision under a new head.",
@@ -2611,6 +2650,20 @@
       "type": "object",
       "wired": true
     },
+    "list_survivors": {
+      "description": "Report crash survivors without executing anything (boot report).",
+      "handlers": [
+        "rocket_engine.composition.Engine.boot_report"
+      ],
+      "kind": "query",
+      "name": "list_survivors",
+      "properties": {},
+      "raises": "",
+      "required": [],
+      "returns": "Report with the session-ended message, the unfinished count, survivors in admit order, quarantined run ids, and unresolved entries.",
+      "type": "object",
+      "wired": true
+    },
     "plan_checks": {
       "description": "Declared query `plan_checks`; no handler wired yet.",
       "handlers": [],
@@ -2736,7 +2789,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "9400e653028e9707264ffb6669ee7974b1583a77396a0202836e20bdcb85ce5c",
+  "schema_sha256": "87d966d8bf216f1110a8bd1c0779531e1b69eba972b55718aa5e5bf4b67d585c",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

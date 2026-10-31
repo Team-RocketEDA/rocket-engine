@@ -35,6 +35,7 @@ text, identical to the section bodies below.
 | `delete_junction` | yes | — | Delete one unreferenced junction: gate, remove, log. |
 | `delete_wire` | yes | — | Delete one wire: gate, remove, advance, log. |
 | `detach_component` | yes | — | Detach one component from its entity. |
+| `discard_run` | no | — | Declared operation `discard_run`; no handler wired yet. |
 | `generate_views` | no | — | Declared operation `generate_views`; no handler wired yet. |
 | `materialize_nets` | yes | — | Extract connectivity, upsert Net entities: gate, run, log. |
 | `move_wire` | yes | — | Translate one wire: gate, transact, advance, log. |
@@ -42,6 +43,8 @@ text, identical to the section bodies below.
 | `place_junction` | yes | — | Place one junction dot: gate, transact, advance, log. |
 | `place_wire` | yes | — | Place one wire: gate, transact, advance, log. |
 | `python_execute` | yes | — | Request one execution: persist the cell, open an approval. |
+| `resume_all_retryable` | no | — | Declared operation `resume_all_retryable`; no handler wired yet. |
+| `resume_run` | no | — | Declared operation `resume_run`; no handler wired yet. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
 | `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_digital_flow` | no | — | Declared operation `run_digital_flow`; no handler wired yet. |
@@ -95,6 +98,7 @@ text, identical to the section bodies below.
 | `list_job_kinds` | yes | `rocket_engine.composition.Engine.job_kinds` | List registered operations with their deck tools. |
 | `list_layer_presets` | yes | `rocket_engine.composition.Engine.layer_presets` | List built-in plus user layer preset names. |
 | `list_projects` | yes | `rocket_engine.project.service.ProjectService.list_projects` | List projects under the engine root, bound always included. |
+| `list_survivors` | yes | `rocket_engine.composition.Engine.boot_report` | Report crash survivors without executing anything (boot report). |
 | `plan_checks` | no | — | Declared query `plan_checks`; no handler wired yet. |
 | `read_doc` | yes | `rocket_engine.project.service.ProjectService.read_doc` | Read one document as text at the current head. |
 | `read_settings` | yes | `rocket_engine.project.service.ProjectService.read_settings` | Read one settings kind at the current head. |
@@ -359,6 +363,12 @@ ProjectError: unknown_component for a missing component; otherwise like set_comp
 
 Caution: Every accepted detach advances the revision — a second writer at the old head fails instead of merging.
 
+### discard_run
+
+Declared operation `discard_run`; no handler wired yet.
+
+`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+
 ### generate_views
 
 Declared operation `generate_views`; no handler wired yet.
@@ -495,6 +505,18 @@ Approval handle with execution_id, approval_id, pending_approval state, code has
 Raises:
 
 ExecutionError: invalid_command for a bad mode, a mode/field mismatch, oversize input, or a malformed timeout, invalid_cell/empty_cell for bad script text, path_escape/invalid_path/cell_unreadable for bad project files, request_conflict for a reused request id with new code.
+
+### resume_all_retryable
+
+Declared operation `resume_all_retryable`; no handler wired yet.
+
+`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+
+### resume_run
+
+Declared operation `resume_run`; no handler wired yet.
+
+`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
 
 ### rewind
 
@@ -1590,6 +1612,27 @@ Raises:
 ProjectError: invalid_ledger when a sibling ledger head is unreadable or corrupt.
 
 Caution: A corrupt sibling ledger fails the whole list loudly instead of being skipped.
+
+### list_survivors
+
+Report crash survivors without executing anything (boot report).
+
+Handler: `rocket_engine.composition.Engine.boot_report`.
+
+Survivors are ledger admissions without a run event —
+typically a kill between admit and drain. Each carries its
+taxonomy kind (retryable, ambiguous, poison), quarantine
+state, and per-run Resume/Discard actions.
+
+Arguments:
+
+- _(none)_
+
+Returns:
+
+Report with the session-ended message, the unfinished count, survivors in admit order, quarantined run ids, and unresolved entries.
+
+Caution: Report-only by construction: nothing executes here — every replay surface needs an explicit resume decision (resume_run, discard_run, resume_all_retryable).
 
 ### plan_checks
 

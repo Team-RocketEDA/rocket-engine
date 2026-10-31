@@ -15,8 +15,10 @@ runs inline, returning the ack shape plus the verdict payload under
 the one run id; `run_job` stays for explicit/deferred/batch pumping
 plus idempotent result fetch — over `run()` directly or over
 submit-only transports via `submit(run_job)`. Replays return the
-stored completion without re-executing, and a fresh Engine drains
-crash survivors once (boot replay) on its first mutating call.
+stored completion without re-executing, and a fresh Engine reports
+crash survivors once (boot report, never executed) on its first
+mutating call; every replay surface stays gated behind an explicit
+resume decision (REPLAY-SAFE).
 With `constraints` (metric -> {min, max, unit[, expr, control]}),
 run_spice targets come from the project, never the caller:
 caller-supplied min/max — or a caller expr where the project defines
@@ -65,6 +67,7 @@ from .execution.block_runs_scope import (
 from .execution.dispatch import OpDispatcher
 from .execution.errors import ExecutionError
 from .execution.python_exec import PythonExecService
+from .execution.replay_safe import ReplaySafe, content_key_for
 from .execution.service import ExecutionService
 from .interfaces import apig_assets
 from .interfaces.celllink import resolve_run as resolve_celllink_run
@@ -138,6 +141,7 @@ QUERY_ENGINE_METHODS = {
     "save_layer_preset": "layer_preset_save",
     "delete_layer_preset": "layer_preset_delete",
     "apply_layer_preset": "layer_preset_apply",
+    "list_survivors": "boot_report",
 }
 
 # Job-result queries served from execution state (plus the captured run log).
@@ -148,6 +152,11 @@ _JOB_QUERIES = frozenset(
 # Catalogue + raw-asset queries served from engine state (the cell
 # index and the PDK store); read-only, never replay the backlog.
 _APIG_QUERIES = frozenset({"list_cells", "serve_asset", "list_assets"})
+
+# Replay-safety query (REPLAY-SAFE): the boot survivor report, served
+# from ledger state. Report-only — never executes, only records
+# idempotent interruption marks for newly found outages.
+_REPLAY_QUERIES = frozenset({"list_survivors"})
 
 # Layer-serving queries (LAYER-SERVING): stackup/rows/presets served
 # from the PDK store plus Engine-memory user presets (PresetStore).
@@ -268,6 +277,7 @@ class Engine:
         self._pool = ApigPool(
             self._project, self._pool_execute, max_depth=pool_max_depth
         )
+        self._replay = ReplaySafe(self._project, self._replay_execute)
         self._cells = ApigCatalog(
             catalog_root, providers=[gdsfactory_provider()]
         )
@@ -379,7 +389,10 @@ class Engine:
             bytes for the catalogue/asset queries, the
             stackup/rows/presets for the layer-serving queries,
             the stored-or-fresh completion for run_job, the
-            approval handle for python_execute, or the console
+            boot survivor report for list_survivors, the resume
+            completion for resume_run, the discard record for
+            discard_run, the gated batch for resume_all_retryable,
+            the approval handle for python_execute, or the console
             view for get_python_console.
 
         Raises:
@@ -403,6 +416,7 @@ class Engine:
                 settings that break the kind schema, future_format
                 for a settings write over a newer on-disk file,
                 or a layer query missing its pdk_id/name, a
+                resume_run or discard_run without a run_id, a
                 component verb missing entity, component, or
                 data, or a world snapshot with a non-bool
                 flag, unknown_entity or unknown_component for
@@ -424,13 +438,18 @@ class Engine:
                 unknown_request for an id never admitted.
             ExecutionError: pool_full when the execution backlog
                 is saturated — drain (run_job) before submitting
-                more; nothing was admitted.
+                more; nothing was admitted. Resume refusals carry
+                unknown_survivor, already_completed,
+                already_decided, or poison_quarantined with a
+                user-facing message (full context is logged
+                dev-side).
 
         Caution: Bound to one project: cross-project envelopes are
             denied, never routed — and a stale expected_revision
             fails instead of merging. The first mutating call per
-            Engine also drains crash survivors (boot replay);
-            queries never do.
+            Engine also builds the crash-survivor boot report
+            (report-only — nothing executes without an explicit
+            resume decision); queries never do.
         """
         envelope = command.get("project_id")
         if envelope != self._project_id:
@@ -508,6 +527,8 @@ class Engine:
             return self._query_apig(name, arguments)
         if name in _LAYER_QUERIES:
             return self._query_layer(name, arguments)
+        if name in _REPLAY_QUERIES:
+            return self.boot_report()
         if name in _WIRED_QUERIES:
             return self._project.snapshot()
         if name in QUERIES or name not in OPERATIONS:
@@ -519,6 +540,25 @@ class Engine:
             # Deferred/batch pumping plus idempotent fetch: admission
             # (and its revision gate) already happened at submit time.
             return self.run(command)
+        if name == "resume_run":
+            if "run_id" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "resume_run needs a run_id argument.",
+                )
+            return self.resume_survivor(
+                arguments["run_id"],
+                force=bool(arguments.get("force", False)),
+            )
+        if name == "discard_run":
+            if "run_id" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "discard_run needs a run_id argument.",
+                )
+            return self.discard_survivor(arguments["run_id"])
+        if name == "resume_all_retryable":
+            return self.resume_all_retryable()
         if name in _CRUD_OPERATIONS:
             return self._submit_crud(name, arguments, command)
         if name == "place_cell":
@@ -1061,6 +1101,18 @@ class Engine:
             }
         run_arguments = dict(arguments)
         run_arguments.pop("expected_revision", None)
+        # REPLAY-SAFE: a kill after this mark reads as an
+        # interruption at the next boot (AMBIGUOUS, counted toward
+        # poison); a kill before it stays RETRYABLE.
+        self._project.append_replay_event(
+            "run_started",
+            request_id,
+            {
+                "run_id": run_id,
+                "content_key": content_key_for(operation, run_arguments),
+                "operation": operation,
+            },
+        )
         return self._run_operation(
             operation,
             run_arguments,
@@ -1152,28 +1204,121 @@ class Engine:
             "refused": refused,
         }
 
-    def replay_pending(self):
-        """Drain crash-surviving admissions oldest first (boot replay).
+    def boot_report(self):
+        """Report crash survivors without executing anything (boot report).
 
         Survivors are ledger admissions without a run event —
-        typically a kill between admit and drain. Finished runs
-        are never re-executed; unresolvable survivors are skipped
-        loudly in the report.
+        typically a kill between admit and drain. Each carries its
+        taxonomy kind (retryable, ambiguous, poison), quarantine
+        state, and per-run Resume/Discard actions.
 
         Returns:
-            Report with replayed run ids (seq order), their
-                completions, and skipped entries.
+            Report with the session-ended message, the unfinished
+                count, survivors in admit order, quarantined run
+                ids, and unresolved entries.
+
+        Caution: Report-only by construction: nothing executes
+            here — every replay surface needs an explicit resume
+            decision (resume_run, discard_run, resume_all_retryable).
         """
-        return self._pool.replay(
-            self._project.events_since(0), self._resolve_pending
-        )
+        return self._replay.boot()
+
+    def resume_survivor(self, run_id, force=False):
+        """Explicitly resume one crash survivor through its solver.
+
+        Args:
+            run_id: Survivor to resume.
+            force: Required for quarantined (poison) runs; force
+                bypasses quarantine only — the run still executes
+                for real.
+
+        Returns:
+            Executor completion for the run.
+
+        Raises:
+            ExecutionError: unknown_survivor for an id with no
+                unfinished run, already_completed for a finished
+                run, already_decided for a run handled this
+                session, poison_quarantined for a quarantined run
+                resumed without force.
+
+        Caution: This executes the run — the one replay surface
+            that does, and only on this explicit call.
+        """
+        return self._replay.resume(run_id, force=force)
+
+    def discard_survivor(self, run_id):
+        """Explicitly discard one crash survivor, never executing it.
+
+        Args:
+            run_id: Survivor to discard.
+
+        Returns:
+            Discard record with run_id, discarded state, and the
+                run's operation.
+
+        Raises:
+            ExecutionError: unknown_survivor for an id with no
+                unfinished run, already_completed for a finished
+                run, already_decided for a run handled this
+                session.
+        """
+        return self._replay.discard(run_id)
+
+    def resume_all_retryable(self):
+        """Resume every RETRYABLE survivor, oldest first (gated).
+
+        Ambiguous runs need individual review and poison runs need
+        per-run force, so both are skipped loudly — never swept up.
+
+        Returns:
+            Batch with resumed run ids, their completions, and
+                skipped entries (each with run_id, typed code, and
+                user-facing message).
+
+        Raises:
+            ExecutionError: Propagates the first executor failure
+                unchanged — earlier resumes stand, later ones never
+                fire.
+
+        Caution: This executes runs — only the RETRYABLE,
+            non-quarantined survivors, and only on this call.
+        """
+        return self._replay.resume_all_retryable()
+
+    def replay_pending(self):
+        """Resume crash-surviving RETRYABLE admissions, oldest first.
+
+        Explicit-call compat over the gated batch: same survivor
+        set as the boot report, but only RETRYABLE runs execute —
+        ambiguous and poison survivors are skipped loudly in the
+        report instead of re-running.
+
+        Returns:
+            Report with replayed run ids (the resumed set, seq
+                order), their completions, and skipped entries.
+        """
+        batch = self._replay.resume_all_retryable()
+        return {
+            "replayed": batch["resumed"],
+            "completions": batch["completions"],
+            "skipped": batch["skipped"],
+        }
 
     def _replay_once(self):
-        """Drain crash survivors once per Engine (lazy boot replay)."""
+        """Build the crash-survivor boot report once per Engine."""
         if self._replayed:
             return None
         self._replayed = True
-        return self.replay_pending()
+        return self.boot_report()
+
+    def _replay_execute(self, operation, arguments, snapshot_id, request_id,
+                        run_id):
+        """Registered pool execution for one explicit resume."""
+        self._resolve_pending(request_id)
+        return self._pool_execute(
+            operation, arguments, snapshot_id, request_id, run_id
+        )
 
     def _submit_pyexec(self, arguments, command):
         """Admit a python_execute request: gate, then open an approval.

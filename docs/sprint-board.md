@@ -25,7 +25,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Ready
 
 - [ASAP7-DRC-DECK] Clean-room KLayout DRC deck transcribed from the DRM
-- [REPLAY-SAFE] Report-not-run survivors + explicit resume + poison quarantine
 - [CONSOLE-ROUTE] Console mutations route to golden recipe via admission
 - [COALESCE-I33] Request coalescing per I33 (revision-pinned, force bypass)
 
@@ -92,6 +91,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [B10] tests/installed + capability matrix (closed: install.sh + ENGINE-SETUP report_capabilities/catalogue)
 - [ENGINE-ECS] Entity store + component CRUD + addressing + events
 - [WIRE-PLACE] Wire/junction entities + connect ops + stable net IDs
+- [REPLAY-SAFE] Report-not-run survivors + explicit resume + poison quarantine
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)

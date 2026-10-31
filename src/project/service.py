@@ -58,6 +58,7 @@ _LINKED_CARVEOUT = ".rocket"
 _REVISION_RE = re.compile(r"^(.*?)(\d+)$")
 _PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
 _RUN_OUTCOMES = ("run_completed", "run_failed")
+_REPLAY_EVENTS = ("run_started", "run_interrupted", "run_discarded")
 _RESERVED_DOCS = frozenset({_LEDGER_FILENAME, _EVENTS_FILENAME})
 
 # Document prefix owning the five design-truth settings files.
@@ -1134,6 +1135,14 @@ class ProjectService:
             "current_revision": self._current_revision,
         }
         self._requests[request_id] = (command_text, ack)
+        # Lazy: keeps the project import chain free of the execution
+        # package (REPLAY-SAFE content keys).
+        from ..execution.replay_safe import content_key_for
+        key_arguments = {
+            key: value
+            for key, value in (command.get("arguments") or {}).items()
+            if key != "expected_revision"
+        }
         self._append_event(
             "job_queued",
             request_id,
@@ -1141,6 +1150,9 @@ class ProjectService:
                 "run_id": ack["run_id"],
                 "revision": self._current_revision,
                 "operation": command.get("operation"),
+                "content_key": content_key_for(
+                    command.get("operation"), key_arguments
+                ),
             },
         )
         ack["event_cursor"] = self._cursor()
@@ -1181,6 +1193,46 @@ class ProjectService:
             request_id,
             {"run_id": run_id, "operation": operation, "verdict": verdict},
         )
+        self._persist_after_mutation()
+        return record
+
+    def append_replay_event(self, event, request_id, data):
+        """Append a replay-lifecycle event for one run.
+
+        `run_started` marks execution begin (a kill after it reads as
+        an interruption at the next boot); `run_interrupted` records
+        one admitted->interrupted transition for its content key (two
+        quarantines the key); `run_discarded` retires a survivor the
+        user chose not to resume.
+
+        Args:
+            event: Replay event name (run_started, run_interrupted,
+                or run_discarded).
+            request_id: Queued request the run belongs to.
+            data: Event data carrying the run_id (plus content_key
+                for started/interrupted marks).
+
+        Returns:
+            The appended event record with its seq.
+
+        Raises:
+            ProjectError: invalid_command for an unknown replay
+                event or data without a run_id.
+
+        Caution: Appends to the ordered log (and the cursor) but
+            never advances the project revision — replay
+            bookkeeping judges nothing and mutates nothing.
+        """
+        if event not in _REPLAY_EVENTS:
+            raise ProjectError(
+                "invalid_command", f"Unknown replay event: {event}."
+            )
+        if not isinstance(data, dict) or data.get("run_id") is None:
+            raise ProjectError(
+                "invalid_command", "Replay event needs a data.run_id."
+            )
+        self._refresh_durable()
+        record = self._append_event(event, request_id, dict(data))
         self._persist_after_mutation()
         return record
 

@@ -95,6 +95,12 @@
     "text": "Detach one component from its entity.\n\nHandler: `rocket_engine.project.service.ProjectService.detach_component`.\n\nPersists through the entity record with the same admission\nmachinery as write_doc; the component_changed event carries\ndetached True.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to remove.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.\n\nRaises:\n\nProjectError: unknown_component for a missing component; otherwise like set_component without the data errors.\n\nCaution: Every accepted detach advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
     "wired": true
   },
+  "discard_run": {
+    "kind": "operation",
+    "summary": "Declared operation `discard_run`; no handler wired yet.",
+    "text": "Declared operation `discard_run`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
   "entities_with": {
     "kind": "query",
     "summary": "Filter entities to holders of one component.",
@@ -221,6 +227,12 @@
     "text": "List projects under the engine root, bound always included.\n\nHandler: `rocket_engine.project.service.ProjectService.list_projects`.\n\nWithout an engine root the bound in-memory project is the\nwhole list; with one, every managed project dir plus the\nbound project is reported with its head revision.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping with the bound project id and the sorted project entries (project_id + current_revision).\n\nRaises:\n\nProjectError: invalid_ledger when a sibling ledger head is unreadable or corrupt.\n\nCaution: A corrupt sibling ledger fails the whole list loudly instead of being skipped.\n",
     "wired": true
   },
+  "list_survivors": {
+    "kind": "query",
+    "summary": "Report crash survivors without executing anything (boot report).",
+    "text": "Report crash survivors without executing anything (boot report).\n\nHandler: `rocket_engine.composition.Engine.boot_report`.\n\nSurvivors are ledger admissions without a run event \u2014\ntypically a kill between admit and drain. Each carries its\ntaxonomy kind (retryable, ambiguous, poison), quarantine\nstate, and per-run Resume/Discard actions.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nReport with the session-ended message, the unfinished count, survivors in admit order, quarantined run ids, and unresolved entries.\n\nCaution: Report-only by construction: nothing executes here \u2014 every replay surface needs an explicit resume decision (resume_run, discard_run, resume_all_retryable).\n",
+    "wired": true
+  },
   "materialize_nets": {
     "kind": "operation",
     "summary": "Extract connectivity, upsert Net entities: gate, run, log.",
@@ -274,6 +286,18 @@
     "summary": "Read one settings kind at the current head.",
     "text": "Read one settings kind at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.read_settings`.\n\nAbsent files read as defaults (absent-default-is-clean):\na fresh project needs no seeding write. Stored files\nmigrate in memory to the known head; future files fail\ninstead of serving truth this engine cannot validate.\n\nArguments:\n\n- `kind` (required): Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables).\n\nReturns:\n\nMapping with project id, head revision, kind, stored flag, version, and the settings mapping.\n\nRaises:\n\nProjectError: invalid_command for an unknown kind or stored settings that break the kind schema; invalid_document for stored settings that do not parse; future_format for a file newer than the head; missing_migration when no link covers the stored version.\n",
     "wired": true
+  },
+  "resume_all_retryable": {
+    "kind": "operation",
+    "summary": "Declared operation `resume_all_retryable`; no handler wired yet.",
+    "text": "Declared operation `resume_all_retryable`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "resume_run": {
+    "kind": "operation",
+    "summary": "Declared operation `resume_run`; no handler wired yet.",
+    "text": "Declared operation `resume_run`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
   },
   "rewind": {
     "kind": "operation",
