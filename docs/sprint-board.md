@@ -29,6 +29,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PYTHON-EXEC] Python execution API (inline lines + project script files)
 - [ENGINE-ECS] Entity store + component CRUD + addressing + events
 - [WIRE-PLACE] Wire/junction entities + connect ops + stable net IDs
+- [ASAP7-DRC-DECK] Clean-room KLayout DRC deck transcribed from the DRM
 
 ## Doing
 
