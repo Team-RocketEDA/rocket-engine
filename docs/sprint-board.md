@@ -24,7 +24,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
 
-- [ENGINE-ECS] Entity store + component CRUD + addressing + events
 - [WIRE-PLACE] Wire/junction entities + connect ops + stable net IDs
 - [ASAP7-DRC-DECK] Clean-room KLayout DRC deck transcribed from the DRM
 - [REPLAY-SAFE] Report-not-run survivors + explicit resume + poison quarantine
@@ -92,6 +91,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-GEN] Docstring-mandated generated API contract
 - [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
 - [B10] tests/installed + capability matrix (closed: install.sh + ENGINE-SETUP report_capabilities/catalogue)
+- [ENGINE-ECS] Entity store + component CRUD + addressing + events
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)

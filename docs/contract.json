@@ -87,6 +87,61 @@
       "type": "object",
       "wired": true
     },
+    "attach_component": {
+      "description": "Attach one new component (refuses overwrites).",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.attach_component"
+      ],
+      "kind": "operation",
+      "name": "attach_component",
+      "properties": {
+        "component": {
+          "description": "Component name to attach."
+        },
+        "data": {
+          "description": "JSON payload to store."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        }
+      },
+      "raises": "ProjectError: component_exists when the component already lives on the entity; otherwise like set_component.",
+      "required": [
+        "entity",
+        "component",
+        "data"
+      ],
+      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "create_entity": {
+      "description": "Create one entity with an engine-minted id.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.create_entity"
+      ],
+      "kind": "operation",
+      "name": "create_entity",
+      "properties": {
+        "components": {
+          "description": "Optional initial component mapping."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "kind": {
+          "description": "Kind label carried beside the components."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_kind, invalid_component, or invalid_data for malformed parts; revision_conflict for a stale head; invalid_ledger when the durable write fails.",
+      "required": [],
+      "returns": "Mutation mapping with the minted entity, kind, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_created event, cursor, request id, and initial component names.",
+      "type": "object",
+      "wired": true
+    },
     "create_project": {
       "description": "Create one managed project at revision p12.",
       "handlers": [
@@ -127,6 +182,56 @@
         "path"
       ],
       "returns": "Mutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "delete_entity": {
+      "description": "Delete one entity and its projected record.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.delete_entity"
+      ],
+      "kind": "operation",
+      "name": "delete_entity",
+      "properties": {
+        "entity": {
+          "description": "Entity id to delete."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_entity for a malformed id; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable delete fails.",
+      "required": [
+        "entity"
+      ],
+      "returns": "Mutation mapping with entity, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_deleted event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "detach_component": {
+      "description": "Detach one component from its entity.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.detach_component"
+      ],
+      "kind": "operation",
+      "name": "detach_component",
+      "properties": {
+        "component": {
+          "description": "Component name to remove."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        }
+      },
+      "raises": "ProjectError: unknown_component for a missing component; otherwise like set_component without the data errors.",
+      "required": [
+        "entity",
+        "component"
+      ],
+      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.",
       "type": "object",
       "wired": true
     },
@@ -1692,6 +1797,37 @@
       "type": "object",
       "wired": false
     },
+    "set_component": {
+      "description": "Upsert one component payload (create or overwrite).",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.set_component"
+      ],
+      "kind": "operation",
+      "name": "set_component",
+      "properties": {
+        "component": {
+          "description": "Component name to write."
+        },
+        "data": {
+          "description": "JSON payload to store."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_entity, invalid_component, or invalid_data for malformed parts; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable write fails.",
+      "required": [
+        "entity",
+        "component",
+        "data"
+      ],
+      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
     "write_doc": {
       "description": "Write one document: gate, store, advance, log.",
       "handlers": [
@@ -1811,6 +1947,26 @@
       "type": "object",
       "wired": true
     },
+    "components_of": {
+      "description": "List the component names one entity carries.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.components_of"
+      ],
+      "kind": "query",
+      "name": "components_of",
+      "properties": {
+        "entity": {
+          "description": "Entity id to inspect (backfilled ids serve their projected doc component)."
+        }
+      },
+      "raises": "ProjectError: invalid_entity for a malformed id; unknown_entity for a missing entity; invalid_document for a corrupt entity record.",
+      "required": [
+        "entity"
+      ],
+      "returns": "Mapping with project id, head revision, entity, storage path, and sorted component names.",
+      "type": "object",
+      "wired": true
+    },
     "delete_layer_preset": {
       "description": "Delete one user layer preset (built-ins are undeletable).",
       "handlers": [
@@ -1828,6 +1984,29 @@
         "name"
       ],
       "returns": "Deletion record with the deleted name.",
+      "type": "object",
+      "wired": true
+    },
+    "entities_with": {
+      "description": "Filter entities to holders of one component.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.entities_with"
+      ],
+      "kind": "query",
+      "name": "entities_with",
+      "properties": {
+        "component": {
+          "description": "Component name holders must carry."
+        },
+        "predicate": {
+          "description": "Exact-match mapping the component payload must satisfy, or None for no filtering."
+        }
+      },
+      "raises": "ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.",
+      "required": [
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, component, predicate, and sorted holder ids.",
       "type": "object",
       "wired": true
     },
@@ -1867,6 +2046,30 @@
       "raises": "",
       "required": [],
       "returns": "Mapping of operation to run state plus the current project revision.",
+      "type": "object",
+      "wired": true
+    },
+    "get_component": {
+      "description": "Read one entity component payload at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.get_component"
+      ],
+      "kind": "query",
+      "name": "get_component",
+      "properties": {
+        "component": {
+          "description": "Component name to read."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        }
+      },
+      "raises": "ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.",
+      "required": [
+        "entity",
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, entity, component, canonical address, storage path, and the component data.",
       "type": "object",
       "wired": true
     },
@@ -2043,6 +2246,24 @@
       "raises": "ProjectError: future_format when any stored file is newer than the head; missing_migration when no link covers a stored version; invalid_document for stored settings that do not parse.",
       "required": [],
       "returns": "Snapshot mapping with project id, head revision, session/run ids, per-kind versions, all five settings mappings, and library refs.",
+      "type": "object",
+      "wired": true
+    },
+    "get_world_snapshot": {
+      "description": "Bundle the miniplex-shaped world snapshot for mirrors.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.world_snapshot"
+      ],
+      "kind": "query",
+      "name": "get_world_snapshot",
+      "properties": {
+        "include_backfill": {
+          "description": "Project current plain docs as read-only virtual entities alongside engine entities; engine entities only when False."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a non-bool flag; invalid_document for a corrupt entity record.",
+      "required": [],
+      "returns": "Snapshot mapping with project id, head revision, and entities sorted by id (each with id, kind, and components).",
       "type": "object",
       "wired": true
     },
@@ -2287,7 +2508,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "612c7810801a8d786e31873c2f5c314b15aa44cf40296162274bf54f93d5cce2",
+  "schema_sha256": "27c04b88f981c908a8d0b20f78d5f20dff8102502678f9018622afa2d615d8bc",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

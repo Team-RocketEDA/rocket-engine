@@ -13,6 +13,8 @@ OPERATIONS = frozenset(
         "run_view_sync", "run_job",
         "create_project", "write_doc", "delete_doc", "apply_mutations",
         "rewind", "place_cell", "write_settings",
+        "create_entity", "set_component", "attach_component",
+        "detach_component", "delete_entity",
     }
 )
 QUERIES = frozenset(
@@ -22,6 +24,8 @@ QUERIES = frozenset(
         "plan_checks", "get_job_status", "get_check_results",
         "get_events_since", "list_artifacts", "get_logs",
         "list_projects", "list_docs", "read_doc",
+        "get_component", "components_of", "entities_with",
+        "get_world_snapshot",
         "list_cells", "serve_asset", "list_assets",
         "read_settings", "get_resolved_config",
         "get_layer_stackup", "get_layer_rows", "list_layer_presets",

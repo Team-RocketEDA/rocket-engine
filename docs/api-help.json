@@ -29,6 +29,24 @@
     "text": "Apply a batch atomically under one new revision (I31).\n\nHandler: `rocket_engine.project.service.ProjectService.apply_mutations`.\n\nEvery mutation is validated before anything lands: any\nfailure names its document and leaves the revision, the\nfiles, and the log untouched. Only a fully valid batch at\nthe live head advances once and appends a single\nmutations_applied event.\n\nArguments:\n\n- `mutations` (required): Non-empty list of {op, path, content?} mappings; op is write (needs text content) or delete (takes none).\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with revision transition, new head, actor, joined diff summary, rewind handle, the single appended event, per-mutation results, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_command for a malformed batch (names the document when one is addressable); invalid_path or path_escape for a bad path; unknown_document for a delete of a missing document; revision_conflict for a stale head; invalid_ledger when a durable write fails (best effort rollback already attempted).\n\nCaution: All-or-nothing means one revision for the whole batch \u2014 a half-landed batch is a bug, never a state.\n",
     "wired": true
   },
+  "attach_component": {
+    "kind": "operation",
+    "summary": "Attach one new component (refuses overwrites).",
+    "text": "Attach one new component (refuses overwrites).\n\nHandler: `rocket_engine.project.service.ProjectService.attach_component`.\n\nLike set_component, but a component already living on the\nentity fails instead of overwriting \u2014 attach means add.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to attach.\n- `data` (required): JSON payload to store.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.\n\nRaises:\n\nProjectError: component_exists when the component already lives on the entity; otherwise like set_component.\n\nCaution: Every accepted attach advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
+    "wired": true
+  },
+  "components_of": {
+    "kind": "query",
+    "summary": "List the component names one entity carries.",
+    "text": "List the component names one entity carries.\n\nHandler: `rocket_engine.project.service.ProjectService.components_of`.\n\nArguments:\n\n- `entity` (required): Entity id to inspect (backfilled ids serve their projected doc component).\n\nReturns:\n\nMapping with project id, head revision, entity, storage path, and sorted component names.\n\nRaises:\n\nProjectError: invalid_entity for a malformed id; unknown_entity for a missing entity; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
+  "create_entity": {
+    "kind": "operation",
+    "summary": "Create one entity with an engine-minted id.",
+    "text": "Create one entity with an engine-minted id.\n\nHandler: `rocket_engine.project.service.ProjectService.create_entity`.\n\nThe id is minted, never supplied: there is no id argument,\nso callers cannot collide with, guess, or squat on engine\nidentity. The record persists as entities/<id>.json through\nthe same admission machinery as write_doc (idempotent\nrequest ids, revision gate, one new revision, one event,\natomic persist, rewind snapshots).\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `kind`: Kind label carried beside the components.\n- `components`: Optional initial component mapping.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with the minted entity, kind, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_created event, cursor, request id, and initial component names.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_kind, invalid_component, or invalid_data for malformed parts; revision_conflict for a stale head; invalid_ledger when the durable write fails.\n\nCaution: Every accepted create advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
+    "wired": true
+  },
   "create_project": {
     "kind": "operation",
     "summary": "Create one managed project at revision p12.",
@@ -41,10 +59,28 @@
     "text": "Delete one document: gate, remove, advance, log.\n\nHandler: `rocket_engine.project.service.ProjectService.delete_doc`.\n\nArguments:\n\n- `path` (required): Document path to delete.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; revision_conflict for a stale head; invalid_ledger when the durable delete fails.\n\nCaution: Deleting advances the revision like any mutation \u2014 stale writers fail instead of merging.\n",
     "wired": true
   },
+  "delete_entity": {
+    "kind": "operation",
+    "summary": "Delete one entity and its projected record.",
+    "text": "Delete one entity and its projected record.\n\nHandler: `rocket_engine.project.service.ProjectService.delete_entity`.\n\nRemoves entities/<entity>.json through the same admission\nmachinery as delete_doc, and appends entity_deleted.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `entity` (required): Entity id to delete.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with entity, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_deleted event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_entity for a malformed id; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable delete fails.\n\nCaution: Deleting advances the revision like any mutation \u2014 stale writers fail instead of merging.\n",
+    "wired": true
+  },
   "delete_layer_preset": {
     "kind": "query",
     "summary": "Delete one user layer preset (built-ins are undeletable).",
     "text": "Delete one user layer preset (built-ins are undeletable).\n\nHandler: `rocket_engine.composition.Engine.layer_preset_delete`.\n\nArguments:\n\n- `name` (required): Preset name to delete.\n\nReturns:\n\nDeletion record with the deleted name.\n\nRaises:\n\nProjectError: invalid_command for a missing name. LayerServingError: preset_conflict for a built-in name; unknown_preset for a missing user preset.\n\nCaution: In-memory only: deletes the Engine-memory preset, no revision advance, no ledger event.\n",
+    "wired": true
+  },
+  "detach_component": {
+    "kind": "operation",
+    "summary": "Detach one component from its entity.",
+    "text": "Detach one component from its entity.\n\nHandler: `rocket_engine.project.service.ProjectService.detach_component`.\n\nPersists through the entity record with the same admission\nmachinery as write_doc; the component_changed event carries\ndetached True.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to remove.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.\n\nRaises:\n\nProjectError: unknown_component for a missing component; otherwise like set_component without the data errors.\n\nCaution: Every accepted detach advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
+    "wired": true
+  },
+  "entities_with": {
+    "kind": "query",
+    "summary": "Filter entities to holders of one component.",
+    "text": "Filter entities to holders of one component.\n\nHandler: `rocket_engine.project.service.ProjectService.entities_with`.\n\nNets-of-block, pins-of-net, and open-problems become\nfilters here, not endpoints; backfilled docs answer the\ndoc component, so current project files stay filterable\nwithout migration.\n\nArguments:\n\n- `component` (required): Component name holders must carry.\n- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.\n\nReturns:\n\nMapping with project id, head revision, component, predicate, and sorted holder ids.\n\nRaises:\n\nProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
   "generate_views": {
@@ -63,6 +99,12 @@
     "kind": "query",
     "summary": "Read the latest check verdict per operation.",
     "text": "Read the latest check verdict per operation.\n\nHandler: `rocket_engine.composition.Engine.check_results`.\n\nArguments:\n\n- `operation`: Restrict to one operation; all latest verdicts when omitted.\n\nReturns:\n\nMapping of operation to run state plus the current project revision.\n",
+    "wired": true
+  },
+  "get_component": {
+    "kind": "query",
+    "summary": "Read one entity component payload at the current head.",
+    "text": "Read one entity component payload at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.get_component`.\n\nEntities project over plain documents: the record lives at\nentities/<entity>.json and reads through the same bytes\nread_doc serves. Backfilled doc entities serve their\nprojected doc component here, so every world-snapshot\nentry stays addressable.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to read.\n\nReturns:\n\nMapping with project id, head revision, entity, component, canonical address, storage path, and the component data.\n\nRaises:\n\nProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
   "get_events_since": {
@@ -111,6 +153,12 @@
     "kind": "query",
     "summary": "Bundle the resolved config for one session/run fetch.",
     "text": "Bundle the resolved config for one session/run fetch.\n\nHandler: `rocket_engine.project.service.ProjectService.resolved_config`.\n\nAll five kinds in one call \u2014 clients render from this\nsnapshot instead of per-event round-trips. Absent files\nresolve to defaults; library refs stay unresolved here\n(callers resolve lib.tables refs against their own roots).\n\nArguments:\n\n- `session_id`: Client session this snapshot serves.\n- `run_id`: Run this snapshot was resolved for, if any.\n\nReturns:\n\nSnapshot mapping with project id, head revision, session/run ids, per-kind versions, all five settings mappings, and library refs.\n\nRaises:\n\nProjectError: future_format when any stored file is newer than the head; missing_migration when no link covers a stored version; invalid_document for stored settings that do not parse.\n",
+    "wired": true
+  },
+  "get_world_snapshot": {
+    "kind": "query",
+    "summary": "Bundle the miniplex-shaped world snapshot for mirrors.",
+    "text": "Bundle the miniplex-shaped world snapshot for mirrors.\n\nHandler: `rocket_engine.project.service.ProjectService.world_snapshot`.\n\nA pure read: snapshotting never writes and never advances\nthe revision, so backfill cannot break any revision. Each\nentry maps one-to-one onto a miniplex entity (id plus its\ncomponents), so mirrors load it directly.\n\nArguments:\n\n- `include_backfill`: Project current plain docs as read-only virtual entities alongside engine entities; engine entities only when False.\n\nReturns:\n\nSnapshot mapping with project id, head revision, and entities sorted by id (each with id, kind, and components).\n\nRaises:\n\nProjectError: invalid_command for a non-bool flag; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
   "list_artifacts": {
@@ -303,6 +351,12 @@
     "kind": "query",
     "summary": "Serve one PDK file's bytes verbatim with hash identity.",
     "text": "Serve one PDK file's bytes verbatim with hash identity.\n\nHandler: `rocket_engine.composition.Engine.serve_asset`.\n\nNo conversion, no rendering: the sha256 is computed over\nthe raw bytes, base64 is transport encoding only.\n\nArguments:\n\n- `pdk_id`: PDK id (either display spelling resolves).\n- `revision`: PDK revision pin.\n- `path`: Store-relative file path.\n- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.\n\nReturns:\n\nMapping with asset_version, pdk_id, display_id, revision, canonical path, size, sha256, and the verbatim bytes base64-encoded.\n\nRaises:\n\nProjectError: invalid_command when pdk id, revision, or path is missing; invalid_reference for an unknown PDK, a missing file, or an escaping path.\n\nCaution: No size cap \u2014 bulk reads belong to list_assets plus selective serve_asset calls, never a blind loop.\n",
+    "wired": true
+  },
+  "set_component": {
+    "kind": "operation",
+    "summary": "Upsert one component payload (create or overwrite).",
+    "text": "Upsert one component payload (create or overwrite).\n\nHandler: `rocket_engine.project.service.ProjectService.set_component`.\n\nPersists through the entity record at entities/<entity>.json\nwith the same admission machinery as write_doc, and appends\ncomponent_changed with entity, component, and revision.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to write.\n- `data` (required): JSON payload to store.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_entity, invalid_component, or invalid_data for malformed parts; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable write fails.\n\nCaution: Every accepted write advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
     "wired": true
   },
   "write_doc": {

@@ -109,6 +109,10 @@ QUERY_METHODS = {
     "list_projects": "list_projects",
     "list_docs": "list_docs",
     "read_doc": "read_doc",
+    "get_component": "get_component",
+    "components_of": "components_of",
+    "entities_with": "entities_with",
+    "get_world_snapshot": "world_snapshot",
     "read_settings": "read_settings",
     "get_resolved_config": "resolved_config",
 }
@@ -172,6 +176,11 @@ _CRUD_OPERATIONS = frozenset(
         "delete_doc",
         "apply_mutations",
         "rewind",
+        "create_entity",
+        "set_component",
+        "attach_component",
+        "detach_component",
+        "delete_entity",
         "write_settings",
     }
 )
@@ -383,7 +392,13 @@ class Engine:
                 kind or settings, an unknown settings kind, or
                 settings that break the kind schema, future_format
                 for a settings write over a newer on-disk file,
-                or a layer query missing its pdk_id/name,
+                or a layer query missing its pdk_id/name, a
+                component verb missing entity, component, or
+                data, or a world snapshot with a non-bool
+                flag, unknown_entity or unknown_component for
+                a missing entity or component, component_exists
+                for a duplicate attach, backfill_readonly for a
+                write over a read-only backfilled id,
                 resync_required when a get_events_since contiguity
                 demand cannot be met, invalid_project
                 for a bad project id,
@@ -446,6 +461,36 @@ class Engine:
             return self._project.resolved_config(
                 session_id=arguments.get("session_id"),
                 run_id=arguments.get("run_id"),
+            )
+        if name == "get_component":
+            if "entity" not in arguments or "component" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "get_component needs entity and component arguments.",
+                )
+            return self._project.get_component(
+                arguments["entity"], arguments["component"]
+            )
+        if name == "components_of":
+            if "entity" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "components_of needs an entity argument.",
+                )
+            return self._project.components_of(arguments["entity"])
+        if name == "entities_with":
+            if "component" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "entities_with needs a component argument.",
+                )
+            return self._project.entities_with(
+                arguments["component"],
+                predicate=arguments.get("predicate"),
+            )
+        if name == "get_world_snapshot":
+            return self._project.world_snapshot(
+                include_backfill=arguments.get("include_backfill", True)
             )
         if name in _JOB_QUERIES:
             return self._query_job(name, arguments)
@@ -606,6 +651,58 @@ class Engine:
             return self._project.write_settings(
                 arguments["kind"],
                 arguments["settings"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "create_entity":
+            return self._project.create_entity(
+                request_id,
+                command_text,
+                kind=arguments.get("kind", ""),
+                components=arguments.get("components"),
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name in ("set_component", "attach_component"):
+            if (
+                "entity" not in arguments
+                or "component" not in arguments
+                or "data" not in arguments
+            ):
+                raise ProjectError(
+                    "invalid_command",
+                    f"{name} needs entity, component, and data arguments.",
+                )
+            method = getattr(self._project, name)
+            return method(
+                arguments["entity"],
+                arguments["component"],
+                arguments["data"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "detach_component":
+            if "entity" not in arguments or "component" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "detach_component needs entity and component arguments.",
+                )
+            return self._project.detach_component(
+                arguments["entity"],
+                arguments["component"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "delete_entity":
+            if "entity" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "delete_entity needs an entity argument.",
+                )
+            return self._project.delete_entity(
+                arguments["entity"],
                 request_id,
                 command_text,
                 expected_revision=arguments.get("expected_revision"),
