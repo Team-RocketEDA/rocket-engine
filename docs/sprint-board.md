@@ -19,12 +19,25 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-VTT] VTT 3um SOI support (verify upstream first)
 - [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
+- [REVIEW-TAILS] Doc + surface cleanups from E2E-REREVIEW
 ## Ready
 
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
-- [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
+
 - [PROV] B10 full-bundle provisioning via install.sh (phase 1: to-GDS toolchain)
+- [I27-GATE] Wire plan_checks/design-completion gate (I27)
+- [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
+- [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
+- [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
+- [MEOW-STDOUT] Harden run_em envelope against solver chatter
+- [FORMAL-EDGE] Vacuity guard + ifdef-aware property sites
+- [LVS-ESCAPE] Bulk-rename mutant escapes LVS 3/3 seeds
+- [EXTRACT-GDS] run_extraction must accept GDS, not .mag-only
+- [ADAPTER-PARSE-HARDEN] Envelope parsing for sax/circulax/gdsfactory
+- [SETUP-HONESTY] No false-ready probes, fresh tests, capable readiness
+- [MIXED-TOP-TRIAGE] m4.5ab DRC, deck-mode cell arg, xschem top-LVS
+- [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
 
 ## Doing
 
@@ -117,3 +130,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [RUAMEL-DUMPER] Fresh dumpers for Engine/ProjectService YAML writes
 - [GENERATE-VIEWS] Graduate gdsfactory smoke to a real generate_views op
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
+- [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
