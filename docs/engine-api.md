@@ -60,6 +60,7 @@ text, identical to the section bodies below.
 | `run_post_layout` | no | — | Declared operation `run_post_layout`; no handler wired yet. |
 | `run_spice` | yes | `ngspice` (default) | run_spice via ngspice: corner sims with measured bounds. |
 | `run_syntax` | yes | `slang` (default) | run_syntax via Slang: SystemVerilog lint with diagnostics. |
+| `run_synth` | yes | `yosys` (default) | run_synth via Yosys: RTL to mapped netlist plus evidence. |
 | `run_thermal` | no | — | Declared operation `run_thermal`; no handler wired yet. |
 | `run_timing` | no | — | Declared operation `run_timing`; no handler wired yet. |
 | `run_view_sync` | no | — | Declared operation `run_view_sync`; no handler wired yet. |
@@ -1002,6 +1003,52 @@ Raises:
 (parse) AdapterError: runner_unavailable when the output has no Build summary line.
 
 Caution: A failed build with no parsed diagnostics reports a synthesized error rather than going clean.
+
+### run_synth
+
+run_synth via Yosys: RTL to mapped netlist plus evidence.
+
+Tools: `yosys` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.synth_yosys.YosysSynthAdapter`.
+
+#### Tool `yosys`
+
+run_synth via Yosys: RTL to mapped netlist plus evidence.
+
+Serves the run_synth operation with deck.tool `yosys` (the only
+tool). Synthesizes the sources for the named top with `synth
+-top`; with a `liberty` input it maps to standard cells
+(`dfflibmap` + `abc -liberty`) and reports the chip area.
+Evidence is the mapped netlist artifact, per-family cell counts,
+the area estimate when mapped, and warnings as findings.
+
+Arguments:
+
+- `sources` (required): Verilog source paths under synth.
+- `top` (required): Top module name (plain identifier).
+- `defines`: Verilog `define list, optional =value each.
+- `liberty`: Liberty (.lib) path for standard-cell mapping; generic synth without it.
+- `timeout_s`: Synth budget in seconds (default 120).
+- `tool_dir`: Directory holding yosys; PATH otherwise.
+- `deck`: Optional mapping; deck.tool must be yosys here.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements[]} plus cells, cell_count, wire_count, area, mapped, netlist, top, and yosys_version evidence.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad top, timeout, or defines, invalid_reference for missing sources or liberty, missing_dependency for an unresolvable or unassertable yosys.
+
+(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a synth timeout, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output has no exit code, or a clean run left no stat verdict or netlist — unparseable never parses as clean.
+
+Caution: Broken RTL and a missing top fail loudly (nonzero exit plus synth_error findings) — a failed run never parses as clean, and warnings alone never fail the verdict.
 
 ### run_thermal
 

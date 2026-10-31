@@ -7,6 +7,7 @@ gates outbound routing against them. Neither side keeps its own copy.
 OPERATIONS = frozenset(
     {
         "generate_views", "run_hdl_test", "run_formal", "run_syntax",
+        "run_synth",
         "run_connectivity", "run_drc", "run_lvs", "run_erc", "run_spice",
         "run_optical", "run_digital_flow", "run_timing", "run_extraction",
         "run_post_layout", "run_em", "run_thermal", "python_execute",

@@ -27,8 +27,8 @@ one — is refused.
 maps to named solvers; `deck.tool` selects one, defaulting to the
 first registered (run_drc: magic, then klayout; run_optical: sax;
 run_extraction: magic; run_lvs: netgen; run_spice: ngspice;
-run_syntax: slang; run_hdl_test: icarus; run_connectivity:
-connectgraph; run_erc: connectgraph).
+run_syntax: slang; run_hdl_test: icarus; run_synth: yosys;
+run_connectivity: connectgraph; run_erc: connectgraph).
 Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
 """
@@ -48,6 +48,7 @@ from .adapters.lvs_netgen import NetgenLvsAdapter
 from .adapters.ngspice import NgspiceAdapter
 from .adapters.sax import SaxAdapter
 from .adapters.syntax import SyntaxAdapter
+from .adapters.synth_yosys import YosysSynthAdapter
 from .execution.apig_pool import (
     ApigPool,
     request_for_run,
@@ -268,6 +269,7 @@ class Engine:
             "run_lvs": {"netgen": NetgenLvsAdapter()},
             "run_spice": {"ngspice": NgspiceAdapter()},
             "run_syntax": {"slang": SyntaxAdapter()},
+            "run_synth": {"yosys": YosysSynthAdapter()},
             "run_connectivity": {"connectgraph": ConnectivityAdapter()},
             "run_erc": {"connectgraph": ConnectivityAdapter()},
         }

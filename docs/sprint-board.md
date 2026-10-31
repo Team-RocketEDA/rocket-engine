@@ -21,7 +21,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
 
-- [SYNTH-YOSYS] run_synth via oss-cad-suite Yosys (RTL to mapped netlist)
 - [FORMAL-SBY] run_formal via sby (bounded proof, honestly reported)
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
 - [POSTLAYOUT] run_post_layout via ngspice on extracted netlists
@@ -117,3 +116,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PYTHON-EXEC] Python execution API (inline lines + project script files)
 - [ASAP7-DRC-DECK] Clean-room KLayout DRC deck transcribed from the DRM
 - [REPLAY] Closed decided-against: finished runs never re-execute (see REPLAY-SAFE)
+- [SYNTH-YOSYS] run_synth via oss-cad-suite Yosys (RTL to mapped netlist)

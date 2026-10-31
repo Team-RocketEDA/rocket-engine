@@ -59,6 +59,7 @@ SOLVER_DEPS = {
     ("run_lvs", "netgen"): {"binaries": ["netgen"], "banner": "lvs"},
     ("run_spice", "ngspice"): {"binaries": ["ngspice"]},
     ("run_syntax", "slang"): {"binaries": ["slang"]},
+    ("run_synth", "yosys"): {"binaries": ["yosys"]},
     ("run_connectivity", "connectgraph"): {},
     ("run_erc", "connectgraph"): {},
 }
