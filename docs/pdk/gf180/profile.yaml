@@ -1,0 +1,112 @@
+# PDK-GF180 lane profile: GlobalFoundries 180nm MCU (gdsfactory wrapper).
+# Shape follows the PDK-PROFILE direction lock: {gdsfactory package
+# pin, KLayout tech, decks (PDK-supplied or user-supplied), models}.
+# All relpaths resolve against the gf180mcu package root (pip
+# site-packages or the source tree via $PDK_GF180_SRC).
+schema: rocketeda/pdk-profile/v0.1
+id: gf180
+label: GlobalFoundries 180nm MCU (gdsfactory gf180mcu)
+upstream: https://github.com/gdsfactory/gf180mcu
+license: Apache-2.0
+package: gf180mcu
+pins:
+  gf180mcu: "1.0.0"
+  # PyPI release 1.0.0 requires gdsfactory~=9.40.0 (observed 9.40.2);
+  # the post-release source tree requires >=9.45,<=9.51 (9.51.0 used).
+  gdsfactory_release: "9.40.2"
+  gdsfactory_sourcetree: "9.51.0"
+  source_rev: d422b869efa544597d3a1256eec7441f8cc89980
+  ngspice: "42"
+  klayout: "0.28.16"
+variants:
+  mcu:
+    module: gf180mcu
+    pdk_name: gf180mcu
+    process: GF 180nm MCU CMOS, 3.3V/5-6V, mixed-signal
+    status: proven
+    tech:
+      klayout_dir: klayout
+      lyt: klayout/tech/gf180mcu.lyt
+      lyp: klayout/tech/gf180mcu.lyp
+      map: klayout/tech/gf180mcu.map
+      layers_yaml: layers.yaml
+      tech_name: gf180mcu
+    drc:
+      deck: null
+      deck_reason: >-
+        No runnable local deck ships in the gf180mcu wrapper: upstream
+        DRC runs through the gdsfactoryplus cloud workflow
+        (.github/workflows/drc.yml needs GFP_API_KEY), which the engine
+        cannot use. Foundry decks live in the google fd_pr repo
+        (uninitialized submodule; volare builds) and are user-supplied
+        for signoff. The engine KLayout batch rules below stand in.
+      engine_rules:
+        - layer: [34, 0]
+          width_um: 0.23
+          space_um: 0.23
+          name: gf180mcu_M1
+          ref: gf180mcu/cells/fet.py _RULES (contact_size/metal_spacing
+            0.23, from the open_pdks Magic gf180mcu.tcl ruleset) — engine
+            stand-in floor, NOT the foundry deck
+    models:
+      simulator: ngspice
+      corner: typical
+      dir: models/ngspice
+      vendor_files:
+        - models/ngspice/design.ngspice
+        - models/ngspice/sm141064.ngspice
+        - models/ngspice/smbb000149.ngspice
+      corner_wrappers:
+        - models/ngspice/fets.lib
+        - models/ngspice/settings.inc
+      corner_wrappers_note: >-
+        Wrappers exist in the post-release source tree only; the PyPI
+        1.0.0 release ships the vendor files alone (sim then includes
+        sm141064.ngspice typical directly with inline switch params).
+      devices_proven: [nmos_3p3, pmos_3p3]
+libraries:
+  sc_7t5v0:
+    status: submodule-uninitialized
+    submodule: https://github.com/google/globalfoundries-pdk-libs-gf180mcu_fd_sc_mcu7t5v0.git
+    cells: 249
+  sc_9t5v0:
+    status: submodule-uninitialized
+    submodule: https://github.com/google/globalfoundries-pdk-libs-gf180mcu_fd_sc_mcu9t5v0.git
+    cells: 249
+  io:
+    status: submodule-uninitialized
+    submodule: https://github.com/google/globalfoundries-pdk-libs-gf180mcu_fd_io.git
+  pr:
+    status: submodule-uninitialized
+    submodule: https://github.com/google/globalfoundries-pdk-libs-gf180mcu_fd_pr.git
+proofs:
+  layout:
+    variant: mcu
+    cell: gf180_inv_pair
+    script: tests/pdk_gf180/fixtures/inv_pair.py
+    ports: [IN, OUT, VDD, VSS]
+    layers: [[21, 0], [22, 0], [30, 0], [31, 0], [32, 0], [33, 0], [34, 0]]
+    bbox_um: [[-1.15, -0.71], [1.97, 4.3]]
+    xsize_um: 3.12
+    ysize_um: 5.01
+  drc:
+    variant: mcu
+    rules: gf180mcu_M1
+    metal1_raw_shapes: 16
+    metal1_merged_nets: 6
+    width_violations: 0
+    # Total space hits are PDK-device interiors (gate-contact corners
+    # at 0.209 diagonal vs the 0.23 stand-in); lane routing is clean.
+    space_violations_total: 16
+    width_violations_lane_routing: 0
+    space_violations_lane_routing: 0
+  sim:
+    variant: mcu
+    corner: typical
+    vdd_V: 3.3
+    wn_um: 0.5
+    wp_um: 1.0
+    l_um: 0.28
+    vout_at_0V: 3.3
+    vout_at_3p3V: 0.0
+    threshold_window_V: [1.32, 1.65]

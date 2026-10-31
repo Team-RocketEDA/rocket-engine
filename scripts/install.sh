@@ -19,6 +19,11 @@
 #   PDK_ID        store id (default: sky130A; slug sky130a on disk)
 #   PDK_REVISION  store revision (default: open_pdks commit in nodeinfo.json)
 #   ROCKETEDA_HOME  engine store (default: ~/.local/share/rocketeda)
+# PDK-GF180 register (generic --pdk-only honors the knobs above, no new
+# mode): PDK_ID=gf180mcu PDK_SOURCE=<gf180mcu tree>
+# PDK_REVISION=d422b869efa544597d3a1256eec7441f8cc89980
+# scripts/install.sh --pdk-only, then `python install_tech.py` from the
+# tree for the KLayout tech (docs/pdk/gf180/recipe.md §2).
 #
 # Engine/display split (see docs/provision-plan.md): only batch-capable
 # tools are engine deps. X-needing tools (xschem/KLayout/GTKWave GUIs,

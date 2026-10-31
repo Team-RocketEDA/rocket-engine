@@ -19,7 +19,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
-- [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
 - [PDK-UBC] SiEPIC EBeam UBC support
 - [PDK-LXT] Luxelligence GF support (TFLN + gated DRC deck)
@@ -101,3 +100,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
 - [B10] tests/installed + capability matrix (closed: install.sh + ENGINE-SETUP report_capabilities/catalogue)
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
+- [PDK-GF180] GF180MCU support (second CMOS node)
