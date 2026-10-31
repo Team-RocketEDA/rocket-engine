@@ -31,7 +31,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
 - [RUAMEL-DUMPER] Fresh dumpers for Engine/ProjectService YAML writes
 - [GENERATE-VIEWS] Graduate gdsfactory smoke to a real generate_views op
-- [PROV] Provision toolchain + sky130A PDK/decks (promoted: to-GDS lane needs it)
+- [PROV] B10 full-bundle provisioning via install.sh (phase 1: to-GDS toolchain)
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
 
 ## Doing
