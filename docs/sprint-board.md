@@ -31,7 +31,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Ready
 
 - [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
-- [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [CELL-LINK] Symbol↔cell linkage contract (CellLink component + resolvePin)
 - [SETTINGS-STORE] Engine settings store (design truth + migration mechanics)
 - [CONNECT-GRAPH] Shared connectivity extraction + raw-IR emitters
@@ -101,3 +100,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-GEN] Docstring-mandated generated API contract
 - [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
 - [B10] tests/installed + capability matrix (closed: install.sh + ENGINE-SETUP report_capabilities/catalogue)
+- [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
