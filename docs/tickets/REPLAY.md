@@ -1,6 +1,13 @@
 # REPLAY: First-class run replay affordance
 
-*Status: Backlog · Depends: PDK-STORE · Size: S · Roadmap: orch-build-mvp*
+*Status: Closed decided-against (2026-11-01) · Roadmap: orch-build-mvp*
+
+> Closed, not implemented: replay of FINISHED runs was
+> decided against — finished runs are never re-executed,
+> resubmit-when-wanted covers it (API-GENERALIZE field
+> notes, user decision). Survivor resume/discard is
+> covered by REPLAY-SAFE (Done). This ticket remains for
+> the decision record only.
 
 ## Why
 

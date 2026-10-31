@@ -9,12 +9,9 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 ## Backlog
 
-- [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
-
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
-- [REPLAY] Backlog: first-class run replay affordance
-- [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
+
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
@@ -34,6 +31,8 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
 - [RUAMEL-DUMPER] Fresh dumpers for Engine/ProjectService YAML writes
 - [GENERATE-VIEWS] Graduate gdsfactory smoke to a real generate_views op
+- [PROV] Provision toolchain + sky130A PDK/decks (promoted: to-GDS lane needs it)
+- [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
 
 ## Doing
 
@@ -117,3 +116,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [LAYER-SERVING] Layer stackup + preset serving for viewer + 3D
 - [PYTHON-EXEC] Python execution API (inline lines + project script files)
 - [ASAP7-DRC-DECK] Clean-room KLayout DRC deck transcribed from the DRM
+- [REPLAY] Closed decided-against: finished runs never re-execute (see REPLAY-SAFE)
