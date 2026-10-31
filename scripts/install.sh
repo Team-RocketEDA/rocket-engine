@@ -2,12 +2,14 @@
 # DEMO-PATH slice: provision the engine's locked Python env + register the
 # demo PDK + probe batch-tool capabilities.
 #
-# STATUS (2026-10-30): venv bootstrap, locked sync, sealed package
-# install, engine import check, PDK register, and the tool-capability
-# probe below are real and runnable (proven on the demo machine; see
-# docs/demo-runbook.md). Pinned tool
-# installs (oss-cad-suite tarball, apt pins, source builds) are NOT here
-# yet: they stay B10-owned, with `tests/installed/` asserting pins.
+# STATUS (2026-10-31): venv bootstrap, locked sync, sealed package
+# install, engine import check, PDK register, the tool-capability
+# probe, and the PROV phase-1 toolchain provisioner below are real
+# and runnable (see docs/demo-runbook.md and docs/work/PROV/report.md).
+# The phase-1 slice (oss-cad-suite pin assert, LibreLane supported
+# distribution, OpenSTA build) lives in scripts/provision_toolchain.sh
+# with `tests/installed/` asserting pins; the rest of the matrix is
+# PROV phase 2 (out of scope here).
 #
 # Usage:
 #   scripts/install.sh --check-only   # probe only: versions + matrix, no writes
@@ -142,6 +144,16 @@ probe slang slang --version
 probe yosys yosys -V
 probe ghdl ghdl --version
 probe sby sby --version
+probe librelane librelane --version
+probe sta sta -version
 probe ngspice ngspice --version
 probe netgen netgen -batch
-echo "pins: B10-owned (tests/installed asserts them when B10 lands)."
+echo "pins: PROV phase 1 (scripts/provision_toolchain.sh + tests/installed)."
+echo "==> toolchain provision (PROV phase 1; loud verdict, never blocks venv/PDK)"
+if [ "$MODE" = "--check-only" ]; then
+    bash "$ROOT/scripts/provision_toolchain.sh" --check-only || true
+else
+    bash "$ROOT/scripts/provision_toolchain.sh" --install || {
+        echo "next: toolchain degraded (see REMEDY lines above); venv + PDK still usable"
+    }
+fi

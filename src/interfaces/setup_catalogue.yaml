@@ -4,6 +4,8 @@
 # docs/provision-plan.md (PROV seed), scripts/install.sh modes
 # (B10/DEMO-PATH), or the owning ticket — never a bare "install X".
 # Load with rocket_engine.interfaces.setup.load_catalogue.
+# GTKWave is EXCLUDED from engine provisioning by the headless rule
+# (display-side, RocketIDE concern) — recorded, never installed.
 catalogue_version: 1
 entries:
   - id: digital-bundle
@@ -11,11 +13,31 @@ entries:
     label: Digital bundle (oss-cad-suite)
     binaries: [iverilog, vvp, verilator, slang, yosys, ghdl, sby]
     remedy: >-
-      Install the pinned oss-cad-suite bundle (iverilog, vvp,
-      verilator, slang, yosys, ghdl, sby; see
-      docs/provision-plan.md); the scenario gate needs dev-PATH
-      with oss-cad-suite (see scenarios/README.md).
-    recipe: "docs/provision-plan.md: pinned oss-cad-suite tarball (B10)."
+      Install the pinned oss-cad-suite bundle 20261025 (iverilog, vvp,
+      verilator, slang, yosys, ghdl, sby; run
+      scripts/provision_toolchain.sh --install); the scenario gate needs
+      dev-PATH with oss-cad-suite (see scenarios/README.md).
+    recipe: "scripts/provision_toolchain.sh: pinned tarball 20261025 + asserts (PROV phase 1)."
+  - id: librelane
+    kind: tool
+    label: LibreLane (RTL-to-GDS flow)
+    binaries: [librelane]
+    remedy: >-
+      Install the LibreLane 3.0.17 supported distribution (run
+      scripts/provision_toolchain.sh --install for the pinned AppImage
+      per the upstream install docs); inside a nix-shell env, `librelane
+      --version` must report 3.0.17.
+    recipe: "scripts/provision_toolchain.sh (PROV phase 1; upstream AppImage/Nix install docs)."
+  - id: opensta
+    kind: tool
+    label: OpenSTA (static timing)
+    binaries: [sta]
+    remedy: >-
+      Install the pinned OpenSTA build 857316f (run
+      scripts/provision_toolchain.sh --install for the CMake source
+      build per the upstream README); `sta` lands in
+      ~/tools/opensta-857316f/bin.
+    recipe: "scripts/provision_toolchain.sh (PROV phase 1; upstream OpenSTA README source build)."
   - id: ngspice
     kind: tool
     label: ngspice (SPICE)
