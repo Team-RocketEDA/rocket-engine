@@ -1,9 +1,10 @@
-"""Staged meow EME driver: job JSON in, result envelope JSON on stdout.
+"""Staged meow EME driver: job JSON in, framed result envelope on stdout.
 
 The adapter copies this file into the run workdir next to
 `meow_job.json` and executes `python meow_driver.py meow_job.json`.
-Exactly one JSON document is printed to stdout; solver warnings go
-to stderr untouched.
+The envelope is framed between ROCKETEDA-ENVELOPE-BEGIN/END marker
+lines; solver warnings may share stdout — the adapter extracts the
+frame and logs the rest, never fatal.
 
 Cross-sections are built from the project spec (`doc` widths_um /
 wl_um / cell_length_um): nothing is hardcoded — widths, wavelength,
@@ -38,6 +39,9 @@ NX = 61
 NY = 41
 SI_HEIGHT_UM = 0.22
 
+_ENVELOPE_BEGIN = "ROCKETEDA-ENVELOPE-BEGIN"
+_ENVELOPE_END = "ROCKETEDA-ENVELOPE-END"
+
 
 def _token(doc, message):
     names = list(_TOKEN_KEYS) + [str(doc.get("device") or "")]
@@ -58,19 +62,28 @@ def _find_line(text, token):
     return None
 
 
+def _emit(payload):
+    """Print one marker-framed JSON envelope on stdout.
+
+    Marker literals mirror src/adapters/meow/_envelope.py — this
+    file stages standalone, so change both or neither.
+    """
+    print(_ENVELOPE_BEGIN)
+    print(json.dumps(payload))
+    print(_ENVELOPE_END)
+
+
 def _fail(code, message, token, line):
-    print(
-        json.dumps(
-            {
-                "ok": False,
-                "error": {
-                    "code": code,
-                    "message": message,
-                    "token": token,
-                    "line": line,
-                },
-            }
-        )
+    _emit(
+        {
+            "ok": False,
+            "error": {
+                "code": code,
+                "message": message,
+                "token": token,
+                "line": line,
+            },
+        }
     )
 
 
@@ -181,33 +194,31 @@ def main(argv):
         tidy3d_version = _metadata.version("tidy3d")
     except Exception:
         tidy3d_version = "unknown"
-    print(
-        json.dumps(
-            {
-                "ok": True,
-                "meow_version": getattr(meow, "__version__", "unknown"),
-                "tidy3d_version": tidy3d_version,
-                "result": {
-                    "wl_um": wl_um,
-                    "widths_um": widths,
-                    "cell_length_um": cell_um,
-                    "base": base,
-                    "refined": refined,
-                    "convergence": {
-                        "dT": abs(
-                            refined["transmission"] - base["transmission"]
-                        ),
-                        "dR": abs(
-                            refined["reflection"] - base["reflection"]
-                        ),
-                        "dneff": abs(
-                            refined["neff_re"][0] - base["neff_re"][0]
-                        ),
-                    },
-                    "ports": ports,
+    _emit(
+        {
+            "ok": True,
+            "meow_version": getattr(meow, "__version__", "unknown"),
+            "tidy3d_version": tidy3d_version,
+            "result": {
+                "wl_um": wl_um,
+                "widths_um": widths,
+                "cell_length_um": cell_um,
+                "base": base,
+                "refined": refined,
+                "convergence": {
+                    "dT": abs(
+                        refined["transmission"] - base["transmission"]
+                    ),
+                    "dR": abs(
+                        refined["reflection"] - base["reflection"]
+                    ),
+                    "dneff": abs(
+                        refined["neff_re"][0] - base["neff_re"][0]
+                    ),
                 },
-            }
-        )
+                "ports": ports,
+            },
+        }
     )
     return 0
 

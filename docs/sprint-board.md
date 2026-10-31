@@ -30,7 +30,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
-- [MEOW-STDOUT] Harden run_em envelope against solver chatter
 - [FORMAL-EDGE] Vacuity guard + ifdef-aware property sites
 - [LVS-ESCAPE] Bulk-rename mutant escapes LVS 3/3 seeds
 - [EXTRACT-GDS] run_extraction must accept GDS, not .mag-only
@@ -131,3 +130,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [GENERATE-VIEWS] Graduate gdsfactory smoke to a real generate_views op
 - [SEAM-COSIM] Closed-loop mixed-signal co-simulation (VALIDATE-M follow-up)
 - [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
+- [MEOW-STDOUT] Harden run_em envelope against solver chatter

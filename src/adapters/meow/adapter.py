@@ -45,6 +45,10 @@ try:
     from ..errors import AdapterError
 except ImportError:
     from rocket_engine.adapters.errors import AdapterError
+try:
+    from ._envelope import extract_envelope
+except ImportError:
+    from rocket_engine.adapters.meow._envelope import extract_envelope
 
 OPERATION = "run_em"
 _TIMEOUT_S = 120
@@ -335,13 +339,12 @@ class MeowAdapter(ToolAdapter):
                 printed no JSON envelope or no result.
         """
         spec = native_output.get("spec", "")
-        try:
-            envelope = json.loads(native_output.get("stdout", ""))
-        except (TypeError, ValueError):
+        envelope = extract_envelope(native_output.get("stdout", ""))
+        if envelope is None:
             raise AdapterError(
                 "runner_unavailable",
                 "meow driver printed no JSON envelope.",
-            ) from None
+            )
         if not isinstance(envelope, dict) or not isinstance(
             envelope.get("ok"), bool
         ):
