@@ -63,6 +63,7 @@ from .execution.block_runs_scope import (
 from .execution.errors import ExecutionError
 from .execution.service import ExecutionService
 from .interfaces import apig_assets
+from .interfaces.celllink import resolve_run as resolve_celllink_run
 from .interfaces.errors import ContractError
 from .interfaces.runparams import RunParamsError, validate_run_request
 from .interfaces.setup import report_capabilities
@@ -1199,6 +1200,32 @@ class Engine:
             Finding page for the run.
         """
         return self._execution.findings(run_id, limit=limit, cursor=cursor)
+
+    def resolve_celllinks(self, blocks, known_cells, variant=None):
+        """Resolve run/export cell-link records for block instances.
+
+        CELL-LINK seam: resolves (cell, pinMap, variant) per block
+        through interfaces.celllink, emitting only non-empty links.
+        Editing stays free — unknown cells fail here, at run time.
+
+        Args:
+            blocks: Block mappings, each with an id and an optional
+                CellLink component.
+            known_cells: Available cell names the run may target.
+            variant: Variant name applied to every block; None and
+                REFERENCE resolve each stored base link.
+
+        Returns:
+            Emission records in input order, each with block, cell,
+            pinMap, and variant keys.
+
+        Raises:
+            ContractError: invalid_block for a malformed block
+                entry, unknown_variant for an undefined variant.
+            CellLinkError: unknown_cell naming the block and cell
+                when a resolved cell is unavailable to the run.
+        """
+        return resolve_celllink_run(blocks, known_cells, variant=variant)
 
     def _run_queued(self, command):
         """Execute admitted requests by id: deferred singles, fetch, batches.

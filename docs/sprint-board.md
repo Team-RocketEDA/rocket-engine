@@ -24,7 +24,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
 
-- [CELL-LINK] Symbol↔cell linkage contract (CellLink component + resolvePin)
 - [SETTINGS-STORE] Engine settings store (design truth + migration mechanics)
 - [CONNECT-GRAPH] Shared connectivity extraction + raw-IR emitters
 - [LAYER-SERVING] Layer stackup + preset serving for viewer + 3D
@@ -103,3 +102,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [RUN-PARAMS] Explicit run.request params schema
 - [BLOCK-RUNS] Block-scoped run targets (run-from-block)
 - [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
+- [CELL-LINK] Symbol↔cell linkage contract (CellLink component + resolvePin)
