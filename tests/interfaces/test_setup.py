@@ -70,11 +70,18 @@ def _bare_path(monkeypatch, tmp_path):
     return empty
 
 
-def _no_sax(monkeypatch):
+# Every Python-module solver the setup surface can report: a
+# fresh-machine simulation must mask all of them, or whichever
+# solver it forgets (circulax alongside sax, meow, gdsfactory)
+# reads ready and the simulation lies.
+_MASKED_PYTHON_SOLVERS = frozenset({"sax", "circulax", "meow", "gdsfactory"})
+
+
+def _no_python_solvers(monkeypatch):
     real = importlib.util.find_spec
 
     def _fake(name, *args, **kwargs):
-        if name == "sax":
+        if name in _MASKED_PYTHON_SOLVERS:
             return None
         return real(name, *args, **kwargs)
 
@@ -150,7 +157,7 @@ def test_catalogue_covers_install_sh_probes():
 def test_submit_get_capabilities_is_wired(tmp_path, monkeypatch):
     engine = _engine()  # RED: unsupported_operation
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
 
     report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
 
@@ -161,7 +168,7 @@ def test_submit_get_capabilities_is_wired(tmp_path, monkeypatch):
 def test_fresh_machine_names_every_missing_tool_with_remedy(tmp_path, monkeypatch):
     engine = _engine()  # RED: unwired query
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
     _no_network(monkeypatch)
 
     report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
@@ -211,7 +218,7 @@ def test_fresh_machine_names_every_missing_tool_with_remedy(tmp_path, monkeypatc
 def test_single_tool_install_flips_exactly_its_state(tmp_path, monkeypatch):
     engine = _engine()  # RED: unwired query
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
     args = {"engine_root": str(tmp_path / "nostore")}
 
     before = {
@@ -239,7 +246,7 @@ def test_single_pdk_register_flips_exactly_its_state(tmp_path, monkeypatch):
 
     engine = _engine()  # RED: unwired query
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
     root = tmp_path / "root"
     args = {"engine_root": str(root)}
 
@@ -264,7 +271,7 @@ def test_netgen_impostor_reports_blocked_with_cause(tmp_path, monkeypatch):
     engine = _engine()  # RED: unwired query
     bindir = _bindir(tmp_path, ["netgen"], banner=MESHER_BANNER)
     monkeypatch.setenv("PATH", str(bindir))
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
 
     report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
 
@@ -277,7 +284,7 @@ def test_netgen_impostor_reports_blocked_with_cause(tmp_path, monkeypatch):
 
 def test_sax_absent_reports_photonic_remedy(tmp_path, monkeypatch):
     engine = _engine()  # RED: unwired query
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
 
     report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
 
@@ -291,7 +298,7 @@ def test_sax_absent_reports_photonic_remedy(tmp_path, monkeypatch):
 def test_cloud_entries_gated_without_keys_and_no_network(tmp_path, monkeypatch):
     engine = _engine()  # RED: unwired query
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
     _no_network(monkeypatch)
 
     report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
@@ -306,7 +313,7 @@ def test_cloud_entries_gated_without_keys_and_no_network(tmp_path, monkeypatch):
 def test_capabilities_pass_through_adapter_reports(tmp_path, monkeypatch):
     engine = _engine()  # RED: unwired query
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
 
     report = _submit(
         engine, {"target": "probe", "engine_root": str(tmp_path / "nostore")}
@@ -324,7 +331,7 @@ def test_capabilities_pass_through_adapter_reports(tmp_path, monkeypatch):
 def test_unregistered_operations_report_unsupported(tmp_path, monkeypatch):
     engine = _engine()  # RED: unwired query
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
 
     report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
 
@@ -343,7 +350,7 @@ def test_engine_served_operations_report_ready(tmp_path, monkeypatch):
 
     engine = _engine()
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
 
     report = _submit(engine, {"engine_root": str(tmp_path / "nostore")})
 
@@ -357,7 +364,7 @@ def test_engine_served_operations_report_ready(tmp_path, monkeypatch):
 def test_query_reads_without_creating_store(tmp_path, monkeypatch):
     engine = _engine()  # RED: unwired query
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
     root = tmp_path / "nostore"
 
     _submit(engine, {"engine_root": str(root)})
@@ -375,7 +382,7 @@ def test_solver_without_detection_spec_fails_loudly(tmp_path, monkeypatch):
     engine = _engine()
     engine.register_solver("run_em", _Emx(), tool="emx")
     _bare_path(monkeypatch, tmp_path)
-    _no_sax(monkeypatch)
+    _no_python_solvers(monkeypatch)
 
     try:
         _submit(engine, {"engine_root": str(tmp_path / "nostore")})

@@ -1,5 +1,6 @@
 """D/A/P/M step order and check plans as data. Never calls solvers directly."""
 
+from .capability_plan import plan_from_capabilities
 from .connectgraph import (
     RULE_DANGLING_NET,
     RULE_ORPHAN_LABEL,
@@ -27,6 +28,7 @@ from .stages import STAGES, applicable_stages
 __all__ = [
     "STAGES",
     "applicable_stages",
+    "plan_from_capabilities",
     "Connectivity",
     "ConnectGraphError",
     "Net",

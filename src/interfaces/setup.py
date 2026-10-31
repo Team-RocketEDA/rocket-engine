@@ -28,8 +28,6 @@ rows verify per-deck hashes (tree-wide rehash stays a run-time
 concern).
 """
 
-import importlib.metadata
-import importlib.util
 import shutil
 from pathlib import Path
 
@@ -38,6 +36,7 @@ from ruamel.yaml import YAML
 from .errors import ContractError
 from .paths import slugify
 from .pdks import list_pdks, resolve_deck, resolve_engine_root
+from .setup_probes import detect_python
 from .vocabulary import OPERATIONS
 
 CATALOGUE_VERSION = 1
@@ -190,16 +189,9 @@ def _detect_binaries(names, banner=None):
 
 def _detect_python(names):
     """Split module names into found versions and missing names."""
-    found, missing = {}, []
-    for name in names:
-        if importlib.util.find_spec(name) is None:
-            missing.append(name)
-            continue
-        try:
-            found[name] = importlib.metadata.version(name)
-        except importlib.metadata.PackageNotFoundError:
-            found[name] = True
-    return found, missing
+    # Shadow-proof probe (SETUP-HONESTY): requires a real loader
+    # plus installed distribution metadata — see setup_probes.
+    return detect_python(names)
 
 
 def _covering_remedy(catalogue, binaries, python):
