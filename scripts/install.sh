@@ -16,7 +16,8 @@
 #
 # PDK register honors:
 #   PDK_SOURCE    PDK tree to adopt (default: ~/.local/share/pdk/sky130A)
-#   PDK_ID        store id (default: sky130A; slug sky130a on disk)
+#   PDK_ID        store id (default: sky130A; slug sky130a on disk;
+#                 sky130gf takes the pip branch: no tree needed)
 #   PDK_REVISION  store revision (default: open_pdks commit in nodeinfo.json)
 #   ROCKETEDA_HOME  engine store (default: ~/.local/share/rocketeda)
 # PDK-GF180 register (generic --pdk-only honors the knobs above, no new
@@ -47,10 +48,36 @@ probe() {  # name, version-argv...
     printf '%-10s %-9s %s [%s]\n' "$name" "present" "$ver" "$bin"
 }
 
+pdk_pip_sky130gf() {
+    # PDK-SKY130GF: pip distribution (sky130==1.0.0) — layout cells +
+    # KLayout tech only; DRC/LVS/extract/sim stay on the pdk-sky130A
+    # tree entry (docs/pdk/sky130gf/profile.yaml decision.*).
+    # --no-deps protects the repo gdsfactory 9.51.0: a plain install
+    # resolves gdsfactory~=9.40.1 and downgrades to 9.40.2 (verified).
+    local py="$ROOT/.venv/bin/python"
+    if [ ! -x "$py" ]; then
+        echo "install.sh: no engine interpreter at $py" >&2
+        echo "next: run scripts/install.sh --install to bootstrap the venv" >&2
+        return 1
+    fi
+    command -v uv >/dev/null 2>&1 || { echo "install.sh: uv not on PATH" >&2; echo "next: install uv (https://docs.astral.sh/uv/), then retry" >&2; return 1; }
+    uv pip install --python "$py" --no-deps "sky130==1.0.0" || return 1
+    local sky130
+    sky130="$("$py" -c "import sky130, os; print(os.path.dirname(sky130.__file__))")" || return 1
+    mkdir -p "$HOME/.klayout/tech"
+    ln -sfn "$sky130/klayout" "$HOME/.klayout/tech/sky130gf"
+    echo "pdk sky130gf@1.0.0: pip installed + KLayout tech linked"
+    echo "next: run the recipe verify probe (docs/pdk/sky130gf/recipe.md §3)"
+}
+
 pdk_only() {
     local source="${PDK_SOURCE:-$HOME/.local/share/pdk/sky130A}"
     local id="${PDK_ID:-sky130A}"
     local revision="${PDK_REVISION:-5f09001e4b975ba35d27d99a10ecdf45054a9bd5}"
+    if [ "$id" = "sky130gf" ]; then
+        pdk_pip_sky130gf || exit 1
+        exit 0
+    fi
     if [ ! -d "$source" ]; then
         echo "install.sh: PDK source is not a directory: $source" >&2
         echo "next: set PDK_SOURCE to the sky130A tree, then retry" >&2
