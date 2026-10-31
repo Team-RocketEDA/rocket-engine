@@ -1,0 +1,201 @@
+# PDK-IHP lane profile: IHP SG13G2 130nm SiGe BiCMOS (gdsfactory wrapper).
+# Shape follows the PDK-PROFILE direction lock: {gdsfactory package
+# pin, KLayout tech, decks, models} per flavor. All relpaths resolve
+# against the ihp-gdsfactory tree root (pip site-packages ihp parent
+# or the IHP_SOURCE checkout). SG13G2 is ONE BiCMOS flow; the lane
+# models two flavor groups explicitly: the bicmos core (LV/HV CMOS
+# + SiGe HBTs + base passives + stdcells) and the rf options
+# (guard-ring RF FETs + RF MIM + spiral inductors + varicap + RF
+# SAX models) that ride on the same flow.
+schema: rocketeda/pdk-profile/v0.1
+id: ihp
+label: IHP SG13G2 130nm SiGe BiCMOS (gdsfactory ihp)
+upstream: https://github.com/gdsfactory/ihp
+upstream_pdk: https://github.com/IHP-GmbH/IHP-Open-PDK
+license: Apache-2.0
+package: ihp-gdsfactory
+pins:
+  ihp-gdsfactory: "2.0.1"
+  ihp_rev: "d7643aafba2c610ea752a9b8fc2958de3e98ee87"
+  gdsfactory: "9.51.0"
+  sax: "0.18.2"
+  jax: "0.9.2"
+  ngspice: "42"
+  klayout_engine: "0.30.12"
+  klayout_system: "0.28.16"
+variants:
+  bicmos:
+    flavor: core BiCMOS flow
+    process: SG13G2 130nm SiGe BiCMOS, LV + HV CMOS, NPN/PNP HBTs
+    status: proven
+    cells:
+      - nmos
+      - pmos
+      - nmos_hv
+      - pmos_hv
+      - npn13G2
+      - npn13G2L
+      - npn13G2V
+      - pnpMPA
+      - rsil
+      - rppd
+      - rhigh
+      - cmim
+      - cmom
+      - sg13g2_buf_1
+      - sg13g2_and2_1
+    stdcells:
+      count: 84
+      prefix: sg13g2_
+      source_gds: ihp/gds/sg13g2_stdcell.gds
+      note: parametric import + ports from labels; no LEF/Liberty in wrapper
+    tech:
+      klayout_dir: ihp/klayout/tech
+      lyt: ihp/klayout/tech/tech.lyt
+      lyt_alt: ihp/klayout/tech/sg13g2.lyt
+      lyp: ihp/klayout/tech/layers.lyp
+      layers_yaml: ihp/layers.yaml
+      tech_names: [IHP, sg13g2]
+    drc:
+      deck: ihp/klayout/tech/drc/ihp-sg13g2.drc
+      runner: ihp/klayout/tech/drc/run_drc.py
+      defaults: ihp/klayout/tech/drc/rule_decks/sg13g2_tech_default.json
+      deck_status: needs-newer-klayout
+      deck_reason: deck uses the euclidean DRC metric; sandbox KLayouts
+        (system 0.28.16 and nix 0.30.7) both fail it — 0.28.16 is refused
+        by the runner gate (>=0.29.11), 0.30.7 dies with NameError on
+        euclidean. Integrator re-runs run_drc.py on a newer host.
+      engine_rules:
+        - name: M1.a
+          layer: [8, 0]
+          width_um: 0.16
+          ref: ihp/klayout/tech/drc/rule_decks/beol/5_16_metal1.drc
+            rule M1.a (Min. Metal1 width 0.16um) + sg13g2_tech_default.json M1_a
+        - name: M1.b
+          layer: [8, 0]
+          space_um: 0.18
+          ref: ihp/klayout/tech/drc/rule_decks/beol/5_16_metal1.drc
+            rule M1.b (Min. Metal1 space/notch 0.18um) + sg13g2_tech_default.json M1_b
+      engine_caveat: default (square) metrics; the deck uses euclidean,
+        identical on Manhattan geometry, stricter at corners
+    models:
+      ngspice_dir: ihp/models/ngspice/models
+      ngspice_libs:
+        - ihp/models/ngspice/models/cornerRES.lib
+        - ihp/models/ngspice/models/resistors_mod.lib
+        - ihp/models/ngspice/models/cornerHBT.lib
+        - ihp/models/ngspice/models/sg13g2_hbt_mod.lib
+        - ihp/models/ngspice/models/cornerMOSlv.lib
+        - ihp/models/ngspice/models/sg13g2_moslv_mod.lib
+        - ihp/models/ngspice/models/cornerMOShv.lib
+        - ihp/models/ngspice/models/sg13g2_moshv_mod.lib
+        - ihp/models/ngspice/models/cornerCAP.lib
+        - ihp/models/ngspice/models/capacitors_mod.lib
+      corners:
+        res_typ: {file: cornerRES.lib, section: res_typ}
+        hbt_typ: {file: cornerHBT.lib, section: hbt_typ}
+        mos_tt: {file: cornerMOSlv.lib, section: mos_tt}
+        moshv_tt: {file: cornerMOShv.lib, section: mos_tt}
+        cap_typ: {file: cornerCAP.lib, section: cap_typ}
+        dio_tt: {file: cornerDIO.lib, section: dio_tt}
+  rf:
+    flavor: RF options on the same BiCMOS flow
+    process: SG13G2 RF FETs (guard/gate rings) + RF MIM + spiral inductors
+      + MOS varicap; shares the bicmos tech, deck, and model corners
+    status: proven
+    cells:
+      - rfnmos
+      - rfpmos
+      - rfnmos_hv
+      - rfpmos_hv
+      - rfcmim
+      - inductor2
+      - inductor3
+      - svaricap
+    tech:
+      klayout_dir: ihp/klayout/tech
+      lyt: ihp/klayout/tech/tech.lyt
+      lyt_alt: ihp/klayout/tech/sg13g2.lyt
+      lyp: ihp/klayout/tech/layers.lyp
+      layers_yaml: ihp/layers.yaml
+      tech_names: [IHP, sg13g2]
+    drc:
+      deck: ihp/klayout/tech/drc/ihp-sg13g2.drc
+      runner: ihp/klayout/tech/drc/run_drc.py
+      defaults: ihp/klayout/tech/drc/rule_decks/sg13g2_tech_default.json
+      deck_status: needs-newer-klayout
+      deck_reason: same flow, same deck, same newer-KLayout gate as bicmos
+      engine_rules:
+        - name: M1.a
+          layer: [8, 0]
+          width_um: 0.16
+          ref: ihp/klayout/tech/drc/rule_decks/beol/5_16_metal1.drc rule M1.a
+        - name: M1.b
+          layer: [8, 0]
+          space_um: 0.18
+          ref: ihp/klayout/tech/drc/rule_decks/beol/5_16_metal1.drc rule M1.b
+    models:
+      ngspice_dir: ihp/models/ngspice/models
+      ngspice_libs:
+        - ihp/models/ngspice/models/cornerMOSlv.lib
+        - ihp/models/ngspice/models/sg13g2_moslv_mod.lib
+        - ihp/models/ngspice/models/cornerCAP.lib
+        - ihp/models/ngspice/models/capacitors_mod.lib
+        - ihp/models/ngspice/models/ihp_inductor_rl.lib
+      corners:
+        mos_tt: {file: cornerMOSlv.lib, section: mos_tt}
+        cap_typ: {file: cornerCAP.lib, section: cap_typ}
+      sax_registry: ihp.models.sax
+    sax_models:
+      - cmim
+      - cmom
+      - inductor2
+      - inductor3
+      - inductor_with_loss
+      - resistor
+      - rfcmim
+      - rhigh
+      - rppd
+      - rsil
+gaps:
+  lvs:
+    status: n/a
+    reason: no LVS deck ships in ihp-gdsfactory 2.0.1 (only *LVS*.gds
+      reference layouts); ticket LVS proof blocked on upstream or user deck
+  magic:
+    status: n/a
+    reason: no Magic tech/extraction files in the wrapper; magic binary
+      present but nothing SG13G2 to load
+  xschem:
+    status: n/a
+    reason: no xschem symbols/testbenches in the wrapper (xschem binary
+      present, plays no SG13G2 role)
+  lef_liberty:
+    status: n/a
+    reason: stdcells ship as GDS import + ports only (ihp/gds/sg13g2_stdcell.gds);
+      no .lef/.lib in the wrapper
+  mos_ngspice_va:
+    status: n/a
+    reason: sg13_lv MOS needs pspnqs103va and rsil/rppd/rhigh need r3_cmc;
+      stock ngspice-42 has neither (verified errors); PDK ships VA sources
+      under ihp/models/ngspice/va/ for an openvaf flow
+  xyce:
+    status: n/a
+    reason: xyce models ship (ihp/models/xyce/) but no xyce binary on PATH here
+  vacask:
+    status: n/a
+    reason: vacask libs ship (ihp/models/vacask/) but vacask is not installed here
+proofs:
+  layout:
+    nmos: {ports: [D, G, S], bbox_um: [[0.0, -0.155], [2.58, 0.455]], npolygons: 7}
+    rfnmos: {ports: [D, G, S, TIE], bbox_um: [[0.0, 0.0], [3.28, 3.32]], npolygons: 8}
+    npn13G2: {ports: [B, C, E], bbox_um: [[-3.35, -3.33], [3.35, 3.78]], npolygons: 13}
+  drc_engine:
+    clean: {fixture: tests/pdk_ihp/fixtures/nmos_ref.gds, width: 0, space: 0}
+    dirty: {width: [[0.0, 0.0, 2.0, 0.1]], space: [[0.0, 1.5, 2.0, 1.6]]}
+  ngspice:
+    ptap_div: {v_mid_V: 0.9, v_vdd_V: 1.8}
+    hbt_op: {i_vcc_A: -5.76845e-04, v_b_V: 0.85}
+  sax_5ghz:
+    rsil_1x10: {s11: 0.4117647058823529, s21: 0.5882352941176471}
+    inductor_default: {s11: [0.08983016235372465, 0.28593828754685535], s21: [0.9101698376462753, -0.28593828754685535]}

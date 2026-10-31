@@ -98,6 +98,20 @@ entries:
       scripts/install.sh --pdk-only with PDK_SOURCE set to the
       sky130A tree).
     recipe: "scripts/install.sh --pdk-only (PDK_SOURCE/PDK_ID/PDK_REVISION; see docs/demo-runbook.md)."
+  - id: pdk-ihp
+    kind: pdk
+    label: PDK ihp (IHP SG13G2 BiCMOS + RF)
+    pdk_id: ihp
+    source_default: ~/.local/share/pdk/ihp
+    decks:
+      - ihp/klayout/tech/drc/ihp-sg13g2.drc
+    remedy: >-
+      Provision ihp-gdsfactory 2.0.1 per docs/pdk/ihp/recipe.md
+      (pip pin + KLayout tech link + verify probe), then register
+      the tree via scripts/install.sh --pdk-only with PDK_ID=ihp.
+      The PDK deck needs KLayout newer than 0.30.7 (euclidean
+      metric; recipe §4).
+    recipe: "docs/pdk/ihp/recipe.md (PDK-IHP lane)."
   - id: cloud-tidy3d
     kind: cloud
     label: Tidy3D web (cloud)
