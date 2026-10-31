@@ -42,6 +42,16 @@ from .adapters.lvs_netgen import NetgenLvsAdapter
 from .adapters.ngspice import NgspiceAdapter
 from .adapters.sax import SaxAdapter
 from .adapters.syntax import SyntaxAdapter
+from .execution.block_runs_scope import (
+    BlockScopeError,
+    build_scope_record,
+    check_operation_scope,
+    narrow_job_for_block,
+    parse_target,
+    resolve_block,
+    snapshot_closure,
+    stamp_verdict,
+)
 from .execution.errors import ExecutionError
 from .execution.service import ExecutionService
 from .interfaces.runparams import RunParamsError, validate_run_request
@@ -141,12 +151,17 @@ class Engine:
         constraints: Optional run_spice metric targets
             ({metric: {min, max, unit[, expr, control]}}); caller
             targets are refused, unknown metrics fail loudly.
+        blocks: Optional block store for block-scoped runs (a
+            mapping of id to block entity, or a list of block
+            mappings); runs without a block target never read it.
     """
 
     def __init__(self, project_id, actor, catalog_root=".",
-                 engine_root=None, linked_root=None, constraints=None):
+                 engine_root=None, linked_root=None, constraints=None,
+                 blocks=None):
         self._project_id = project_id
         self._actor = actor
+        self._blocks = blocks if blocks is not None else {}
         self._project = ProjectService(
             project_id, actor, engine_root=engine_root,
             linked_root=linked_root,
@@ -264,9 +279,12 @@ class Engine:
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unwired or
-                unknown name, unknown_run_param for an unknown
-                run.request field, invalid_run_param for a
-                mistyped run.request knob, invalid_run_request
+                unknown name, unknown_block for a block target
+                naming no block, invalid_target for a malformed
+                target, unsupported_scope for a block target on a
+                verb serving no block runs yet, unknown_run_param
+                for an unknown run.request field, invalid_run_param
+                for a mistyped run.request knob, invalid_run_request
                 for a non-mapping run.request, invalid_command
                 for caller-supplied run_spice targets,
                 revision_conflict for a stale
@@ -331,6 +349,7 @@ class Engine:
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
             )
+        scope_request = self._admit_block_scope(name, arguments)
         buf = io.StringIO()
         self._yaml.dump({"operation": name, "arguments": arguments}, buf)
         request_id = command.get("request_id") or uuid.uuid4().hex
@@ -344,11 +363,12 @@ class Engine:
         # execute it — under the one id. A replay returns the same
         # ack; its record already exists, so register it only once.
         if not self._execution.known(ack["run_id"]):
+            target = {"cell": arguments.get("cell")}
+            if scope_request is not None:
+                target["scope"] = "block"
+                target["block_id"] = scope_request["block_id"]
             self._execution.dispatch(
-                name,
-                {"cell": arguments.get("cell")},
-                ack["snapshot_id"],
-                run_id=ack["run_id"],
+                name, target, ack["snapshot_id"], run_id=ack["run_id"]
             )
         self._run_jobs.setdefault(
             ack["run_id"],
@@ -359,6 +379,16 @@ class Engine:
                 "request_id": str(request_id),
             },
         )
+        if scope_request is not None:
+            pending = self._run_jobs[ack["run_id"]]
+            if "block_scope" not in pending:
+                pending["block_scope"] = build_scope_record(
+                    run_id=ack["run_id"],
+                    revision=self._project.snapshot()["current_revision"],
+                    block_id=scope_request["block_id"],
+                    deck=arguments.get("deck"),
+                    closure=scope_request["closure"],
+                )
         return ack
 
     def _query_events_since(self, arguments):
@@ -546,6 +576,41 @@ class Engine:
         except RunParamsError as exc:
             raise ProjectError(exc.code, str(exc), fields=exc.fields) from exc
         return {**arguments, "request": normalized}
+
+    def _admit_block_scope(self, name, arguments):
+        """Validate a block run target and snapshot its closure.
+
+        Arguments without a target run at project scope and skip
+        this path untouched; block targets resolve their entity
+        and pin the component closure the verdict later cites.
+
+        Args:
+            name: Cataloged operation about to run.
+            arguments: Operation arguments (target rides here).
+
+        Returns:
+            None for project runs, else the admitted scope with
+                block_id and closure keys (the run_id-bound record
+                is built once the ack id exists).
+
+        Raises:
+            ProjectError: unknown_block for a block target naming
+                no block, invalid_target for a malformed target,
+                unsupported_scope for a block target on a verb
+                serving no block runs yet.
+        """
+        if "target" not in arguments:
+            return None
+        try:
+            parsed = parse_target(arguments["target"])
+            check_operation_scope(name, parsed["scope"])
+            if parsed["scope"] != "block":
+                return None
+            block = resolve_block(parsed["id"], self._blocks)
+            closure = snapshot_closure(block)
+        except BlockScopeError as exc:
+            raise ProjectError(exc.code, str(exc)) from exc
+        return {"block_id": parsed["id"], "closure": closure}
 
     def job_status(self, run_id=None):
         """Read one run's state, verdict, and evidence links.
@@ -796,7 +861,8 @@ class Engine:
             contain=True,
         )
 
-    def _run_operation(self, name, arguments, snapshot_id, request_id, run_id=None, contain=False):
+    def _run_operation(self, name, arguments, snapshot_id, request_id, run_id=None,
+                       contain=False, block_scope=None):
         """Select the solver, run it, judge the verdict, log completion."""
         solvers = self._solvers.get(name) or {}
         if not solvers:
@@ -812,6 +878,10 @@ class Engine:
             self._latest[name] = run_id
             self._logs[run_id] = f"{exc.code}: {exc}"
             verdict = self._execution.record_not_run(run_id, f"{exc.code}: {exc}")
+            stored_scope = self._run_jobs.get(run_id, {}).get("block_scope")
+            if stored_scope is not None:
+                verdict = stamp_verdict(verdict, stored_scope["provenance"])
+                self._execution.mark_completed(run_id, verdict)
             self._project.append_run_event(
                 "run_failed", run_id, name, verdict, request_id
             )
@@ -831,6 +901,20 @@ class Engine:
             self._execution.status(run_id)
         self._execution.mark_running(run_id)
         self._latest[name] = run_id
+        scope_record = block_scope
+        if scope_record is None:
+            scope_record = self._run_jobs.get(run_id, {}).get("block_scope")
+        elif "provenance" not in scope_record:
+            # Direct runs admit the closure without a run_id; bind it now.
+            scope_record = build_scope_record(
+                run_id=run_id,
+                revision=self._project.snapshot()["current_revision"],
+                block_id=scope_record["block_id"],
+                deck=arguments.get("deck"),
+                closure=scope_record["closure"],
+            )
+        if scope_record is not None:
+            arguments = narrow_job_for_block(arguments, scope_record["closure"])
         try:
             adapter.preflight({"operation": name, **arguments})
             native = adapter.execute({"operation": name, **arguments})
@@ -838,6 +922,9 @@ class Engine:
         except AdapterError as exc:
             self._logs[run_id] = f"{exc.code}: {exc}"
             verdict = self._execution.record_not_run(run_id, f"{exc.code}: {exc}")
+            if scope_record is not None:
+                verdict = stamp_verdict(verdict, scope_record["provenance"])
+                self._execution.mark_completed(run_id, verdict)
             self._project.append_run_event(
                 "run_failed", run_id, name, verdict, request_id
             )
@@ -854,6 +941,9 @@ class Engine:
                 raise
             self._logs[run_id] = f"internal_error: {exc!r}"
             verdict = self._execution.record_not_run(run_id, f"internal_error: {exc}")
+            if scope_record is not None:
+                verdict = stamp_verdict(verdict, scope_record["provenance"])
+                self._execution.mark_completed(run_id, verdict)
             self._project.append_run_event(
                 "run_failed", run_id, name, verdict, request_id
             )
@@ -890,6 +980,9 @@ class Engine:
         # Keep measured values on PASS too: a verdict without numbers can't be reviewed.
         if result.get("measurements") is not None:
             verdict = dict(verdict, measurements=result["measurements"])
+            self._execution.mark_completed(run_id, verdict)
+        if scope_record is not None:
+            verdict = stamp_verdict(verdict, scope_record["provenance"])
             self._execution.mark_completed(run_id, verdict)
         if (verdict or {}).get("status") == "NOT_RUN":
             outcome = "run_failed"
@@ -930,12 +1023,16 @@ class Engine:
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unregistered
-                operation or unknown deck tool, unknown_run_param
-                for an unknown run.request field, invalid_run_param
-                for a mistyped run.request knob, invalid_run_request
-                for a non-mapping run.request, invalid_command
-                when run_job lacks a run_id/request_id argument,
-                for caller-supplied run_spice targets, when a CRUD
+                operation or unknown deck tool, unknown_block for
+                a block target naming no block, invalid_target for
+                a malformed target, unsupported_scope for a block
+                target on a verb serving no block runs yet,
+                unknown_run_param for an unknown run.request field,
+                invalid_run_param for a mistyped run.request knob,
+                invalid_run_request for a non-mapping run.request,
+                invalid_command when run_job lacks a
+                run_id/request_id argument, for caller-supplied
+                run_spice targets, when a CRUD
                 mutation is malformed, or a rewind lacks a target
                 or targets the live head, revision_conflict for a
                 stale CRUD/rewind expected_revision,
@@ -960,9 +1057,11 @@ class Engine:
             return self.submit(command)
         arguments = self._apply_targets(name, dict(command.get("arguments") or {}))
         arguments = self._apply_run_request(arguments)
+        block_scope = self._admit_block_scope(name, arguments)
         return self._run_operation(
             name,
             arguments,
             command.get("snapshot_id", ""),
             None,
+            block_scope=block_scope,
         )
