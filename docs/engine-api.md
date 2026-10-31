@@ -84,6 +84,7 @@ text, identical to the section bodies below.
 | `get_capabilities` | yes | `rocket_engine.composition.Engine.capabilities` | Report per-solver availability, store state, and the provision menu. |
 | `get_check_results` | yes | `rocket_engine.composition.Engine.check_results` | Read the latest check verdict per operation. |
 | `get_component` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
+| `get_design_completion` | yes | `rocket_engine.composition.Engine.design_completion` | Judge one flow's completion; refuse while blockers stand. |
 | `get_events_since` | yes | `rocket_engine.project.service.ProjectService.events_since` | Read retained events after a cursor, oldest first. |
 | `get_job_status` | yes | `rocket_engine.composition.Engine.job_status` | Read one run's state, verdict, and evidence links. |
 | `get_layer_rows` | yes | `rocket_engine.composition.Engine.layer_rows` | Render viewer rows for one PDK's stackup. |
@@ -101,7 +102,7 @@ text, identical to the section bodies below.
 | `list_layer_presets` | yes | `rocket_engine.composition.Engine.layer_presets` | List built-in plus user layer preset names. |
 | `list_projects` | yes | `rocket_engine.project.service.ProjectService.list_projects` | List projects under the engine root, bound always included. |
 | `list_survivors` | yes | `rocket_engine.composition.Engine.boot_report` | Report crash survivors without executing anything (boot report). |
-| `plan_checks` | no | — | Declared query `plan_checks`; no handler wired yet. |
+| `plan_checks` | yes | `rocket_engine.composition.Engine.plan_checks` | Plan one flow's checks against the registered solvers. |
 | `read_doc` | yes | `rocket_engine.project.service.ProjectService.read_doc` | Read one document as text at the current head. |
 | `read_settings` | yes | `rocket_engine.project.service.ProjectService.read_settings` | Read one settings kind at the current head. |
 | `save_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_save` | Save a user layer preset against one PDK's stackup. |
@@ -1732,6 +1733,32 @@ Raises:
 
 ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.
 
+### get_design_completion
+
+Judge one flow's completion; refuse while blockers stand.
+
+Handler: `rocket_engine.composition.Engine.design_completion`.
+
+Layers the latest check verdicts over the stage plan: any
+blocked, unverified, or failing stage becomes a named blocker
+and the fully-verified claim is refused (claim None with a
+refusal naming the count); only a blocker-free plan claims
+fully verified with per-operation evidence run ids. Mixed M14
+plus the vocab-only run_thermal operation always appear while
+no thermal solver is registered.
+
+Arguments:
+
+- `flow` (required): Flow inventory to judge (digital/analog/photonic/mixed).
+
+Returns:
+
+Completion mapping with the fully_verified flag, claim or refusal, named blockers, missing operations, evidence run ids, per-stage statuses, and the current revision.
+
+Raises:
+
+ProjectError: invalid_command for a missing or unknown flow.
+
 ### get_events_since
 
 Read retained events after a cursor, oldest first.
@@ -2059,9 +2086,27 @@ Caution: Report-only by construction: nothing executes here — every replay sur
 
 ### plan_checks
 
-Declared query `plan_checks`; no handler wired yet.
+Plan one flow's checks against the registered solvers.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.plan_checks`.
+
+The stage plan behind the check-plan display: every required
+stage with its readiness (ready when all tool entrypoints are
+registered, otherwise required-but-blocked with the missing
+operations named), so a blocked M14 cites run_thermal instead
+of vanishing.
+
+Arguments:
+
+- `flow` (required): Flow inventory to plan (digital/analog/photonic/mixed).
+
+Returns:
+
+Plan mapping with the flow, per-stage readiness plus missing operations, blocked/ready id lists, the sorted missing operations, and the current revision.
+
+Raises:
+
+ProjectError: invalid_command for a missing or unknown flow.
 
 ### read_doc
 

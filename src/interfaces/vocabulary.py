@@ -25,7 +25,8 @@ QUERIES = frozenset(
     {
         "api_search", "api_info", "api_help", "get_python_console",
         "get_capabilities", "get_project_snapshot", "list_job_kinds",
-        "plan_checks", "get_job_status", "get_check_results",
+        "plan_checks", "get_design_completion",
+        "get_job_status", "get_check_results",
         "get_events_since", "list_artifacts", "get_logs",
         "list_projects", "list_docs", "read_doc",
         "get_component", "components_of", "entities_with",

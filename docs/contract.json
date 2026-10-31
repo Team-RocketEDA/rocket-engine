@@ -3848,6 +3848,26 @@
       "type": "object",
       "wired": true
     },
+    "get_design_completion": {
+      "description": "Judge one flow's completion; refuse while blockers stand.",
+      "handlers": [
+        "rocket_engine.composition.Engine.design_completion"
+      ],
+      "kind": "query",
+      "name": "get_design_completion",
+      "properties": {
+        "flow": {
+          "description": "Flow inventory to judge (digital/analog/photonic/mixed)."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing or unknown flow.",
+      "required": [
+        "flow"
+      ],
+      "returns": "Completion mapping with the fully_verified flag, claim or refusal, named blockers, missing operations, evidence run ids, per-stage statuses, and the current revision.",
+      "type": "object",
+      "wired": true
+    },
     "get_events_since": {
       "description": "Read retained events after a cursor, oldest first.",
       "handlers": [
@@ -4173,15 +4193,24 @@
       "wired": true
     },
     "plan_checks": {
-      "description": "Declared query `plan_checks`; no handler wired yet.",
-      "handlers": [],
+      "description": "Plan one flow's checks against the registered solvers.",
+      "handlers": [
+        "rocket_engine.composition.Engine.plan_checks"
+      ],
       "kind": "query",
       "name": "plan_checks",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "flow": {
+          "description": "Flow inventory to plan (digital/analog/photonic/mixed)."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing or unknown flow.",
+      "required": [
+        "flow"
+      ],
+      "returns": "Plan mapping with the flow, per-stage readiness plus missing operations, blocked/ready id lists, the sorted missing operations, and the current revision.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "read_doc": {
       "description": "Read one document as text at the current head.",
@@ -4297,7 +4326,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "99524a87fd812decf594f6b8676a2e343b9984c10fa947e32cc915a962f0fc45",
+  "schema_sha256": "914a2652743ea19d12563e511ba16d932ad5ee512ed161f7c453524a293f540c",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

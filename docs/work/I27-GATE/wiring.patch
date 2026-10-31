@@ -1,0 +1,184 @@
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -103,6 +103,7 @@
+ from .library.errors import LibraryError
+ from .project.errors import ProjectError
+ from .project.service import ProjectService
++from .workflows.completion import design_completion_report, plan_checks_report
+ 
+ _WIRED_QUERIES = frozenset(
+     {
+@@ -155,6 +156,8 @@
+     "delete_layer_preset": "layer_preset_delete",
+     "apply_layer_preset": "layer_preset_apply",
+     "list_survivors": "boot_report",
++    "plan_checks": "plan_checks",
++    "get_design_completion": "design_completion",
+ }
+ 
+ # Job-result queries served from execution state (plus the captured run log).
+@@ -184,6 +187,10 @@
+     }
+ )
+ 
++# Completion queries (I27-GATE): stage plans plus the fully-verified
++# gate, served from the solver registry and the latest check verdicts.
++_COMPLETION_QUERIES = frozenset({"plan_checks", "get_design_completion"})
++
+ # A get_logs page never dumps more than this many lines at once.
+ _LOG_PAGE_MAX = 200
+ 
+@@ -407,8 +414,9 @@
+             for get_capabilities, the event page for
+             get_events_since, the project/document listing for
+             the CRUD queries, the status/checks/logs/kinds for
+-            the job-result queries, the cell listing or asset
+-            bytes for the catalogue/asset queries, the
++            the job-result queries, the stage plan or completion
++            report for the completion queries, the cell listing
++            or asset bytes for the catalogue/asset queries, the
+             stackup/rows/presets for the layer-serving queries,
+             the stored-or-fresh completion for run_job, the
+             boot survivor report for list_survivors, the resume
+@@ -438,8 +446,9 @@
+                 settings that break the kind schema, future_format
+                 for a settings write over a newer on-disk file,
+                 or a layer query missing its pdk_id/name, a
+-                resume_run or discard_run without a run_id, a
+-                component verb missing entity, component, or
++                completion query without a flow or with an unknown
++                flow, a resume_run or discard_run without a run_id,
++                a component verb missing entity, component, or
+                 data, or a world snapshot with a non-bool
+                 flag, unknown_entity or unknown_component for
+                 a missing entity or component, component_exists
+@@ -551,6 +560,8 @@
+             return self._query_apig(name, arguments)
+         if name in _LAYER_QUERIES:
+             return self._query_layer(name, arguments)
++        if name in _COMPLETION_QUERIES:
++            return self._query_completion(name, arguments)
+         if name in _REPLAY_QUERIES:
+             return self.boot_report()
+         if name in _WIRED_QUERIES:
+@@ -1711,6 +1722,75 @@
+             "current_revision": self._project.snapshot()["current_revision"],
+         }
+ 
++    def plan_checks(self, flow):
++        """Plan one flow's checks against the registered solvers.
++
++        The stage plan behind the check-plan display: every required
++        stage with its readiness (ready when all tool entrypoints are
++        registered, otherwise required-but-blocked with the missing
++        operations named), so a blocked M14 cites run_thermal instead
++        of vanishing.
++
++        Args:
++            flow: Flow inventory to plan (digital/analog/photonic/mixed).
++
++        Returns:
++            Plan mapping with the flow, per-stage readiness plus
++                missing operations, blocked/ready id lists, the sorted
++                missing operations, and the current revision.
++
++        Raises:
++            ProjectError: invalid_command for a missing or unknown flow.
++        """
++        if not flow:
++            raise ProjectError(
++                "invalid_command", "plan_checks needs a flow argument."
++            )
++        try:
++            plan = plan_checks_report(flow, set(self._solvers))
++        except ValueError as exc:
++            raise ProjectError("invalid_command", str(exc)) from exc
++        plan["current_revision"] = self._project.snapshot()["current_revision"]
++        return plan
++
++    def design_completion(self, flow):
++        """Judge one flow's completion; refuse while blockers stand.
++
++        Layers the latest check verdicts over the stage plan: any
++        blocked, unverified, or failing stage becomes a named blocker
++        and the fully-verified claim is refused (claim None with a
++        refusal naming the count); only a blocker-free plan claims
++        fully verified with per-operation evidence run ids. Mixed M14
++        plus the vocab-only run_thermal operation always appear while
++        no thermal solver is registered.
++
++        Args:
++            flow: Flow inventory to judge (digital/analog/photonic/mixed).
++
++        Returns:
++            Completion mapping with the fully_verified flag, claim or
++                refusal, named blockers, missing operations, evidence
++                run ids, per-stage statuses, and the current revision.
++
++        Raises:
++            ProjectError: invalid_command for a missing or unknown flow.
++        """
++        if not flow:
++            raise ProjectError(
++                "invalid_command",
++                "get_design_completion needs a flow argument.",
++            )
++        seen = self.check_results()
++        try:
++            return design_completion_report(
++                flow,
++                set(self._solvers),
++                seen["checks"],
++                seen["current_revision"],
++            )
++        except ValueError as exc:
++            raise ProjectError("invalid_command", str(exc)) from exc
++
+     def run_logs(self, run_id=None, query=None, offset=0, limit=40):
+         """Search and page one run's captured native log.
+ 
+@@ -1765,6 +1845,14 @@
+             return self.job_kinds()
+         raise ProjectError("unsupported_operation", f"Operation not wired yet: {name}.")
+ 
++    def _query_completion(self, name, arguments):
++        """Route a completion query to its Engine reader."""
++        if name == "plan_checks":
++            return self.plan_checks(arguments.get("flow"))
++        if name == "get_design_completion":
++            return self.design_completion(arguments.get("flow"))
++        raise ProjectError("unsupported_operation", f"Operation not wired yet: {name}.")
++
+     def layer_stackup(self, pdk_id, revision=None, engine_root=None):
+         """Serve one PDK's read-only layer stackup.
+ 
+--- a/src/interfaces/vocabulary.py
++++ b/src/interfaces/vocabulary.py
+@@ -25,7 +25,8 @@
+     {
+         "api_search", "api_info", "api_help", "get_python_console",
+         "get_capabilities", "get_project_snapshot", "list_job_kinds",
+-        "plan_checks", "get_job_status", "get_check_results",
++        "plan_checks", "get_design_completion",
++        "get_job_status", "get_check_results",
+         "get_events_since", "list_artifacts", "get_logs",
+         "list_projects", "list_docs", "read_doc",
+         "get_component", "components_of", "entities_with",
+--- a/src/workflows/__init__.py
++++ b/src/workflows/__init__.py
+@@ -1,5 +1,6 @@
+ """D/A/P/M step order and check plans as data. Never calls solvers directly."""
+ 
++from .completion import design_completion_report, plan_checks_report
+ from .connectgraph import (
+     RULE_DANGLING_NET,
+     RULE_ORPHAN_LABEL,
+@@ -27,6 +28,8 @@
+ __all__ = [
+     "STAGES",
+     "applicable_stages",
++    "design_completion_report",
++    "plan_checks_report",
+     "Connectivity",
+     "ConnectGraphError",
+     "Net",

@@ -131,6 +131,12 @@
     "text": "Read one entity component payload at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.get_component`.\n\nEntities project over plain documents: the record lives at\nentities/<entity>.json and reads through the same bytes\nread_doc serves. Backfilled doc entities serve their\nprojected doc component here, so every world-snapshot\nentry stays addressable.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to read.\n\nReturns:\n\nMapping with project id, head revision, entity, component, canonical address, storage path, and the component data.\n\nRaises:\n\nProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
+  "get_design_completion": {
+    "kind": "query",
+    "summary": "Judge one flow's completion; refuse while blockers stand.",
+    "text": "Judge one flow's completion; refuse while blockers stand.\n\nHandler: `rocket_engine.composition.Engine.design_completion`.\n\nLayers the latest check verdicts over the stage plan: any\nblocked, unverified, or failing stage becomes a named blocker\nand the fully-verified claim is refused (claim None with a\nrefusal naming the count); only a blocker-free plan claims\nfully verified with per-operation evidence run ids. Mixed M14\nplus the vocab-only run_thermal operation always appear while\nno thermal solver is registered.\n\nArguments:\n\n- `flow` (required): Flow inventory to judge (digital/analog/photonic/mixed).\n\nReturns:\n\nCompletion mapping with the fully_verified flag, claim or refusal, named blockers, missing operations, evidence run ids, per-stage statuses, and the current revision.\n\nRaises:\n\nProjectError: invalid_command for a missing or unknown flow.\n",
+    "wired": true
+  },
   "get_events_since": {
     "kind": "query",
     "summary": "Read retained events after a cursor, oldest first.",
@@ -265,9 +271,9 @@
   },
   "plan_checks": {
     "kind": "query",
-    "summary": "Declared query `plan_checks`; no handler wired yet.",
-    "text": "Declared query `plan_checks`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Plan one flow's checks against the registered solvers.",
+    "text": "Plan one flow's checks against the registered solvers.\n\nHandler: `rocket_engine.composition.Engine.plan_checks`.\n\nThe stage plan behind the check-plan display: every required\nstage with its readiness (ready when all tool entrypoints are\nregistered, otherwise required-but-blocked with the missing\noperations named), so a blocked M14 cites run_thermal instead\nof vanishing.\n\nArguments:\n\n- `flow` (required): Flow inventory to plan (digital/analog/photonic/mixed).\n\nReturns:\n\nPlan mapping with the flow, per-stage readiness plus missing operations, blocked/ready id lists, the sorted missing operations, and the current revision.\n\nRaises:\n\nProjectError: invalid_command for a missing or unknown flow.\n",
+    "wired": true
   },
   "python_execute": {
     "kind": "operation",
