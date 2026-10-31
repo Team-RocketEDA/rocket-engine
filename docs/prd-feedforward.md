@@ -1,7 +1,9 @@
 # PRD feedforward (draft from rocket-engine)
 
 Proposals for the PRD maintainers. Each item maps to the PRD section it
-amends. Nothing here edits the PRD; carry these as a review batch.
+amends. MERGED into the PRD (tool-research branch) on 2026-10-29 by
+maintainer direction; F6 confirmed with no file change. Kept as the
+audit trail — do not re-propose without a new reason.
 
 ## F1 — Preferred operating system: Ubuntu 24.04 LTS (x86-64)
 
@@ -78,3 +80,189 @@ platform, 24.04 first.
 - Exit-zero-is-not-PASS, readiness states, and evidence ownership: adopted as written.
 - CSPDK (9.51.x) vs SKY130-wrapper (9.48.x) env split: our template keeps GDSFactory out of the engine profile until per-profile locks exist. Confirm separate-env rule stands for B10.
 - PDK installation/discovery stays explicit; no redistribution without rights.
+
+## F7 — Agent analytical access + analog s-domain loop (new appendix)
+
+Proposed new PRD appendix (harness + engine contract impact):
+
+1. Dual representation rule. Every engine output a human would read
+   as a graph MUST ship as (a) a full-fidelity dataset artifact the
+   agent can analyze with scripts (no silent downsampling), plus
+   (b) an optionally generated image for visual intuition on
+   multimodal models. Inline previews MUST declare n_total vs
+   n_shown and the downsampling method.
+2. Analysis-ready datasets. Sequential data uses columnar artifacts
+   with explicit units; the design profile guarantees
+   numpy/scipy/pandas/matplotlib so the agent can curve-fit, FFT,
+   and compare against models (e.g. fit a SPICE transient against
+   the target s-domain step response and measure stray).
+3. Two-tier console permission (amends the always-approve reading of
+   I22): tier 1, analysis sandbox — standing user permission,
+   read-only project data plus scratch, no host/network/evidence
+   writes, no execution outside the sandbox; tier 2, effectful
+   execution (runs, file staging, submissions) — per-action
+   approval binding exactly as specified today. Agent
+   self-approval stays forbidden in both tiers. NEEDS PRD SECURITY
+   SIGN-OFF.
+4. Reference analog agentic loop (guidance, non-normative). For an
+   analog task the agent SHOULD: state the system-level goal as a
+   desired s-domain equation with tolerances and WHY it pursues
+   it; stitch a candidate component; simulate; fit measured
+   response against the goal; read sample designs; iterate
+   SPICE↔schematics until margins pass or it declares good-enough
+   with reasons; keep human-in-the-loop on spec changes and
+   sign-off. Engine support already exists: measurements carry
+   target/margin/status (no new schema needed).
+
+Of course just so you know, the analog s-domain loop is JUST an example, however it is a direction for how the agent MUST be guided. It should take the proper electronics course of action loop where it goes:
+
+- Design System-level blocks at high level (save in markdown)
+- For each block, specify mathematical desired response (S-domain, z-domain for digital, transient response, it can be anything) as a goal
+- Build circuit 
+- Verify circuit achieves desired output in both theory (schematic) and practical simulation (layout)
+- One example is comparing the resultant vs design goal, and to iterate the agent harness UNTIL the error is minimal or the result is acceptable.
+- And the best part? this loop can be coordinated using multiple agents each with their own modular subcircuit UNTIL the big circuit is there and done.
+
+## F8 — `deck.tool` selects the solver (engine-routing clarification)
+
+Amends: `frontend-tooling-spec.md` §2 run envelope and §4.1 deck
+semantics; blueprint B9 solver registry.
+
+Background: the PRD says a run presents an operation plus a deck (the
+PDK object the operation needs) but never states how the engine picks
+which tool binary executes the combo. Implemented rule in
+`composition.Engine.run` (covered by `tests/test_engine_run.py`):
+
+Proposed text: `arguments.deck.tool` names the registered solver for
+the operation (e.g. `run_drc` with `deck.tool: klayout`). When
+absent, the engine uses the first registered solver for that
+operation (today: `run_drc` → magic, then klayout; `run_hdl_test` →
+icarus). An unknown tool name raises `unsupported_operation`
+naming the operation and tool; the engine never substitutes another
+solver silently and never fakes a verdict. Deck still names WHAT the
+operation needs (the PDK object); `deck.tool` names WHICH solver
+runs it; the operation names the QUESTION asked.
+
+## F9 — Vision is end-to-end for all domains; "partial" is demo scoping only
+
+Amends: PRD §7 demo language, §10 boundaries.
+
+Background: PRD §§7.2–7.3 label the analog and photonic demos
+"partial." The project goal is full natural-language-to-real-chip
+for D/A/P/M with any PDK. Digital leads only because it is
+easiest to verify — it is the bare-minimum correctness bar, not
+the favored domain. Analog, photonic, and mixed need carefully
+engineered proven reference designs, so the HACKATHON shows
+simple-but-impressive examples (or stretch) — a schedule fact,
+not a vision cap.
+
+Proposed text: state the end goal as complete agentic design for
+every domain; confine "partial" to hackathon demo scoping with
+its reason (reference-design readiness), never as a project
+category. No domain is permanently partial.
+
+## F10 — Engine owns the project ledger; revisions advance, events are durable and attributed
+
+Amends: PRD plans/blueprint execution layers; proposes invariant I30.
+
+Background: the engine serves two writers (human in the IDE,
+rocket-fuel agent over MCP) plus headless clients. ADR-001 split
+byte ownership (managed vs linked trees) but truth ownership was
+undecided. Engine-side, the revision gate exists but the revision
+never advances, the event log is in-memory with only `job_queued`,
+and mutations carry no actor — so lost updates, silent
+divergence, and unattributable agent edits are all possible
+today. ADR-002 assigns the ledger (revisions, event log, run
+evidence index, capability state) to the engine for every
+project, with actor attribution on every mutation.
+
+Proposed invariant I30 (for `behavior-invariants.yaml`):
+
+```yaml
+- id: I30
+  step: B9
+  name: Advancing revisions, durable attributed events
+  given: A project mutated through any engine surface (CRUD, run, console)
+  when: A mutation lands
+  then: Advance the project revision and append an actor-attributed event (human / rocket-fuel / system) to the durable log; reject stale expected_revision with revision_conflict instead of merging or overwriting
+  evidence: not_run
+```
+
+## F11 — Uniform document CRUD; atomic multi-document commits
+
+Amends: PRD tools-research/suggested-api.md; proposes invariant I31.
+
+Background: the engine has zero project-management actions —
+no list/create projects, no component or script operations.
+The project is already modeled as an addressed tree
+(`layout_schema.yaml`), so per-content-type verbs
+(`create_component`, …) would multiply surface without adding
+power. The agreed direction is uniform document ops over
+(project, path): list/read/write/delete plus one atomic batch,
+with components and scripts as conventional paths. The batch
+op is what makes agent multi-file edits land cleanly instead
+of half-failing.
+
+Proposed invariant I31 (for `behavior-invariants.yaml`):
+
+```yaml
+- id: I31
+  step: B9
+  name: Atomic multi-document commits
+  given: A batch of document writes/deletes against one expected revision
+  when: The batch is applied
+  then: Land every mutation under a single new revision or land none; on any validation failure report which document failed and leave the revision untouched
+  evidence: not_run
+```
+
+## F12 — Local-first hot path; cloud is BYOC opt-in; degradation is a verdict
+
+Amends: PRD tech-stack cloud posture; proposes invariant I32.
+
+Background: the engine already practices this — the no-cloud
+import guard fails the suite on violations, the Meow slice
+proved tidy3d mode-solving with the network amputated and no
+credentials, cloud-capable packages ride unused off the hot
+path, and missing tools/keys report loud typed unavailability
+instead of fake results. The doctrine was never written down.
+Policy: everything the gate and demos need runs on-device with
+no account; cloud-backed solvers activate solely on
+user-supplied keys from the secure store (CLOUD-AUTH) and
+never on a default path; auth is opt-in, always.
+
+Proposed invariant I32 (for `behavior-invariants.yaml`):
+
+```yaml
+- id: I32
+  step: B10
+  name: Local-first hot path with BYOC cloud degradation
+  given: A solver with an optional cloud backend (gdsfactory+, tidy3d web)
+  when: No user-supplied credential is present
+  then: Run the local path or report loud typed unavailability naming the remedy; never require an account, never call the network, and never fake the verdict
+  evidence: not_run
+```
+
+## F13 — Repo topology: RocketIDE converges, UIUX presents, fuel agents, engine arbitrates
+
+Amends: PRD plans/blueprint repo map. No invariant (org
+structure, not behavior).
+
+Background: the org now splits four ways. RocketIDE becomes
+the convergence repo (other repos as submodules plus build
+scripts that bundle and ship). UIUX holds the actual IDE
+frontend. rocket_fuel holds the opencode-based design agent
+and its permission policy. rocket-engine holds verification,
+project truth (ADR-002), and provisioning. Seams that must be
+codesigned, not guessed: the engine↔fuel MCP contract
+(fuel's `mcp-stub` pins to the engine's generated contract
+artifact), the engine↔UIUX API types (generated, never
+hand-written), and the shared audit ids (request/run) so both
+audit trails join.
+
+The engine additionally exposes a Vivado-style setup surface:
+a checkbox menu of provisionable tooling (engines, PDKs,
+decks) with install state, backed by capability reporting
+(get_capabilities) and the provision/install machinery
+(B10/PROV). The convergence build scripts live in RocketIDE
+(out of engine scope); the engine side is the reporting +
+provision surface they drive.

@@ -33,5 +33,7 @@ verdicts — this module never calls a tool.
 
 ## Status
 
-Scaffold — package + this contract only. Lands with slice 4
-(first real adapter gives it something to plan).
+GREEN (slice 4): `stages.py` (full D/A/P/M inventory +
+`applicable_stages` planner). Prose `when` evaluation is a later
+slice; v1 treats every planned stage as required. Tests:
+`tests/workflows/` (3 passed).

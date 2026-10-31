@@ -34,6 +34,15 @@ requirements live in the [PRD](../PRD/README.md).
 
 I am just assuming you cloned all of Team Rocket's repos under one folder, such that all the repos are siblings.
 
+## Setup (one command)
+
+`scripts/install.sh --install` is the only supported provision: it
+recreates `.venv`, installs the locked deps (`uv.lock`, npm-ci
+exact), seals a copy of the engine into it, registers the PDK, and
+probes the batch toolchain. Never provision by hand-running `uv`
+pieces or touching `site-packages` — a stray symlink there once
+led `uv` to wipe `src/`. After editing `src/`, re-run `--install`.
+
 ## Where do I go?
 
 | Goal | Read |
@@ -46,6 +55,7 @@ I am just assuming you cloned all of Team Rocket's repos under one folder, such 
 | Process order and check plans | `src/workflows/README.md` |
 | PRD amendments from this repo | `docs/prd-feedforward.md` |
 | Product requirements (upstream) | `../PRD/README.md` |
+| Engine API for frontend devs | `docs/engine-api.md` |
 
 One-way references: module READMEs point up (here, the PRD). Rules
 live once — here or in the owning module, never both.
@@ -86,7 +96,7 @@ rule is absolute.
   on. No bytes on wires, no subprocesses — pure contracts.
 - **`adapters/` are the communication implementations (edges).** One
   duplex adapter per channel, each owning its full round trip. A
-  transport adapter (`api`, `ipc`, `mcp`, `cli`) translates outside
+  transport adapter (`http`, `ipc`, `mcp`, `cli`) translates outside
   bytes → ports → engine effects → events back out. A solver adapter
   (future `<solver>`) translates engine jobs → tool CLI/API →
   normalized evidence back in. No inbound/outbound grouping: direction
@@ -130,7 +140,70 @@ Each module ships `README.md` plus `tests/` (unit + contract tests,
 fixtures under `tests/fixtures/`). A module boundary is an import
 boundary, enforced in review.
 
-## Coding rules
+## Tool & dependency decisions
+
+<details>
+<summary>Decided tool per verification job (click to expand). Rule: one tool per job; a second only on proven unique verification value.</summary>
+
+### Engine-side (bundled or qualified by the engine)
+
+| Job | Tool | Install |
+|---|---|---|
+| HDL regression, coverage, lint | Verilator | native (OSS-CAD-Suite) |
+| SDF/timing GLS, X-prop sim | Icarus | native (OSS-CAD-Suite) |
+| VHDL sim + synth frontend | GHDL | native (OSS-CAD-Suite) |
+| Python testbenches | cocotb | pip `hdl` |
+| Synthesis (+SMT backend) | Yosys/ABC | native (OSS-CAD-Suite) |
+| SV parse/elaborate, style lint | Slang, Verible | native (OSS-CAD-Suite) |
+| Formal proofs / equiv / mutation | sby, eqy, mcy (+yices/Z3) | native (OSS-CAD-Suite) |
+| ASIC flow, STA, power | LibreLane closure | native pack (B10) |
+| Analog sim (DC/AC/tran/noise/corners/MC) | ngspice (+PySpice binding) | native + pip `analog` |
+| Analog characterization | CACE (drives ngspice+physical) | native |
+| Schematic capture/netlists | Xschem (batch use) | native |
+| Photonic freq circuits | SAX | pip `photonic` |
+| Photonic transient/active/HB | Circulax | pip `photonic` |
+| Eigenmode expansion + modes | MEOW | pip `photonic` |
+| Layout-to-EM prep + Palace FEM | GSIM (local paths only; FDTD cloud excluded) | pip `photonic` (proposed) |
+| Photonic FDTD | Meep via GSIM | sidecar user install (B10 pin) |
+| RF/antenna FDTD | openEMS | watch (not selected) |
+| 3D thermal/structural | Elmer | watch (not selected) |
+| Waveguide modes/device heaters | FEMwell | watch (not selected) |
+| Meshing, RF numerics | Gmsh, scikit-rf | native + pip `analog` |
+| Layout framework (components, PDKs, flows; kfactory backend) | GDSFactory 9.x | pip `layout` |
+| Layout netlist extract, opens/shorts/diff | kfnetlist (transitive via gdsfactory→kfactory) | pip `layout` (transitive) |
+| DRC (PDK decks), XOR, streamout | KLayout batch (stock) | native |
+| LVS compare (device-level) | Netgen (Magic/kfnetlist-extracted netlists) | native |
+| Waveform evidence extraction | GTKWave batch mode | native |
+| Plot artifacts | matplotlib | pip `analog` |
+
+Native-tool acquisition (suite vs apt vs vendored) is decided at B10.
+Until then tools are expected-but-unpinned: every run records the
+exact tool+version+deck it used, nothing is assumed.
+
+Magic phase-out (declared 2026-10-29): Magic stays ONLY for sky130A
+layout extraction and the Netgen LVS loop it feeds, until the
+gdsfactory 10.x stack (kfactory-native LVS/PEX) is stable and
+PDK-supported — then extraction moves off Magic. No new Magic
+dependencies; KLayout batch remains the sole DRC backend.
+
+### Display-side (RocketIDE-owned — never engine dependencies)
+
+Surfer (embedded waves), GTKWave GUI (desktop fallback), KLayout GUI,
+KWeb (browser layout), Xschem GUI. The engine emits typed data plus
+artifact references; RocketIDE renders. The full data contract lives
+in [docs/engine-api.md](docs/engine-api.md) so UI work runs parallel.
+
+### Backlog (kept out until a trigger fires)
+
+Xyce (post-layout scale blowup or HB need), Palace (FEM-only
+structure), DEVSIM (TCAD need), Magic-as-default (Magic-only deck).
+
+### Dropped
+
+Surelog (Slang supersedes), EMEPy (MEOW is native), nextpnr (FPGA,
+no stages), Tidy3D-required paths (commercial must never be required).
+
+</details>
 
 - TDD, always: failing test first, watch it RED, smallest GREEN, then
   refactor. RED must be the intended missing behavior, not setup
@@ -178,7 +251,7 @@ boundary, enforced in review.
    the change must prove.
 2. Write the failing test under the owning module's `tests/`.
 3. Implement the smallest change through the owning module's public port.
-4. Run `uv run --locked pytest tests/<module>`; full suite before merge.
+4. Run `.venv/bin/pytest tests/<module>` (never plain `uv run`: it re-syncs and clobbers the sealed package); full suite before merge.
 5. Record RED/GREEN evidence and fixture/tool hashes in the PR or TDD note.
 
 Planned stack: CPython 3.12, Pydantic v2, ruamel.yaml, FastAPI +

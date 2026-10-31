@@ -40,6 +40,8 @@ simulation, job execution.
 
 ## Status
 
-Scaffold — package + this contract only. Slice 3. Invariants I03
-(granular readiness), I04 (PDK isolation), I13 (bootstrap). Tests:
-`tests/library/` (electronic + photonic fixtures).
+GREEN (slice 3): `catalog.py` (PDK lookup, per-operation readiness,
+IP register/instantiate/promote), `errors.py` (`LibraryError`).
+Persistent storage and NL discovery arrive in later slices.
+Invariants I03, I04, I13 proven. Tests: `tests/library/`
+(4 passed).

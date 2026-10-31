@@ -1,0 +1,7 @@
+name: drc sky130 pass on known-good cell
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-sky130-1, operation: run_drc, target: good}
+  - run_live: {cell: good, tech: sky130A, backend: klayout_sky130}
+  - assert_verdict: PASS
+  - assert_event: job_queued

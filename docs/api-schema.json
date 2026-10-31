@@ -1,0 +1,1061 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "operations": {
+    "apply_mutations": {
+      "description": "Apply a batch atomically under one new revision (I31).",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.apply_mutations"
+      ],
+      "kind": "operation",
+      "name": "apply_mutations",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "mutations": {
+          "description": "Non-empty list of {op, path, content?} mappings; op is write (needs text content) or delete (takes none)."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_command for a malformed batch (names the document when one is addressable); invalid_path or path_escape for a bad path; unknown_document for a delete of a missing document; revision_conflict for a stale head; invalid_ledger when a durable write fails (best effort rollback already attempted).",
+      "required": [
+        "mutations"
+      ],
+      "returns": "Mutation mapping with revision transition, new head, actor, joined diff summary, rewind handle, the single appended event, per-mutation results, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "create_project": {
+      "description": "Create one managed project at revision p12.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.create_project"
+      ],
+      "kind": "operation",
+      "name": "create_project",
+      "properties": {
+        "new_project_id": {
+          "description": "Slug for the project to create."
+        }
+      },
+      "raises": "ProjectError: invalid_command without an engine root; invalid_project for a non-slug id; project_exists for a duplicate; request_conflict for a reused id with new text; invalid_ledger when the project dir cannot be written.",
+      "required": [
+        "new_project_id"
+      ],
+      "returns": "Creation mapping with the new project id, p12 head, actor, diff summary, revision transition, rewind handle, empty events, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "delete_doc": {
+      "description": "Delete one document: gate, remove, advance, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.delete_doc"
+      ],
+      "kind": "operation",
+      "name": "delete_doc",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "path": {
+          "description": "Document path to delete."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; revision_conflict for a stale head; invalid_ledger when the durable delete fails.",
+      "required": [
+        "path"
+      ],
+      "returns": "Mutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "generate_views": {
+      "description": "Declared operation `generate_views`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "generate_views",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "python_execute": {
+      "description": "Declared operation `python_execute`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "python_execute",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "rewind": {
+      "description": "Restore managed bytes to a prior revision under a new head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.rewind"
+      ],
+      "kind": "operation",
+      "name": "rewind",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "target_revision": {
+          "description": "Snapshot revision to restore."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_command for a missing target or a target that equals the live head; unknown_revision for a revision with no snapshot; revision_conflict for a stale head; invalid_ledger when the durable restore fails (best-effort rollback already attempted).",
+      "required": [
+        "target_revision"
+      ],
+      "returns": "Mutation mapping with revision transition, target revision, new head, actor, diff summary, external-file report, rewind handle, the appended event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "run_connectivity": {
+      "description": "Declared operation `run_connectivity`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_connectivity",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "run_digital_flow": {
+      "description": "Declared operation `run_digital_flow`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_digital_flow",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "run_drc": {
+      "description": "run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.",
+      "handlers": [
+        "rocket_engine.adapters.drc.MagicDrcAdapter",
+        "rocket_engine.adapters.drc_kl.KlayoutDrcAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_drc",
+      "properties": {
+        "cell": {
+          "description": "Cell name loaded inside magic."
+        },
+        "cell_file": {
+          "description": "Path to the .mag cell file."
+        },
+        "deck": {
+          "description": "Optional mapping; deck.tool selects the solver (magic here, klayout for the KLayout path)."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "tech": {
+          "description": "Magic tech name (default scmos)."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "cell",
+        "cell_file"
+      ],
+      "returns": "{total, violations[]} with rule plus lambda-unit bbox areas.",
+      "tools": {
+        "klayout": {
+          "adapter": "rocket_engine.adapters.drc_kl.KlayoutDrcAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode."
+            },
+            "deck_file": {
+              "description": "Foundry .lydrc deck path (deck mode)."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "gds_file": {
+              "description": "GDS layout under check."
+            },
+            "rules": {
+              "description": "Synthetic check {layer [l, d], width_um, space_um, name?} \u2014 one check form is required (rules or a deck file)."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "gds_file"
+          ]
+        },
+        "magic": {
+          "adapter": "rocket_engine.adapters.drc.MagicDrcAdapter",
+          "properties": {
+            "cell": {
+              "description": "Cell name loaded inside magic."
+            },
+            "cell_file": {
+              "description": "Path to the .mag cell file."
+            },
+            "deck": {
+              "description": "Optional mapping; deck.tool selects the solver (magic here, klayout for the KLayout path)."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "tech": {
+              "description": "Magic tech name (default scmos)."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "cell",
+            "cell_file"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
+    "run_em": {
+      "description": "Declared operation `run_em`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_em",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "run_erc": {
+      "description": "Declared operation `run_erc`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_erc",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "run_extraction": {
+      "description": "run_extraction via Magic: .mag cells to .ext/.spice netlists.",
+      "handlers": [
+        "rocket_engine.adapters.extract_magic.MagicExtractAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_extraction",
+      "properties": {
+        "cell": {
+          "description": "Cell name loaded and extracted."
+        },
+        "cell_file": {
+          "description": "Path to the .mag cell file."
+        },
+        "deck": {
+          "description": "Optional mapping naming the tech file (deck.path/tech_file/file)."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "tech": {
+          "description": "Magic tech name \u2014 one tech form is required (tech, tech_file, or deck.path/tech_file/file)."
+        },
+        "tech_file": {
+          "description": "Magic tech file path (a hash-checked store deck by the caller)."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "cell",
+        "cell_file",
+        "tech"
+      ],
+      "returns": "Result with cell, artifact paths, device_count, devices, and no violations.",
+      "tools": {
+        "magic": {
+          "adapter": "rocket_engine.adapters.extract_magic.MagicExtractAdapter",
+          "properties": {
+            "cell": {
+              "description": "Cell name loaded and extracted."
+            },
+            "cell_file": {
+              "description": "Path to the .mag cell file."
+            },
+            "deck": {
+              "description": "Optional mapping naming the tech file (deck.path/tech_file/file)."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "tech": {
+              "description": "Magic tech name \u2014 one tech form is required (tech, tech_file, or deck.path/tech_file/file)."
+            },
+            "tech_file": {
+              "description": "Magic tech file path (a hash-checked store deck by the caller)."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "cell",
+            "cell_file",
+            "tech"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
+    "run_formal": {
+      "description": "Declared operation `run_formal`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_formal",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "run_hdl_test": {
+      "description": "run_hdl_test via Icarus: compile plus timed Verilog sim.",
+      "handlers": [
+        "rocket_engine.adapters.hdl_sim.HdlSimAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_hdl_test",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be icarus here."
+        },
+        "defines": {
+          "description": "Verilog `define list, optional =value each."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "sources": {
+          "description": "Verilog source paths, bench included."
+        },
+        "timeout_s": {
+          "description": "Sim budget in seconds (default 120)."
+        },
+        "tool_dir": {
+          "description": "Directory holding iverilog/vvp; PATH otherwise."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "returns": "{total, violations[]} with file/line locations and sim_time where the sim reports it.",
+      "tools": {
+        "icarus": {
+          "adapter": "rocket_engine.adapters.hdl_sim.HdlSimAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be icarus here."
+            },
+            "defines": {
+              "description": "Verilog `define list, optional =value each."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "sources": {
+              "description": "Verilog source paths, bench included."
+            },
+            "timeout_s": {
+              "description": "Sim budget in seconds (default 120)."
+            },
+            "tool_dir": {
+              "description": "Directory holding iverilog/vvp; PATH otherwise."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sources"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
+    "run_job": {
+      "description": "Execute an admitted request by id (phase 2 of submit-then-run).",
+      "handlers": [
+        "rocket_engine.composition.Engine.run",
+        "rocket_engine.composition.Engine._run_queued"
+      ],
+      "kind": "operation",
+      "name": "run_job",
+      "properties": {
+        "request_id": {
+          "description": "Envelope id admitted by an earlier submit."
+        }
+      },
+      "raises": "ProjectError: invalid_command when the arguments lack a request_id, unknown_request for an id never admitted, unsupported_operation when the admitted operation has no registered solver.",
+      "required": [
+        "request_id"
+      ],
+      "returns": "Completion mapping with run_id, state, verdict, and operation for the admitted command.",
+      "type": "object",
+      "wired": true
+    },
+    "run_lvs": {
+      "description": "run_lvs via Netgen: layout vs schematic, TOP-level compare.",
+      "handlers": [
+        "rocket_engine.adapters.lvs_netgen.NetgenLvsAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_lvs",
+      "properties": {
+        "cell": {
+          "description": ".subckt block to select from library netlists."
+        },
+        "deck": {
+          "description": "Optional mapping naming the setup file (see above)."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "layout_spice": {
+          "description": "Layout netlist path."
+        },
+        "schematic_spice": {
+          "description": "Schematic netlist path."
+        },
+        "setup_file": {
+          "description": "Netgen setup path \u2014 one setup form is required (setup_file or deck.path/setup_file/setup/ file)."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "layout_spice",
+        "schematic_spice",
+        "setup_file"
+      ],
+      "returns": "{match, total, violations[]} with lvs_net_mismatch and lvs_device_mismatch rules.",
+      "tools": {
+        "netgen": {
+          "adapter": "rocket_engine.adapters.lvs_netgen.NetgenLvsAdapter",
+          "properties": {
+            "cell": {
+              "description": ".subckt block to select from library netlists."
+            },
+            "deck": {
+              "description": "Optional mapping naming the setup file (see above)."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "layout_spice": {
+              "description": "Layout netlist path."
+            },
+            "schematic_spice": {
+              "description": "Schematic netlist path."
+            },
+            "setup_file": {
+              "description": "Netgen setup path \u2014 one setup form is required (setup_file or deck.path/setup_file/setup/ file)."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "layout_spice",
+            "schematic_spice",
+            "setup_file"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
+    "run_optical": {
+      "description": "run_optical via SAX: frequency-domain photonic circuit sim.",
+      "handlers": [
+        "rocket_engine.adapters.sax.SaxAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_optical",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be sax here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "sources": {
+          "description": "Exactly one circuit spec YAML path."
+        },
+        "timeout_s": {
+          "description": "Sim budget in seconds (default 120)."
+        },
+        "tool_dir": {
+          "description": "Directory holding the sim python; the engine interpreter otherwise."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "returns": "{total, violations[], measurements[], spectra[], sax_version} with dB values and margins.",
+      "tools": {
+        "sax": {
+          "adapter": "rocket_engine.adapters.sax.SaxAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be sax here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "sources": {
+              "description": "Exactly one circuit spec YAML path."
+            },
+            "timeout_s": {
+              "description": "Sim budget in seconds (default 120)."
+            },
+            "tool_dir": {
+              "description": "Directory holding the sim python; the engine interpreter otherwise."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sources"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
+    "run_post_layout": {
+      "description": "Declared operation `run_post_layout`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_post_layout",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "run_spice": {
+      "description": "run_spice via ngspice: corner sims with measured bounds.",
+      "handlers": [
+        "rocket_engine.adapters.ngspice.NgspiceAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_spice",
+      "properties": {
+        "analyses": {
+          "description": ".control analysis lines (default op)."
+        },
+        "corner": {
+          "description": "Model corner (default tt)."
+        },
+        "deck": {
+          "description": "Optional mapping; deck.tool must be ngspice here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "measurements": {
+          "description": "[{name, expr, unit?, min?, max?}] with numeric min and/or max each."
+        },
+        "options": {
+          "description": ".option lines (default [wnflag=1])."
+        },
+        "params": {
+          "description": ".param name/value mapping."
+        },
+        "pdk": {
+          "description": "{id, revision, model_rel?, engine_root?} pin for PDK models via the store; omitted sims model-free."
+        },
+        "sources": {
+          "description": "Netlist source paths staged as bodies."
+        },
+        "temp_c": {
+          "description": "Temperature in C (default 27)."
+        },
+        "timeout_s": {
+          "description": "Sim budget in seconds (default 120)."
+        },
+        "title": {
+          "description": "Deck title line."
+        },
+        "tool_dir": {
+          "description": "Directory holding ngspice; PATH otherwise."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "sources",
+        "measurements"
+      ],
+      "returns": "{total, violations[], measurements[]} with value, unit, target, margin, and status per measurement.",
+      "tools": {
+        "ngspice": {
+          "adapter": "rocket_engine.adapters.ngspice.NgspiceAdapter",
+          "properties": {
+            "analyses": {
+              "description": ".control analysis lines (default op)."
+            },
+            "corner": {
+              "description": "Model corner (default tt)."
+            },
+            "deck": {
+              "description": "Optional mapping; deck.tool must be ngspice here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "measurements": {
+              "description": "[{name, expr, unit?, min?, max?}] with numeric min and/or max each."
+            },
+            "options": {
+              "description": ".option lines (default [wnflag=1])."
+            },
+            "params": {
+              "description": ".param name/value mapping."
+            },
+            "pdk": {
+              "description": "{id, revision, model_rel?, engine_root?} pin for PDK models via the store; omitted sims model-free."
+            },
+            "sources": {
+              "description": "Netlist source paths staged as bodies."
+            },
+            "temp_c": {
+              "description": "Temperature in C (default 27)."
+            },
+            "timeout_s": {
+              "description": "Sim budget in seconds (default 120)."
+            },
+            "title": {
+              "description": "Deck title line."
+            },
+            "tool_dir": {
+              "description": "Directory holding ngspice; PATH otherwise."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sources",
+            "measurements"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
+    "run_syntax": {
+      "description": "run_syntax via Slang: SystemVerilog lint with diagnostics.",
+      "handlers": [
+        "rocket_engine.adapters.syntax.SyntaxAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_syntax",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be slang here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "slang_flags": {
+          "description": "Extra slang flags (default [-Wextra])."
+        },
+        "sources": {
+          "description": "HDL source paths under lint."
+        },
+        "timeout_s": {
+          "description": "Lint budget in seconds (default 120)."
+        },
+        "tool_dir": {
+          "description": "Directory holding slang; PATH otherwise."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "returns": "{total, violations[]} with rule, severity, message, and file/line/col locations.",
+      "tools": {
+        "slang": {
+          "adapter": "rocket_engine.adapters.syntax.SyntaxAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be slang here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "slang_flags": {
+              "description": "Extra slang flags (default [-Wextra])."
+            },
+            "sources": {
+              "description": "HDL source paths under lint."
+            },
+            "timeout_s": {
+              "description": "Lint budget in seconds (default 120)."
+            },
+            "tool_dir": {
+              "description": "Directory holding slang; PATH otherwise."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sources"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
+    "run_thermal": {
+      "description": "Declared operation `run_thermal`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_thermal",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "run_timing": {
+      "description": "Declared operation `run_timing`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_timing",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "run_view_sync": {
+      "description": "Declared operation `run_view_sync`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "run_view_sync",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "write_doc": {
+      "description": "Write one document: gate, store, advance, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.write_doc"
+      ],
+      "kind": "operation",
+      "name": "write_doc",
+      "properties": {
+        "content": {
+          "description": "UTF-8 text to store (1 MB limit)."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "path": {
+          "description": "Document path to create or overwrite."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_path or path_escape for a bad path; invalid_command for non-text or oversize content or a directory path; revision_conflict for a stale head; invalid_ledger when the durable write fails.",
+      "required": [
+        "path",
+        "content"
+      ],
+      "returns": "Mutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    }
+  },
+  "queries": {
+    "api_help": {
+      "description": "Declared query `api_help`; no handler wired yet.",
+      "handlers": [],
+      "kind": "query",
+      "name": "api_help",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "api_info": {
+      "description": "Declared query `api_info`; no handler wired yet.",
+      "handlers": [],
+      "kind": "query",
+      "name": "api_info",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "api_search": {
+      "description": "Declared query `api_search`; no handler wired yet.",
+      "handlers": [],
+      "kind": "query",
+      "name": "api_search",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "get_capabilities": {
+      "description": "Report per-solver availability, store state, and the provision menu.",
+      "handlers": [
+        "rocket_engine.composition.Engine.capabilities"
+      ],
+      "kind": "query",
+      "name": "get_capabilities",
+      "properties": {
+        "engine_root": {
+          "description": "Explicit store root; ROCKETEDA_HOME resolution when omitted."
+        },
+        "target": {
+          "description": "Target passed to each adapter's capabilities()."
+        }
+      },
+      "raises": "SetupError: unknown_solver when a registered (operation, tool) has no detection spec \u2014 the report fails instead of misreporting a solver it cannot probe.",
+      "required": [],
+      "returns": "Capability mapping with operations, store, pdks, decks, cloud, and catalogue sections.",
+      "type": "object",
+      "wired": true
+    },
+    "get_check_results": {
+      "description": "Read the latest check verdict per operation.",
+      "handlers": [
+        "rocket_engine.composition.Engine.check_results"
+      ],
+      "kind": "query",
+      "name": "get_check_results",
+      "properties": {
+        "operation": {
+          "description": "Restrict to one operation; all latest verdicts when omitted."
+        }
+      },
+      "raises": "",
+      "required": [],
+      "returns": "Mapping of operation to run state plus the current project revision.",
+      "type": "object",
+      "wired": true
+    },
+    "get_events_since": {
+      "description": "Read retained events after a cursor, oldest first.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.events_since"
+      ],
+      "kind": "query",
+      "name": "get_events_since",
+      "properties": {
+        "cursor": {
+          "description": "Only events with a higher seq are returned."
+        },
+        "require_contiguous_from": {
+          "description": "Assert the reader holds contiguous history from this seq; fails when the history aged out of retention or runs ahead of the live cursor."
+        }
+      },
+      "raises": "ProjectError: resync_required when the contiguity demand cannot be met \u2014 the reader must re-read the snapshot plus the full retained log and reset its cursor.",
+      "required": [],
+      "returns": "Retained events after the cursor, seq-ordered.",
+      "type": "object",
+      "wired": true
+    },
+    "get_job_status": {
+      "description": "Read one run's state, verdict, and evidence links.",
+      "handlers": [
+        "rocket_engine.composition.Engine.job_status"
+      ],
+      "kind": "query",
+      "name": "get_job_status",
+      "properties": {
+        "run_id": {
+          "description": "Run to inspect (the submit-ack id, shared with the execution record)."
+        }
+      },
+      "raises": "ExecutionError: unknown_run for an unregistered id.",
+      "required": [],
+      "returns": "Run state mapping with state, verdict, and log links.",
+      "type": "object",
+      "wired": true
+    },
+    "get_logs": {
+      "description": "Search and page one run's captured native log.",
+      "handlers": [
+        "rocket_engine.composition.Engine.run_logs"
+      ],
+      "kind": "query",
+      "name": "get_logs",
+      "properties": {
+        "limit": {
+          "description": "Maximum lines per page (capped server-side)."
+        },
+        "offset": {
+          "description": "First matching line to return (0-based)."
+        },
+        "query": {
+          "description": "Case-insensitive substring filter; all lines when omitted."
+        },
+        "run_id": {
+          "description": "Run whose log to read."
+        }
+      },
+      "raises": "ExecutionError: unknown_run for an unregistered id. ProjectError: invalid_command for a non-int offset or limit.",
+      "required": [],
+      "returns": "Page mapping with numbered lines, totals, and a more flag.",
+      "type": "object",
+      "wired": true
+    },
+    "get_project_snapshot": {
+      "description": "Read the ledger head: project, revision, and event cursor.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.snapshot"
+      ],
+      "kind": "query",
+      "name": "get_project_snapshot",
+      "properties": {},
+      "raises": "",
+      "required": [],
+      "returns": "Snapshot mapping with project_id, current_revision, and event_cursor.",
+      "type": "object",
+      "wired": true
+    },
+    "get_python_console": {
+      "description": "Declared query `get_python_console`; no handler wired yet.",
+      "handlers": [],
+      "kind": "query",
+      "name": "get_python_console",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "list_artifacts": {
+      "description": "Declared query `list_artifacts`; no handler wired yet.",
+      "handlers": [],
+      "kind": "query",
+      "name": "list_artifacts",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "list_docs": {
+      "description": "List documents, optionally filtered by a path prefix.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.list_docs"
+      ],
+      "kind": "query",
+      "name": "list_docs",
+      "properties": {
+        "prefix": {
+          "description": "Optional unix path prefix; empty matches everything."
+        }
+      },
+      "raises": "ProjectError: invalid_path for a non-text prefix; path_escape for an escaping prefix.",
+      "required": [],
+      "returns": "Mapping with project id, head revision, event cursor, and sorted document entries (path + bytes).",
+      "type": "object",
+      "wired": true
+    },
+    "list_job_kinds": {
+      "description": "List registered operations with their deck tools.",
+      "handlers": [
+        "rocket_engine.composition.Engine.job_kinds"
+      ],
+      "kind": "query",
+      "name": "list_job_kinds",
+      "properties": {},
+      "raises": "",
+      "required": [],
+      "returns": "Mapping of job kinds with operation names and the tool keys each accepts.",
+      "type": "object",
+      "wired": true
+    },
+    "list_projects": {
+      "description": "List projects under the engine root, bound always included.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.list_projects"
+      ],
+      "kind": "query",
+      "name": "list_projects",
+      "properties": {},
+      "raises": "ProjectError: invalid_ledger when a sibling ledger head is unreadable or corrupt.",
+      "required": [],
+      "returns": "Mapping with the bound project id and the sorted project entries (project_id + current_revision).",
+      "type": "object",
+      "wired": true
+    },
+    "plan_checks": {
+      "description": "Declared query `plan_checks`; no handler wired yet.",
+      "handlers": [],
+      "kind": "query",
+      "name": "plan_checks",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
+    "read_doc": {
+      "description": "Read one document as text at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.read_doc"
+      ],
+      "kind": "query",
+      "name": "read_doc",
+      "properties": {
+        "path": {
+          "description": "Document path to read."
+        }
+      },
+      "raises": "ProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.",
+      "required": [
+        "path"
+      ],
+      "returns": "Mapping with project id, head revision, canonical path, content text, and byte size.",
+      "type": "object",
+      "wired": true
+    }
+  }
+}

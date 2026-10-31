@@ -1,0 +1,7 @@
+name: hdl live pass on known-good bench
+engine: {project_id: digital_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-hdl-1, operation: run_hdl_test, target: counter}
+  - run_live: {backend: hdl, sources: [counter.v, tb_pass.v]}
+  - assert_verdict: PASS
+  - assert_event: job_queued

@@ -1,4 +1,4 @@
-# adapters/api — HTTP service surface
+# adapters/http — HTTP service surface
 
 ## Responsibility (PRD)
 
@@ -21,3 +21,15 @@ own: preflight, evidence, solver knowledge of any kind.
 
 Stub (empty). Slice 5. Invariants I05 (caller parity), I12 (transport
 identity). Tests: `tests/adapters/` vs fake engine.
+
+## Authentication (deferred, mandatory)
+
+HTTP senders are untrusted: anyone can reach this surface, so nothing
+in the envelope proves who approved what. The content hashes
+(`interfaces/`) only cover data already in hand — they say nothing
+about the sender. This adapter therefore MUST grow authentication
+before any backend wiring: human vs agent credentials with different
+power (agent credentials request and observe; only human credentials
+approve), actor identity from trusted auth context, never from the
+payload. Deferred until the engine core is done — cross this bridge
+when we get there, not before.

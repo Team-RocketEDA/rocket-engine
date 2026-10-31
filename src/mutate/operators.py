@@ -1,0 +1,700 @@
+"""One mutation function per MUTATE-HARNESS operator.
+
+Each function takes the base file text plus a variant index and
+returns (mutated_text, extra_evidence). Every site is probe-guarded:
+the expected base string must occur exactly once, else MutationError
+— a fixture that drifted must fail loudly, never silently pass
+through unmutated. Variant selection is `seed % len(variants)`,
+computed by the caller, so every mutation is reproducible from seed.
+"""
+
+import math
+
+
+class MutationError(ValueError):
+    """A mutation site is missing or ambiguous (fixture drift)."""
+
+
+def _once(text, old, operator):
+    found = text.count(old)
+    if found != 1:
+        raise MutationError(
+            f"{operator}: probe site {old!r} occurs {found}x, want 1."
+        )
+    return found
+
+
+def digital_reset_break(text, variant):
+    """Break the async reset: inverted condition or stuck active.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "if (!rst_n)"
+    _once(text, old, "digital_reset_break")
+    new = ["if (rst_n)", "if (1'b1)"][variant % 2]
+    desc = [
+        "reset condition inverted (counts in reset, clears on release)",
+        "reset stuck active (count held at zero)",
+    ][variant % 2]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def digital_truncation(text, variant):
+    """Narrow the count update so the sequence never reaches 10.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "count <= count + 4'd1;"
+    _once(text, old, "digital_truncation")
+    alts = [
+        ("count <= (count + 4'd1) & 4'h7;", "count masked to 3 bits (max 7)"),
+        ("count <= (count + 4'd1) & 4'h3;", "count masked to 2 bits (max 3)"),
+        (
+            "count <= {1'b0, count[2:0]} + 4'd1;",
+            "count zero-extended from 3 bits (max 8)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def digital_unconnected_port(text, variant):
+    """Leave a DUT port unconnected in the harness instantiation.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    alts = [
+        (".rst_n(rst_n)", ".rst_n()", "reset input left unconnected (floats)"),
+        (".clk(clk)", ".clk()", "clock input left unconnected (no edges)"),
+    ]
+    old, new, desc = alts[variant % len(alts)]
+    _once(text, old, "digital_unconnected_port")
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def serv_reset_break(text, variant):
+    """Break the servant CPU reset: stuck in reset or inverted.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = ".i_rst        (wb_rst),"
+    _once(text, old, "serv_reset_break")
+    alts = [
+        (
+            ".i_rst        (1'b1),",
+            "CPU reset stuck active (firmware never boots, watchdog fires)",
+        ),
+        (
+            ".i_rst        (~wb_rst),",
+            "CPU reset inverted (held in reset while the system runs)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def serv_truncation(text, variant):
+    """Narrow the servile data-bus address so MMIO is unreachable.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "assign o_dbus_adr = {data[31:2], 2'b00};"
+    _once(text, old, "serv_truncation")
+    alts = [
+        (
+            "assign o_dbus_adr = 32'b0;",
+            "data-bus address zeroed (GPIO/HALT stores hit RAM, no halt)",
+        ),
+        (
+            "assign o_dbus_adr = {data[31:2] & 30'h0FFFFFFF, 2'b00};",
+            "address top 2 bits dropped (0x4/0x9xxxxxxx unreachable)",
+        ),
+        (
+            "assign o_dbus_adr = {data[31:2] & 30'h00FFFFFF, 2'b00};",
+            "address top 6 bits dropped (0x4/0x9xxxxxxx unreachable)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def serv_unconnected_port(text, variant):
+    """Leave a servant CPU port unconnected in the SoC wiring.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    alts = [
+        (
+            ".i_clk        (wb_clk),",
+            ".i_clk        (),",
+            "CPU clock left unconnected (no edges, firmware never runs)",
+        ),
+        (
+            ".i_rst        (wb_rst),",
+            ".i_rst        (),",
+            "CPU reset left unconnected (floats, firmware never boots)",
+        ),
+    ]
+    old, new, desc = alts[variant % len(alts)]
+    _once(text, old, "serv_unconnected_port")
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def picorv32_reset_break(text, variant):
+    """Break the test_ez reset: stuck in reset or re-asserted.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    if variant % 2 == 0:
+        old = "resetn <= 1;"
+        _once(text, old, "picorv32_reset_break")
+        new = "resetn <= 0;"
+        desc = "reset stuck active (CPU never fetches, counter stays put)"
+    else:
+        old = "repeat (1000) @(posedge clk);"
+        _once(text, old, "picorv32_reset_break")
+        new = (
+            "repeat (100) @(posedge clk); "
+            "resetn <= 0; repeat (900) @(posedge clk);"
+        )
+        desc = "reset re-asserted after 100 cycles (run aborted early)"
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def picorv32_truncation(text, variant):
+    """Narrow the ALU add path so the ez counter never reaches 10.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : reg_op1 + reg_op2;"
+    _once(text, old, "picorv32_truncation")
+    alts = [
+        (
+            "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : "
+            "((reg_op1 + reg_op2) & 32'h00000007);",
+            "ALU add masked to 3 bits (max 7)",
+        ),
+        (
+            "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : "
+            "((reg_op1 + reg_op2) & 32'h00000003);",
+            "ALU add masked to 2 bits (max 3)",
+        ),
+        (
+            "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : "
+            "{29'b0, reg_op1[2:0] + reg_op2[2:0]};",
+            "ALU add zero-extended from 3 bits (max 8)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def picorv32_unconnected_port(text, variant):
+    """Leave a picorv32 port unconnected in the ez bench wiring.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    alts = [
+        (
+            ".clk         (clk        ),",
+            ".clk         (),",
+            "CPU clock left unconnected (no edges, trap unresolved)",
+        ),
+        (
+            ".mem_rdata   (mem_rdata  )",
+            ".mem_rdata   ()",
+            "memory read data left unconnected (fetches unknown)",
+        ),
+    ]
+    old, new, desc = alts[variant % len(alts)]
+    _once(text, old, "picorv32_unconnected_port")
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def analog_sizing_out_of_spec(text, variant):
+    """Move R2 off its 8k nominal so Vout leaves [1.199, 1.201] V.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "R2 out 0 8k"
+    _once(text, old, "analog_sizing_out_of_spec")
+    r2 = ["4k", "2k", "16k"][variant % 3]
+    ohms = {"2k": 2000.0, "4k": 4000.0, "16k": 16000.0}[r2]
+    expected_vout = 1.8 * ohms / (4000.0 + ohms)
+    extra = {
+        "variant_desc": f"R2 8k -> {r2} (divider ratio out of spec)",
+        "resistor": r2,
+        "expected_vout": expected_vout,
+    }
+    return text.replace(old, f"R2 out 0 {r2}"), extra
+
+
+def analog_open_net(text, variant):
+    """Open the divider: R2 lifted from `out`, which rises to the rail.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "R2 out 0 8k"
+    _once(text, old, "analog_open_net")
+    alts = [
+        ("R2 out_open 0 8k", "R2 high side lifted onto out_open"),
+        (
+            "* R2 out 0 8k (MUTATE-HARNESS analog_open_net: device lifted)",
+            "R2 commented out (device lifted)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def bandgap_sizing_out_of_spec(text, variant):
+    """Move n_r2 off its 51 nominal; Vref leaves DR-005 [1.176, 1.224] V.
+
+    Expected values are live-verified at the gate's single corner
+    (ngspice + the sky130 store, tt/27C; otherwise quarantined, see
+    docs/tickets/NGSPICE-LIVE.md): the header's documented 1.1744 /
+    1.22507 numbers are sweep extremes, but at tt/27C n_r2=50 reads
+    1.2016 V and n_r2=52 reads 1.2194 V — both in-band, so the gate
+    PASSes them. The variants are strengthened past that: n_r2=46
+    reads 1.166 V, n_r2=54 reads 1.237 V, n_r2=55 reads 1.246 V.
+    The verdict mapping is pinned by canned-envelope parse tests.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = ".param n_r2=51"
+    _once(text, old, "bandgap_sizing_out_of_spec")
+    alts = [
+        (46, 1.166, "n_r2 51 -> 46 (K low, vref below the 1.176 V floor)"),
+        (54, 1.237, "n_r2 51 -> 54 (K high, vref above the 1.224 V ceiling)"),
+        (55, 1.246, "n_r2 51 -> 55 (extreme, vref further above ceiling)"),
+    ]
+    n_r2, expected_vref, desc = alts[variant % len(alts)]
+    extra = {
+        "variant_desc": desc,
+        "n_r2": n_r2,
+        "expected_vref": expected_vref,
+    }
+    return text.replace(old, f".param n_r2={n_r2}"), extra
+
+
+def bandgap_open_net(text, variant):
+    """Open the bandgap R2 leg: XR2A lifted from VOUT.
+
+    Variant 0 renames the output net (feedback cut, Vref
+    collapses); variant 1 comments the device (leg open). No value
+    changes — the topology break pushes Vref outside DR-005
+    [1.176, 1.224] V. Same quarantine/parse story as sizing.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = (
+        "XR2A R2A_HD2 VOUT VSS sky130_fd_pr__res_high_po "
+        "W='r_w' L='r_lseg*n_r2+r_lseg_trim*n_r2_trim-n_r2_ov*r_ov_seg' "
+        "mult=1 m=1"
+    )
+    _once(text, old, "bandgap_open_net")
+    alts = [
+        (
+            old.replace("XR2A R2A_HD2 VOUT VSS", "XR2A R2A_HD2 VOUT_OPEN VSS"),
+            "XR2A output lifted onto VOUT_OPEN (feedback cut)",
+        ),
+        (
+            f"* {old} (MUTATE-HARNESS bandgap_open_net: device lifted)",
+            "XR2A commented out (R2A leg open)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def layout_drc_violation(text, variant):
+    """Shift or shrink a rect into an scmos DRC violation.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    if variant % 2 == 0:
+        old, new = "rect 6 0 9 3", "rect 4 0 7 3"
+        rule, desc = "spacing", "second rect shifted left (1λ spacing)"
+    else:
+        old, new = "rect 0 0 3 3", "rect 0 0 1 5"
+        rule, desc = "width", "first rect narrowed (1λ width)"
+    _once(text, old, "layout_drc_violation")
+    return text.replace(old, new), {"variant_desc": desc, "expected_rule": rule}
+
+
+def netlist_lvs_mismatch(text, variant):
+    """Rename one device bulk net on the schematic side only.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    alts = [
+        (
+            "Y A VPWR VPB sky130_fd_pr__pfet_01v8_hvt",
+            "Y A VPWR VPB_BAD sky130_fd_pr__pfet_01v8_hvt",
+            "VPB_BAD",
+            "pfet bulk VPB renamed to VPB_BAD",
+        ),
+        (
+            "Y A VGND VNB sky130_fd_pr__nfet_01v8",
+            "Y A VGND VNB_BAD sky130_fd_pr__nfet_01v8",
+            "VNB_BAD",
+            "nfet bulk VNB renamed to VNB_BAD",
+        ),
+    ]
+    old, new, bad_net, desc = alts[variant % len(alts)]
+    _once(text, old, "netlist_lvs_mismatch")
+    return text.replace(old, new), {"variant_desc": desc, "bad_net": bad_net}
+
+
+def _db(linear):
+    return round(10.0 * math.log10(linear), 3)
+
+
+def photonic_geometry_mistune(text, variant):
+    """Lengthen the MZI bottom arm; cross-port transmission collapses.
+
+    Expected values verified against sax 0.18.2 (in0 -> out1 @1550nm):
+    +0.2 um -> 0.33972 (-4.689 dB), +0.4 um -> 0.10276 (-9.882 dB).
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "s_bot: {component: straight, settings: {length: 10.0}}"
+    _once(text, old, "photonic_geometry_mistune")
+    delta, linear = [(0.2, 0.33972), (0.4, 0.10276)][variant % 2]
+    new = (
+        "s_bot: {component: straight, settings: "
+        f"{{length: {10.0 + delta:.1f}}}}}"
+    )
+    extra = {
+        "variant_desc": f"bottom arm lengthened by {delta} um",
+        "arm_delta_um": delta,
+        "expected_linear": linear,
+        "expected_db": _db(linear),
+    }
+    return text.replace(old, new), extra
+
+
+def photonic_circuit_mistune(text, variant):
+    """Detune the output coupler; cross-port transmission drops.
+
+    Expected value verified against sax 0.18.2 (in0 -> out1 @1550nm):
+    coupling 0.1 -> 0.8 (-0.969 dB).
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "c2: {component: coupler_ideal, settings: {coupling: 0.5}}"
+    _once(text, old, "photonic_circuit_mistune")
+    _ = variant
+    linear = 0.8
+    new = "c2: {component: coupler_ideal, settings: {coupling: 0.1}}"
+    extra = {
+        "variant_desc": "output coupler coupling 0.5 -> 0.1",
+        "coupling": 0.1,
+        "expected_linear": linear,
+        "expected_db": _db(linear),
+    }
+    return text.replace(old, new), extra
+
+
+def sdm_reset_break(text, variant):
+    """Break the sdm_rx sinc3-path reset: inverted or stuck clearing.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "if (!aresetn || clear_pulse)"
+    _once(text, old, "sdm_reset_break")
+    alts = [
+        (
+            "if (aresetn || clear_pulse)",
+            "sinc3 reset inverted (clears while running, runs in reset)",
+        ),
+        (
+            "if (1'b1)",
+            "sinc3 reset stuck active (counters held at zero)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def sdm_truncation(text, variant):
+    """Narrow the fast-path output so DC full scale never reaches OSR^3.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = "data_fast <= f_c3[31:0];"
+    _once(text, old, "sdm_truncation")
+    alts = [
+        (
+            "data_fast <= f_c3[31:0] & 32'h000000FF;",
+            "data_fast masked to 8 bits (max 255, want 15625)",
+        ),
+        (
+            "data_fast <= f_c3[31:0] & 32'h0000000F;",
+            "data_fast masked to 4 bits (max 15, want 15625)",
+        ),
+        (
+            "data_fast <= {24'b0, f_c3[7:0]};",
+            "data_fast zero-extended from 8 bits (max 255)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def sdm_unconnected_port(text, variant):
+    """Break the bitstream input path, as if its port were left open.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    if variant % 2 == 0:
+        old = "wire step = ctrl_enable && bit_ce;"
+        _once(text, old, "sdm_unconnected_port")
+        new = "wire step = ctrl_enable && 1'b0;"
+        desc = "bit_ce path tied low (never steps, as if unconnected)"
+    else:
+        old = "wire signed [1:0] din = bit_i ? 2'sd1 : -2'sd1;"
+        _once(text, old, "sdm_unconnected_port")
+        new = "wire signed [1:0] din = 2'sd0;"
+        desc = "bit_i path tied to zero (input ignored, as if unconnected)"
+    return text.replace(old, new), {"variant_desc": desc}
+
+
+def sdtop_sizing_out_of_spec(text, variant):
+    """Move the RIN input-leg length off its 102.57 nominal; the input
+    gain shifts, the integrator DC leaves its [0.8, 1.0] V window.
+
+    Expected values are live-verified (ngspice + the sky130 store,
+    tt/27C settled-window clocked mean; otherwise quarantined per
+    NGSPICE-LIVE): the closed loop servos mild halve/double moves
+    back in-band, so the variants are strengthened past the servo to
+    actually violate the checked window — l=30 drives the integrator
+    to 0.17 V, l=400 pushes it to 1.03 V, and the 10.0 extreme rails
+    it at 0.01 V. The verdict mapping is pinned by canned-envelope
+    parse tests.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = (
+        "X64 ota_layout_0/INM UA0 VGND "
+        "sky130_fd_pr__res_high_po_0p35 l=102.57"
+    )
+    _once(text, old, "sdtop_sizing_out_of_spec")
+    alts = [
+        (30, 0.173, "RIN l 102.57 -> 30 (gain high, integrator driven low)"),
+        (400, 1.030, "RIN l 102.57 -> 400 (gain low, integrator pushed high)"),
+        (10.0, 0.015, "RIN l 102.57 -> 10.0 (extreme, integrator rails)"),
+    ]
+    rin_l, expected_int_dc, desc = alts[variant % len(alts)]
+    new = old.replace("l=102.57", f"l={rin_l}")
+    extra = {
+        "variant_desc": desc,
+        "rin_l": rin_l,
+        "expected_int_dc": expected_int_dc,
+    }
+    return text.replace(old, new), extra
+
+
+def sdtop_open_net(text, variant):
+    """Open the RIN input leg: X64 lifted from UA0.
+
+    Variant 0 renames the input net (leg floats on UA0_OPEN);
+    variant 1 comments the device (leg open). No value changes —
+    the topology break starves the integrator and its DC misses
+    [0.8, 1.0] V. Same quarantine/parse story as sizing.
+
+    Args:
+        text: Base file text to mutate.
+        variant: Variant index selecting the rewrite.
+
+    Returns:
+        (mutated_text, extra_evidence) pair.
+
+    Raises:
+        MutationError: Probe site missing or ambiguous.
+    """
+    old = (
+        "X64 ota_layout_0/INM UA0 VGND "
+        "sky130_fd_pr__res_high_po_0p35 l=102.57"
+    )
+    _once(text, old, "sdtop_open_net")
+    alts = [
+        (
+            old.replace("X64 ota_layout_0/INM UA0 VGND", "X64 ota_layout_0/INM UA0_OPEN VGND"),
+            "X64 input lifted onto UA0_OPEN (input open)",
+        ),
+        (
+            f"* {old} (MUTATE-HARNESS sdtop_open_net: device lifted)",
+            "X64 commented out (RIN leg open)",
+        ),
+    ]
+    new, desc = alts[variant % len(alts)]
+    return text.replace(old, new), {"variant_desc": desc}

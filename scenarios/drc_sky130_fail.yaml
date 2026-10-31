@@ -1,0 +1,7 @@
+name: drc sky130 fail on known-bad cell
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-sky130-2, operation: run_drc, target: bad}
+  - run_live: {cell: bad, tech: sky130A, backend: klayout_sky130}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

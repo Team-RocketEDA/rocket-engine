@@ -53,6 +53,11 @@ def test_bounded_findings_preserve_counts_and_cursors():
     from rocket_engine.execution import ExecutionService  # RED: missing surface
 
     service = ExecutionService(project_id="analog_demo")
+    service.evaluate(
+        run_id="run_drc_001",
+        exit_code=0,
+        findings_fixture=(FIXTURES / "findings" / "drc_fail.yaml").read_text(),
+    )
     page = service.findings(run_id="run_drc_001", limit=1)
     assert page["total_counts"] == {"error": 2, "warning": 1}
     assert len(page["findings"]) == 1

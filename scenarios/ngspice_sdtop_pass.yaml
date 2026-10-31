@@ -1,0 +1,7 @@
+name: ngspice sd_top pass on PEX integrator DC
+engine: {project_id: mixed_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-sdtop-1, operation: run_spice, target: sd_top}
+  - run_live: {backend: ngspice_sdtop}
+  - assert_verdict: PASS
+  - assert_event: job_queued

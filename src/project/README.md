@@ -33,7 +33,8 @@ transport protocols, check verdicts.
 
 ## Status
 
-Scaffold — package + this contract only. Slice 1 (with B1).
-Invariants I05 (caller parity), I06 (retries/stale writes), I07 (event
-recovery). Tests: `tests/project/` (fake adapter; real qualification
+GREEN (slice 1): `service.py` (in-memory revisions, idempotency,
+ordered events), `errors.py` (`ProjectError`). Persistence and file
+watching arrive in later slices. Invariants I05, I06, I07 proven.
+Tests: `tests/project/` (4 passed; fake adapter, real qualification
 waits for slice 4).

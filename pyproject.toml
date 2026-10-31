@@ -9,7 +9,7 @@ dependencies = [
   "fastapi>=0.115",
   "httpx>=0.27",
   "jsonschema>=4.0",
-  "mcp>=1.0",
+  "mcp>=1.0,<3",
   "pydantic>=2.0",
   "ruamel.yaml>=0.18",
   "uvicorn>=0.30",
@@ -18,6 +18,27 @@ dependencies = [
 [dependency-groups]
 dev = [
   "pytest>=8.0",
+  "pytest-cov>=6.0",
+]
+# Optional solver profiles (see README "Tool & dependency decisions").
+# Base `uv sync` stays lean; add per profile, e.g. `uv sync --group photonic`.
+hdl = [
+  "cocotb>=1.9",
+]
+analog = [
+  "PySpice>=1.5",
+  "matplotlib>=3.8",
+  "scikit-rf>=1.0",
+]
+photonic = [
+  "sax>=0.18",
+  "circulax",
+  "meow-sim>=0.15",
+]
+layout = [
+  # <10: stay on stable 9.x; 10.x needs its own qualification (PDK pins differ).
+  # gdsfactory parents kfactory~=3.0.4 (its layout backend) + kfnetlist transitively.
+  "gdsfactory>=9.51,<10",
 ]
 
 [build-system]

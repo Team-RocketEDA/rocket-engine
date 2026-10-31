@@ -1,0 +1,35 @@
+# SERV compile manifest (SIM-SKY130): vendored sources relative to
+# fixtures/upstream/serv. Single source of truth for
+# tests/adapters/test_serv.py and the hdl_serv scenario backend;
+# runners append the committed serv_harness.v and stage
+# hello_uart.hex beside it. Order is informational (iverilog
+# resolves modules across files).
+rtl/serv_aligner.v
+rtl/serv_alu.v
+rtl/serv_bufreg2.v
+rtl/serv_bufreg.v
+rtl/serv_compdec.v
+rtl/serv_csr.v
+rtl/serv_ctrl.v
+rtl/serv_debug.v
+rtl/serv_decode.v
+rtl/serv_immdec.v
+rtl/serv_mem_if.v
+rtl/serv_rf_if.v
+rtl/serv_rf_ram_if.v
+rtl/serv_rf_ram.v
+rtl/serv_rf_top.v
+rtl/serv_state.v
+rtl/serv_synth_wrapper.v
+rtl/serv_top.v
+servile/servile_arbiter.v
+servile/servile_mux.v
+servile/servile_rf_mem_if.v
+servile/servile.v
+servant/servant.v
+servant/servant_mux.v
+servant/servant_ram.v
+servant/servant_timer.v
+servant/servant_gpio.v
+bench/servant_sim.v
+bench/uart_decoder.v

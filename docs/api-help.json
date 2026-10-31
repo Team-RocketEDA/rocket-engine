@@ -1,0 +1,242 @@
+{
+  "api_help": {
+    "kind": "query",
+    "summary": "Declared query `api_help`; no handler wired yet.",
+    "text": "Declared query `api_help`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "api_info": {
+    "kind": "query",
+    "summary": "Declared query `api_info`; no handler wired yet.",
+    "text": "Declared query `api_info`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "api_search": {
+    "kind": "query",
+    "summary": "Declared query `api_search`; no handler wired yet.",
+    "text": "Declared query `api_search`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "apply_mutations": {
+    "kind": "operation",
+    "summary": "Apply a batch atomically under one new revision (I31).",
+    "text": "Apply a batch atomically under one new revision (I31).\n\nHandler: `rocket_engine.project.service.ProjectService.apply_mutations`.\n\nEvery mutation is validated before anything lands: any\nfailure names its document and leaves the revision, the\nfiles, and the log untouched. Only a fully valid batch at\nthe live head advances once and appends a single\nmutations_applied event.\n\nArguments:\n\n- `mutations` (required): Non-empty list of {op, path, content?} mappings; op is write (needs text content) or delete (takes none).\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with revision transition, new head, actor, joined diff summary, rewind handle, the single appended event, per-mutation results, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_command for a malformed batch (names the document when one is addressable); invalid_path or path_escape for a bad path; unknown_document for a delete of a missing document; revision_conflict for a stale head; invalid_ledger when a durable write fails (best effort rollback already attempted).\n\nCaution: All-or-nothing means one revision for the whole batch \u2014 a half-landed batch is a bug, never a state.\n",
+    "wired": true
+  },
+  "create_project": {
+    "kind": "operation",
+    "summary": "Create one managed project at revision p12.",
+    "text": "Create one managed project at revision p12.\n\nHandler: `rocket_engine.project.service.ProjectService.create_project`.\n\nThe new ledger starts clean (no events); the response still\ncarries the approval-UI fields with a None prior revision.\nIdempotent replays return the stored response instead of\nfailing as duplicates.\n\nArguments:\n\n- `new_project_id` (required): Slug for the project to create.\n\nReturns:\n\nCreation mapping with the new project id, p12 head, actor, diff summary, revision transition, rewind handle, empty events, and request id.\n\nRaises:\n\nProjectError: invalid_command without an engine root; invalid_project for a non-slug id; project_exists for a duplicate; request_conflict for a reused id with new text; invalid_ledger when the project dir cannot be written.\n\nCaution: Creating the bound project itself is a duplicate once its dir exists \u2014 create-then-list, never assume.\n",
+    "wired": true
+  },
+  "delete_doc": {
+    "kind": "operation",
+    "summary": "Delete one document: gate, remove, advance, log.",
+    "text": "Delete one document: gate, remove, advance, log.\n\nHandler: `rocket_engine.project.service.ProjectService.delete_doc`.\n\nArguments:\n\n- `path` (required): Document path to delete.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; revision_conflict for a stale head; invalid_ledger when the durable delete fails.\n\nCaution: Deleting advances the revision like any mutation \u2014 stale writers fail instead of merging.\n",
+    "wired": true
+  },
+  "generate_views": {
+    "kind": "operation",
+    "summary": "Declared operation `generate_views`; no handler wired yet.",
+    "text": "Declared operation `generate_views`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "get_capabilities": {
+    "kind": "query",
+    "summary": "Report per-solver availability, store state, and the provision menu.",
+    "text": "Report per-solver availability, store state, and the provision menu.\n\nHandler: `rocket_engine.composition.Engine.capabilities`.\n\nThe engine side of the Vivado-style setup surface: every\ncataloged operation with readiness (ready when some\nregistered tool resolves, or when the Engine serves the\noperation directly; blocked with reason + missing items\n+ remedy when no tool resolves; unsupported when no\nsolver is registered), each tool's availability from its\nown detection probe plus its adapter capabilities(),\nPDK/deck install state from the store, BYOC-gated cloud\nrows, and the checkbox provision catalogue with live\ninstall state.\n\nArguments:\n\n- `target`: Target passed to each adapter's capabilities().\n- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.\n\nReturns:\n\nCapability mapping with operations, store, pdks, decks, cloud, and catalogue sections.\n\nRaises:\n\nSetupError: unknown_solver when a registered (operation, tool) has no detection spec \u2014 the report fails instead of misreporting a solver it cannot probe.\n\nCaution: Read-only: never creates the store skeleton and never attempts network \u2014 cloud rows report gated with key_state missing until CLOUD-AUTH supplies keys plus an explicit opt-in (F12/I32 BYOC).\n",
+    "wired": true
+  },
+  "get_check_results": {
+    "kind": "query",
+    "summary": "Read the latest check verdict per operation.",
+    "text": "Read the latest check verdict per operation.\n\nHandler: `rocket_engine.composition.Engine.check_results`.\n\nArguments:\n\n- `operation`: Restrict to one operation; all latest verdicts when omitted.\n\nReturns:\n\nMapping of operation to run state plus the current project revision.\n",
+    "wired": true
+  },
+  "get_events_since": {
+    "kind": "query",
+    "summary": "Read retained events after a cursor, oldest first.",
+    "text": "Read retained events after a cursor, oldest first.\n\nHandler: `rocket_engine.project.service.ProjectService.events_since`.\n\nArguments:\n\n- `cursor`: Only events with a higher seq are returned.\n- `require_contiguous_from`: Assert the reader holds contiguous history from this seq; fails when the history aged out of retention or runs ahead of the live cursor.\n\nReturns:\n\nRetained events after the cursor, seq-ordered.\n\nRaises:\n\nProjectError: resync_required when the contiguity demand cannot be met \u2014 the reader must re-read the snapshot plus the full retained log and reset its cursor.\n\nCaution: The log is retention-bounded, not infinite \u2014 a reader gone longer than the bound must resync, never assume the gap is empty.\n",
+    "wired": true
+  },
+  "get_job_status": {
+    "kind": "query",
+    "summary": "Read one run's state, verdict, and evidence links.",
+    "text": "Read one run's state, verdict, and evidence links.\n\nHandler: `rocket_engine.composition.Engine.job_status`.\n\nArguments:\n\n- `run_id`: Run to inspect (the submit-ack id, shared with the execution record).\n\nReturns:\n\nRun state mapping with state, verdict, and log links.\n\nRaises:\n\nExecutionError: unknown_run for an unregistered id.\n",
+    "wired": true
+  },
+  "get_logs": {
+    "kind": "query",
+    "summary": "Search and page one run's captured native log.",
+    "text": "Search and page one run's captured native log.\n\nHandler: `rocket_engine.composition.Engine.run_logs`.\n\nArguments:\n\n- `run_id`: Run whose log to read.\n- `query`: Case-insensitive substring filter; all lines when omitted.\n- `offset`: First matching line to return (0-based).\n- `limit`: Maximum lines per page (capped server-side).\n\nReturns:\n\nPage mapping with numbered lines, totals, and a more flag.\n\nRaises:\n\nExecutionError: unknown_run for an unregistered id. ProjectError: invalid_command for a non-int offset or limit.\n",
+    "wired": true
+  },
+  "get_project_snapshot": {
+    "kind": "query",
+    "summary": "Read the ledger head: project, revision, and event cursor.",
+    "text": "Read the ledger head: project, revision, and event cursor.\n\nHandler: `rocket_engine.project.service.ProjectService.snapshot`.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nSnapshot mapping with project_id, current_revision, and event_cursor.\n",
+    "wired": true
+  },
+  "get_python_console": {
+    "kind": "query",
+    "summary": "Declared query `get_python_console`; no handler wired yet.",
+    "text": "Declared query `get_python_console`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "list_artifacts": {
+    "kind": "query",
+    "summary": "Declared query `list_artifacts`; no handler wired yet.",
+    "text": "Declared query `list_artifacts`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "list_docs": {
+    "kind": "query",
+    "summary": "List documents, optionally filtered by a path prefix.",
+    "text": "List documents, optionally filtered by a path prefix.\n\nHandler: `rocket_engine.project.service.ProjectService.list_docs`.\n\nArguments:\n\n- `prefix`: Optional unix path prefix; empty matches everything.\n\nReturns:\n\nMapping with project id, head revision, event cursor, and sorted document entries (path + bytes).\n\nRaises:\n\nProjectError: invalid_path for a non-text prefix; path_escape for an escaping prefix.\n",
+    "wired": true
+  },
+  "list_job_kinds": {
+    "kind": "query",
+    "summary": "List registered operations with their deck tools.",
+    "text": "List registered operations with their deck tools.\n\nHandler: `rocket_engine.composition.Engine.job_kinds`.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping of job kinds with operation names and the tool keys each accepts.\n",
+    "wired": true
+  },
+  "list_projects": {
+    "kind": "query",
+    "summary": "List projects under the engine root, bound always included.",
+    "text": "List projects under the engine root, bound always included.\n\nHandler: `rocket_engine.project.service.ProjectService.list_projects`.\n\nWithout an engine root the bound in-memory project is the\nwhole list; with one, every managed project dir plus the\nbound project is reported with its head revision.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping with the bound project id and the sorted project entries (project_id + current_revision).\n\nRaises:\n\nProjectError: invalid_ledger when a sibling ledger head is unreadable or corrupt.\n\nCaution: A corrupt sibling ledger fails the whole list loudly instead of being skipped.\n",
+    "wired": true
+  },
+  "plan_checks": {
+    "kind": "query",
+    "summary": "Declared query `plan_checks`; no handler wired yet.",
+    "text": "Declared query `plan_checks`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "python_execute": {
+    "kind": "operation",
+    "summary": "Declared operation `python_execute`; no handler wired yet.",
+    "text": "Declared operation `python_execute`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "read_doc": {
+    "kind": "query",
+    "summary": "Read one document as text at the current head.",
+    "text": "Read one document as text at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.read_doc`.\n\nArguments:\n\n- `path` (required): Document path to read.\n\nReturns:\n\nMapping with project id, head revision, canonical path, content text, and byte size.\n\nRaises:\n\nProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.\n",
+    "wired": true
+  },
+  "rewind": {
+    "kind": "operation",
+    "summary": "Restore managed bytes to a prior revision under a new head.",
+    "text": "Restore managed bytes to a prior revision under a new head.\n\nHandler: `rocket_engine.project.service.ProjectService.rewind`.\n\nThe target snapshot replaces every managed document\nbyte-identically; runs, the ledger, and the snapshots\nthemselves are left alone. History stays append-only: the\nrestore advances from the live head and appends a single\n`project_rewound` event recording the target. Linked caller\ntrees are never written \u2014 files outside `.rocket/` are\nlisted in the response as left untouched.\n\nArguments:\n\n- `target_revision` (required): Snapshot revision to restore.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with revision transition, target revision, new head, actor, diff summary, external-file report, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_command for a missing target or a target that equals the live head; unknown_revision for a revision with no snapshot; revision_conflict for a stale head; invalid_ledger when the durable restore fails (best-effort rollback already attempted).\n\nCaution: Rewinding advances \u2014 the new head is not the target id, and stale writers fail instead of merging. Caller files outside `.rocket/` are reported, never touched.\n",
+    "wired": true
+  },
+  "run_connectivity": {
+    "kind": "operation",
+    "summary": "Declared operation `run_connectivity`; no handler wired yet.",
+    "text": "Declared operation `run_connectivity`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "run_digital_flow": {
+    "kind": "operation",
+    "summary": "Declared operation `run_digital_flow`; no handler wired yet.",
+    "text": "Declared operation `run_digital_flow`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "run_drc": {
+    "kind": "operation",
+    "summary": "run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.",
+    "text": "run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.\n\nTools: `magic` (default), `klayout` \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.drc.MagicDrcAdapter`, `rocket_engine.adapters.drc_kl.KlayoutDrcAdapter`.\n\n#### Tool `magic`\n\nrun_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.\n\nServes the run_drc operation with deck.tool `magic` (the\noperation default). Tcl over stdin against a loaded cell; the\nresult is {total, violations[]} with rule/message plus\nlambda-unit bbox areas.\n\nArguments:\n\n- `cell` (required): Cell name loaded inside magic.\n- `cell_file` (required): Path to the .mag cell file.\n- `tech`: Magic tech name (default scmos).\n- `deck`: Optional mapping; deck.tool selects the solver (magic here, klayout for the KLayout path).\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n\nReturns:\n\n{total, violations[]} with rule plus lambda-unit bbox areas.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell file.\n\n(execute) AdapterError: missing_dependency when the tech fails to load mid-run, runner_unavailable when magic output carries no DRC total line, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no DRC total line.\n\nCaution: Magic exits 0 even for broken cells and unknown techs \u2014 the verdict always comes from parsed output, never the exit code. Timeout is fixed at 120 s.\n\n#### Tool `klayout`\n\nrun_drc via KLayout: synthetic checks or foundry .lydrc decks.\n\nServes the run_drc operation with deck.tool `klayout`. Two\nmodes: synthetic width/space checks over one layer from\n`rules`, or a foundry .lydrc deck over `gds_file` with\nviolations parsed from the report database. Locations are\nmetric bbox_um.\n\nArguments:\n\n- `gds_file` (required): GDS layout under check.\n- `rules`: Synthetic check {layer [l, d], width_um, space_um, name?} \u2014 one check form is required (rules or a deck file).\n- `deck_file`: Foundry .lydrc deck path (deck mode).\n- `deck`: Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode.\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n\nReturns:\n\n{total, violations[]} with rule, message, and metric bbox_um where the deck reports geometry.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, missing_dependency for a missing klayout binary, invalid_reference for a missing GDS or deck file, invalid_command for a malformed rules mapping.\n\n(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable when klayout produces no report, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the deck run has no report, the report is not valid XML, or the synthetic output has no TOTAL line.\n\nCaution: KLayout exits 0 regardless \u2014 the verdict always comes from parsed output, never the exit code.\n",
+    "wired": true
+  },
+  "run_em": {
+    "kind": "operation",
+    "summary": "Declared operation `run_em`; no handler wired yet.",
+    "text": "Declared operation `run_em`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "run_erc": {
+    "kind": "operation",
+    "summary": "Declared operation `run_erc`; no handler wired yet.",
+    "text": "Declared operation `run_erc`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "run_extraction": {
+    "kind": "operation",
+    "summary": "run_extraction via Magic: .mag cells to .ext/.spice netlists.",
+    "text": "run_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nTools: `magic` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.extract_magic.MagicExtractAdapter`.\n\n#### Tool `magic`\n\nrun_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nServes the run_extraction operation with deck.tool `magic` (the\nonly tool). Loads the cell, extracts all, and converts with\next2spice; the result carries the netlist artifact paths plus\ndevice counts.\n\nArguments:\n\n- `cell` (required): Cell name loaded and extracted.\n- `cell_file` (required): Path to the .mag cell file.\n- `tech` (required): Magic tech name \u2014 one tech form is required (tech, tech_file, or deck.path/tech_file/file).\n- `tech_file`: Magic tech file path (a hash-checked store deck by the caller).\n- `deck`: Optional mapping naming the tech file (deck.path/tech_file/file).\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n\nReturns:\n\nResult with cell, artifact paths, device_count, devices, and no violations.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a missing cell, a Tcl-unsafe cell name, or no tech form, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell or tech file.\n\n(execute) AdapterError: invalid_reference for a missing workdir, missing_dependency when the tech fails to load mid-run, runner_unavailable when the output has no ext2spice marker or no .ext/.spice pair, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no ext2spice marker, no spice text, or no subckt block.\n\nCaution: Magic exits 0 even for broken cells \u2014 the verdict always comes from parsed output, never the exit code.\n",
+    "wired": true
+  },
+  "run_formal": {
+    "kind": "operation",
+    "summary": "Declared operation `run_formal`; no handler wired yet.",
+    "text": "Declared operation `run_formal`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "run_hdl_test": {
+    "kind": "operation",
+    "summary": "run_hdl_test via Icarus: compile plus timed Verilog sim.",
+    "text": "run_hdl_test via Icarus: compile plus timed Verilog sim.\n\nTools: `icarus` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.hdl_sim.HdlSimAdapter`.\n\n#### Tool `icarus`\n\nrun_hdl_test via Icarus: compile plus timed Verilog sim.\n\nServes the run_hdl_test operation with deck.tool `icarus` (the\nonly tool). Compiles the sources with iverilog, runs the sim\nunder vvp with a timeout, and parses compile diagnostics plus\nFATAL/ERROR assertion lines.\n\nArguments:\n\n- `sources` (required): Verilog source paths, bench included.\n- `defines`: Verilog `define list, optional =value each.\n- `timeout_s`: Sim budget in seconds (default 120).\n- `tool_dir`: Directory holding iverilog/vvp; PATH otherwise.\n- `deck`: Optional mapping; deck.tool must be icarus here.\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n\nReturns:\n\n{total, violations[]} with file/line locations and sim_time where the sim reports it.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad timeout or defines, invalid_reference for missing sources, missing_dependency for unresolvable tools.\n\n(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a sim timeout, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when a compiled run has no run block.\n\nCaution: $error exits 0 and hangs raise instead of hanging the engine \u2014 the verdict always comes from parsed output, never the exit code alone.\n",
+    "wired": true
+  },
+  "run_job": {
+    "kind": "operation",
+    "summary": "Execute an admitted request by id (phase 2 of submit-then-run).",
+    "text": "Execute an admitted request by id (phase 2 of submit-then-run).\n\nHandler: `rocket_engine.composition.Engine.run` (phase 2 executes an admitted request; submit admits first).\n\nArguments:\n\n- `request_id` (required): Envelope id admitted by an earlier submit.\n\nReturns:\n\nCompletion mapping with run_id, state, verdict, and operation for the admitted command.\n\nRaises:\n\nProjectError: invalid_command when the arguments lack a request_id, unknown_request for an id never admitted, unsupported_operation when the admitted operation has no registered solver.\n",
+    "wired": true
+  },
+  "run_lvs": {
+    "kind": "operation",
+    "summary": "run_lvs via Netgen: layout vs schematic, TOP-level compare.",
+    "text": "run_lvs via Netgen: layout vs schematic, TOP-level compare.\n\nTools: `netgen` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.lvs_netgen.NetgenLvsAdapter`.\n\n#### Tool `netgen`\n\nrun_lvs via Netgen: layout vs schematic, TOP-level compare.\n\nServes the run_lvs operation with deck.tool `netgen` (the only\ntool). Both netlists flatten to top level first (a library file\nneeds `cell` to select its block), then the one-shot batch LVS\nruns; the result is {match, total, violations[]} with net and\ndevice mismatches.\n\nArguments:\n\n- `layout_spice` (required): Layout netlist path.\n- `schematic_spice` (required): Schematic netlist path.\n- `setup_file` (required): Netgen setup path \u2014 one setup form is required (setup_file or deck.path/setup_file/setup/ file).\n- `deck`: Optional mapping naming the setup file (see above).\n- `cell`: .subckt block to select from library netlists.\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n\nReturns:\n\n{match, total, violations[]} with lvs_net_mismatch and lvs_device_mismatch rules.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, missing_dependency for a missing netgen or a banner-rejected impostor, invalid_reference for missing netlist files, invalid_command when no setup form is given.\n\n(execute) AdapterError: invalid_reference for a missing workdir, invalid_command for an ambiguous library without cell, runner_unavailable when netgen produces no report, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no LVS verdict.\n\nCaution: Netgen exits 0 on match and mismatch alike \u2014 the verdict always comes from parsed output, never the exit code. PATH presence is not enough: same-named impostor binaries are rejected by banner probe.\n",
+    "wired": true
+  },
+  "run_optical": {
+    "kind": "operation",
+    "summary": "run_optical via SAX: frequency-domain photonic circuit sim.",
+    "text": "run_optical via SAX: frequency-domain photonic circuit sim.\n\nTools: `sax` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.sax.SaxAdapter`.\n\n#### Tool `sax`\n\nrun_optical via SAX: frequency-domain photonic circuit sim.\n\nServes the run_optical operation with deck.tool `sax` (the only\ntool). Stages the sim driver plus a job JSON, runs it under a\ntimeout, and parses the JSON envelope: spectra plus per-target\ntransmission measurements against min_db/max_db bounds.\n\nArguments:\n\n- `sources` (required): Exactly one circuit spec YAML path.\n- `timeout_s`: Sim budget in seconds (default 120).\n- `tool_dir`: Directory holding the sim python; the engine interpreter otherwise.\n- `deck`: Optional mapping; deck.tool must be sax here.\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n\nReturns:\n\n{total, violations[], measurements[], spectra[], sax_version} with dB values and margins.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad timeout or circuit spec, invalid_reference unless exactly one readable spec source is given, missing_dependency for an unresolvable sim python.\n\n(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a sim timeout, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: missing_dependency when the sim python has no sax, runner_unavailable when the driver printed no JSON envelope, no result, or misses a target pair.\n\nCaution: Missed target bounds are FAIL and a malformed circuit synthesizes an error violation with file/line \u2014 the verdict always comes from parsed output, never the exit code.\n",
+    "wired": true
+  },
+  "run_post_layout": {
+    "kind": "operation",
+    "summary": "Declared operation `run_post_layout`; no handler wired yet.",
+    "text": "Declared operation `run_post_layout`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "run_spice": {
+    "kind": "operation",
+    "summary": "run_spice via ngspice: corner sims with measured bounds.",
+    "text": "run_spice via ngspice: corner sims with measured bounds.\n\nTools: `ngspice` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.ngspice.NgspiceAdapter`.\n\n#### Tool `ngspice`\n\nrun_spice via ngspice: corner sims with measured bounds.\n\nServes the run_spice operation with deck.tool `ngspice` (the\nonly tool). Stages a corner deck (preamble + netlist bodies +\ngenerated .control), runs it in batch, and parses meas_* values\nagainst min/max bounds; bound misses are FAIL, valueless sims\nsynthesize sim_fail violations.\n\nArguments:\n\n- `sources` (required): Netlist source paths staged as bodies.\n- `measurements` (required): [{name, expr, unit?, min?, max?}] with numeric min and/or max each.\n- `analyses`: .control analysis lines (default op).\n- `options`: .option lines (default [wnflag=1]).\n- `params`: .param name/value mapping.\n- `corner`: Model corner (default tt).\n- `temp_c`: Temperature in C (default 27).\n- `title`: Deck title line.\n- `pdk`: {id, revision, model_rel?, engine_root?} pin for PDK models via the store; omitted sims model-free.\n- `timeout_s`: Sim budget in seconds (default 120).\n- `tool_dir`: Directory holding ngspice; PATH otherwise.\n- `deck`: Optional mapping; deck.tool must be ngspice here.\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n\nReturns:\n\n{total, violations[], measurements[]} with value, unit, target, margin, and status per measurement.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for bad inputs (timeout, measurements, analyses, options, params, corner, temp_c, title), invalid_reference for missing sources, store codes (unknown_pdk, pdk_drift, ...) for a bad PDK pin, missing_dependency for an unresolvable ngspice.\n\n(execute) AdapterError: invalid_reference for a missing workdir or unreadable netlist, runner_unavailable on a sim timeout, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when ngspice produced no output at all.\n\nCaution: Verdicts always come from parsed output, never the exit code \u2014 and PDK models resolve through the store, so a wrong revision or tampered model fails loudly instead of simming against substitutes.\n",
+    "wired": true
+  },
+  "run_syntax": {
+    "kind": "operation",
+    "summary": "run_syntax via Slang: SystemVerilog lint with diagnostics.",
+    "text": "run_syntax via Slang: SystemVerilog lint with diagnostics.\n\nTools: `slang` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.syntax.SyntaxAdapter`.\n\n#### Tool `slang`\n\nrun_syntax via Slang: SystemVerilog lint with diagnostics.\n\nServes the run_syntax operation with deck.tool `slang` (the only\ntool). Lints the sources and parses file:line:col diagnostics\nplus the Build summary; errors are FAIL, warnings never fail.\n\nArguments:\n\n- `sources` (required): HDL source paths under lint.\n- `slang_flags`: Extra slang flags (default [-Wextra]).\n- `timeout_s`: Lint budget in seconds (default 120).\n- `tool_dir`: Directory holding slang; PATH otherwise.\n- `deck`: Optional mapping; deck.tool must be slang here.\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n\nReturns:\n\n{total, violations[]} with rule, severity, message, and file/line/col locations.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad timeout or slang_flags, invalid_reference for missing sources, missing_dependency for an unresolvable slang.\n\n(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a slang timeout, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no Build summary line.\n\nCaution: A failed build with no parsed diagnostics reports a synthesized error rather than going clean.\n",
+    "wired": true
+  },
+  "run_thermal": {
+    "kind": "operation",
+    "summary": "Declared operation `run_thermal`; no handler wired yet.",
+    "text": "Declared operation `run_thermal`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "run_timing": {
+    "kind": "operation",
+    "summary": "Declared operation `run_timing`; no handler wired yet.",
+    "text": "Declared operation `run_timing`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "run_view_sync": {
+    "kind": "operation",
+    "summary": "Declared operation `run_view_sync`; no handler wired yet.",
+    "text": "Declared operation `run_view_sync`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
+  "write_doc": {
+    "kind": "operation",
+    "summary": "Write one document: gate, store, advance, log.",
+    "text": "Write one document: gate, store, advance, log.\n\nHandler: `rocket_engine.project.service.ProjectService.write_doc`.\n\nA resubmitted envelope returns its stored response without\nadvancing; a new envelope gates its expected_revision, and\nonly an accepted write advances the revision and appends\nthe doc_written event.\n\nArguments:\n\n- `path` (required): Document path to create or overwrite.\n- `content` (required): UTF-8 text to store (1 MB limit).\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_path or path_escape for a bad path; invalid_command for non-text or oversize content or a directory path; revision_conflict for a stale head; invalid_ledger when the durable write fails.\n\nCaution: Every accepted write advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
+    "wired": true
+  }
+}

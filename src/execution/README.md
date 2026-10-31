@@ -52,7 +52,12 @@ not own: solver CLIs, check planning, transport protocols, any UI.
 
 ## Status
 
-Scaffold — package + this contract only. Slice 2. Invariants
-I08–I11 (evidence), I15–I18 + I22–I24 (isolation/approval/lifecycle).
-Tests: `tests/execution/` (injected failures, truncation, cancel races,
-adversarial isolation probes).
+GREEN (slice 2): `service.py` (in-memory dispatch, evidence,
+evaluation, approvals), `errors.py` (`ExecutionError`). Real workers,
+live console env, and persistence arrive in later slices.
+Invariants I08–I11, I22 proven, plus I15, I17, I18 via
+`console.py` (real binding semantics; execution itself still
+in-memory). `runner.py` (`BwrapRunner`) confines solver subprocesses
+in userns sandboxes (I16 mechanics; net isolation re-proven on
+target). Tests: `tests/execution/` (22 passed). I23, I24 await the
+real worker substrate.

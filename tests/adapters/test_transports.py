@@ -25,12 +25,12 @@ class FakeEngine:
 
 
 def test_api_ipc_mcp_submit_identical_commands():
-    from rocket_engine.adapters.api import ApiTransport  # RED: missing surface
+    from rocket_engine.adapters.http import HttpTransport  # RED: missing surface
     from rocket_engine.adapters.ipc import IpcTransport  # RED: missing surface
     from rocket_engine.adapters.mcp import McpTransport  # RED: missing surface
 
     engine = FakeEngine()
-    ApiTransport(engine).handle((FIXTURES / "api" / "request.json").read_text())
+    HttpTransport(engine).handle((FIXTURES / "http" / "request.json").read_text())
     IpcTransport(engine).handle((FIXTURES / "ipc" / "frame.json").read_text())
     McpTransport(engine).handle((FIXTURES / "mcp" / "tool_call.json").read_text())
     commands = engine.received
@@ -71,3 +71,40 @@ def test_solver_port_exists_before_any_solver():
     from rocket_engine.adapters import ToolAdapter  # RED: missing surface
 
     assert {"capabilities", "preflight", "execute", "parse"} <= set(dir(ToolAdapter))
+
+
+def test_http_ipc_pass_envelope_request_id():
+    from rocket_engine.adapters.http import HttpTransport
+    from rocket_engine.adapters.ipc import IpcTransport
+
+    engine = FakeEngine()
+    HttpTransport(engine).handle((FIXTURES / "http" / "request.json").read_text())
+    IpcTransport(engine).handle((FIXTURES / "ipc" / "frame.json").read_text())
+    assert engine.received[0]["request_id"] == "request_http_001"
+    assert engine.received[1]["request_id"] == "request_ipc_001"
+
+
+def test_http_rejects_missing_project_id():
+    from rocket_engine.adapters.http import HttpTransport
+
+    request = json.loads((FIXTURES / "http" / "request.json").read_text())
+    del request["project_id"]
+    try:
+        HttpTransport(FakeEngine()).handle(json.dumps(request))
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "invalid_command"
+    else:
+        raise AssertionError("expected invalid_command, not a bare KeyError")
+
+
+def test_ipc_rejects_missing_project_id():
+    from rocket_engine.adapters.ipc import IpcTransport
+
+    frame = json.loads((FIXTURES / "ipc" / "frame.json").read_text())
+    del frame["project_id"]
+    try:
+        IpcTransport(FakeEngine()).handle(json.dumps(frame))
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "invalid_command"
+    else:
+        raise AssertionError("expected invalid_command, not a bare KeyError")
