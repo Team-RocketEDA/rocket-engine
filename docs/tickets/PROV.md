@@ -43,6 +43,13 @@ stays open until the matrix is fully provisioned.
   version-asserted ambient + loud remedy, never
   fake-green. PDK/deck provisioning stays on its
   existing --pdk-only path.
+- Field note (2026-11-01): offline `uv sync` cannot
+  restore the hdl/analog/layout groups in this sandbox
+  (cocotb, PySpice, types-pyyaml wheels missing from
+  cache) — dev+photonic restored, gate 4/4 green
+  without them. Phase 2 must make group provisioning
+  cache/network-tolerant (pre-seeded cache or vendored
+  wheels) so a fresh host never lands group-less.
 
 ## Acceptance
 
