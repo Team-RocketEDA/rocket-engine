@@ -85,6 +85,16 @@ run_ids), and the engine routes each result to its correct
 consumer (ledger, frontend effects, agent replies). An
 adapter that cannot say where its outputs go is not done.
 
+Fixtures are external and representative, never handrolled
+toys: picorv32-class for pure digital, sigma-delta-class
+for mixed challenge. Each fixture proves the engine routes
+its texture through the right build tools and returns
+comparable results with nothing dropped — adapter
+unit-tests plus promised-workflow proofs in one. That
+routing fidelity over an open project standard is the
+product: many tools, one IDE, verification and synthesis
+where possible.
+
 ## Environment: install.sh is the only path
 
 `scripts/install.sh --install` provisions everything (UV sync,
