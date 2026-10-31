@@ -62,3 +62,19 @@ scheduler, not an engine — running is the default, queueing
 the opt-in. Keep the ack shape stable; fuel harness already
 runs queued jobs before replying, so this tightens rather
 than breaks the agent path.
+
+## Field notes (2026-11-01): batch submit, one job ID, sequential
+
+`submit()` accepts a single command OR a list of commands
+(multiline/batch) in the same API. One call → one job ID →
+steps execute sequentially in order. A single job is the
+degenerate batch of one; no separate batch endpoint, ever
+(per composite-command pattern). Each step keeps its own
+step identity + verdict inside the job record; the job
+verdict aggregates (FAIL if any step fails). Failure policy:
+fail-fast by default — remaining steps go NOT_RUN with
+reason `skipped_after_failure`, never silently skipped.
+`run_job(job_id)` pumps/completes and fetches idempotently
+for both shapes. Rationale: agents think in scripts, not
+single shots — one ID to track, deterministic order, no
+client-side orchestration to get wrong.
