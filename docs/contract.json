@@ -153,15 +153,40 @@
       "wired": false
     },
     "python_execute": {
-      "description": "Declared operation `python_execute`; no handler wired yet.",
-      "handlers": [],
+      "description": "Request one execution: persist the cell, open an approval.",
+      "handlers": [
+        "rocket_engine.composition.Engine.submit",
+        "rocket_engine.execution.python_exec.PythonExecService.request_execution"
+      ],
       "kind": "operation",
       "name": "python_execute",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "artifacts": {
+          "description": "Scratch-relative paths to harvest."
+        },
+        "expected_revision": {
+          "description": "Project revision the approval binds."
+        },
+        "lines": {
+          "description": "Inline script text (lines mode only)."
+        },
+        "mode": {
+          "description": "`lines` for inline script text, `path` for a project-contained script file."
+        },
+        "path": {
+          "description": "Project-relative script path (path mode only)."
+        },
+        "timeout_s": {
+          "description": "Worker budget in seconds (default 120)."
+        }
+      },
+      "raises": "ExecutionError: invalid_command for a bad mode, a mode/field mismatch, oversize input, or a malformed timeout, invalid_cell/empty_cell for bad script text, path_escape/invalid_path/cell_unreadable for bad project files, request_conflict for a reused request id with new code.",
+      "required": [
+        "mode"
+      ],
+      "returns": "Approval handle with execution_id, approval_id, pending_approval state, code hash, and the run_id only when the caller prescribed one.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "rewind": {
       "description": "Restore managed bytes to a prior revision under a new head.",
@@ -1987,15 +2012,18 @@
       "wired": true
     },
     "get_python_console": {
-      "description": "Declared query `get_python_console`; no handler wired yet.",
-      "handlers": [],
+      "description": "Read the python_execute console view.",
+      "handlers": [
+        "rocket_engine.composition.Engine.python_console"
+      ],
       "kind": "query",
       "name": "get_python_console",
       "properties": {},
+      "raises": "",
       "required": [],
-      "returns": "",
+      "returns": "Console view with project_id, generation, env_digest, history cursor, and pending approvals.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "get_resolved_config": {
       "description": "Bundle the resolved config for one session/run fetch.",
@@ -2259,7 +2287,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "7bf55cf3f14dfd29636e4b147770496d22a05030f660fb07809bdb0eca624c8a",
+  "schema_sha256": "612c7810801a8d786e31873c2f5c314b15aa44cf40296162274bf54f93d5cce2",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

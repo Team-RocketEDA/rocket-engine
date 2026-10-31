@@ -169,7 +169,7 @@ def test_fresh_machine_names_every_missing_tool_with_remedy(tmp_path, monkeypatc
     from rocket_engine.composition import _CRUD_OPERATIONS
     from rocket_engine.interfaces.vocabulary import OPERATIONS
 
-    served = set(_CRUD_OPERATIONS) | {"run_job", "place_cell"}
+    served = set(_CRUD_OPERATIONS) | {"run_job", "place_cell", "python_execute"}
     assert sorted(report["operations"]) == sorted(OPERATIONS)
     for op, detail in report["operations"].items():
         solvers = engine.solvers_for(op)

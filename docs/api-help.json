@@ -103,9 +103,9 @@
   },
   "get_python_console": {
     "kind": "query",
-    "summary": "Declared query `get_python_console`; no handler wired yet.",
-    "text": "Declared query `get_python_console`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Read the python_execute console view.",
+    "text": "Read the python_execute console view.\n\nHandler: `rocket_engine.composition.Engine.python_console`.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nConsole view with project_id, generation, env_digest, history cursor, and pending approvals.\n\nCaution: Read-only: reports approval queue state, never resolves anything.\n",
+    "wired": true
   },
   "get_resolved_config": {
     "kind": "query",
@@ -169,9 +169,9 @@
   },
   "python_execute": {
     "kind": "operation",
-    "summary": "Declared operation `python_execute`; no handler wired yet.",
-    "text": "Declared operation `python_execute`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Request one execution: persist the cell, open an approval.",
+    "text": "Request one execution: persist the cell, open an approval.\n\nHandler: `rocket_engine.composition.Engine.submit` (submit opens a pending approval; the human UI route resolves it, then `run_job` executes the admitted run).\n\nArguments:\n\n- `mode` (required): `lines` for inline script text, `path` for a project-contained script file.\n- `lines`: Inline script text (lines mode only).\n- `path`: Project-relative script path (path mode only).\n- `timeout_s`: Worker budget in seconds (default 120).\n- `artifacts`: Scratch-relative paths to harvest.\n- `expected_revision`: Project revision the approval binds.\n\nReturns:\n\nApproval handle with execution_id, approval_id, pending_approval state, code hash, and the run_id only when the caller prescribed one.\n\nRaises:\n\nExecutionError: invalid_command for a bad mode, a mode/field mismatch, oversize input, or a malformed timeout, invalid_cell/empty_cell for bad script text, path_escape/invalid_path/cell_unreadable for bad project files, request_conflict for a reused request id with new code.\n",
+    "wired": true
   },
   "read_doc": {
     "kind": "query",

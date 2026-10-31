@@ -30,7 +30,7 @@ text, identical to the section bodies below.
 | `delete_doc` | yes | — | Delete one document: gate, remove, advance, log. |
 | `generate_views` | no | — | Declared operation `generate_views`; no handler wired yet. |
 | `place_cell` | no | — | Declared operation `place_cell`; no handler wired yet. |
-| `python_execute` | no | — | Declared operation `python_execute`; no handler wired yet. |
+| `python_execute` | yes | — | Request one execution: persist the cell, open an approval. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
 | `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_digital_flow` | no | — | Declared operation `run_digital_flow`; no handler wired yet. |
@@ -69,7 +69,7 @@ text, identical to the section bodies below.
 | `get_layer_stackup` | yes | `rocket_engine.composition.Engine.layer_stackup` | Serve one PDK's read-only layer stackup. |
 | `get_logs` | yes | `rocket_engine.composition.Engine.run_logs` | Search and page one run's captured native log. |
 | `get_project_snapshot` | yes | `rocket_engine.project.service.ProjectService.snapshot` | Read the ledger head: project, revision, and event cursor. |
-| `get_python_console` | no | — | Declared query `get_python_console`; no handler wired yet. |
+| `get_python_console` | yes | `rocket_engine.composition.Engine.python_console` | Read the python_execute console view. |
 | `get_resolved_config` | yes | `rocket_engine.project.service.ProjectService.resolved_config` | Bundle the resolved config for one session/run fetch. |
 | `list_artifacts` | no | — | Declared query `list_artifacts`; no handler wired yet. |
 | `list_assets` | yes | `rocket_engine.composition.Engine.list_assets` | List PDK file metadata with per-file hash identity. |
@@ -173,9 +173,26 @@ Declared operation `place_cell`; no handler wired yet.
 
 ### python_execute
 
-Declared operation `python_execute`; no handler wired yet.
+Request one execution: persist the cell, open an approval.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.submit` (submit opens a pending approval; the human UI route resolves it, then `run_job` executes the admitted run).
+
+Arguments:
+
+- `mode` (required): `lines` for inline script text, `path` for a project-contained script file.
+- `lines`: Inline script text (lines mode only).
+- `path`: Project-relative script path (path mode only).
+- `timeout_s`: Worker budget in seconds (default 120).
+- `artifacts`: Scratch-relative paths to harvest.
+- `expected_revision`: Project revision the approval binds.
+
+Returns:
+
+Approval handle with execution_id, approval_id, pending_approval state, code hash, and the run_id only when the caller prescribed one.
+
+Raises:
+
+ExecutionError: invalid_command for a bad mode, a mode/field mismatch, oversize input, or a malformed timeout, invalid_cell/empty_cell for bad script text, path_escape/invalid_path/cell_unreadable for bad project files, request_conflict for a reused request id with new code.
 
 ### rewind
 
@@ -976,9 +993,19 @@ Snapshot mapping with project_id, current_revision, and event_cursor.
 
 ### get_python_console
 
-Declared query `get_python_console`; no handler wired yet.
+Read the python_execute console view.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.python_console`.
+
+Arguments:
+
+- _(none)_
+
+Returns:
+
+Console view with project_id, generation, env_digest, history cursor, and pending approvals.
+
+Caution: Read-only: reports approval queue state, never resolves anything.
 
 ### get_resolved_config
 

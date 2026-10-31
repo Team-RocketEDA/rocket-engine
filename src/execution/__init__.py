@@ -26,6 +26,16 @@ from .block_runs_scope import (
 from .console import ConsoleSession, get_help
 from .dispatch import OpDispatcher, parse_op_call, parse_op_tokens
 from .errors import ExecutionError, UsageError
+from .python_exec import (
+    MCP_INPUT_SCHEMA,
+    PythonExecRunner,
+    PythonExecService,
+    build_worker_source,
+    not_run_verdict,
+    parse_exception,
+    prelude_digest_for,
+    resolve_script_path,
+)
 from .runner import BwrapRunner
 from .service import ExecutionService
 from .worker import CellRunner, CredentialGate, worker_profile
@@ -43,17 +53,25 @@ __all__ = [
     "CredentialGate",
     "ExecutionError",
     "ExecutionService",
+    "MCP_INPUT_SCHEMA",
     "OpDispatcher",
+    "PythonExecRunner",
+    "PythonExecService",
     "SubmitImmediate",
     "UsageError",
     "build_scope_record",
+    "build_worker_source",
     "check_operation_scope",
     "closure_hash",
     "get_help",
     "merge_ack_completion",
     "narrow_job_for_block",
+    "not_run_verdict",
+    "parse_exception",
     "parse_op_call",
     "parse_op_tokens",
+    "prelude_digest_for",
+    "resolve_script_path",
     "parse_target",
     "pending_from_events",
     "request_for_run",

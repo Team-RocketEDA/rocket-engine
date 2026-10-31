@@ -62,7 +62,9 @@ from .execution.block_runs_scope import (
     snapshot_closure,
     stamp_verdict,
 )
+from .execution.dispatch import OpDispatcher
 from .execution.errors import ExecutionError
+from .execution.python_exec import PythonExecService
 from .execution.service import ExecutionService
 from .interfaces import apig_assets
 from .interfaces.celllink import resolve_run as resolve_celllink_run
@@ -122,6 +124,7 @@ QUERY_ENGINE_METHODS = {
     "get_check_results": "check_results",
     "get_logs": "run_logs",
     "list_job_kinds": "job_kinds",
+    "get_python_console": "python_console",
     "list_cells": "catalog_cells",
     "serve_asset": "serve_asset",
     "list_assets": "list_assets",
@@ -210,11 +213,13 @@ class Engine:
             mappings); runs without a block target never read it.
         pool_max_depth: Maximum undrained execution backlog;
             admissions past it are refused, never queued.
+        project_dir: Project folder python_execute path mode
+            resolves inside; path mode refuses loudly without one.
     """
 
     def __init__(self, project_id, actor, catalog_root=".",
                  engine_root=None, linked_root=None, constraints=None,
-                 blocks=None, pool_max_depth=64):
+                 blocks=None, pool_max_depth=64, project_dir=None):
         self._project_id = project_id
         self._actor = actor
         self._blocks = blocks if blocks is not None else {}
@@ -248,6 +253,13 @@ class Engine:
             catalog_root, providers=[gdsfactory_provider()]
         )
         self._replayed = False
+        self._pyexec = PythonExecService(
+            project_id, actor,
+            execution=self._execution,
+            project_root=project_dir,
+            dispatcher=OpDispatcher(
+                self, project_id=project_id, actor=actor),
+        )
 
     def snapshot(self):
         """Read the current project snapshot.
@@ -315,7 +327,7 @@ class Engine:
             self._solvers,
             target=target,
             engine_root=engine_root,
-            served=_CRUD_OPERATIONS | {"run_job", "place_cell"},
+            served=_CRUD_OPERATIONS | {"run_job", "place_cell", "python_execute"},
         )
 
     def submit(self, command):
@@ -347,7 +359,9 @@ class Engine:
             the job-result queries, the cell listing or asset
             bytes for the catalogue/asset queries, the
             stackup/rows/presets for the layer-serving queries,
-            or the stored-or-fresh completion for run_job.
+            the stored-or-fresh completion for run_job, the
+            approval handle for python_execute, or the console
+            view for get_python_console.
 
         Raises:
             ProjectError: cross_project_denied for a foreign
@@ -408,6 +422,8 @@ class Engine:
                 target=arguments.get("target"),
                 engine_root=arguments.get("engine_root"),
             )
+        if name == "get_python_console":
+            return self.python_console()
         if name == "get_events_since":
             return self._query_events_since(arguments)
         if name == "list_projects":
@@ -452,6 +468,8 @@ class Engine:
             return self._submit_crud(name, arguments, command)
         if name == "place_cell":
             return self._submit_place_cell(arguments, command)
+        if name == "python_execute":
+            return self._submit_pyexec(arguments, command)
         if not self._solvers.get(name):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
@@ -936,6 +954,134 @@ class Engine:
             return None
         self._replayed = True
         return self.replay_pending()
+
+    def _submit_pyexec(self, arguments, command):
+        """Admit a python_execute request: gate, then open an approval.
+
+        Shape validation runs before the revision gate so malformed
+        requests fail before anything is persisted or queued; the
+        gated submit then advances the revision and appends
+        job_queued like every other operation. The ack run_id IS
+        the execution id: approval admits it, run_job executes it.
+
+        Args:
+            arguments: python_execute arguments (mode plus lines
+                or path, timeout_s, artifacts, expected_revision).
+            command: Envelope carrying request_id.
+
+        Returns:
+            Admission mapping with the ack fields plus
+                execution_id, approval_id, and pending_approval
+                state. No run exists until the UI route approves.
+
+        Raises:
+            ProjectError: revision_conflict for a stale
+                expected_revision, request_conflict for a reused
+                envelope id with new text.
+            ExecutionError: invalid_command/invalid_cell/empty_cell
+                for malformed requests, path_escape/invalid_path/
+                cell_unreadable for bad project files.
+        """
+        self._pyexec.validate_request(
+            arguments.get("mode"),
+            lines=arguments.get("lines"),
+            path=arguments.get("path"),
+            artifacts=arguments.get("artifacts", ()),
+            timeout_s=arguments.get("timeout_s"),
+        )
+        buf = io.StringIO()
+        self._yaml.dump(
+            {"operation": "python_execute", "arguments": arguments}, buf)
+        request_id = command.get("request_id") or uuid.uuid4().hex
+        ack = self._project.submit(
+            buf.getvalue(),
+            str(request_id),
+            expected_revision=arguments.get("expected_revision"),
+        )
+        handle = self._pyexec.request_execution(
+            arguments["mode"],
+            lines=arguments.get("lines"),
+            path=arguments.get("path"),
+            request_id=str(request_id),
+            run_id=ack["run_id"],
+            expected_revision=arguments.get("expected_revision"),
+            artifacts=arguments.get("artifacts", ()),
+            timeout_s=arguments.get("timeout_s"),
+        )
+        self._run_jobs.setdefault(
+            ack["run_id"],
+            {
+                "operation": "python_execute",
+                "arguments": dict(arguments),
+                "snapshot_id": ack["snapshot_id"],
+                "request_id": str(request_id),
+            },
+        )
+        return {**ack, **handle, "state": "pending_approval"}
+
+    def resolve_python_approval(self, approval_id, decision, actor=None):
+        """Resolve a python_execute approval via the human UI route.
+
+        Agent calls request approval; they never grant it — this
+        method is the trusted UI route, and no MCP tool maps to it.
+
+        Args:
+            approval_id: Approval bound by the submit call.
+            decision: `approved` to admit the queued run, `denied`
+                to lapse the approval with no run.
+            actor: Human actor the decision is attributed to; the
+                engine actor when omitted.
+
+        Returns:
+            Resolution with approval_id, approval_state,
+                execution_id, and the run_id once admitted.
+
+        Raises:
+            ExecutionError: approval_invalid/approval_denied/
+                approval_expired/approval_forbidden per the
+                approval ledger.
+
+        Caution: Human route only — MCP agents must never call
+            this; there is deliberately no MCP tool for it.
+        """
+        return self._pyexec.resolve_approval(
+            approval_id, decision, via="ui",
+            actor=actor if actor is not None else self._actor,
+        )
+
+    def python_console(self):
+        """Read the python_execute console view.
+
+        Returns:
+            Console view with project_id, generation, env_digest,
+                history cursor, and pending approvals.
+
+        Caution: Read-only: reports approval queue state, never
+            resolves anything.
+        """
+        return self._pyexec.console_view()
+
+    def cancel_job(self, run_id=None):
+        """Cancel a queued or running job through the job surface.
+
+        A live python_execute worker tree is killed promptly;
+        finished runs keep their terminal state, truthfully.
+
+        Args:
+            run_id: Admitted execution id to cancel.
+
+        Returns:
+            Mapping with run_id and state.
+
+        Raises:
+            ProjectError: invalid_command without a run_id.
+            ExecutionError: unknown_run for an id never admitted.
+        """
+        if run_id is None:
+            raise ProjectError(
+                "invalid_command", "cancel_job needs a run_id argument."
+            )
+        return self._pyexec.cancel(run_id)
 
     def _select_solver(self, name, arguments):
         solvers = self._solvers.get(name) or {}
@@ -1606,6 +1752,8 @@ class Engine:
             completion = self._stored_completion(run_id)
             if completion is not None:
                 return completion
+        if stored_operation == "python_execute":
+            return self._run_pyexec(run_id, request_id)
         if not self._solvers.get(stored_operation):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {stored_operation}."
@@ -1631,6 +1779,58 @@ class Engine:
             run_id=run_id,
             contain=True,
         )
+
+    def _run_pyexec(self, run_id, request_id):
+        """Execute an admitted python_execute run (phase 2).
+
+        Approval lapses propagate as approval errors — approval
+        state is never folded into a verdict. Completion carries
+        the NOT_RUN verdict (zero exit is never check PASS) and
+        appends the run_failed ledger event the NOT_RUN shape
+        owns; cancellation returns the cancelled state with no
+        ledger event, like every cancelled job.
+
+        Args:
+            run_id: Admitted execution id (the submit ack id).
+            request_id: Queued request this run discharges.
+
+        Returns:
+            Completion mapping with run_id, state, verdict, and
+                operation.
+
+        Raises:
+            ExecutionError: unknown_run for an id never admitted,
+                approval_pending/approval_denied/approval_expired
+                when the approval lapses, approval_invalid for
+                binding drift.
+
+        Caution: Runs the approved worker now — read the verdict
+            (always NOT_RUN) plus the execution record, never the
+            exit path.
+        """
+        record = self._pyexec.run_job(run_id)
+        self._latest["python_execute"] = run_id
+        log = record.get("stdout", "")
+        if record.get("stderr"):
+            log += "\n--- stderr ---\n" + record["stderr"]
+        self._logs[run_id] = log
+        if record["state"] == "cancelled":
+            return {
+                "run_id": run_id,
+                "state": "cancelled",
+                "verdict": record["verdict"],
+                "operation": "python_execute",
+            }
+        self._project.append_run_event(
+            "run_failed", run_id, "python_execute", record["verdict"],
+            request_id,
+        )
+        return {
+            "run_id": run_id,
+            "state": "completed",
+            "verdict": record["verdict"],
+            "operation": "python_execute",
+        }
 
     def _run_operation(self, name, arguments, snapshot_id, request_id, run_id=None,
                        contain=False, block_scope=None):
@@ -1828,6 +2028,12 @@ class Engine:
             return self._run_queued(command)
         if name in _CRUD_OPERATIONS or name == "place_cell":
             return self.submit(command)
+        if name == "python_execute":
+            raise ProjectError(
+                "invalid_command",
+                "python_execute needs submit, human approval, then "
+                "run_job; direct run cannot approve.",
+            )
         arguments = self._apply_targets(name, dict(command.get("arguments") or {}))
         arguments = self._apply_run_request(arguments)
         block_scope = self._admit_block_scope(name, arguments)

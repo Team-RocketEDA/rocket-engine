@@ -29,12 +29,18 @@ from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
 from ruamel.yaml import YAML
 
 from ...execution.errors import ExecutionError
+from ...execution.python_exec import MCP_INPUT_SCHEMA
 from ...interfaces.vocabulary import OPERATIONS, QUERIES
 from ...project.errors import ProjectError
 from ..errors import AdapterError
 from . import McpTransport
 
 _ENGINE_ERRORS = (AdapterError, ProjectError, ExecutionError)
+
+
+_TOOL_SCHEMAS = {
+    "python_execute": MCP_INPUT_SCHEMA,
+}
 
 
 _HELP_ENGINE = None
@@ -95,6 +101,12 @@ def describe_tool(name):
         # run_job's contract doc lives on the phase-2 runner
         # (introspection only; never called for help).
         return _summary_of(Engine._run_queued)
+    if name == "python_execute":
+        # python_execute's contract doc lives on the approval
+        # request (introspection only; never called for help).
+        from ...execution.python_exec import PythonExecService
+
+        return _summary_of(PythonExecService.request_execution)
     if name in OPERATIONS and hasattr(ProjectService, name):
         return _summary_of(getattr(ProjectService, name))
     method = QUERY_METHODS.get(name)
@@ -121,7 +133,7 @@ def tool_definitions():
         tools.append(Tool(
             name=name,
             description=describe_tool(name),
-            inputSchema={"type": "object"},
+            inputSchema=_TOOL_SCHEMAS.get(name, {"type": "object"}),
         ))
     return tools
 

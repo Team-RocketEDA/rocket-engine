@@ -21,6 +21,8 @@ Contract sources read (all AST, all code):
 - adapter preflight/execute/parse docstrings — Returns/Raises,
 - ProjectService method docstrings — CRUD/query Args/Returns/Raises,
 - Engine._run_queued docstring — run_job contract.
+- execution/python_exec.py request_execution docstring —
+  python_execute contract (Engine-direct op).
 
 Conventions honored: `Job keys:` / `Request keys:` sections list
 `name:` or `name (required):` items; envelope plumbing
@@ -397,6 +399,17 @@ def endpoint_spec(name, root=None):
         spec["summary"] = parse_docstring(doc_of(
             "composition.py", "Engine._run_queued", root=root
         ))["summary"]
+    elif name == "python_execute":
+        spec["wired"] = True
+        spec["handlers"] = [
+            "rocket_engine.composition.Engine.submit",
+            "rocket_engine.execution.python_exec."
+            "PythonExecService.request_execution",
+        ]
+        spec["summary"] = parse_docstring(doc_of(
+            "execution/python_exec.py",
+            "PythonExecService.request_execution", root=root
+        ))["summary"]
     elif name in qmethods:
         spec["wired"] = True
         spec["handlers"] = [
@@ -469,6 +482,21 @@ def section_body(name, root=None):
             _arguments_block(parsed["job_keys"]),
             _optional_block("Returns", parsed["returns"]),
             _optional_block("Raises", parsed["raises"]),
+        ])
+    if name == "python_execute":
+        parsed = parse_docstring(doc_of(
+            "execution/python_exec.py",
+            "PythonExecService.request_execution", root=root
+        ))
+        return _join_blocks([
+            spec["summary"],
+            "Handler: `rocket_engine.composition.Engine.submit` "
+            "(submit opens a pending approval; the human UI route "
+            "resolves it, then `run_job` executes the admitted run).",
+            _arguments_block(parsed["job_keys"]),
+            _optional_block("Returns", parsed["returns"]),
+            _optional_block("Raises", parsed["raises"]),
+            "\n".join(f"Caution: {c}" for c in parsed["cautions"]),
         ])
     return (
         spec["summary"]
@@ -662,6 +690,18 @@ def _schema_for(name, kind, solvers, crud, qmethods, qengines,
     if name == "run_job":
         parsed = parse_docstring(doc_of(
             "composition.py", "Engine._run_queued", root=root
+        ))
+        schema["properties"] = {
+            n: {"description": d} for n, _r, d in parsed["job_keys"]
+        }
+        schema["required"] = [n for n, r, _d in parsed["job_keys"] if r]
+        schema["returns"] = parsed["returns"]
+        schema["raises"] = parsed["raises"]
+        return schema
+    if name == "python_execute":
+        parsed = parse_docstring(doc_of(
+            "execution/python_exec.py",
+            "PythonExecService.request_execution", root=root
         ))
         schema["properties"] = {
             n: {"description": d} for n, _r, d in parsed["job_keys"]
