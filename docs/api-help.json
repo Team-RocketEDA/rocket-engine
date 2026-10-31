@@ -83,6 +83,12 @@
     "text": "Declared query `get_python_console`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
     "wired": false
   },
+  "get_resolved_config": {
+    "kind": "query",
+    "summary": "Bundle the resolved config for one session/run fetch.",
+    "text": "Bundle the resolved config for one session/run fetch.\n\nHandler: `rocket_engine.project.service.ProjectService.resolved_config`.\n\nAll five kinds in one call \u2014 clients render from this\nsnapshot instead of per-event round-trips. Absent files\nresolve to defaults; library refs stay unresolved here\n(callers resolve lib.tables refs against their own roots).\n\nArguments:\n\n- `session_id`: Client session this snapshot serves.\n- `run_id`: Run this snapshot was resolved for, if any.\n\nReturns:\n\nSnapshot mapping with project id, head revision, session/run ids, per-kind versions, all five settings mappings, and library refs.\n\nRaises:\n\nProjectError: future_format when any stored file is newer than the head; missing_migration when no link covers a stored version; invalid_document for stored settings that do not parse.\n",
+    "wired": true
+  },
   "list_artifacts": {
     "kind": "query",
     "summary": "Declared query `list_artifacts`; no handler wired yet.",
@@ -141,6 +147,12 @@
     "kind": "query",
     "summary": "Read one document as text at the current head.",
     "text": "Read one document as text at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.read_doc`.\n\nArguments:\n\n- `path` (required): Document path to read.\n\nReturns:\n\nMapping with project id, head revision, canonical path, content text, and byte size.\n\nRaises:\n\nProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.\n",
+    "wired": true
+  },
+  "read_settings": {
+    "kind": "query",
+    "summary": "Read one settings kind at the current head.",
+    "text": "Read one settings kind at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.read_settings`.\n\nAbsent files read as defaults (absent-default-is-clean):\na fresh project needs no seeding write. Stored files\nmigrate in memory to the known head; future files fail\ninstead of serving truth this engine cannot validate.\n\nArguments:\n\n- `kind` (required): Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables).\n\nReturns:\n\nMapping with project id, head revision, kind, stored flag, version, and the settings mapping.\n\nRaises:\n\nProjectError: invalid_command for an unknown kind or stored settings that break the kind schema; invalid_document for stored settings that do not parse; future_format for a file newer than the head; missing_migration when no link covers the stored version.\n",
     "wired": true
   },
   "rewind": {
@@ -261,6 +273,12 @@
     "kind": "operation",
     "summary": "Write one document: gate, store, advance, log.",
     "text": "Write one document: gate, store, advance, log.\n\nHandler: `rocket_engine.project.service.ProjectService.write_doc`.\n\nA resubmitted envelope returns its stored response without\nadvancing; a new envelope gates its expected_revision, and\nonly an accepted write advances the revision and appends\nthe doc_written event.\n\nArguments:\n\n- `path` (required): Document path to create or overwrite.\n- `content` (required): UTF-8 text to store (1 MB limit).\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_path or path_escape for a bad path; invalid_command for non-text or oversize content or a directory path; revision_conflict for a stale head; invalid_ledger when the durable write fails.\n\nCaution: Every accepted write advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
+    "wired": true
+  },
+  "write_settings": {
+    "kind": "operation",
+    "summary": "Write one settings kind: validate, gate, merge, log.",
+    "text": "Write one settings kind: validate, gate, merge, log.\n\nHandler: `rocket_engine.project.service.ProjectService.write_settings`.\n\nFull replacement of the kind's truth, persisted as the\nsettings/<kind>.yaml document through the same admission\nmachinery as write_doc (idempotent request ids, revision\ngate, one new revision, one event, atomic persist, rewind\nsnapshots). The write merges onto the stored bytes so\nunknown keys survive; data maps replace wholesale, so\ntext.vars deletes propagate. Unchanged bytes skip the\nwrite: no new revision, no event.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `kind` (required): Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables).\n- `settings` (required): Complete settings mapping at the head version.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, request id, written flag, and settings version.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_command for an unknown kind or settings that break the kind schema; revision_conflict for a stale head; future_format when the stored file is newer than the head; invalid_document for stored settings that do not parse; invalid_ledger when the durable write fails.\n\nCaution: Every accepted write advances the revision \u2014 a second writer at the old head fails instead of merging \u2014 and text.vars writes delete vars the new map omits.\n",
     "wired": true
   }
 }

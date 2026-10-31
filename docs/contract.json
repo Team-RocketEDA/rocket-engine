@@ -1451,6 +1451,33 @@
       "returns": "Mutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.",
       "type": "object",
       "wired": true
+    },
+    "write_settings": {
+      "description": "Write one settings kind: validate, gate, merge, log.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.write_settings"
+      ],
+      "kind": "operation",
+      "name": "write_settings",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "kind": {
+          "description": "Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables)."
+        },
+        "settings": {
+          "description": "Complete settings mapping at the head version."
+        }
+      },
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_command for an unknown kind or settings that break the kind schema; revision_conflict for a stale head; future_format when the stored file is newer than the head; invalid_document for stored settings that do not parse; invalid_ledger when the durable write fails.",
+      "required": [
+        "kind",
+        "settings"
+      ],
+      "returns": "Mutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, request id, written flag, and settings version.",
+      "type": "object",
+      "wired": true
     }
   },
   "queries": {
@@ -1617,6 +1644,27 @@
       "type": "object",
       "wired": false
     },
+    "get_resolved_config": {
+      "description": "Bundle the resolved config for one session/run fetch.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.resolved_config"
+      ],
+      "kind": "query",
+      "name": "get_resolved_config",
+      "properties": {
+        "run_id": {
+          "description": "Run this snapshot was resolved for, if any."
+        },
+        "session_id": {
+          "description": "Client session this snapshot serves."
+        }
+      },
+      "raises": "ProjectError: future_format when any stored file is newer than the head; missing_migration when no link covers a stored version; invalid_document for stored settings that do not parse.",
+      "required": [],
+      "returns": "Snapshot mapping with project id, head revision, session/run ids, per-kind versions, all five settings mappings, and library refs.",
+      "type": "object",
+      "wired": true
+    },
     "list_artifacts": {
       "description": "Declared query `list_artifacts`; no handler wired yet.",
       "handlers": [],
@@ -1750,6 +1798,26 @@
       "type": "object",
       "wired": true
     },
+    "read_settings": {
+      "description": "Read one settings kind at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.read_settings"
+      ],
+      "kind": "query",
+      "name": "read_settings",
+      "properties": {
+        "kind": {
+          "description": "Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables)."
+        }
+      },
+      "raises": "ProjectError: invalid_command for an unknown kind or stored settings that break the kind schema; invalid_document for stored settings that do not parse; future_format for a file newer than the head; missing_migration when no link covers the stored version.",
+      "required": [
+        "kind"
+      ],
+      "returns": "Mapping with project id, head revision, kind, stored flag, version, and the settings mapping.",
+      "type": "object",
+      "wired": true
+    },
     "serve_asset": {
       "description": "Serve one PDK file's bytes verbatim with hash identity.",
       "handlers": [
@@ -1778,7 +1846,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "8c72db3553cd939c7dffb6ba18a340977005d03aac8a995380a35951738e2bae",
+  "schema_sha256": "b5459f35d910eaf480ca23f357b7772270cbf2e986cb0d451448744440f8dcce",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

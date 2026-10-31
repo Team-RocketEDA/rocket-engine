@@ -99,6 +99,8 @@ QUERY_METHODS = {
     "list_projects": "list_projects",
     "list_docs": "list_docs",
     "read_doc": "read_doc",
+    "read_settings": "read_settings",
+    "get_resolved_config": "resolved_config",
 }
 
 # Wired query -> Engine method serving it. Same docs/help seam as
@@ -140,6 +142,7 @@ _CRUD_OPERATIONS = frozenset(
         "delete_doc",
         "apply_mutations",
         "rewind",
+        "write_settings",
     }
 )
 
@@ -330,10 +333,14 @@ class Engine:
                 expected_revision, invalid_command for a malformed
                 get_events_since cursor, a malformed mutation, a
                 place_cell without a cell, a serve_asset without
-                pdk id/revision/path, or a rewind that lacks a
-                target or targets the live head, resync_required
-                when a get_events_since contiguity demand cannot
-                be met, invalid_project for a bad project id,
+                pdk id/revision/path, a rewind that lacks a target
+                or targets the live head, a write_settings missing
+                kind or settings, an unknown settings kind, or
+                settings that break the kind schema, future_format
+                for a settings write over a newer on-disk file,
+                resync_required when a get_events_since contiguity
+                demand cannot be met, invalid_project
+                for a bad project id,
                 project_exists for a duplicate create,
                 unknown_document for a missing document,
                 unknown_revision for a rewind target with no
@@ -381,6 +388,17 @@ class Engine:
                     "invalid_command", "read_doc needs a path argument."
                 )
             return self._project.read_doc(arguments["path"])
+        if name == "read_settings":
+            if "kind" not in arguments:
+                raise ProjectError(
+                    "invalid_command", "read_settings needs a kind argument."
+                )
+            return self._project.read_settings(arguments["kind"])
+        if name == "get_resolved_config":
+            return self._project.resolved_config(
+                session_id=arguments.get("session_id"),
+                run_id=arguments.get("run_id"),
+            )
         if name in _JOB_QUERIES:
             return self._query_job(name, arguments)
         if name in _APIG_QUERIES:
@@ -523,6 +541,19 @@ class Engine:
                 )
             return self._project.rewind(
                 arguments["target_revision"],
+                request_id,
+                command_text,
+                expected_revision=arguments.get("expected_revision"),
+            )
+        if name == "write_settings":
+            if "kind" not in arguments or "settings" not in arguments:
+                raise ProjectError(
+                    "invalid_command",
+                    "write_settings needs kind and settings arguments.",
+                )
+            return self._project.write_settings(
+                arguments["kind"],
+                arguments["settings"],
                 request_id,
                 command_text,
                 expected_revision=arguments.get("expected_revision"),

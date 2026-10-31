@@ -41,6 +41,7 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
+from ..interfaces import settings_store
 from ..interfaces.paths import join_contained, to_unix
 from .errors import ProjectError
 
@@ -54,6 +55,9 @@ _REVISION_RE = re.compile(r"^(.*?)(\d+)$")
 _PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
 _RUN_OUTCOMES = ("run_completed", "run_failed")
 _RESERVED_DOCS = frozenset({_LEDGER_FILENAME, _EVENTS_FILENAME})
+
+# Document prefix owning the five design-truth settings files.
+_SETTINGS_DOC_PREFIX = "settings/"
 
 
 def _advance_revision(revision):
@@ -1290,6 +1294,111 @@ class ProjectService:
             "bytes": len(content.encode("utf-8")),
         }
 
+    def read_settings(self, kind):
+        """Read one settings kind at the current head.
+
+        Absent files read as defaults (absent-default-is-clean):
+        a fresh project needs no seeding write. Stored files
+        migrate in memory to the known head; future files fail
+        instead of serving truth this engine cannot validate.
+
+        Args:
+            kind: Settings kind (chip.manifest, design.rules,
+                net.classes, text.vars, lib.tables).
+
+        Returns:
+            Mapping with project id, head revision, kind, stored
+            flag, version, and the settings mapping.
+
+        Raises:
+            ProjectError: invalid_command for an unknown kind or
+                stored settings that break the kind schema;
+                invalid_document for stored settings that do not
+                parse; future_format for a file newer than the
+                head; missing_migration when no link covers the
+                stored version.
+        """
+        self._refresh_durable()
+        if kind not in settings_store.CURRENT_VERSIONS:
+            raise ProjectError(
+                "invalid_command", f"Unknown settings kind: {kind}."
+            )
+        canonical = _canonical_doc_path(f"{_SETTINGS_DOC_PREFIX}{kind}.yaml")
+        text = self._read_doc_text(canonical, canonical)
+        if text is None:
+            return {
+                "project_id": self._project_id,
+                "current_revision": self._current_revision,
+                "kind": kind,
+                "stored": False,
+                "version": settings_store.CURRENT_VERSIONS[kind],
+                "settings": settings_store.default_settings(kind),
+            }
+        try:
+            data = self._yaml.load(text)
+        except Exception as exc:
+            raise ProjectError(
+                "invalid_document",
+                f"Stored {kind} settings do not parse: {exc}.",
+            ) from exc
+        if not isinstance(data, dict):
+            raise ProjectError(
+                "invalid_document",
+                f"Stored {kind} settings must be a mapping.",
+            )
+        try:
+            migrated = settings_store.migrate(kind, data)
+        except settings_store.SettingsError as exc:
+            if exc.code in ("future_format", "missing_migration"):
+                raise ProjectError(exc.code, str(exc)) from exc
+            raise ProjectError(
+                "invalid_command",
+                f"Stored {kind} settings are invalid: {exc}.",
+            ) from exc
+        return {
+            "project_id": self._project_id,
+            "current_revision": self._current_revision,
+            "kind": kind,
+            "stored": True,
+            "version": migrated["meta"]["version"],
+            "settings": migrated,
+        }
+
+    def resolved_config(self, session_id=None, run_id=None):
+        """Bundle the resolved config for one session/run fetch.
+
+        All five kinds in one call — clients render from this
+        snapshot instead of per-event round-trips. Absent files
+        resolve to defaults; library refs stay unresolved here
+        (callers resolve lib.tables refs against their own roots).
+
+        Args:
+            session_id: Client session this snapshot serves.
+            run_id: Run this snapshot was resolved for, if any.
+
+        Returns:
+            Snapshot mapping with project id, head revision,
+            session/run ids, per-kind versions, all five settings
+            mappings, and library refs.
+
+        Raises:
+            ProjectError: future_format when any stored file is
+                newer than the head; missing_migration when no
+                link covers a stored version; invalid_document
+                for stored settings that do not parse.
+        """
+        self._refresh_durable()
+        settings = {}
+        for kind in settings_store.CURRENT_VERSIONS:
+            read = self.read_settings(kind)
+            settings[read["kind"]] = read["settings"]
+        snapshot = settings_store.snapshot_settings(
+            settings, session_id=session_id, run_id=run_id
+        )
+        snapshot["project_id"] = self._project_id
+        snapshot["current_revision"] = self._current_revision
+        return snapshot
+
     def write_doc(self, path, content, request_id, command_text,
                   expected_revision=None):
         """Write one document: gate, store, advance, log.
@@ -1400,6 +1509,124 @@ class ProjectService:
         }
         self._requests[request_id] = (command_text, response)
         self._persist_after_mutation()
+        return response
+
+    def write_settings(self, kind, settings, request_id, command_text,
+                       expected_revision=None):
+        """Write one settings kind: validate, gate, merge, log.
+
+        Full replacement of the kind's truth, persisted as the
+        settings/<kind>.yaml document through the same admission
+        machinery as write_doc (idempotent request ids, revision
+        gate, one new revision, one event, atomic persist, rewind
+        snapshots). The write merges onto the stored bytes so
+        unknown keys survive; data maps replace wholesale, so
+        text.vars deletes propagate. Unchanged bytes skip the
+        write: no new revision, no event.
+
+        A resubmitted envelope returns its stored response without
+        advancing.
+
+        Args:
+            kind: Settings kind (chip.manifest, design.rules,
+                net.classes, text.vars, lib.tables).
+            settings: Complete settings mapping at the head
+                version.
+            request_id: Client envelope id; resubmitting the
+                identical text returns the identical response
+                without advancing.
+            command_text: YAML command text for identity comparison.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with path, revision transition, new
+            head, actor, diff summary, rewind handle, the
+            appended event, cursor, request id, written flag, and
+            settings version.
+
+        Raises:
+            ProjectError: request_conflict for a reused id with
+                new text; invalid_command for an unknown kind or
+                settings that break the kind schema;
+                revision_conflict for a stale head; future_format
+                when the stored file is newer than the head;
+                invalid_document for stored settings that do not
+                parse; invalid_ledger when the durable write fails.
+
+        Caution: Every accepted write advances the revision — a
+            second writer at the old head fails instead of
+            merging — and text.vars writes delete vars the new
+            map omits.
+        """
+        self._refresh_durable()
+        replay = self._check_replay(request_id, command_text)
+        if replay is not None:
+            return replay
+        try:
+            settings_store.validate_settings(kind, settings)
+        except settings_store.SettingsError as exc:
+            raise ProjectError(
+                "invalid_command", f"Bad {kind} settings: {exc}."
+            ) from exc
+        self._gate_revision(expected_revision)
+        canonical = _canonical_doc_path(f"{_SETTINGS_DOC_PREFIX}{kind}.yaml")
+        old_text = self._read_doc_text(canonical, canonical)
+        old_data = None
+        if old_text is not None:
+            try:
+                old_data = self._yaml.load(old_text)
+            except Exception as exc:
+                raise ProjectError(
+                    "invalid_document",
+                    f"Stored {kind} settings do not parse: {exc}.",
+                ) from exc
+            if not isinstance(old_data, dict):
+                raise ProjectError(
+                    "invalid_document",
+                    f"Stored {kind} settings must be a mapping.",
+                )
+            old_version = settings_store.settings_version(kind, old_data)
+            if old_version > settings_store.settings_version(kind, settings):
+                raise ProjectError(
+                    "future_format",
+                    f"Stored {kind} settings are newer than this "
+                    "engine knows; refusing autosave.",
+                )
+        merged = settings_store.merge_settings(kind, old_data, settings)
+        text = settings_store.dump_settings_text(merged)
+        version = settings_store.settings_version(kind, merged)
+        if old_text is not None and text == old_text:
+            response = {
+                "project_id": self._project_id,
+                "path": canonical,
+                "previous_revision": self._current_revision,
+                "current_revision": self._current_revision,
+                "revision_transition": {
+                    "from": self._current_revision,
+                    "to": self._current_revision,
+                },
+                "actor": self._actor,
+                "diff_summary": f"unchanged {canonical}",
+                "rewind_handle": {
+                    "project_id": self._project_id,
+                    "revision": self._current_revision,
+                    "request_id": request_id,
+                },
+                "events": [],
+                "event_cursor": self._cursor(),
+                "request_id": request_id,
+                "written": False,
+                "settings_version": version,
+            }
+            self._requests[request_id] = (command_text, response)
+            self._persist_after_mutation()
+            return response
+        response = self.write_doc(
+            canonical, text, request_id, command_text,
+            expected_revision=expected_revision,
+        )
+        response["written"] = True
+        response["settings_version"] = version
         return response
 
     def delete_doc(self, path, request_id, command_text,

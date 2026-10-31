@@ -50,6 +50,7 @@ text, identical to the section bodies below.
 | `run_timing` | no | — | Declared operation `run_timing`; no handler wired yet. |
 | `run_view_sync` | no | — | Declared operation `run_view_sync`; no handler wired yet. |
 | `write_doc` | yes | — | Write one document: gate, store, advance, log. |
+| `write_settings` | yes | — | Write one settings kind: validate, gate, merge, log. |
 
 ## Queries
 
@@ -65,6 +66,7 @@ text, identical to the section bodies below.
 | `get_logs` | yes | `rocket_engine.composition.Engine.run_logs` | Search and page one run's captured native log. |
 | `get_project_snapshot` | yes | `rocket_engine.project.service.ProjectService.snapshot` | Read the ledger head: project, revision, and event cursor. |
 | `get_python_console` | no | — | Declared query `get_python_console`; no handler wired yet. |
+| `get_resolved_config` | yes | `rocket_engine.project.service.ProjectService.resolved_config` | Bundle the resolved config for one session/run fetch. |
 | `list_artifacts` | no | — | Declared query `list_artifacts`; no handler wired yet. |
 | `list_assets` | yes | `rocket_engine.composition.Engine.list_assets` | List PDK file metadata with per-file hash identity. |
 | `list_cells` | yes | `rocket_engine.composition.Engine.catalog_cells` | List versioned component cells, optionally for one PDK. |
@@ -73,6 +75,7 @@ text, identical to the section bodies below.
 | `list_projects` | yes | `rocket_engine.project.service.ProjectService.list_projects` | List projects under the engine root, bound always included. |
 | `plan_checks` | no | — | Declared query `plan_checks`; no handler wired yet. |
 | `read_doc` | yes | `rocket_engine.project.service.ProjectService.read_doc` | Read one document as text at the current head. |
+| `read_settings` | yes | `rocket_engine.project.service.ProjectService.read_settings` | Read one settings kind at the current head. |
 | `serve_asset` | yes | `rocket_engine.composition.Engine.serve_asset` | Serve one PDK file's bytes verbatim with hash identity. |
 
 ## Operation reference
@@ -632,6 +635,40 @@ ProjectError: request_conflict for a reused id with new text; invalid_path or pa
 
 Caution: Every accepted write advances the revision — a second writer at the old head fails instead of merging.
 
+### write_settings
+
+Write one settings kind: validate, gate, merge, log.
+
+Handler: `rocket_engine.project.service.ProjectService.write_settings`.
+
+Full replacement of the kind's truth, persisted as the
+settings/<kind>.yaml document through the same admission
+machinery as write_doc (idempotent request ids, revision
+gate, one new revision, one event, atomic persist, rewind
+snapshots). The write merges onto the stored bytes so
+unknown keys survive; data maps replace wholesale, so
+text.vars deletes propagate. Unchanged bytes skip the
+write: no new revision, no event.
+
+A resubmitted envelope returns its stored response without
+advancing.
+
+Arguments:
+
+- `kind` (required): Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables).
+- `settings` (required): Complete settings mapping at the head version.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, request id, written flag, and settings version.
+
+Raises:
+
+ProjectError: request_conflict for a reused id with new text; invalid_command for an unknown kind or settings that break the kind schema; revision_conflict for a stale head; future_format when the stored file is newer than the head; invalid_document for stored settings that do not parse; invalid_ledger when the durable write fails.
+
+Caution: Every accepted write advances the revision — a second writer at the old head fails instead of merging — and text.vars writes delete vars the new map omits.
+
 ## Query reference
 
 ### api_help
@@ -778,6 +815,30 @@ Declared query `get_python_console`; no handler wired yet.
 
 `Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
 
+### get_resolved_config
+
+Bundle the resolved config for one session/run fetch.
+
+Handler: `rocket_engine.project.service.ProjectService.resolved_config`.
+
+All five kinds in one call — clients render from this
+snapshot instead of per-event round-trips. Absent files
+resolve to defaults; library refs stay unresolved here
+(callers resolve lib.tables refs against their own roots).
+
+Arguments:
+
+- `session_id`: Client session this snapshot serves.
+- `run_id`: Run this snapshot was resolved for, if any.
+
+Returns:
+
+Snapshot mapping with project id, head revision, session/run ids, per-kind versions, all five settings mappings, and library refs.
+
+Raises:
+
+ProjectError: future_format when any stored file is newer than the head; missing_migration when no link covers a stored version; invalid_document for stored settings that do not parse.
+
 ### list_artifacts
 
 Declared query `list_artifacts`; no handler wired yet.
@@ -902,6 +963,29 @@ Mapping with project id, head revision, canonical path, content text, and byte s
 Raises:
 
 ProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.
+
+### read_settings
+
+Read one settings kind at the current head.
+
+Handler: `rocket_engine.project.service.ProjectService.read_settings`.
+
+Absent files read as defaults (absent-default-is-clean):
+a fresh project needs no seeding write. Stored files
+migrate in memory to the known head; future files fail
+instead of serving truth this engine cannot validate.
+
+Arguments:
+
+- `kind` (required): Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables).
+
+Returns:
+
+Mapping with project id, head revision, kind, stored flag, version, and the settings mapping.
+
+Raises:
+
+ProjectError: invalid_command for an unknown kind or stored settings that break the kind schema; invalid_document for stored settings that do not parse; future_format for a file newer than the head; missing_migration when no link covers the stored version.
 
 ### serve_asset
 
