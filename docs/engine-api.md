@@ -48,7 +48,7 @@ text, identical to the section bodies below.
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
 | `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_cosim` | yes | `cosim` (default) | run_cosim via ngspice plus icarus: coupled mixed-signal verdicts. |
-| `run_digital_flow` | no | — | Declared operation `run_digital_flow`; no handler wired yet. |
+| `run_digital_flow` | yes | `librelane` (default) | run_digital_flow via LibreLane: RTL to verified GDS plus evidence. |
 | `run_drc` | yes | `magic` (default), `klayout` | run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes. |
 | `run_em` | yes | `meow` (default) | run_em via meow: EME mode/field solving with convergence evidence. |
 | `run_erc` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
@@ -63,7 +63,7 @@ text, identical to the section bodies below.
 | `run_syntax` | yes | `slang` (default) | run_syntax via Slang: SystemVerilog lint with diagnostics. |
 | `run_synth` | yes | `yosys` (default) | run_synth via Yosys: RTL to mapped netlist plus evidence. |
 | `run_thermal` | no | — | Declared operation `run_thermal`; no handler wired yet. |
-| `run_timing` | no | — | Declared operation `run_timing`; no handler wired yet. |
+| `run_timing` | yes | `opensta` (default) | run_timing via OpenSTA: top-level STA recheck plus evidence. |
 | `run_view_sync` | yes | `connectgraph` (default) | Intended-vs-extracted connectivity diff for photonic P14. |
 | `set_component` | yes | — | Upsert one component payload (create or overwrite). |
 | `split_wire` | yes | — | Split one wire at an interior point: gate, run, log. |
@@ -677,9 +677,57 @@ Caution: The verdict always comes from parsed output, never the exit code — an
 
 ### run_digital_flow
 
-Declared operation `run_digital_flow`; no handler wired yet.
+run_digital_flow via LibreLane: RTL to verified GDS plus evidence.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `librelane` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.digital_flow.LibrelaneFlowAdapter`.
+
+#### Tool `librelane`
+
+run_digital_flow via LibreLane: RTL to verified GDS plus evidence.
+
+Serves the run_digital_flow operation with deck.tool `librelane`
+(the only tool). Stages the project RTL into a LibreLane design
+dir, runs the Classic flow as a subprocess under the job timeout,
+and judges the D11-D27 stage gates from the run's step dirs:
+per-stage evidence is the config, reports, and DB checkpoints
+found there, failures name the stage plus the report, and the job
+`force` list bypasses named gates as warnings.
+
+Arguments:
+
+- `sources` (required): Verilog source paths staged to design/.
+- `top` (required): Top module name (plain identifier).
+- `clock_port`: Clock port name (default clk; None omits it).
+- `clock_period`: Clock period in ns (default 10.0).
+- `pdk`: PDK name for --pdk (default sky130A).
+- `pdk_root`: PDK root dir for --pdk-root; omitted when None.
+- `scl`: Standard-cell library for --scl; omitted when None.
+- `flow`: Flow name; only Classic is supported.
+- `tag`: Run tag for runs/<tag>/ (default engine).
+- `force`: Stage ids (D11-D27) whose gate failures bypass.
+- `config`: Extra config mapping merged into the flow config.
+- `timeout_s`: Flow budget in seconds (default 3600).
+- `tool_dir`: Directory holding librelane; PATH otherwise.
+- `deck`: Optional mapping; deck.tool must be librelane here.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements{}} with the per-stage table plus gds, netlist, spef, drc_total, lvs_match, version, tag, run_dir, and timed_out evidence.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation or a foreign deck.tool, invalid_command for bad flow inputs, invalid_reference for missing sources or pdk_root, missing_dependency for an unresolvable or unpinned librelane.
+
+(execute) AdapterError: invalid_reference for a missing workdir or an unstageable design, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output has no exit code and no timeout — unparseable never parses as clean.
+
+Caution: Overwrites design/, the flow config, and digital_flow.log in the workdir; long runs die by timeout_s with partial evidence, never a hang — and a failed run never parses as clean.
 
 ### run_drc
 
@@ -1309,9 +1357,51 @@ Declared operation `run_thermal`; no handler wired yet.
 
 ### run_timing
 
-Declared operation `run_timing`; no handler wired yet.
+run_timing via OpenSTA: top-level STA recheck plus evidence.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `opensta` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.timing_sta.OpenStaTimingAdapter`.
+
+#### Tool `opensta`
+
+run_timing via OpenSTA: top-level STA recheck plus evidence.
+
+Serves the run_timing operation with deck.tool `opensta` (the
+only tool). Reads the timing libs, the mapped netlist files, the
+optional top-level SPEF, and the SDC constraints, then reports
+setup/hold WNS/TNS margins, critical paths, slew/load
+violators, and unconstrained endpoints. Evidence is the four
+margins, the critical-path records, the unconstrained-endpoint
+findings with the raw check_setup text, and the sta version.
+
+Arguments:
+
+- `netlist` (required): Mapped Verilog netlist paths, non-empty list, every file must exist.
+- `libs` (required): Timing liberty (.lib) paths, non-empty list, every file must exist.
+- `sdc` (required): SDC constraints path, must exist. Passed to sta opaquely — generated clocks and boundary constraints flow through untouched.
+- `spef`: Top-level SPEF path for extracted-RC annotation; no parasitics without it.
+- `top` (required): Top module name (plain identifier).
+- `timeout_s`: STA budget in seconds (default 300).
+- `tool_dir`: Directory holding sta; $OPENSTA_PREFIX/bin then PATH otherwise.
+- `deck`: Optional mapping; deck.tool must be opensta here.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements[]} plus critical_paths, unconstrained_endpoints, the four margins, check_setup/constraints raw text, top, netlist, libs, sdc, spef, and sta_version evidence.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a bad top or timeout, invalid_reference for missing or non-list netlist/libs, a missing sdc/spef, or a path unsafe for the TCL script, missing_dependency for an unresolvable or unassertable sta.
+
+(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on an STA timeout, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output has no exit code, or a clean run left no parseable WNS/TNS verdict — unparseable never parses as clean.
+
+Caution: Exit zero is not PASS — sta keeps going past command errors, so any `Error:` line fails the run however it exited, and a clean run without all four WNS/TNS margins is runner_unavailable, never a clean verdict.
 
 ### run_view_sync
 

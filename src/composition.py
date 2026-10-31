@@ -31,7 +31,8 @@ netgen; run_spice: ngspice;
 run_post_layout: ngspice; run_syntax: slang; run_hdl_test: icarus;
 run_synth: yosys; run_connectivity: connectgraph; run_erc: connectgraph;
 run_formal: sby; run_view_sync: connectgraph;
-generate_views: gdsfactory; run_cosim: cosim).
+generate_views: gdsfactory; run_cosim: cosim; run_timing: opensta;
+run_digital_flow: librelane).
 Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
 """
@@ -41,6 +42,7 @@ import uuid
 from .adapters.circulax.adapter import CirculaxAdapter
 from .adapters.connectivity import ConnectivityAdapter
 from .adapters.cosim import CosimAdapter
+from .adapters.digital_flow import LibrelaneFlowAdapter
 from .adapters.drc import MagicDrcAdapter
 from .adapters.drc_kl import KlayoutDrcAdapter
 from .adapters.errors import AdapterError
@@ -55,6 +57,7 @@ from .adapters.postlayout.adapter import PostLayoutAdapter
 from .adapters.sax import SaxAdapter
 from .adapters.syntax import SyntaxAdapter
 from .adapters.synth_yosys import YosysSynthAdapter
+from .adapters.timing_sta import OpenStaTimingAdapter
 from .adapters.view_sync import ViewSyncAdapter
 from .execution.apig_pool import (
     ApigPool,
@@ -286,6 +289,8 @@ class Engine:
             "run_view_sync": {"connectgraph": ViewSyncAdapter()},
             "generate_views": {"gdsfactory": GdsfactoryViewsAdapter()},
             "run_cosim": {"cosim": CosimAdapter()},
+            "run_digital_flow": {"librelane": LibrelaneFlowAdapter()},
+            "run_timing": {"opensta": OpenStaTimingAdapter()},
         }
         self._constraints = dict(constraints) if constraints is not None else None
         self._logs = {}

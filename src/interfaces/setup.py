@@ -69,6 +69,8 @@ SOLVER_DEPS = {
     ("run_view_sync", "connectgraph"): {},
     ("generate_views", "gdsfactory"): {"python": ["gdsfactory"]},
     ("run_cosim", "cosim"): {"binaries": ["ngspice", "iverilog", "vvp"]},
+    ("run_digital_flow", "librelane"): {"binaries": ["librelane"]},
+    ("run_timing", "opensta"): {"binaries": ["sta"]},
 }
 
 

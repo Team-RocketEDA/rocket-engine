@@ -1,0 +1,7 @@
+/* stub.lib — TIMING-STA path-existence placeholder, NOT device data.
+ *
+ * Stub-sta (hermetic) tests need a real file path for the required
+ * `libs` job key while the stub never reads its contents. Live
+ * tests ignore this file and use the ambient sky130 liberty
+ * (TIMING_STA_LIBERTY). Never treat this file as timing data.
+ */

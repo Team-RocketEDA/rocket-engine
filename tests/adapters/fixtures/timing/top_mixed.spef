@@ -1,0 +1,47 @@
+*SPEF "IEEE 1481-1998"
+*DESIGN "top_mixed"
+*DATE "2026-10-31"
+*VENDOR "RocketEDA TIMING-STA fixture"
+*PROGRAM "hand-built minimal top-level SPEF"
+*VERSION "1.0"
+*DIVIDER /
+*DELIMITER :
+*T_UNIT 1 NS
+*C_UNIT 1 PF
+*R_UNIT 1 KOHM
+*L_UNIT 1 HENRY
+*PORTS
+clk_in I *C 0.002
+dac_data_out O *C 0.002
+adc_ready_out O *C 0.002
+*D_NET clk_in 0.005
+*CONN
+*P clk_in I
+*I cpu/clk I
+*I abound/clk I
+*CAP
+1 clk_in:1 0.001
+2 clk_in:2 0.002
+3 clk_in:3 0.002
+*RES
+1 clk_in:1 clk_in:2 0.100
+2 clk_in:2 clk_in:3 0.100
+*D_NET dac_data_out 0.003
+*CONN
+*P dac_data_out O
+*I abound/dac_data O
+*CAP
+1 dac_data_out:1 0.001
+2 dac_data_out:2 0.002
+*RES
+1 dac_data_out:1 dac_data_out:2 0.050
+*D_NET adc_ready_out 0.003
+*CONN
+*P adc_ready_out O
+*I abound/adc_ready O
+*CAP
+1 adc_ready_out:1 0.001
+2 adc_ready_out:2 0.002
+*RES
+1 adc_ready_out:1 adc_ready_out:2 0.050
+*END

@@ -1008,15 +1008,204 @@
       "wired": true
     },
     "run_digital_flow": {
-      "description": "Declared operation `run_digital_flow`; no handler wired yet.",
-      "handlers": [],
+      "description": "run_digital_flow via LibreLane: RTL to verified GDS plus evidence.",
+      "handlers": [
+        "rocket_engine.adapters.digital_flow.LibrelaneFlowAdapter"
+      ],
       "kind": "operation",
       "name": "run_digital_flow",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "clock_period": {
+          "description": "Clock period in ns (default 10.0)."
+        },
+        "clock_port": {
+          "description": "Clock port name (default clk; None omits it)."
+        },
+        "config": {
+          "description": "Extra config mapping merged into the flow config."
+        },
+        "deck": {
+          "description": "Optional mapping; deck.tool must be librelane here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "flow": {
+          "description": "Flow name; only Classic is supported."
+        },
+        "force": {
+          "description": "Stage ids (D11-D27) whose gate failures bypass."
+        },
+        "pdk": {
+          "description": "PDK name for --pdk (default sky130A)."
+        },
+        "pdk_root": {
+          "description": "PDK root dir for --pdk-root; omitted when None."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "scl": {
+          "description": "Standard-cell library for --scl; omitted when None."
+        },
+        "sources": {
+          "description": "Verilog source paths staged to design/."
+        },
+        "tag": {
+          "description": "Run tag for runs/<tag>/ (default engine)."
+        },
+        "timeout_s": {
+          "description": "Flow budget in seconds (default 3600)."
+        },
+        "tool_dir": {
+          "description": "Directory holding librelane; PATH otherwise."
+        },
+        "top": {
+          "description": "Top module name (plain identifier)."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "sources",
+        "top"
+      ],
+      "returns": "{total, violations[], measurements{}} with the per-stage table plus gds, netlist, spef, drc_total, lvs_match, version, tag, run_dir, and timed_out evidence.",
+      "tools": {
+        "librelane": {
+          "adapter": "rocket_engine.adapters.digital_flow.LibrelaneFlowAdapter",
+          "properties": {
+            "clock_period": {
+              "description": "Clock period in ns (default 10.0)."
+            },
+            "clock_port": {
+              "description": "Clock port name (default clk; None omits it)."
+            },
+            "config": {
+              "description": "Extra config mapping merged into the flow config."
+            },
+            "deck": {
+              "description": "Optional mapping; deck.tool must be librelane here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "flow": {
+              "description": "Flow name; only Classic is supported."
+            },
+            "force": {
+              "description": "Stage ids (D11-D27) whose gate failures bypass."
+            },
+            "pdk": {
+              "description": "PDK name for --pdk (default sky130A)."
+            },
+            "pdk_root": {
+              "description": "PDK root dir for --pdk-root; omitted when None."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "scl": {
+              "description": "Standard-cell library for --scl; omitted when None."
+            },
+            "sources": {
+              "description": "Verilog source paths staged to design/."
+            },
+            "tag": {
+              "description": "Run tag for runs/<tag>/ (default engine)."
+            },
+            "timeout_s": {
+              "description": "Flow budget in seconds (default 3600)."
+            },
+            "tool_dir": {
+              "description": "Directory holding librelane; PATH otherwise."
+            },
+            "top": {
+              "description": "Top module name (plain identifier)."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sources",
+            "top"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "run_drc": {
       "description": "run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.",
@@ -3049,15 +3238,172 @@
       "wired": false
     },
     "run_timing": {
-      "description": "Declared operation `run_timing`; no handler wired yet.",
-      "handlers": [],
+      "description": "run_timing via OpenSTA: top-level STA recheck plus evidence.",
+      "handlers": [
+        "rocket_engine.adapters.timing_sta.OpenStaTimingAdapter"
+      ],
       "kind": "operation",
       "name": "run_timing",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be opensta here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "libs": {
+          "description": "Timing liberty (.lib) paths, non-empty list, every file must exist."
+        },
+        "netlist": {
+          "description": "Mapped Verilog netlist paths, non-empty list, every file must exist."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "sdc": {
+          "description": "SDC constraints path, must exist. Passed to sta opaquely \u2014 generated clocks and boundary constraints flow through untouched."
+        },
+        "spef": {
+          "description": "Top-level SPEF path for extracted-RC annotation; no parasitics without it."
+        },
+        "timeout_s": {
+          "description": "STA budget in seconds (default 300)."
+        },
+        "tool_dir": {
+          "description": "Directory holding sta; $OPENSTA_PREFIX/bin then PATH otherwise."
+        },
+        "top": {
+          "description": "Top module name (plain identifier)."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "netlist",
+        "libs",
+        "sdc",
+        "top"
+      ],
+      "returns": "{total, violations[], measurements[]} plus critical_paths, unconstrained_endpoints, the four margins, check_setup/constraints raw text, top, netlist, libs, sdc, spef, and sta_version evidence.",
+      "tools": {
+        "opensta": {
+          "adapter": "rocket_engine.adapters.timing_sta.OpenStaTimingAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be opensta here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "libs": {
+              "description": "Timing liberty (.lib) paths, non-empty list, every file must exist."
+            },
+            "netlist": {
+              "description": "Mapped Verilog netlist paths, non-empty list, every file must exist."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "sdc": {
+              "description": "SDC constraints path, must exist. Passed to sta opaquely \u2014 generated clocks and boundary constraints flow through untouched."
+            },
+            "spef": {
+              "description": "Top-level SPEF path for extracted-RC annotation; no parasitics without it."
+            },
+            "timeout_s": {
+              "description": "STA budget in seconds (default 300)."
+            },
+            "tool_dir": {
+              "description": "Directory holding sta; $OPENSTA_PREFIX/bin then PATH otherwise."
+            },
+            "top": {
+              "description": "Top module name (plain identifier)."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "netlist",
+            "libs",
+            "sdc",
+            "top"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "run_view_sync": {
       "description": "Intended-vs-extracted connectivity diff for photonic P14.",
@@ -3951,7 +4297,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "841ef5c21943f160ca94164b813b4fb62b65c1eb3eea3b466e27123b48ce3681",
+  "schema_sha256": "99524a87fd812decf594f6b8676a2e343b9984c10fa947e32cc915a962f0fc45",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",
