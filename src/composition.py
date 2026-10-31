@@ -27,8 +27,8 @@ one — is refused.
 maps to named solvers; `deck.tool` selects one, defaulting to the
 first registered (run_drc: magic, then klayout; run_optical: sax;
 run_extraction: magic; run_lvs: netgen; run_spice: ngspice;
-run_syntax: slang; run_hdl_test: icarus; run_synth: yosys;
-run_connectivity: connectgraph; run_erc: connectgraph;
+run_post_layout: ngspice; run_syntax: slang; run_hdl_test: icarus;
+run_synth: yosys; run_connectivity: connectgraph; run_erc: connectgraph;
 run_formal: sby).
 Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
@@ -48,6 +48,7 @@ from .adapters.formal_sby import FormalSbyAdapter
 from .adapters.hdl_sim import HdlSimAdapter
 from .adapters.lvs_netgen import NetgenLvsAdapter
 from .adapters.ngspice import NgspiceAdapter
+from .adapters.postlayout.adapter import PostLayoutAdapter
 from .adapters.sax import SaxAdapter
 from .adapters.syntax import SyntaxAdapter
 from .adapters.synth_yosys import YosysSynthAdapter
@@ -270,6 +271,7 @@ class Engine:
             "run_extraction": {"magic": MagicExtractAdapter()},
             "run_lvs": {"netgen": NetgenLvsAdapter()},
             "run_spice": {"ngspice": NgspiceAdapter()},
+            "run_post_layout": {"ngspice": PostLayoutAdapter()},
             "run_syntax": {"slang": SyntaxAdapter()},
             "run_synth": {"yosys": YosysSynthAdapter()},
             "run_connectivity": {"connectgraph": ConnectivityAdapter()},
@@ -2379,6 +2381,16 @@ class Engine:
         # Keep measured values on PASS too: a verdict without numbers can't be reviewed.
         if result.get("measurements") is not None:
             verdict = dict(verdict, measurements=result["measurements"])
+            self._execution.mark_completed(run_id, verdict)
+        # Post-layout evidence rides the same way: the pre/post delta
+        # table plus the extraction/schematic provenance are small and
+        # reviewable (raw waveform samples stay adapter-level so the
+        # ledger never carries bulk vectors).
+        if result.get("comparison") is not None:
+            verdict = dict(verdict, comparison=result["comparison"])
+            self._execution.mark_completed(run_id, verdict)
+        if result.get("provenance") is not None:
+            verdict = dict(verdict, provenance=result["provenance"])
             self._execution.mark_completed(run_id, verdict)
         if scope_record is not None:
             verdict = stamp_verdict(verdict, scope_record["provenance"])

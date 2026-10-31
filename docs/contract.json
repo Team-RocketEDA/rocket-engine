@@ -1815,15 +1815,226 @@
       "wired": true
     },
     "run_post_layout": {
-      "description": "Declared operation `run_post_layout`; no handler wired yet.",
-      "handlers": [],
+      "description": "run_post_layout via ngspice: extracted sims with pre/post deltas.",
+      "handlers": [
+        "rocket_engine.adapters.postlayout.adapter.PostLayoutAdapter"
+      ],
       "kind": "operation",
       "name": "run_post_layout",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "analyses": {
+          "description": ".control analysis lines (default op)."
+        },
+        "corner": {
+          "description": "Model corner (default tt)."
+        },
+        "deck": {
+          "description": "Optional mapping; deck.tool must be ngspice here."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "extracted_netlist": {
+          "description": "Extracted netlist path simmed as the first body (never a schematic without a record)."
+        },
+        "extraction_provenance": {
+          "description": "{extraction_run_id, netlist_sha256, cell?, tech?, spice_file?, device_count?} pinning the extraction; stale records refuse loudly."
+        },
+        "measurements": {
+          "description": "[{name, expr, unit?, min?, max?}] with numeric min and/or max each (bounds judge POST)."
+        },
+        "options": {
+          "description": ".option lines (default [wnflag=1])."
+        },
+        "params": {
+          "description": ".param name/value mapping."
+        },
+        "pdk": {
+          "description": "{id, revision, model_rel?, engine_root?} pin for PDK models via the store; omitted sims model-free."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "schematic_measurements": {
+          "description": "Explicit pre values [{name, value, unit?}] winning over the runs resolver."
+        },
+        "schematic_run_id": {
+          "description": "Schematic run_spice run id the comparison reads pre values for (run_id is an alias)."
+        },
+        "temp_c": {
+          "description": "Temperature in C (default 27)."
+        },
+        "testbench": {
+          "description": "Testbench wrapper path staged after the netlist."
+        },
+        "timeout_s": {
+          "description": "Sim budget in seconds (default 120)."
+        },
+        "title": {
+          "description": "Deck title line."
+        },
+        "tool_dir": {
+          "description": "Directory holding ngspice; PATH otherwise."
+        },
+        "waveforms": {
+          "description": "[{name, expr}] vector exprs dumped via wrdata."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "extracted_netlist",
+        "extraction_provenance",
+        "measurements",
+        "schematic_run_id"
+      ],
+      "returns": "{total, violations[], measurements[], comparison[], waveforms[], provenance} with value, unit, target, margin, and status per measurement plus pre, post, delta, and rel per comparison row.",
+      "tools": {
+        "ngspice": {
+          "adapter": "rocket_engine.adapters.postlayout.adapter.PostLayoutAdapter",
+          "properties": {
+            "analyses": {
+              "description": ".control analysis lines (default op)."
+            },
+            "corner": {
+              "description": "Model corner (default tt)."
+            },
+            "deck": {
+              "description": "Optional mapping; deck.tool must be ngspice here."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "extracted_netlist": {
+              "description": "Extracted netlist path simmed as the first body (never a schematic without a record)."
+            },
+            "extraction_provenance": {
+              "description": "{extraction_run_id, netlist_sha256, cell?, tech?, spice_file?, device_count?} pinning the extraction; stale records refuse loudly."
+            },
+            "measurements": {
+              "description": "[{name, expr, unit?, min?, max?}] with numeric min and/or max each (bounds judge POST)."
+            },
+            "options": {
+              "description": ".option lines (default [wnflag=1])."
+            },
+            "params": {
+              "description": ".param name/value mapping."
+            },
+            "pdk": {
+              "description": "{id, revision, model_rel?, engine_root?} pin for PDK models via the store; omitted sims model-free."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "schematic_measurements": {
+              "description": "Explicit pre values [{name, value, unit?}] winning over the runs resolver."
+            },
+            "schematic_run_id": {
+              "description": "Schematic run_spice run id the comparison reads pre values for (run_id is an alias)."
+            },
+            "temp_c": {
+              "description": "Temperature in C (default 27)."
+            },
+            "testbench": {
+              "description": "Testbench wrapper path staged after the netlist."
+            },
+            "timeout_s": {
+              "description": "Sim budget in seconds (default 120)."
+            },
+            "title": {
+              "description": "Deck title line."
+            },
+            "tool_dir": {
+              "description": "Directory holding ngspice; PATH otherwise."
+            },
+            "waveforms": {
+              "description": "[{name, expr}] vector exprs dumped via wrdata."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "extracted_netlist",
+            "extraction_provenance",
+            "measurements",
+            "schematic_run_id"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "run_spice": {
       "description": "run_spice via ngspice: corner sims with measured bounds.",
@@ -3100,7 +3311,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "4fc44f34ef37f5535421cef73a7f965551c82cbf74de0f28ad5bf940adf3a88a",
+  "schema_sha256": "44c2d61f573364e4aa6b280685f890cad96ab95eae062888aeac5ac03480019d",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

@@ -1,0 +1,6 @@
+* RC divider lossy extraction (post-layout post side, model-free).
+* Rpar models drawn-vs-extracted series loss: V(out) is ~500 uV low.
+V1 in 0 1.8
+R1 in n1 4k
+Rpar n1 out 5
+R2 out 0 8k

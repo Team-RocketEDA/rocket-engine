@@ -1,0 +1,5 @@
+* RC divider schematic baseline (post-layout pre side, model-free).
+* V(out) = 1.8 * 8k/(4k+8k) = 1.2 V exactly.
+V1 in 0 1.8
+R1 in out 4k
+R2 out 0 8k

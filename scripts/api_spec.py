@@ -134,7 +134,8 @@ def solver_map(root=None):
     """{op: [(tool, adapter_class, module_rel)]} from Engine._solvers.
 
     Tool order is registration order (first = deck.tool default);
-    adapter modules resolve through composition's from-imports.
+    adapter modules resolve through composition's from-imports,
+    package (adapters/<name>) or module (adapters/<name>/<mod>).
     """
     root = Path(root) if root is not None else SRC
     tree = ast.parse((root / "composition.py").read_text())
@@ -143,8 +144,11 @@ def solver_map(root=None):
         if not isinstance(node, ast.ImportFrom) or node.level != 1:
             continue
         parts = (node.module or "").split(".")
-        if len(parts) == 2 and parts[0] == "adapters":
-            rel = f"adapters/{parts[1]}/__init__.py"
+        if parts[0] == "adapters" and len(parts) in (2, 3):
+            if len(parts) == 2:
+                rel = f"adapters/{parts[1]}/__init__.py"
+            else:
+                rel = f"adapters/{parts[1]}/{parts[2]}.py"
             for alias in node.names:
                 locations[alias.asname or alias.name] = rel
     solvers = {}

@@ -57,7 +57,7 @@ text, identical to the section bodies below.
 | `run_job` | yes | — | Execute admitted requests by id: deferred singles, fetch, batches. |
 | `run_lvs` | yes | `netgen` (default) | run_lvs via Netgen: layout vs schematic, TOP-level compare. |
 | `run_optical` | yes | `sax` (default) | run_optical via SAX: frequency-domain photonic circuit sim. |
-| `run_post_layout` | no | — | Declared operation `run_post_layout`; no handler wired yet. |
+| `run_post_layout` | yes | `ngspice` (default) | run_post_layout via ngspice: extracted sims with pre/post deltas. |
 | `run_spice` | yes | `ngspice` (default) | run_spice via ngspice: corner sims with measured bounds. |
 | `run_syntax` | yes | `slang` (default) | run_syntax via Slang: SystemVerilog lint with diagnostics. |
 | `run_synth` | yes | `yosys` (default) | run_synth via Yosys: RTL to mapped netlist plus evidence. |
@@ -951,9 +951,60 @@ Caution: Missed target bounds are FAIL and a malformed circuit synthesizes an er
 
 ### run_post_layout
 
-Declared operation `run_post_layout`; no handler wired yet.
+run_post_layout via ngspice: extracted sims with pre/post deltas.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `ngspice` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.postlayout.adapter.PostLayoutAdapter`.
+
+#### Tool `ngspice`
+
+run_post_layout via ngspice: extracted sims with pre/post deltas.
+
+Serves the run_post_layout operation with deck.tool `ngspice`
+(the only tool). Sims the extracted netlist plus testbench
+through ngspice in batch, evaluates post-layout measurements
+against min/max bounds, dumps requested waveforms via wrdata,
+and joins every measurement with its schematic value into a
+pre/post comparison table; deltas are evidence only and never
+gate the verdict.
+
+Arguments:
+
+- `extracted_netlist` (required): Extracted netlist path simmed as the first body (never a schematic without a record).
+- `extraction_provenance` (required): {extraction_run_id, netlist_sha256, cell?, tech?, spice_file?, device_count?} pinning the extraction; stale records refuse loudly.
+- `measurements` (required): [{name, expr, unit?, min?, max?}] with numeric min and/or max each (bounds judge POST).
+- `schematic_run_id` (required): Schematic run_spice run id the comparison reads pre values for (run_id is an alias).
+- `schematic_measurements`: Explicit pre values [{name, value, unit?}] winning over the runs resolver.
+- `testbench`: Testbench wrapper path staged after the netlist.
+- `waveforms`: [{name, expr}] vector exprs dumped via wrdata.
+- `analyses`: .control analysis lines (default op).
+- `options`: .option lines (default [wnflag=1]).
+- `params`: .param name/value mapping.
+- `corner`: Model corner (default tt).
+- `temp_c`: Temperature in C (default 27).
+- `title`: Deck title line.
+- `pdk`: {id, revision, model_rel?, engine_root?} pin for PDK models via the store; omitted sims model-free.
+- `timeout_s`: Sim budget in seconds (default 120).
+- `tool_dir`: Directory holding ngspice; PATH otherwise.
+- `deck`: Optional mapping; deck.tool must be ngspice here.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements[], comparison[], waveforms[], provenance} with value, unit, target, margin, and status per measurement plus pre, post, delta, and rel per comparison row.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_command for bad inputs (sources alias, timeout, measurements, waveforms, analyses, options, params, corner, temp_c, title, missing or malformed provenance, missing or conflicting schematic ref, schematic gap), invalid_reference for a missing netlist or testbench, a stale or foreign provenance record, or an unresolvable schematic run, store codes (unknown_pdk, pdk_drift, ...) for a bad PDK pin, missing_dependency for an unresolvable ngspice.
+
+(execute) AdapterError: invalid_reference for a missing workdir or unreadable netlist, runner_unavailable on a sim timeout, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when ngspice produced no output at all or the native carries no schematic sidecar.
+
+Caution: Verdicts always come from parsed output, never the exit code — a missing or stale extraction record refuses instead of simming a schematic as extracted, and PDK models resolve through the store, so a wrong revision or tampered model fails loudly instead of simming against substitutes.
 
 ### run_spice
 
