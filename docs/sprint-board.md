@@ -10,7 +10,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 ## Backlog
 
 - [PROV] Provision toolchain + sky130A PDK/decks — needs deck-source decision
-- [B10] tests/installed + capability matrix (install.sh landed; matrix → ENGINE-SETUP)
 
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
@@ -20,8 +19,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
-- [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
-- [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
 - [PDK-UBC] SiEPIC EBeam UBC support
@@ -32,6 +29,14 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 ## Ready
 
+- [API-GENERALIZE] Frontend protocol remainder: pool, catalogue/place_cell, raw serving
+- [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
+- [CELL-LINK] Symbol↔cell linkage contract (CellLink component + resolvePin)
+- [SETTINGS-STORE] Engine settings store (design truth + migration mechanics)
+- [CONNECT-GRAPH] Shared connectivity extraction + raw-IR emitters
+- [LAYER-SERVING] Layer stackup + preset serving for viewer + 3D
+- [RUN-PARAMS] Explicit run.request params schema
+- [BLOCK-RUNS] Block-scoped run targets (run-from-block)
 
 ## Doing
 
@@ -93,3 +98,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PR3-MERGE] Merge fuel-mcp-fixes (PR #3) into GREEN-the-tests with consolidation
 - [API-GEN] Docstring-mandated generated API contract
 - [ENGINE-SETUP] Vivado-style setup surface (capability + provision)
+- [B10] tests/installed + capability matrix (closed: install.sh + ENGINE-SETUP report_capabilities/catalogue)
