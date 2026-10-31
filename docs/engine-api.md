@@ -52,7 +52,7 @@ text, identical to the section bodies below.
 | `run_em` | no | — | Declared operation `run_em`; no handler wired yet. |
 | `run_erc` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_extraction` | yes | `magic` (default) | run_extraction via Magic: .mag cells to .ext/.spice netlists. |
-| `run_formal` | no | — | Declared operation `run_formal`; no handler wired yet. |
+| `run_formal` | yes | `sby` (default) | run_formal via sby: bounded proof with honestly scoped verdicts. |
 | `run_hdl_test` | yes | `icarus` (default) | run_hdl_test via Icarus: compile plus timed Verilog sim. |
 | `run_job` | yes | — | Execute admitted requests by id: deferred singles, fetch, batches. |
 | `run_lvs` | yes | `netgen` (default) | run_lvs via Netgen: layout vs schematic, TOP-level compare. |
@@ -757,9 +757,51 @@ Caution: Magic exits 0 even for broken cells — the verdict always comes from p
 
 ### run_formal
 
-Declared operation `run_formal`; no handler wired yet.
+run_formal via sby: bounded proof with honestly scoped verdicts.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Tools: `sby` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.formal_sby.FormalSbyAdapter`.
+
+#### Tool `sby`
+
+run_formal via sby: bounded proof with honestly scoped verdicts.
+
+Serves the run_formal operation with deck.tool `sby` (the only
+tool). Generates a formal.sby task from the job's project
+sources, runs it bounded and cancellable, and parses the sby
+status plus the DONE summary into a scoped verdict: prove PASS
+is proven, bmc/cover PASS is bounded to the depth, FAIL carries
+counterexamples, inconclusive runs are unknown, and wall-clock
+exhaustion is timeout — never a bare PASS.
+
+Arguments:
+
+- `sources` (required): RTL source paths carrying the design plus its assume/assert/cover properties.
+- `top` (required): Top module name for prep -top.
+- `mode`: bmc, prove, or cover (default bmc).
+- `depth`: Proof bound in steps (default 20).
+- `engines`: sby engine lines (default [smtbmc boolector]).
+- `timeout_s`: Proof budget in seconds (default 300).
+- `tool_dir`: Directory holding sby; PATH otherwise.
+- `deck`: Optional mapping; deck.tool must be sby here.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[], measurements} with scope, sby_status, assumptions, properties, failures, counterexamples, and cover witnesses.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation or a foreign deck.tool, invalid_command for bad proof inputs or deck shape, invalid_reference for missing sources, missing_dependency for an unresolvable or impostor sby.
+
+(execute) AdapterError: invalid_reference for a missing or unwritable workdir, runner_unavailable on a runner failure, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output has no sby status and no DONE summary line.
+
+Caution: Overwrites formal.sby plus the formal/ output dir in the workdir; exit zero is not PASS — the scope lives in the measurements, and unknown/timeout fail loudly.
 
 ### run_hdl_test
 

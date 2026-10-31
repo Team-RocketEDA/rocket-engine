@@ -28,7 +28,8 @@ maps to named solvers; `deck.tool` selects one, defaulting to the
 first registered (run_drc: magic, then klayout; run_optical: sax;
 run_extraction: magic; run_lvs: netgen; run_spice: ngspice;
 run_syntax: slang; run_hdl_test: icarus; run_synth: yosys;
-run_connectivity: connectgraph; run_erc: connectgraph).
+run_connectivity: connectgraph; run_erc: connectgraph;
+run_formal: sby).
 Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
 """
@@ -43,6 +44,7 @@ from .adapters.drc import MagicDrcAdapter
 from .adapters.drc_kl import KlayoutDrcAdapter
 from .adapters.errors import AdapterError
 from .adapters.extract_magic import MagicExtractAdapter
+from .adapters.formal_sby import FormalSbyAdapter
 from .adapters.hdl_sim import HdlSimAdapter
 from .adapters.lvs_netgen import NetgenLvsAdapter
 from .adapters.ngspice import NgspiceAdapter
@@ -272,6 +274,7 @@ class Engine:
             "run_synth": {"yosys": YosysSynthAdapter()},
             "run_connectivity": {"connectgraph": ConnectivityAdapter()},
             "run_erc": {"connectgraph": ConnectivityAdapter()},
+            "run_formal": {"sby": FormalSbyAdapter()},
         }
         self._yaml = YAML(typ="safe")
         self._constraints = dict(constraints) if constraints is not None else None

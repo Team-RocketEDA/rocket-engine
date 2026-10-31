@@ -76,14 +76,14 @@ def test_submit_unwired_operation_raises():
         engine.submit(
             {
                 "project_id": PROJECT,
-                "operation": "run_formal",
+                "operation": "run_em",
                 "arguments": {"expected_revision": "p12"},
             }
         )
     except Exception as exc:
         assert getattr(exc, "code", None) == "unsupported_operation"
     else:
-        raise AssertionError("expected unsupported_operation for run_formal")
+        raise AssertionError("expected unsupported_operation for run_em")
 
 
 def test_submit_run_syntax_accepted():

@@ -62,6 +62,7 @@ SOLVER_DEPS = {
     ("run_synth", "yosys"): {"binaries": ["yosys"]},
     ("run_connectivity", "connectgraph"): {},
     ("run_erc", "connectgraph"): {},
+    ("run_formal", "sby"): {"binaries": ["sby"]},
 }
 
 

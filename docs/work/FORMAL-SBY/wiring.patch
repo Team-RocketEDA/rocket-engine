@@ -1,0 +1,82 @@
+diff --git a/src/composition.py b/src/composition.py
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -28,7 +28,7 @@
+ first registered (run_drc: magic, then klayout; run_optical: sax;
+ run_extraction: magic; run_lvs: netgen; run_spice: ngspice;
+ run_syntax: slang; run_hdl_test: icarus; run_connectivity:
+-connectgraph; run_erc: connectgraph).
++connectgraph; run_erc: connectgraph; run_formal: sby).
+ Unregistered operations and unknown deck tools raise instead of
+ faking a verdict.
+ """
+@@ -43,6 +43,7 @@
+ from .adapters.drc_kl import KlayoutDrcAdapter
+ from .adapters.errors import AdapterError
+ from .adapters.extract_magic import MagicExtractAdapter
++from .adapters.formal_sby import FormalSbyAdapter
+ from .adapters.hdl_sim import HdlSimAdapter
+ from .adapters.lvs_netgen import NetgenLvsAdapter
+ from .adapters.ngspice import NgspiceAdapter
+@@ -270,6 +271,7 @@
+             "run_syntax": {"slang": SyntaxAdapter()},
+             "run_connectivity": {"connectgraph": ConnectivityAdapter()},
+             "run_erc": {"connectgraph": ConnectivityAdapter()},
++            "run_formal": {"sby": FormalSbyAdapter()},
+         }
+         self._yaml = YAML(typ="safe")
+         self._constraints = dict(constraints) if constraints is not None else None
+diff --git a/src/interfaces/setup.py b/src/interfaces/setup.py
+--- a/src/interfaces/setup.py
++++ b/src/interfaces/setup.py
+@@ -61,6 +61,7 @@
+     ("run_syntax", "slang"): {"binaries": ["slang"]},
+     ("run_connectivity", "connectgraph"): {},
+     ("run_erc", "connectgraph"): {},
++    ("run_formal", "sby"): {"binaries": ["sby"]},
+ }
+ 
+ 
+diff --git a/tests/adapters/test_mcp_server.py b/tests/adapters/test_mcp_server.py
+--- a/tests/adapters/test_mcp_server.py
++++ b/tests/adapters/test_mcp_server.py
+@@ -126,7 +126,7 @@
+     result = asyncio.run(
+         _call(
+             call,
+-            "run_formal",
++            "run_em",
+             {"project_id": PROJECT, "expected_revision": "p12"},
+         )
+     )
+diff --git a/tests/interfaces/test_setup.py b/tests/interfaces/test_setup.py
+--- a/tests/interfaces/test_setup.py
++++ b/tests/interfaces/test_setup.py
+@@ -332,7 +332,6 @@
+         op for op, detail in report["operations"].items()
+         if detail["readiness"] == "unsupported"
+     ]
+-    assert "run_formal" in orphans
+     assert "run_em" in orphans
+     for op in orphans:
+         assert report["operations"][op]["tools"] == {}
+diff --git a/tests/test_engine_run.py b/tests/test_engine_run.py
+--- a/tests/test_engine_run.py
++++ b/tests/test_engine_run.py
+@@ -76,14 +76,14 @@
+         engine.submit(
+             {
+                 "project_id": PROJECT,
+-                "operation": "run_formal",
++                "operation": "run_em",
+                 "arguments": {"expected_revision": "p12"},
+             }
+         )
+     except Exception as exc:
+         assert getattr(exc, "code", None) == "unsupported_operation"
+     else:
+-        raise AssertionError("expected unsupported_operation for run_formal")
++        raise AssertionError("expected unsupported_operation for run_em")
+ 
+ 
+ def test_submit_run_syntax_accepted():

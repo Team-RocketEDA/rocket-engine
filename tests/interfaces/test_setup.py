@@ -332,7 +332,6 @@ def test_unregistered_operations_report_unsupported(tmp_path, monkeypatch):
         op for op, detail in report["operations"].items()
         if detail["readiness"] == "unsupported"
     ]
-    assert "run_formal" in orphans
     assert "run_em" in orphans
     for op in orphans:
         assert report["operations"][op]["tools"] == {}

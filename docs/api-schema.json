@@ -1127,15 +1127,168 @@
       "wired": true
     },
     "run_formal": {
-      "description": "Declared operation `run_formal`; no handler wired yet.",
-      "handlers": [],
+      "description": "run_formal via sby: bounded proof with honestly scoped verdicts.",
+      "handlers": [
+        "rocket_engine.adapters.formal_sby.FormalSbyAdapter"
+      ],
       "kind": "operation",
       "name": "run_formal",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "deck": {
+          "description": "Optional mapping; deck.tool must be sby here."
+        },
+        "depth": {
+          "description": "Proof bound in steps (default 20)."
+        },
+        "engines": {
+          "description": "sby engine lines (default [smtbmc boolector])."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "mode": {
+          "description": "bmc, prove, or cover (default bmc)."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "sources": {
+          "description": "RTL source paths carrying the design plus its assume/assert/cover properties."
+        },
+        "timeout_s": {
+          "description": "Proof budget in seconds (default 300)."
+        },
+        "tool_dir": {
+          "description": "Directory holding sby; PATH otherwise."
+        },
+        "top": {
+          "description": "Top module name for prep -top."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "sources",
+        "top"
+      ],
+      "returns": "{total, violations[], measurements} with scope, sby_status, assumptions, properties, failures, counterexamples, and cover witnesses.",
+      "tools": {
+        "sby": {
+          "adapter": "rocket_engine.adapters.formal_sby.FormalSbyAdapter",
+          "properties": {
+            "deck": {
+              "description": "Optional mapping; deck.tool must be sby here."
+            },
+            "depth": {
+              "description": "Proof bound in steps (default 20)."
+            },
+            "engines": {
+              "description": "sby engine lines (default [smtbmc boolector])."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "mode": {
+              "description": "bmc, prove, or cover (default bmc)."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "sources": {
+              "description": "RTL source paths carrying the design plus its assume/assert/cover properties."
+            },
+            "timeout_s": {
+              "description": "Proof budget in seconds (default 300)."
+            },
+            "tool_dir": {
+              "description": "Directory holding sby; PATH otherwise."
+            },
+            "top": {
+              "description": "Top module name for prep -top."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sources",
+            "top"
+          ]
+        }
+      },
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "run_hdl_test": {
       "description": "run_hdl_test via Icarus: compile plus timed Verilog sim.",
