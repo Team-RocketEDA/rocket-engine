@@ -64,6 +64,7 @@ from .execution.block_runs_scope import (
     snapshot_closure,
     stamp_verdict,
 )
+from .execution.coalesce import Coalescer, content_key
 from .execution.dispatch import OpDispatcher
 from .execution.errors import ExecutionError
 from .execution.python_exec import PythonExecService
@@ -256,6 +257,7 @@ class Engine:
             linked_root=linked_root,
         )
         self._execution = ExecutionService(project_id)
+        self._coalescer = Coalescer()
         self._layer_presets = PresetStore()
         self._catalog = Catalog(catalog_root)
         self._solvers = {
@@ -438,8 +440,10 @@ class Engine:
                 unknown_request for an id never admitted.
             ExecutionError: pool_full when the execution backlog
                 is saturated — drain (run_job) before submitting
-                more; nothing was admitted. Resume refusals carry
-                unknown_survivor, already_completed,
+                more; nothing was admitted. coalesced_run_lost
+                when a joined run finished with no completion
+                stored (its owner died mid-drain). Resume refusals
+                carry unknown_survivor, already_completed,
                 already_decided, or poison_quarantined with a
                 user-facing message (full context is logged
                 dev-side).
@@ -572,48 +576,82 @@ class Engine:
         scope_request = self._admit_block_scope(name, arguments)
         buf = io.StringIO()
         self._yaml.dump({"operation": name, "arguments": arguments}, buf)
+        command_text = buf.getvalue()
         request_id = command.get("request_id") or uuid.uuid4().hex
-        ack = self._pool.submit_request(
-            buf.getvalue(),
-            str(request_id),
-            expected_revision=arguments.get("expected_revision"),
-        )
-        # SUBMIT-IMMEDIATE: the ack run_id is the execution id. A
-        # replay of a completed run returns the stored completion
-        # without re-executing; otherwise register the record (a
-        # replay returns the same ack, so register it only once)
-        # and drain this run inline.
-        stored = self._stored_completion(ack["run_id"])
-        if stored is not None:
-            return merge_ack_completion(ack, stored)
-        if not self._execution.known(ack["run_id"]):
-            target = {"cell": arguments.get("cell")}
-            if scope_request is not None:
-                target["scope"] = "block"
-                target["block_id"] = scope_request["block_id"]
-            self._execution.dispatch(
-                name, target, ack["snapshot_id"], run_id=ack["run_id"]
-            )
-        self._run_jobs.setdefault(
-            ack["run_id"],
-            {
-                "operation": name,
-                "arguments": arguments,
-                "snapshot_id": ack["snapshot_id"],
-                "request_id": str(request_id),
-            },
-        )
-        if scope_request is not None:
-            pending = self._run_jobs[ack["run_id"]]
-            if "block_scope" not in pending:
-                pending["block_scope"] = build_scope_record(
-                    run_id=ack["run_id"],
-                    revision=self._project.snapshot()["current_revision"],
-                    block_id=scope_request["block_id"],
-                    deck=arguments.get("deck"),
-                    closure=scope_request["closure"],
+        # COALESCE-I33: identical concurrent content on an unchanged
+        # revision executes once. The guard holds the whole admission
+        # section — lookup, ledger admit, register — so two identical
+        # submits cannot both miss; drains and completion waits run
+        # outside it. Force bypasses the lane both ways: a forced run
+        # neither joins a live run nor registers as one.
+        force = command.get("force") is True
+        key = content_key(name, arguments)
+        with self._coalescer.guard:
+            head = self._project.snapshot()["current_revision"]
+            hit = None if force else self._coalescer.lookup(key, head)
+            if hit is not None:
+                ack = self._project.log_coalesced_request(
+                    command_text, str(request_id), hit["run_id"],
+                    hit["snapshot_id"],
                 )
-        completion = self._pool.drain_ids([ack["run_id"]])[0]
+                waiter = self._coalescer.attach(hit["run_id"], str(request_id))
+            else:
+                ack = self._pool.submit_request(
+                    command_text,
+                    str(request_id),
+                    expected_revision=arguments.get("expected_revision"),
+                )
+                # SUBMIT-IMMEDIATE: the ack run_id is the execution id. A
+                # replay of a completed run returns the stored completion
+                # without re-executing; otherwise register the record (a
+                # replay returns the same ack, so register it only once)
+                # and drain this run inline.
+                stored = self._stored_completion(ack["run_id"])
+                if stored is not None:
+                    return merge_ack_completion(ack, stored)
+                if not self._execution.known(ack["run_id"]):
+                    target = {"cell": arguments.get("cell")}
+                    if scope_request is not None:
+                        target["scope"] = "block"
+                        target["block_id"] = scope_request["block_id"]
+                    self._execution.dispatch(
+                        name, target, ack["snapshot_id"], run_id=ack["run_id"]
+                    )
+                self._run_jobs.setdefault(
+                    ack["run_id"],
+                    {
+                        "operation": name,
+                        "arguments": arguments,
+                        "snapshot_id": ack["snapshot_id"],
+                        "request_id": str(request_id),
+                    },
+                )
+                if scope_request is not None:
+                    pending = self._run_jobs[ack["run_id"]]
+                    if "block_scope" not in pending:
+                        pending["block_scope"] = build_scope_record(
+                            run_id=ack["run_id"],
+                            revision=self._project.snapshot()["current_revision"],
+                            block_id=scope_request["block_id"],
+                            deck=arguments.get("deck"),
+                            closure=scope_request["closure"],
+                        )
+                waiter = None
+                if not force:
+                    self._coalescer.register(
+                        key, ack["current_revision"], str(request_id),
+                        ack["run_id"], ack["snapshot_id"],
+                    )
+        if hit is not None:
+            return self._await_shared(ack, hit["run_id"], waiter)
+        try:
+            completion = self._pool.drain_ids([ack["run_id"]])[0]
+        except BaseException:
+            if not force:
+                self._coalescer.discard(ack["run_id"])
+            raise
+        if not force:
+            self._coalescer.complete(ack["run_id"], completion)
         return merge_ack_completion(ack, completion)
 
     def _query_events_since(self, arguments):
@@ -1052,6 +1090,26 @@ class Engine:
         return stored_completion_from_events(
             self._project.events_since(0), run_id
         )
+
+    def _await_shared(self, ack, run_id, waiter):
+        """Resolve a coalesced envelope to the shared completion.
+
+        The waiter delivers the owner's completion; a run evicted
+        just before attach (or discarded when its drain raised)
+        falls back to the stored completion — the run event
+        precedes eviction, so fetch cannot miss a finished run.
+        """
+        completion = None
+        if waiter is not None:
+            completion = self._coalescer.await_completion(waiter)
+        if completion is None:
+            completion = self._stored_completion(run_id)
+        if completion is None:
+            raise ExecutionError(
+                "coalesced_run_lost",
+                f"Shared run finished with no completion: {run_id}.",
+            )
+        return merge_ack_completion(ack, completion)
 
     def _resolve_pending(self, request_id):
         """Admitted (command, ack) for a queued request, registered.

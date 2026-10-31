@@ -23,6 +23,12 @@ from .block_runs_scope import (
     snapshot_closure,
     stamp_verdict,
 )
+from .coalesce import (
+    Coalescer,
+    content_key,
+    deck_hash,
+    normalize_arguments,
+)
 from .console import ConsoleSession, get_help
 from .console_route import (
     CONSOLE_TOOL_VERBS,
@@ -84,6 +90,7 @@ __all__ = [
     "BlockScopeError",
     "BwrapRunner",
     "CellRunner",
+    "Coalescer",
     "CONSOLE_TOOL_VERBS",
     "ConsoleNamespace",
     "ConsoleSession",
@@ -107,6 +114,8 @@ __all__ = [
     "check_operation_scope",
     "closure_hash",
     "collect_run_ids",
+    "content_key",
+    "deck_hash",
     "content_key_for",
     "entity_doc_path",
     "format_address",
@@ -115,6 +124,7 @@ __all__ = [
     "is_tier2",
     "merge_ack_completion",
     "narrow_job_for_block",
+    "normalize_arguments",
     "not_run_verdict",
     "parse_address",
     "parse_exception",

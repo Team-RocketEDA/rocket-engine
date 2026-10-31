@@ -1236,6 +1236,78 @@ class ProjectService:
         self._persist_after_mutation()
         return record
 
+    def log_coalesced_request(self, command_text, request_id, run_id,
+                              snapshot_id):
+        """Log a coalesced envelope against its shared run (COALESCE-I33).
+
+        A duplicate submit that joins a live run records its envelope
+        here instead of admitting: the request_id maps to the shared
+        run_id in the request map (so replays and run_job resolve it)
+        and a `request_coalesced` event lands in the log — but the
+        revision never advances, no snapshot is captured, and the
+        project never mutates. Joining callers are readers of a
+        shared verdict, not writers.
+
+        Args:
+            command_text: YAML command mapping with an operation.
+            request_id: Joining envelope id; resubmitting the
+                identical text returns the identical ack.
+            run_id: Shared live run the envelope joins.
+            snapshot_id: Shared run's snapshot (one revision pins
+                one snapshot).
+
+        Returns:
+            Coalesced ack with the caller's request_id, the shared
+                run_id and snapshot_id, queued state, the current
+                (unadvanced) revision, the event cursor, and a
+                coalesced marker.
+
+        Raises:
+            ProjectError: invalid_yaml for an unparsable command or
+                one without an operation, request_conflict for a
+                reused id with new text.
+
+        Caution: Never advances the revision — a coalesced envelope
+            must not break the pin later duplicates join under.
+        """
+        self._refresh_durable()
+        replay = self._check_replay(request_id, command_text)
+        if replay is not None:
+            return replay
+        try:
+            command = self._yaml.load(command_text)
+        except Exception as exc:
+            raise ProjectError(
+                "invalid_yaml", f"Cannot parse command: {exc}"
+            ) from exc
+        if not isinstance(command, dict) or "operation" not in command:
+            raise ProjectError(
+                "invalid_yaml",
+                "Command must be a mapping with an operation.",
+            )
+        ack = {
+            "request_id": request_id,
+            "project_id": self._project_id,
+            "run_id": run_id,
+            "snapshot_id": snapshot_id,
+            "state": "queued",
+            "current_revision": self._current_revision,
+            "coalesced": True,
+        }
+        self._requests[request_id] = (command_text, ack)
+        self._append_event(
+            "request_coalesced",
+            request_id,
+            {
+                "run_id": run_id,
+                "revision": self._current_revision,
+                "operation": command.get("operation"),
+            },
+        )
+        ack["event_cursor"] = self._cursor()
+        self._persist_after_mutation()
+        return ack
+
     def command_for(self, request_id):
         """Return the admitted (command, ack) for a queued request.
 
