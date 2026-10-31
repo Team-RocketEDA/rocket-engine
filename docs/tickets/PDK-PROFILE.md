@@ -34,3 +34,12 @@ recipes + proofs, with zero adapter edits.
 - All landed PDK proofs green; grep shows no PDK id
   literals in adapter logic (profiles + tests only);
   full suite + gate + scenarios green.
+
+## Direction lock (2026-10-31, owner call)
+
+- gdsfactory-first: all 7 PDKs plug in as gdsfactory pip
+  packages + KLayout tech install. Bespoke per-PDK engine
+  integrations are forbidden; per-PDK slices keep the
+  profile + recipe + live-proof shape with gdsfactory-shaped
+  recipes. Profile record: {gdsfactory package pin, KLayout
+  tech, decks (PDK-supplied or user-supplied), models}.
