@@ -46,9 +46,11 @@ the enablement before climbing the standard ladder.
 `github.com/vhdani04/OpenLayout` (cloned to
 `/tmp/openlayout`) is a full custom-IC environment on
 ASAP7 and shows exactly how our `n/a` custom rows get
-enabled — study it, do NOT copy it (**GPLv3**: no
-OpenLayout code in-tree, ever; DRM rule names/values are
-facts and may inform a clean-room deck):
+enabled — study it, do NOT copy it yet (**GPLv3**: no
+OpenLayout code in-tree until the license decision lands
+post-hackathon — MIT vs GPL still open, and staying
+GPL-clean preserves both options; DRM rule names/values
+are facts and may inform a clean-room deck regardless):
 
 - DRC: KLayout deck written rule-by-rule from the ASAP7
   DRM r1p7 (`pdk/asap7/klayout/drc/asap7.drc`), checks
