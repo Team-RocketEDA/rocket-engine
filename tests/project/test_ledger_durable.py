@@ -159,12 +159,18 @@ def test_two_writers_one_durable_root_no_lost_update(tmp_path):
     )
     assert follow["current_revision"] == "p14"
     events = human.events_since(0)
-    assert [e["seq"] for e in events] == [1, 2, 3, 4]
+    assert [e["seq"] for e in events] == [1, 2, 3, 4, 5, 6]
     assert [e["actor"] for e in events] == [
-        "human", "human", "rocket-fuel", "rocket-fuel",
+        "human", "human", "human",
+        "rocket-fuel", "rocket-fuel", "rocket-fuel",
     ]
     assert [e["event"] for e in events] == [
-        "job_queued", "run_failed", "job_queued", "run_failed",
+        "job_queued", "run_started", "run_failed",
+        "job_queued", "run_started", "run_failed",
+    ]
+    assert [e["request_id"] for e in events] == [
+        "req-duel-a", "req-duel-a", "req-duel-a",
+        "req-duel-c", "req-duel-c", "req-duel-c",
     ]
 
 
@@ -253,9 +259,13 @@ def test_run_job_completion_links_the_queued_request():
     )
     assert out["state"] == "completed"
     events = engine.events_since(0)
-    assert [e["event"] for e in events] == ["job_queued", "run_completed"]
+    assert [e["event"] for e in events] == [
+        "job_queued", "run_started", "run_completed",
+    ]
     assert events[1]["request_id"] == "req-link-001"
     assert events[1]["data"]["run_id"] == out["run_id"]
+    assert events[2]["request_id"] == "req-link-001"
+    assert events[2]["data"]["run_id"] == out["run_id"]
 
 
 def test_get_events_since_query_wired_with_cursor_and_resync():
@@ -280,9 +290,9 @@ def test_get_events_since_query_wired_with_cursor_and_resync():
     )
     assert page["project_id"] == PROJECT
     assert [e["event"] for e in page["events"]] == [
-        "job_queued", "run_failed",
+        "job_queued", "run_started", "run_failed",
     ]
-    assert page["cursor"] == 2
+    assert page["cursor"] == 3
     empty = engine.submit(
         {
             "project_id": PROJECT,
