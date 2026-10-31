@@ -44,6 +44,7 @@ from .adapters.sax import SaxAdapter
 from .adapters.syntax import SyntaxAdapter
 from .execution.errors import ExecutionError
 from .execution.service import ExecutionService
+from .interfaces.runparams import RunParamsError, validate_run_request
 from .interfaces.setup import report_capabilities
 from .interfaces.vocabulary import OPERATIONS, QUERIES
 from .library.catalog import Catalog
@@ -263,8 +264,12 @@ class Engine:
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unwired or
-                unknown name, invalid_command for caller-supplied
-                run_spice targets, revision_conflict for a stale
+                unknown name, unknown_run_param for an unknown
+                run.request field, invalid_run_param for a
+                mistyped run.request knob, invalid_run_request
+                for a non-mapping run.request, invalid_command
+                for caller-supplied run_spice targets,
+                revision_conflict for a stale
                 expected_revision, invalid_command for a malformed
                 get_events_since cursor, a malformed mutation, or
                 a rewind that lacks a target or targets the live
@@ -290,6 +295,7 @@ class Engine:
         name = command.get("operation")
         arguments = dict(command.get("arguments") or {})
         arguments = self._apply_targets(name, arguments)
+        arguments = self._apply_run_request(arguments)
         if name == "get_capabilities":
             return self.capabilities(
                 target=arguments.get("target"),
@@ -513,6 +519,33 @@ class Engine:
         if control:
             updated["analyses"] = list(arguments.get("analyses") or []) + control
         return updated
+
+    def _apply_run_request(self, arguments):
+        """Validate and freeze the explicit run.request knobs (RUN-PARAMS).
+
+        Every submit carries its knobs explicitly: a missing
+        `request` freezes to all defaults, a partial one fills
+        defaults, and unknown fields fail loudly — never
+        ignored. All callers (IDE, MCP, console) share this one
+        path, so the shape is identical whoever submits.
+
+        Args:
+            arguments: Submitted arguments, maybe with `request`.
+
+        Returns:
+            Arguments with `request` normalized to every knob.
+
+        Raises:
+            ProjectError: unknown_run_param for an unknown
+                field, invalid_run_param for a mistyped knob,
+                invalid_run_request for a non-mapping
+                `request`.
+        """
+        try:
+            normalized = validate_run_request(arguments.get("request"))
+        except RunParamsError as exc:
+            raise ProjectError(exc.code, str(exc), fields=exc.fields) from exc
+        return {**arguments, "request": normalized}
 
     def job_status(self, run_id=None):
         """Read one run's state, verdict, and evidence links.
@@ -897,7 +930,10 @@ class Engine:
         Raises:
             ProjectError: cross_project_denied for a foreign
                 envelope, unsupported_operation for an unregistered
-                operation or unknown deck tool, invalid_command
+                operation or unknown deck tool, unknown_run_param
+                for an unknown run.request field, invalid_run_param
+                for a mistyped run.request knob, invalid_run_request
+                for a non-mapping run.request, invalid_command
                 when run_job lacks a run_id/request_id argument,
                 for caller-supplied run_spice targets, when a CRUD
                 mutation is malformed, or a rewind lacks a target
@@ -923,6 +959,7 @@ class Engine:
         if name in _CRUD_OPERATIONS:
             return self.submit(command)
         arguments = self._apply_targets(name, dict(command.get("arguments") or {}))
+        arguments = self._apply_run_request(arguments)
         return self._run_operation(
             name,
             arguments,

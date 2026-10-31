@@ -224,6 +224,7 @@ Arguments:
 - `deck`: Optional mapping; deck.tool selects the solver (magic here, klayout for the KLayout path).
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 
@@ -257,6 +258,7 @@ Arguments:
 - `deck`: Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode.
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 
@@ -310,6 +312,7 @@ Arguments:
 - `deck`: Optional mapping naming the tech file (deck.path/tech_file/file).
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 
@@ -357,6 +360,7 @@ Arguments:
 - `deck`: Optional mapping; deck.tool must be icarus here.
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 
@@ -417,6 +421,7 @@ Arguments:
 - `cell`: .subckt block to select from library netlists.
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 
@@ -457,6 +462,7 @@ Arguments:
 - `deck`: Optional mapping; deck.tool must be sax here.
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 
@@ -512,6 +518,7 @@ Arguments:
 - `deck`: Optional mapping; deck.tool must be ngspice here.
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 
@@ -552,6 +559,7 @@ Arguments:
 - `deck`: Optional mapping; deck.tool must be slang here.
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 

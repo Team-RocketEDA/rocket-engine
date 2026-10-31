@@ -26,7 +26,8 @@ Conventions honored: `Job keys:` / `Request keys:` sections list
 `name:` or `name (required):` items; envelope plumbing
 (request_id/command_text) is excluded from CRUD/query schemas;
 expected_revision is injected into solver-op schemas from
-ProjectService.submit's own arg text.
+ProjectService.submit's own arg text; `request` is injected
+from interfaces/runparams.py RUN_REQUEST_SCHEMA.
 
 Usage: python scripts/api_spec.py [--write|--check] (default --check).
 """
@@ -341,6 +342,18 @@ def _expected_revision_text(root):
     return "Revision the writer read."
 
 
+def _run_request_schema(root):
+    """RUN-PARAMS `request` subschema from RUN_REQUEST_SCHEMA (AST-only)."""
+    tree = ast.parse(
+        (root / "interfaces" / "runparams.py").read_text(encoding="utf-8")
+    )
+    node = _module_assign(tree, "RUN_REQUEST_SCHEMA")
+    try:
+        return ast.literal_eval(node) if node is not None else {}
+    except (ValueError, SyntaxError):
+        return {}
+
+
 def endpoint_spec(name, root=None):
     """Contract record for one cataloged operation/query name."""
     root = root if root is not None else SRC
@@ -485,6 +498,9 @@ def _solver_section(name, entries, root):
         f"Handlers: {handlers}.",
     ]
     revision_text = _expected_revision_text(root)
+    request_text = _run_request_schema(root).get(
+        "description", "Explicit run.request knobs."
+    )
     for tool, cls, rel in entries:
         parsed = parse_docstring(doc_of(rel, cls, root=root))
         preflight = parse_docstring(doc_of(
@@ -495,7 +511,8 @@ def _solver_section(name, entries, root):
         ))
         parse = parse_docstring(doc_of(rel, f"{cls}.parse", root=root))
         args = list(parsed["job_keys"]) + [
-            ("expected_revision", False, revision_text)
+            ("expected_revision", False, revision_text),
+            ("request", False, request_text),
         ]
         raises = "\n\n".join(
             t for t in (
@@ -601,6 +618,9 @@ def _schema_for(name, kind, solvers, crud, qmethods, qengines,
                 n: {"description": d} for n, _r, d in parsed["job_keys"]
             }
             props["expected_revision"] = {"description": revision_text}
+            request_schema = _run_request_schema(root)
+            if request_schema:
+                props["request"] = request_schema
             tools[tool] = {
                 "adapter": _handler_ref(rel, cls),
                 "properties": props,

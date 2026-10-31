@@ -29,7 +29,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SETTINGS-STORE] Engine settings store (design truth + migration mechanics)
 - [CONNECT-GRAPH] Shared connectivity extraction + raw-IR emitters
 - [LAYER-SERVING] Layer stackup + preset serving for viewer + 3D
-- [RUN-PARAMS] Explicit run.request params schema
 - [BLOCK-RUNS] Block-scoped run targets (run-from-block)
 - [PYTHON-EXEC] Python execution API (inline lines + project script files)
 - [ENGINE-ECS] Entity store + component CRUD + addressing + events
@@ -103,3 +102,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-LXT] Luxelligence GF support (TFLN + gated DRC deck)
 - [PDK-SKY130GF] SkyWater pip distribution (decision + profile)
 - [PDK-ASAP7] ASAP7 predictive 7nm support (spike enablement first)
+- [RUN-PARAMS] Explicit run.request params schema
