@@ -68,6 +68,15 @@ shapes into per-operation JSON Schemas, so keep them plain
 (one key per item, continuation lines indented). Envelope-carried
 arguments elsewhere use `Request keys:` the same way.
 
+## Environment: install.sh is the only path
+
+`scripts/install.sh --install` provisions everything (UV sync,
+pinned deps, in-project `.venv`) — the `npm ci` equivalent.
+Agents never handroll environments: no scratch `/tmp` venvs,
+no bare `pip install`, no `uv pip` by hand. If the env looks
+stale or broken, re-run `install.sh --install` instead of
+working around it with shims.
+
 ## Enforcement
 
 `scripts/check_docstrings.py` is the gate — same posture as the
