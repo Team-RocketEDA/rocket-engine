@@ -133,3 +133,32 @@ client-side orchestration to get wrong.
 - No auto-retry in MVP, stated explicitly: transient flake
   → chain skipped → agent resubmits. Retries hide real
   failures; nothing retries inside adapters.
+
+## Field notes (2026-11-01): replay scope, async boundary, coalescing
+
+- Replay replays SURVIVORS only: ledger-admitted runs with
+  no completion event get executed after reboot. Finished
+  runs are NEVER re-executed, and no transcript of
+  completed job_ids is ever re-run to reconstruct state —
+  runs are reproducible from (snapshot + deck + params),
+  resubmit-when-wanted covers everything.
+- Console restores-as-idle: history + cwd + env persist
+  across close (MATLAB shape), kernel starts fresh, zero
+  auto-rerun. Session close drops runs, never replays them.
+- Async boundary, sync core: endpoints never block callers
+  (ack fast, queue, stream progress, accept cancel) while
+  a 20-minute solver runs; the sync core is bridged by a
+  bounded executor, NOT an asyncio rewrite. 0% drop comes
+  from the durable log + typed refusal, not from async.
+- I33 (proposed): request coalescing. Concurrent
+  run-submits with identical normalized content —
+  operation + arguments incl. deck hash + run.request —
+  against the SAME project revision with no intervening
+  mutation execute ONCE; all callers share the run_id and
+  the fanned-out result, each request_id logged mapping
+  to it. Revision moved between requests → separate
+  executions, unconditionally (stale verdicts never serve
+  as fresh). Force bypasses coalescing (forced re-runs
+  execute fresh). Completed results serve via idempotent
+  fetch, not coalescing — coalescing covers overlapping
+  lifetime (queued/running) only.
