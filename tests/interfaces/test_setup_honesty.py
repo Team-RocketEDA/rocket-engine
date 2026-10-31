@@ -15,6 +15,7 @@ import sys
 SHADOW_PKG = "honesty_shadow_pkg"
 INSTALLED_PKG = "honesty_installed_pkg"
 DISTLESS_PKG = "honesty_distless_pkg"
+RENAMED_PKG = "honesty_renamed_pkg"
 
 # Every Python-module solver the setup surface can report: the mask
 # must cover all of them or a fresh-machine simulation lies about
@@ -101,6 +102,37 @@ def test_installed_package_reports_version(tmp_path, monkeypatch):
     found, missing = detect_python([INSTALLED_PKG])
     assert missing == []
     assert found == {INSTALLED_PKG: "1.2.3"}
+
+
+def _renamed_package(tmp_path, module, dist, version):
+    root = tmp_path / "site_renamed"
+    package = root / module
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text('MARKER = "honesty"\n')
+    # Dist-info dirs escape dashes (meow-sim ships meow_sim-*.dist-info).
+    info = root / f"{dist.replace('-', '_')}-{version}.dist-info"
+    info.mkdir(parents=True)
+    (info / "METADATA").write_text(
+        f"Metadata-Version: 2.1\nName: {dist}\nVersion: {version}\n"
+    )
+    (info / "top_level.txt").write_text(f"{module}\n")
+    return root
+
+
+def test_renamed_distribution_reports_version(tmp_path, monkeypatch):
+    # The meow module ships as the meow-sim distribution: the probe
+    # must resolve the providing dist, not assume the names match.
+    from rocket_engine.interfaces.setup_probes import detect_python
+
+    root = _renamed_package(
+        tmp_path, RENAMED_PKG, "honesty-renamed-dist", "2.0.0"
+    )
+    _path_prepend(monkeypatch, root)
+    assert RENAMED_PKG not in sys.modules
+
+    found, missing = detect_python([RENAMED_PKG])
+    assert missing == []
+    assert found == {RENAMED_PKG: "2.0.0"}
 
 
 def test_absent_module_reports_missing():

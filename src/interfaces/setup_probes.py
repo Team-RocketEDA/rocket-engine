@@ -23,6 +23,14 @@ def detect_python(names):
     spec, a loader-less spec, an unresolvable spec, or no installed
     distribution — reports missing, never a bare `True`.
 
+    The distribution is resolved through the top-level mapping,
+    not by assuming the names match: the `meow` module ships as
+    the `meow-sim` distribution, and only the mapping knows that.
+    Dotted names look up their top-level parent; when the mapping
+    is silent (a dist-info without top_level records), a direct
+    version lookup under the module name is the fallback, so the
+    rule stays loader-plus-version either way.
+
     Args:
         names: Importable module names to probe, in order.
 
@@ -31,6 +39,10 @@ def detect_python(names):
             its distribution version, missing lists the rest in
             probe order.
     """
+    try:
+        provided = importlib.metadata.packages_distributions()
+    except Exception:
+        provided = {}
     found, missing = {}, []
     for name in names:
         try:
@@ -40,8 +52,15 @@ def detect_python(names):
         if spec is None or spec.loader is None:
             missing.append(name)
             continue
-        try:
-            found[name] = importlib.metadata.version(name)
-        except importlib.metadata.PackageNotFoundError:
+        candidates = list(provided.get(name.partition(".")[0]) or [])
+        if name not in candidates:
+            candidates.append(name)
+        for candidate in candidates:
+            try:
+                found[name] = importlib.metadata.version(candidate)
+                break
+            except importlib.metadata.PackageNotFoundError:
+                continue
+        else:
             missing.append(name)
     return found, missing
