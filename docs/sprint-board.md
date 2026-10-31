@@ -99,6 +99,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PHOTONIC-WIRE] Wire proven photonic solvers to engine ops
 - [VIEW-SYNC] run_view_sync (intended vs extracted comparison)
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
+- [E2E-REREVIEW] Invariant-by-invariant codebase re-review + e2e journeys
 - [PDK-CSPDK] Cornerstone PDK support (first photonic proof)
 - [PDK-GF180] GF180MCU support (second CMOS node)
 - [PDK-IHP] IHP SG13G2 support (BiCMOS + RF flavors)
