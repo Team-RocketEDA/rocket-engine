@@ -1,0 +1,316 @@
+# ASAP7 r1p7 clean-room DRC deck (lane ASAP7-DRC-DECK).
+#
+# Transcribed rule-by-rule from the DRM alone (ASU asap7_drm_201207a,
+# Dec 2020); stream numbers from the r1p7 PDK layermap. No other deck
+# was consulted. See inventory.md for the full rule inventory, the
+# implemented-vs-deferred split, and waiver notes.
+#
+# Run through the existing KLayout DRC adapter deck mode unchanged:
+#   klayout -b -rd input=<layout.gds> -rd report=<report.lyrdb> -r asap7.drc
+#
+# Assumptions (documented, see inventory.md):
+# - Layout dbu is 1nm or 0.25nm (exact-size range edges use a 0.25nm quantum).
+# - Manhattan geometry; GEOMETRY.NONORTHOGONAL flags anything else.
+# - M4/M5/M6/M7 grid offset 0 (the DRM default; nonzero offsets deferred).
+# - Checks marked WEAK below flag a sound subset of the DRM rule: every
+#   flag is a genuine violation, but some violations need follow-up checks.
+
+source($input)
+report("ASAP7 r1p7 clean-room DRC", $report)
+
+# Stream numbers from the r1p7 layermap (drawing purpose); names per DRM ch. 2.
+well   = input(1, 0)
+fin    = input(2, 0)
+gate   = input(7, 0)
+active = input(11, 0)
+lig    = input(16, 0)
+lisd   = input(17, 0)
+v0     = input(18, 0)
+m1     = input(19, 0)
+m2     = input(20, 0)
+v1     = input(21, 0)
+v2     = input(25, 0)
+m3     = input(30, 0)
+v3     = input(35, 0)
+m4     = input(40, 0)
+v4     = input(45, 0)
+m5     = input(50, 0)
+v5     = input(55, 0)
+m6     = input(60, 0)
+v6     = input(65, 0)
+m7     = input(70, 0)
+v7     = input(75, 0)
+m8     = input(80, 0)
+v8     = input(85, 0)
+m9     = input(90, 0)
+v9     = input(95, 0)
+
+# Square-nanometer in the square-micron units area checks use.
+NM2 = 1.nm * 1.nm
+
+# --- DRM 3.1: non-orthogonal shapes are not allowed (all drawn layers). ---
+drawn = well + fin + gate + active + lig + lisd + v0 + m1 + m2 + v1 +
+  v2 + m3 + v3 + m4 + v4 + m5 + v5 + m6 + v6 + m7 + v7 + m8 + v8 +
+  m9 + v9 + input(8, 0) + input(10, 0) + input(12, 0) + input(13, 0) +
+  input(88, 0) + input(97, 0) + input(98, 0) + input(99, 0) +
+  input(100, 0) + input(110, 0)
+drawn.non_rectilinear.output("GEOMETRY.NONORTHOGONAL",
+  "DRM 3.1 GEOMETRY.NONORTHOGONAL: non-orthogonal shapes not allowed")
+
+# --- DRM 3.3 FIN ---
+fin.rectangles.without_bbox_height(7.nm).output("FIN.W.1",
+  "DRM 3.3 FIN.W.1: exact vertical FIN width 7nm")
+fin.rectangles.with_bbox_width(0, 108.nm).output("FIN.W.2",
+  "DRM 3.3 FIN.W.2: min horizontal FIN width 108nm")
+fin.space(20.nm).output("FIN.S.1",
+  "DRM 3.3 FIN.S.1: 27nm exact pitch, WEAK minimum-side 20nm (pitch-width)")
+
+# --- DRM 3.4 GATE ---
+gate.rectangles.without_bbox_width(20.nm).output("GATE.W.1",
+  "DRM 3.4 GATE.W.1: exact horizontal GATE width 20nm")
+gate.rectangles.with_bbox_height(0, 40.nm).output("GATE.W.2",
+  "DRM 3.4 GATE.W.2: min vertical GATE width 40nm")
+gate.edges.with_angle(90).space(34.nm).output("GATE.S.2",
+  "DRM 3.4 GATE.S.2: min horizontal GATE spacing 34nm")
+((gate & active) - gate.sized(0, -4.nm)).output("GATE.ACTIVE.EX.1",
+  "DRM 3.4 GATE.ACTIVE.EX.1: min vertical GATE extension past ACTIVE 4nm")
+((gate & active) - active.sized(-25.nm, 0)).output("GATE.ACTIVE.EX.2",
+  "DRM 3.4 GATE.ACTIVE.EX.2: min horizontal ACTIVE extension past GATE 25nm")
+active_ni_gate = active.not_interacting(gate)
+gate.edges.with_angle(90).sep(active_ni_gate.edges.with_angle(90), 9.nm)
+  .output("GATE.ACTIVE.S.4",
+  "DRM 3.4 GATE.ACTIVE.S.4: min horizontal ACTIVE-GATE spacing 9nm")
+
+# --- DRM 3.5 ACTIVE (non-SRAM; SRAM variants deferred) ---
+active.rectangles.with_bbox_height(0, 27.nm).output("ACTIVE.W.1",
+  "DRM 3.5 ACTIVE.W.1: min vertical ACTIVE width 27nm")
+active.rectangles.with_bbox_width(0, 16.nm).output("ACTIVE.W.3",
+  "DRM 3.5 ACTIVE.W.3: min horizontal ACTIVE width 16nm")
+active.edges.with_angle(0).space(27.nm).output("ACTIVE.S.1",
+  "DRM 3.5 ACTIVE.S.1: min vertical ACTIVE spacing 27nm")
+active.edges.with_angle(90).space(38.nm).output("ACTIVE.S.2B",
+  "DRM 3.5 ACTIVE.S.2B: min horizontal ACTIVE spacing 38nm")
+((active & fin) - active.sized(0, -10.nm)).output("ACTIVE.FIN.EX.1",
+  "DRM 3.5 ACTIVE.FIN.EX.1: min vertical ACTIVE extension past FIN 10nm")
+(active - well).sep(well, 27.nm).output("ACTIVE.WELL.S.4",
+  "DRM 3.5 ACTIVE.WELL.S.4: min ACTIVE-to-WELL spacing 27nm")
+well.enclosing(active, 27.nm).output("ACTIVE.WELL.EN.1",
+  "DRM 3.5 ACTIVE.WELL.EN.1: min ACTIVE enclosure by WELL 27nm")
+active.with_area(0, 864 * NM2).output("ACTIVE.A.1A",
+  "DRM 3.5 ACTIVE.A.1A: min ACTIVE area 864nm2")
+
+# --- DRM 3.12 M1-M3 (rules stated for M1 apply to M2/M3) ---
+m1.width(18.nm).output("M1.W.1", "DRM 3.12 M1.W.1: min M1 width 18nm")
+m1.space(18.nm).output("M1.S.1",
+  "DRM 3.12 M1.S.1: min side-to-side M1 spacing 18nm, WEAK (tip tables deferred)")
+m1.with_area(0, 504 * NM2).output("M1.A.1", "DRM 3.12 M1.A.1: min M1 area 504nm2")
+m2.width(18.nm).output("M2.W.1", "DRM 3.12 M2.W.1: min M2 width 18nm")
+m2.space(18.nm).output("M2.S.1",
+  "DRM 3.12 M2.S.1: min side-to-side M2 spacing 18nm, WEAK (tip tables deferred)")
+m2.with_area(0, 504 * NM2).output("M2.A.1", "DRM 3.12 M2.A.1: min M2 area 504nm2")
+m3.width(18.nm).output("M3.W.1", "DRM 3.12 M3.W.1: min M3 width 18nm")
+m3.space(18.nm).output("M3.S.1",
+  "DRM 3.12 M3.S.1: min side-to-side M3 spacing 18nm, WEAK (tip tables deferred)")
+m3.with_area(0, 504 * NM2).output("M3.A.1", "DRM 3.12 M3.A.1: min M3 area 504nm2")
+
+# --- DRM 3.11 V0 ---
+v0.rectangles.with_bbox_min(0, 18.nm).output("V0.W.1",
+  "DRM 3.11 V0.W.1: min V0 width 18nm along M1, WEAK isotropic")
+v0.space(18.nm).output("V0.S.1",
+  "DRM 3.11 V0.S.1: min V0 spacing, WEAK floor 18nm of [18|27|18] set")
+(v0 - m1).output("V0.AUX.1",
+  "DRM 3.11 V0.AUX.1: V0 must interact with M1 (top part)")
+v0.not_interacting(lisd + lig).output("V0.AUX.1",
+  "DRM 3.11 V0.AUX.1: V0 must interact with LISD or LIG (MOL part)")
+
+# --- DRM 3.13 V1-V3 ---
+v1.rectangles.with_bbox_min(0, 18.nm).output("V1.W.1",
+  "DRM 3.13 V1.W.1: min V1 width 18nm along M2, WEAK isotropic")
+v1.space(18.nm).output("V1.S.1",
+  "DRM 3.13 V1.S.1: min V1 spacing, WEAK floor 18nm of [18|27|18] set")
+(v1 - m1).output("V1.AUX.1", "DRM 3.13 V1.AUX.1: V1 must be inside M1 and M2")
+(v1 - m2).output("V1.AUX.1", "DRM 3.13 V1.AUX.1: V1 must be inside M1 and M2")
+v1.enclosed(m1, 2.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V1.M1.EN.1",
+  "DRM 3.13 V1.M1.EN.1: V1 enclosure by M1 5&2, WEAK 2nm floor")
+v2.rectangles.with_bbox_min(0, 18.nm).output("V2.W.1",
+  "DRM 3.13 V2.W.1: min V2 width 18nm along M3, WEAK isotropic")
+v2.space(18.nm).output("V2.S.1",
+  "DRM 3.13 V2.S.1: min V2 spacing, WEAK floor 18nm of [18|27|18] set")
+(v2 - m2).output("V2.AUX.1", "DRM 3.13 V2.AUX.1: V2 must be inside M2 and M3")
+(v2 - m3).output("V2.AUX.1", "DRM 3.13 V2.AUX.1: V2 must be inside M2 and M3")
+v2.enclosed(m2, 5.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V2.M2.EN.1",
+  "DRM 3.13 V2.M2.EN.1: min V2 enclosure by M2 5nm on two opposite sides")
+v3.rectangles.with_bbox_min(0, 18.nm).output("V3.W.1",
+  "DRM 3.13 V3.W.1: min V3 width 18nm along M4, WEAK isotropic")
+v3.space(18.nm).output("V3.S.1",
+  "DRM 3.13 V3.S.1: min V3 spacing, WEAK floor 18nm of [18|27|18] set")
+(v3 - m3).output("V3.AUX.1", "DRM 3.13 V3.AUX.1: V3 must be inside M3 and M4")
+(v3 - m4).output("V3.AUX.1", "DRM 3.13 V3.AUX.1: V3 must be inside M3 and M4")
+v3.enclosed(m3, 5.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V3.M3.EN.1",
+  "DRM 3.13 note 2 V3.M3.EN.1: min V3 enclosure by M3 5nm, as V2.M2.EN.1")
+v3.enclosed(m4, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V3.M4.EN.2",
+  "DRM 3.13 V3.M4.EN.2: min V3 enclosure by M4 11nm on two opposite sides")
+
+# --- DRM 3.14 M4-M5 (M5 directions perpendicular: M5 routes vertical) ---
+m4.rectangles.with_bbox_height(0, 24.nm).output("M4.W.1",
+  "DRM 3.14 M4.W.1: min vertical M4 width 24nm")
+m4.rectangles.with_bbox_width(0, 44.nm).output("M4.W.5",
+  "DRM 3.14 M4.W.5: min horizontal M4 width 44nm")
+m4.sized(0, -240.nm).sized(0, 240.nm).output("M4.W.2",
+  "DRM 3.14 M4.W.2: max vertical M4 width 480nm")
+m4.edges.with_angle(0).space(24.nm).output("M4.S.1",
+  "DRM 3.14 M4.S.1: min vertical M4 spacing 24nm")
+m4.edges.with_angle(90).space(40.nm).output("M4.S.2",
+  "DRM 3.14 M4.S.2: min horizontal M4 spacing 40nm")
+m4.ongrid(0, 24.nm).output("M4.AUX.1",
+  "DRM 3.14 M4.AUX.1: M4 horizontal edges on 24nm grid (offset 0)")
+m5.rectangles.with_bbox_width(0, 24.nm).output("M5.W.1",
+  "DRM 3.14 M5.W.1: min horizontal M5 width 24nm")
+m5.rectangles.with_bbox_height(0, 44.nm).output("M5.W.5",
+  "DRM 3.14 M5.W.5: min vertical M5 width 44nm")
+m5.sized(-240.nm, 0).sized(240.nm, 0).output("M5.W.2",
+  "DRM 3.14 M5.W.2: max horizontal M5 width 480nm")
+m5.edges.with_angle(90).space(24.nm).output("M5.S.1",
+  "DRM 3.14 M5.S.1: min horizontal M5 spacing 24nm")
+m5.edges.with_angle(0).space(40.nm).output("M5.S.2",
+  "DRM 3.14 M5.S.2: min vertical M5 spacing 40nm")
+m5.ongrid(24.nm, 0).output("M5.AUX.1",
+  "DRM 3.14 M5.AUX.1: M5 vertical edges on 24nm grid (offset 0)")
+
+# --- DRM 3.15 V4-V5 (S.1/S.2 share the value 33nm: one check, both names) ---
+v4.rectangles.without_bbox_min(24.nm).output("V4.W.1",
+  "DRM 3.15 V4.W.1: exact V4 width 24nm along M5, WEAK isotropic")
+v4_s = v4.space(33.nm)
+v4_s.output("V4.S.1", "DRM 3.15 V4.S.1: min V4 spacing 33nm, same net")
+v4_s.output("V4.S.2", "DRM 3.15 V4.S.2: min V4 spacing 33nm, different nets")
+v4.enclosed(m4, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V4.M4.EN.1",
+  "DRM 3.15 V4.M4.EN.1: min V4 enclosure by M4 11nm on two opposite sides")
+v4.enclosed(m5, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V4.M5.EN.2",
+  "DRM 3.15 V4.M5.EN.2: min V4 enclosure by M5 11nm on two opposite sides")
+(v4 - m4).output("V4.AUX.1", "DRM 3.15 V4.AUX.1: V4 must be inside M4 and M5")
+(v4 - m5).output("V4.AUX.1", "DRM 3.15 V4.AUX.1: V4 must be inside M4 and M5")
+v5.rectangles.without_bbox_min(24.nm).output("V5.W.1",
+  "DRM 3.15 V5.W.1: exact V5 width 24nm along M6, WEAK isotropic")
+v5_s = v5.space(33.nm)
+v5_s.output("V5.S.1", "DRM 3.15 V5.S.1: min V5 spacing 33nm, same net")
+v5_s.output("V5.S.2", "DRM 3.15 V5.S.2: min V5 spacing 33nm, different nets")
+v5.enclosed(m5, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V5.M5.EN.1",
+  "DRM 3.15 V5.M5.EN.1: min V5 enclosure by M5 11nm on two opposite sides")
+v5.enclosed(m6, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V5.M6.EN.2",
+  "DRM 3.15 V5.M6.EN.2: min V5 enclosure by M6 11nm on two opposite sides")
+(v5 - m5).output("V5.AUX.1", "DRM 3.15 V5.AUX.1: V5 must be inside M5 and M6")
+(v5 - m6).output("V5.AUX.1", "DRM 3.15 V5.AUX.1: V5 must be inside M5 and M6")
+
+# --- DRM 3.16 M6-M7 (M7 directions perpendicular: M7 routes vertical) ---
+m6.rectangles.with_bbox_height(0, 32.nm).output("M6.W.1",
+  "DRM 3.16 M6.W.1: min vertical M6 width 32nm")
+m6.rectangles.with_bbox_width(0, 44.nm).output("M6.W.5",
+  "DRM 3.16 M6.W.5: min horizontal M6 width 44nm")
+m6.sized(0, -320.nm).sized(0, 320.nm).output("M6.W.2",
+  "DRM 3.16 M6.W.2: max vertical M6 width 640nm")
+m6.edges.with_angle(0).space(32.nm).output("M6.S.1",
+  "DRM 3.16 M6.S.1: min vertical M6 spacing 32nm")
+m6.edges.with_angle(90).space(40.nm).output("M6.S.2",
+  "DRM 3.16 M6.S.2: min horizontal M6 spacing 40nm")
+m6.ongrid(0, 32.nm).output("M6.AUX.1",
+  "DRM 3.16 M6.AUX.1: M6 horizontal edges on 32nm grid (offset 0)")
+m7.rectangles.with_bbox_width(0, 32.nm).output("M7.W.1",
+  "DRM 3.16 M7.W.1: min horizontal M7 width 32nm")
+m7.rectangles.with_bbox_height(0, 44.nm).output("M7.W.5",
+  "DRM 3.16 M7.W.5: min vertical M7 width 44nm")
+m7.sized(-320.nm, 0).sized(320.nm, 0).output("M7.W.2",
+  "DRM 3.16 M7.W.2: max horizontal M7 width 640nm")
+m7.edges.with_angle(90).space(32.nm).output("M7.S.1",
+  "DRM 3.16 M7.S.1: min horizontal M7 spacing 32nm")
+m7.edges.with_angle(0).space(40.nm).output("M7.S.2",
+  "DRM 3.16 M7.S.2: min vertical M7 spacing 40nm")
+m7.ongrid(32.nm, 0).output("M7.AUX.1",
+  "DRM 3.16 M7.AUX.1: M7 vertical edges on 32nm grid (offset 0)")
+
+# --- DRM 3.17 V6-V7 (S.1/S.2 share the value 45nm: one check, both names) ---
+v6.rectangles.without_bbox_min(32.nm).output("V6.W.1",
+  "DRM 3.17 V6.W.1: exact V6 width 32nm, WEAK isotropic")
+v6_s = v6.space(45.nm)
+v6_s.output("V6.S.1", "DRM 3.17 V6.S.1: min V6 spacing 45nm, same net")
+v6_s.output("V6.S.2", "DRM 3.17 V6.S.2: min V6 spacing 45nm, different nets")
+v6.enclosed(m6, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V6.M6.EN.1",
+  "DRM 3.17 V6.M6.EN.1: min V6 enclosure by M6 11nm on two opposite sides")
+v6.enclosed(m7, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V6.M7.EN.2",
+  "DRM 3.17 V6.M7.EN.2: min V6 enclosure by M7 11nm on two opposite sides")
+(v6 - m6).output("V6.AUX.1", "DRM 3.17 V6.AUX.1: V6 must be inside M6 and M7")
+(v6 - m7).output("V6.AUX.1", "DRM 3.17 V6.AUX.1: V6 must be inside M6 and M7")
+v7.rectangles.without_bbox_min(32.nm).output("V7.W.1",
+  "DRM 3.17 V7.W.1: exact V7 width 32nm, WEAK isotropic")
+v7_s = v7.space(45.nm)
+v7_s.output("V7.S.1", "DRM 3.17 V7.S.1: min V7 spacing 45nm, same net")
+v7_s.output("V7.S.2", "DRM 3.17 V7.S.2: min V7 spacing 45nm, different nets")
+v7.enclosed(m7, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V7.M7.EN.1",
+  "DRM 3.17 V7.M7.EN.1: min V7 enclosure by M7 11nm on two opposite sides")
+v7.enclosed(m8, 11.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V7.M8.EN.2",
+  "DRM 3.17 V7.M8.EN.2: min V7 enclosure by M8 11nm on two opposite sides")
+(v7 - m7).output("V7.AUX.1", "DRM 3.17 V7.AUX.1: V7 must be inside M7 and M8")
+(v7 - m8).output("V7.AUX.1", "DRM 3.17 V7.AUX.1: V7 must be inside M7 and M8")
+
+# --- DRM 3.18 M8-M9 (rules stated for M8 apply to M9) ---
+m8.width(40.nm).output("M8.W.1", "DRM 3.18 M8.W.1: min M8 width 40nm")
+m8.rectangles.with_bbox_max(400.nm, 1200.nm).with_bbox_min(0, 60.nm)
+  .output("M8.W.2", "DRM 3.18 M8.W.2: min M8 width 60nm for length 400-1200nm")
+m8.rectangles.with_bbox_max(1200.nm, 1800.nm).with_bbox_min(0, 80.nm)
+  .output("M8.W.3", "DRM 3.18 M8.W.3: min M8 width 80nm for length 1200-1800nm")
+m8.rectangles.with_bbox_max(1800.nm, nil).with_bbox_min(0, 120.nm)
+  .output("M8.W.4", "DRM 3.18 M8.W.4: min M8 width 120nm for length over 1800nm")
+m8.space(40.nm).output("M8.S.1",
+  "DRM 3.18 M8.S.1: min side-to-side M8 spacing 40nm, WEAK (tables deferred)")
+m8.with_area(0, 7520 * NM2).output("M8.A.1",
+  "DRM 3.18 M8.A.1: min M8 area 7520nm2")
+m9.width(40.nm).output("M9.W.1", "DRM 3.18 M9.W.1: min M9 width 40nm")
+m9.rectangles.with_bbox_max(400.nm, 1200.nm).with_bbox_min(0, 60.nm)
+  .output("M9.W.2", "DRM 3.18 M9.W.2: min M9 width 60nm for length 400-1200nm")
+m9.rectangles.with_bbox_max(1200.nm, 1800.nm).with_bbox_min(0, 80.nm)
+  .output("M9.W.3", "DRM 3.18 M9.W.3: min M9 width 80nm for length 1200-1800nm")
+m9.rectangles.with_bbox_max(1800.nm, nil).with_bbox_min(0, 120.nm)
+  .output("M9.W.4", "DRM 3.18 M9.W.4: min M9 width 120nm for length over 1800nm")
+m9.space(40.nm).output("M9.S.1",
+  "DRM 3.18 M9.S.1: min side-to-side M9 spacing 40nm, WEAK (tables deferred)")
+m9.with_area(0, 7520 * NM2).output("M9.A.1",
+  "DRM 3.18 M9.A.1: min M9 area 7520nm2")
+
+# --- DRM 3.19 V8-V9 (V9 top metal is Pad: unmapped, top checks deferred) ---
+v8.rectangles.without_bbox_min(40.nm).output("V8.W.1",
+  "DRM 3.19 V8.W.1: V8 40x40/40x120/120x40nm, min-dim part")
+v8.rectangles.with_bbox_max(40.25.nm, 120.nm).output("V8.W.1",
+  "DRM 3.19 V8.W.1: V8 40x40/40x120/120x40nm, max-dim part")
+v8.rectangles.with_bbox_max(120.25.nm, nil).output("V8.W.1",
+  "DRM 3.19 V8.W.1: V8 40x40/40x120/120x40nm, oversize part")
+v8.space(57.nm).output("V8.S.1", "DRM 3.19 V8.S.1: min V8 spacing 57nm")
+v8.enclosed(m8, 20.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V8.M8.EN.1",
+  "DRM 3.19 V8.M8.EN.1: min V8 enclosure by M8 20nm on two opposite sides")
+v8.enclosed(m9, 20.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V8.M9.EN.2",
+  "DRM 3.19 V8.M9.EN.2: min V8 enclosure by M9 20nm on two opposite sides")
+(v8 - m8).output("V8.AUX.1", "DRM 3.19 V8.AUX.1: V8 must be inside M8 and M9")
+(v8 - m9).output("V8.AUX.1", "DRM 3.19 V8.AUX.1: V8 must be inside M8 and M9")
+v9.rectangles.without_bbox_min(40.nm).output("V9.W.1",
+  "DRM 3.19 V9.W.1: V9 40x40/40x120/120x40nm, min-dim part")
+v9.rectangles.with_bbox_max(40.25.nm, 120.nm).output("V9.W.1",
+  "DRM 3.19 V9.W.1: V9 40x40/40x120/120x40nm, max-dim part")
+v9.rectangles.with_bbox_max(120.25.nm, nil).output("V9.W.1",
+  "DRM 3.19 V9.W.1: V9 40x40/40x120/120x40nm, oversize part")
+v9.space(57.nm).output("V9.S.1", "DRM 3.19 V9.S.1: min V9 spacing 57nm")
+v9.enclosed(m9, 20.nm, one_side_allowed, two_opposite_sides_allowed)
+  .output("V9.M9.EN.1",
+  "DRM 3.19 V9.M9.EN.1: min V9 enclosure by M9 20nm on two opposite sides")
+(v9 - m9).output("V9.AUX.1", "DRM 3.19 V9.AUX.1: V9 must be inside M9 (Pad part deferred)")

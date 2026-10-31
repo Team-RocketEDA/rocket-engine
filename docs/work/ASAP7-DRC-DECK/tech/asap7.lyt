@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<technology>
+ <name>ASAP7</name>
+ <description>ASAP7 r1p7 predictive PDK: layer names/stream numbers transcribed from the PDK layermap (lane ASAP7-DRC-DECK).</description>
+ <group />
+ <dbu>0.00025</dbu>
+ <base-path />
+ <original-base-path />
+ <layer-properties_file>asap7.lyp</layer-properties_file>
+ <add-other-layers>true</add-other-layers>
+ <connectivity />
+ </technology>
+
