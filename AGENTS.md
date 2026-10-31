@@ -68,6 +68,23 @@ shapes into per-operation JSON Schemas, so keep them plain
 (one key per item, continuation lines indented). Envelope-carried
 arguments elsewhere use `Request keys:` the same way.
 
+## Generalization law: smokes qualify, projects are the product
+
+A library smoke proves the library imports — that is never
+the feature. Every adapter generalizes its library to run on
+ANY Rocket project: netlists, sources, geometry, and decks
+come from the project through the job, never from hardcoded
+fixtures. A new adapter lands with (1) a smoke that qualifies
+the solver, and (2) a real op that consumes project inputs —
+the smoke alone is an unfinished lane, and its docstring must
+say what the follow-up is until it lands.
+
+Adapters are duplex: results flow back into the engine as
+structured evidence (measurements, findings, artifacts with
+run_ids), and the engine routes each result to its correct
+consumer (ledger, frontend effects, agent replies). An
+adapter that cannot say where its outputs go is not done.
+
 ## Environment: install.sh is the only path
 
 `scripts/install.sh --install` provisions everything (UV sync,

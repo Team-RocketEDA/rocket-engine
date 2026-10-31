@@ -31,6 +31,10 @@ correctness gate — with artifacts, not assertions.
   I27 (missing stages block completion claims) and I09
   (exit-zero-is-not-PASS) are explicit falsification
   targets, not background assumptions.
+- Generalization falsification: every solver adapter
+  must consume project inputs (AGENTS.md Generalization
+  law) — any smoke-only adapter found is a ticket, not
+  a footnote.
 
 ## Acceptance
 
