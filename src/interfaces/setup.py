@@ -28,6 +28,7 @@ rows verify per-deck hashes (tree-wide rehash stays a run-time
 concern).
 """
 
+import os
 import shutil
 from pathlib import Path
 
@@ -170,16 +171,64 @@ def _resolve_netgen():
     return resolve_netgen()
 
 
+def prov_bin_dirs(tools_dir=None):
+    """bin/ dirs from the provisioned tools root (prov-phase1.env).
+
+    Parses the KEY="..." lines the provisioner writes: *_PREFIX
+    and *_DIR entries contribute their bin/ subdir, executable
+    paths (AppImage, venv pythons) contribute their dirname.
+    Missing or unreadable env file -> [] (ambient PATH decides).
+    """
+    root = tools_dir or os.environ.get(
+        "TOOLS_DIR", os.path.expanduser("~/tools")
+    )
+    try:
+        with open(os.path.join(root, "prov-phase1.env")) as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return []
+    dirs = []
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip().strip('"')
+        if not value:
+            continue
+        if key.endswith("_PREFIX") or key.endswith("_DIR"):
+            candidate = os.path.join(value, "bin")
+        else:
+            candidate = os.path.dirname(value)
+        if candidate and os.path.isdir(candidate) \
+                and candidate not in dirs:
+            dirs.append(candidate)
+    return dirs
+
+
 def _detect_binaries(names, banner=None):
-    """Split binary names into found paths and missing names."""
+    """Split binary names into found paths and missing names.
+
+    Resolution order (docs/provision-sources.md "Engine path
+    pointing"): provisioned root first (pinned, trusted), then
+    ambient PATH. The netgen impostor rule still applies.
+    """
     found, missing = {}, []
+    prov_dirs = prov_bin_dirs()
     for name in names:
         if banner == "lvs" and name == "netgen":
             # PATH presence is NOT enough (Schoeberl impostor):
             # only the adapter's banner probe admits.
             path = _resolve_netgen()
         else:
-            path = shutil.which(name)
+            path = None
+            for candidate in prov_dirs:
+                probe = os.path.join(candidate, name)
+                if os.path.isfile(probe) and os.access(probe, os.X_OK):
+                    path = probe
+                    break
+            if path is None:
+                path = shutil.which(name)
         if path is None:
             missing.append(name)
         else:
