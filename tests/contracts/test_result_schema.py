@@ -5,6 +5,7 @@ conformance, which is independently qualified against real fixture outputs.
 """
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -195,3 +196,58 @@ def test_stage_and_hierarchy_results_have_tree_data(contract):
              "conditions": []}
     assert not check(contract, "Dataset", value)
     assert not check(contract, "DataView", {"id": "build-tree", "kind": "tree", "dataset_id": "asic-stages"})
+
+
+def test_every_task_declares_io_presentation_and_delivery(contract):
+    """Every v1 task carries typed ports, renderer kinds and delivery scope."""
+    for name, item in contract["x-tasks"].items():
+        assert isinstance(item.get("io"), dict), f"{name} lacks io ports"
+        for direction in ("inputs", "outputs"):
+            assert isinstance(item["io"].get(direction), list), f"{name} lacks io.{direction}"
+        assert item["io"]["outputs"], f"{name} declares no output ports"
+        assert item.get("presentation"), f"{name} lacks presentation kinds"
+        assert item.get("delivery"), f"{name} lacks delivery scope"
+
+
+def test_checker_rejects_task_missing_io_ports(contract):
+    """A task without typed io ports cannot lock the result contract."""
+    mutated = copy.deepcopy(contract)
+    mutated["x-tasks"]["simulate.spice"].pop("io")
+    with pytest.raises(ValueError, match="io"):
+        CONTRACT.check(mutated)
+
+
+def test_checker_rejects_unknown_presentation_or_delivery(contract):
+    """Renderer kinds and delivery scopes stay inside the frozen vocabularies."""
+    mutated = copy.deepcopy(contract)
+    mutated["x-tasks"]["simulate.spice"]["presentation"] = ["hologram"]
+    with pytest.raises(ValueError, match="[Pp]resentation"):
+        CONTRACT.check(mutated)
+    mutated = copy.deepcopy(contract)
+    mutated["x-tasks"]["simulate.spice"]["delivery"] = "someday"
+    with pytest.raises(ValueError, match="[Dd]elivery"):
+        CONTRACT.check(mutated)
+
+
+def test_fpga_is_off_mvp_and_field_solvers_post_mvp(contract):
+    """Deferred runtimes keep definitions without claiming MVP readiness."""
+    tasks = contract["x-tasks"]
+    assert tasks["implement.fpga"]["delivery"] == "off_mvp"
+    for name in ("simulate.em", "simulate.thermal", "simulate.device"):
+        assert tasks[name]["delivery"] == "post_mvp", name
+
+
+def test_spectrum_tasks_declare_no_forced_heatmap(contract):
+    """Spectrum-only tasks render traces; no heatmap is forced onto them."""
+    for name in ("simulate.spice", "simulate.optical"):
+        kinds = set(contract["x-tasks"][name]["presentation"])
+        assert "traces" in kinds, name
+        assert not ({"matrix", "field"} & kinds), name
+
+
+def test_librelane_summaries_are_tables_and_stage_trees(contract):
+    """Stage, timing and area summaries are tables plus a stage tree."""
+    tasks = contract["x-tasks"]
+    assert set(tasks["implement.asic"]["presentation"]) == {"table", "tree"}
+    assert "table" in tasks["analyze.timing"]["presentation"]
+    assert "table" in tasks["analyze.power"]["presentation"]

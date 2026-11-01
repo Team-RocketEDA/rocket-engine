@@ -352,6 +352,30 @@ def check(contract, manifest=None, registry=None):
         for tool in item["tools"]:
             if name not in contract["x-tools"][tool]["tasks"]:
                 raise ValueError(f"Inconsistent task/tool association: {name}/{tool}")
+        ports = item.get("io")
+        if not isinstance(ports, dict):
+            raise ValueError(f"Task lacks typed io ports: {name}")
+        for direction in ("inputs", "outputs"):
+            declared = ports.get(direction)
+            if not isinstance(declared, list):
+                raise ValueError(f"Task io.{direction} is not a port list: {name}")
+            seen = set()
+            for port in declared:
+                if list(validator(contract, "#/$defs/TaskPort").iter_errors(port)):
+                    label = port.get("name") if isinstance(port, dict) else port
+                    raise ValueError(f"Task declares untyped {direction} port: {name}/{label}")
+                if port["name"] in seen:
+                    raise ValueError(f"Duplicate task port name: {name}/{port['name']}")
+                seen.add(port["name"])
+        if not ports["outputs"]:
+            raise ValueError(f"Task declares no output ports: {name}")
+        presentation = item.get("presentation")
+        if (not isinstance(presentation, list) or not presentation
+                or not set(presentation) <= {"traces", "table", "matrix", "markers",
+                                             "digital", "field", "tree"}):
+            raise ValueError(f"Task has unknown presentation kinds: {name}")
+        if item.get("delivery") not in {"mvp", "post_mvp", "off_mvp"}:
+            raise ValueError(f"Task has unknown delivery scope: {name}")
     for name, item in contract["x-tools"].items():
         for task in item["tasks"]:
             if name not in contract["x-tasks"][task]["tools"]:

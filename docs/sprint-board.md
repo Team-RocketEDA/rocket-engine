@@ -55,7 +55,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-CLIENTS] Generate and migrate MCP, stdio, HTTP and Python clients to v1
 - [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
 - [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
-- [API-V1-RESULTS] Freeze typed result/renderer contracts and task io classification
 - [API-V1-PYTHON] Finish and lock Pydantic boundary generation
 - [REFACTOR-SERVICE] Split src/project/service.py (3809 lines, over limit)
 - [REFACTOR-COMPOSITION] Split src/composition.py before it hits the limit
@@ -71,6 +70,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
 - [MCP-SCHEMA] Real input schemas on every MCP tool
 - [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
+- [API-V1-RESULTS] Freeze typed result/renderer contracts and task io classification
 ## Done
 
 - [S1] Slice 1 GREEN (interfaces I01-I02, project I05-I07)
