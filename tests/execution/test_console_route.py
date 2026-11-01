@@ -439,7 +439,12 @@ def test_place_cell_without_catalog_refuses():
 def test_tier2_module_names_no_private_doc_store_writers():
     import rocket_engine.execution.console_route as module
 
-    source = Path(module.__file__).read_text(encoding="utf-8")
+    files = [Path(module.__file__)] + sorted(
+        (Path(module.__file__).parent / "routing").glob("*.py")
+    )
+    source = "\n".join(
+        path.read_text(encoding="utf-8") for path in files
+    )
     forbidden = [
         "_write_doc_text", "_delete_doc_path", "_write_bytes_map",
         "._doc_path(", "_read_doc_text", "_capture_snapshot",
