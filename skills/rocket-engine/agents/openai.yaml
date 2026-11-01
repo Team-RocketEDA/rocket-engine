@@ -1,0 +1,4 @@
+interface:
+  display_name: "RocketEDA Engine"
+  short_description: "Author circuits and inspect engine evidence"
+  default_prompt: "Use $rocket-engine to discover the attached runtime, work on the selected circuit project, and inspect its tool results."

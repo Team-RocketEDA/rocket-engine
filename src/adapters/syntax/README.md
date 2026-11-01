@@ -1,16 +1,5 @@
-# adapters/syntax — Slang syntax solver
+# Slang syntax adapter
 
-`run_syntax` behind the `ToolAdapter` port: preflight refuses the
-wrong operation, bad timeouts/flags, missing sources, and unresolvable
-tools; execute runs `slang --lint-only -Wextra`; parse normalizes
-`file:line:col:` diagnostics plus the Build summary into
-`{total, violations[]}` with file/line/col locations and rule flags.
+SyntaxAdapter serves run_syntax with Slang. It runs lint-only mode over project sources and normalizes file, line, and column diagnostics. Errors fail the check; warnings are findings and do not fail it by themselves. A failed build with no parsed diagnostic is reported as an error rather than clean output.
 
-Verified against slang 12.0.0 on counter fixtures
-(`tests/adapters/fixtures/syntax/`). Errors fail, warnings never do,
-and a failed build with no parsed diagnostics reports a synthesized
-error rather than going clean.
-
-Tool resolution is PATH plus an explicit job `tool_dir`; where the
-tools live is B10 scope. No Engine registration yet (deploy-time
-config, like the sim adapter).
+The adapter is registered in Engine as the slang solver. Tool resolution uses PATH or an explicit job tool_dir, with a version-checked remedy when the binary is unavailable.

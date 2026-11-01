@@ -1,14 +1,10 @@
-# adapters/circulax — Circulax time-domain smoke
+# Circulax time-domain adapter
 
-Smallest honest circulax circuit (CIRCULAX-LIVE): a V step driving
-R + C to GND, compiled via kfnetlist and run with
-`Circuit.transient` from a discharged start. `run_rc_step` returns
-`{circulax_version, R, C, V, t_s[], vc_V[], final_V}` as plain
-floats; `circulax_version` names the proven solver per run.
+The Circulax package has two roles:
 
-Verified against circulax 0.2.5 (uv.lock pin). Good RC (1k/1nF,
-tau=1us) charges Vc(5us)=0.9933, past the 0.9 V threshold; slow RC
-(100k/1nF) sits at 0.0488 and misses it — the good-vs-bad signal.
-A circulax-less interpreter raises `missing_dependency`, never a
-fake verdict. A full `deck.tool: circulax` Engine adapter is
-follow-up, out of scope for this smoke.
+- Its RC step smoke qualifies the installed library with a small, known-good and known-bad circuit. It returns solver version, time samples, capacitor voltage, and final voltage.
+- CirculaxAdapter is registered for the run_optical operation as the circulax deck tool. Engine jobs provide the simulation inputs and receive normalized results.
+
+The smoke uses a voltage step, resistor, and capacitor compiled through kfnetlist. With Circulax 0.2.5, the 1 kΩ / 1 nF case reaches 0.9933 V at 5 μs; the 100 kΩ / 1 nF case reaches 0.0488 V and misses the threshold. A missing Circulax dependency reports missing_dependency rather than a fabricated verdict.
+
+See [adapter.py](adapter.py) and the [solver map](../README.md).

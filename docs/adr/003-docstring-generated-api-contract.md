@@ -1,6 +1,6 @@
 # ADR-003: API contract generated from Google-style docstrings
 
-*Status: proposed (2026-10-30)*
+*Status: legacy v0 generation retained; superseded for v1 by [ADR-014](014-contract-first-editor-and-tool-api.md), 2026-11-01.*
 
 ## Context
 

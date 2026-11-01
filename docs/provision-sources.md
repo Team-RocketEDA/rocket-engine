@@ -146,6 +146,11 @@ deps.
   (primary) or CMake (INSTALL.md). Binary installers
   exist for Windows/Mac/RedHat only — Ubuntu builds
   from source. Heavy; MPI optional for parallel.
+  GitHub checkouts lack ./configure: run ./bootstrap
+  first (needs autoconf+automake+libtool) — verbatim
+  building guide. ShyLU is Parallel-Xyce-only; our
+  serial build omits it (Trilinos 17 breaks otherwise).
+  gtest TPL off (TriBITS' own documented escape).
 - install.sh: source-build recipe, long-timeout lane;
   serial-first, MPI as an option.
 
@@ -178,10 +183,16 @@ deps.
 - Source: https://docs.openEMS.de/ (python/install),
   github.com/thliebig/openEMS + CSXCAD.
 - Method (documented): build CSXCAD C++ + Python ext
-  first, then openEMS C++ + Python ext (deps: fparser,
-  TinyXML, HDF5, VTK, Boost). An `apt install openems`
-  exists on Ubuntu (medium confidence, version
-  unknown — verify before trusting).
+  first, then openEMS C++ + Python ext. Upstream
+  Debian/Ubuntu minimum, verbatim: build-essential
+  cmake git libhdf5-dev libboost-all-dev
+  libtinyxml-dev zlib1g-dev. Proven extras on this
+  host: libfparser-dev + libcgal-dev (both demanded
+  by actual CSXCAD configure errors). VTK/Qt are
+  AppCSXCAD-GUI-only — headless build skips them.
+  An `apt install openems` exists on Ubuntu (medium
+  confidence, version unknown — verify before
+  trusting).
 - install.sh: source-build recipe per the manual;
   probe apt as a fast path only if version-asserted.
 

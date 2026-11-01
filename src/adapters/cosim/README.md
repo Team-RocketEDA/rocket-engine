@@ -1,25 +1,9 @@
-# adapters/cosim — coupled mixed-signal co-simulation solver
+# Coupled mixed-signal co-simulation adapter
 
-`run_cosim` behind the `ToolAdapter` port (SEAM-COSIM): preflight
-refuses the wrong operation, missing halves, bad loop config,
-control-carrying analog bodies, bad PDK pins, and unresolvable
-tools; execute runs a single-threaded ngspice transient, samples
-the bitstream node mid-period, streams the live bits into the
-digital bench as `cosim_bits.txt`, and runs that under icarus via
-`HdlSimAdapter`; parse judges the JOINT verdict (SNDR gate plus
-RTL ones-density/counts/golden-model checks).
+CosimAdapter serves run_cosim. It runs an ngspice transient, samples the analog output into a digital bitstream, passes that stream to the Icarus HDL adapter, and evaluates the combined analog and digital checks.
 
-Rules reuse the halves' native names: quantitative misses are
-`measurement`, digital native violations pass through, valueless
-halves synthesize `sim_fail`. The verdict always comes from parsed
-output, never the exit code. Quantitative helpers (`rfft_power`,
-`sndr_bits`, `sample_bits`, `settled_stats`) are stdlib-only —
-the SNDR estimator replicates sim/snr.py including its guard
-quirk, verified to 0.01 dB against the recorded 40.2 dB vector.
+The job supplies its analog sources, digital bench, and loop settings. PDK model references resolve through the PDK store; an invalid or changed model fails preflight. Model-free behavioral jobs can omit the PDK reference.
 
-Tiers are project inputs, not fixtures: the tier-1 behavioral
-body and the PEX macro plus wrapper both arrive as
-`analog_sources` with their loop config. No Engine registration
-yet — see `docs/work/SEAM-COSIM/wiring.patch` (integrator
-applies; the VALIDATE-M seam tests update in the same step via
-`docs/work/SEAM-COSIM/seam-tests.patch`).
+The verdict comes from parsed measurements and digital findings, not the tool exit code. Missing samples or tool failures remain failures or NOT_RUN with a reason. The adapter currently composes its digital half through HdlSimAdapter.
+
+See the [SEAM-COSIM report](../../../docs/work/SEAM-COSIM/report.md) for qualification evidence and known limits.

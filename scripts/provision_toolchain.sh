@@ -891,7 +891,8 @@ install_ngspice() {
 install_xyce() {
     if [ "$OFFLINE" = "1" ]; then offline_stop "xyce"; return 1; fi
     prereqs_or_remedy "xyce" "https://xyce.sandia.gov/" \
-        git cmake make gcc g++ gfortran bison flex || return 1
+        git cmake make gcc g++ gfortran bison flex \
+        autoconf automake libtool || return 1
     ATTEMPTED=1
     local tsrc="$TOOLS_DIR/src/trilinos-$TRILINOS_REF"
     local tpref="$TOOLS_DIR/trilinos-$TRILINOS_REF"
@@ -946,6 +947,18 @@ install_xyce() {
         clone_retry "$XYCE_REPO" "$xsrc" "$XYCE_REF" || {
             remedy "xyce" "Xyce clone failed (offline?)" \
                 "retry with network, then re-run --install" \
+                "https://xyce.sandia.gov/"
+            return 1
+        }
+    fi
+    # Building-guide verbatim: GitHub checkouts (clone or
+    # release tarball) lack ./configure — run ./bootstrap
+    # first (needs autoconf+automake+libtool, checked above).
+    if [ ! -x "$xsrc/configure" ]; then
+        note "install xyce: bootstrapping autotools (upstream: ./bootstrap)"
+        (cd "$xsrc" && ./bootstrap) || {
+            remedy "xyce" "Xyce bootstrap failed" \
+                "sudo apt-get install -y autoconf automake libtool, then re-run --install" \
                 "https://xyce.sandia.gov/"
             return 1
         }
@@ -1063,7 +1076,7 @@ install_openems() {
         && cmake -DCMAKE_INSTALL_PREFIX="$OPENEMS_PREFIX" .. \
         && make -j"$(nproc)" && make install) || {
         remedy "openems" "CSXCAD build failed" \
-            "sudo apt-get install -y libtinyxml-dev libfparser-dev libhdf5-dev libvtk9-dev libboost-all-dev, then re-run --install" \
+            "sudo apt-get install -y build-essential cmake git libhdf5-dev libboost-all-dev libtinyxml-dev zlib1g-dev libfparser-dev libcgal-dev, then re-run --install" \
             "https://docs.openEMS.de/"
         return 1
     }

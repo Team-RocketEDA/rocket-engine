@@ -1,25 +1,9 @@
-# timing_sta adapter — run_timing via OpenSTA
+# OpenSTA timing adapter
 
-Standalone top-level timing recheck (M11): mapped netlist + timing
-libs + SDC, plus an optional top-level SPEF, flow to `sta` and come
-back as setup/hold WNS/TNS, critical paths, slew/load violators,
-and unconstrained endpoints.
+OpenStaTimingAdapter serves run_timing with the opensta tool. It runs a top-level timing recheck from the mapped netlist, timing libraries, SDC, and optional top-level SPEF, then returns setup/hold slack, critical paths, slew/load findings, and unconstrained endpoints.
 
-- Operation `run_timing`, deck.tool `opensta` (only tool).
-- Preflight refuses the wrong operation, bad tops/timeouts,
-  missing inputs, and unresolvable or unassertable tools with a
-  PROV remedy — never a PATH lottery.
-- Execute writes `timing.tcl` and runs `sta timing.tcl` under the
-  job timeout with stdin closed; the trailing `exit` keeps `sta`
-  off its interactive prompt.
-- Parse splits the log on `TIMING_STA` markers. Violated paths
-  become `setup_violation`/`hold_violation` errors, `VIOLATED`
-  constraint lines become `constraint_violation` errors, any
-  `Error:` line fails the run however it exited, and warnings —
-  including `unconstrained_endpoint` findings — never fail alone.
-  Raw `check_setup` text always rides along: missing constraints
-  are listed, never silent, never assumed.
+The adapter is registered in Engine. Preflight refuses missing inputs, invalid tops/timeouts, and unavailable or unassertable tools. Execution writes a timing script, runs sta under the job timeout with stdin closed, and includes an explicit exit command so STA cannot remain at its prompt.
 
-Tool resolution: job `tool_dir`, then `$OPENSTA_PREFIX/bin` (the
-PROV consumer contract), then PATH; the binary must answer
-`-version` (fallback `--version`) with an `OpenSTA` banner.
+The parser treats violated paths, violated constraints, and any Error line as failures. Warnings do not fail alone; raw check_setup output carries missing constraints so they are visible. Missing constraints are never assumed away.
+
+Tool resolution uses the job tool_dir, then OPENSTA_PREFIX/bin, then PATH. The binary must report an OpenSTA version banner.

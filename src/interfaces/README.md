@@ -1,43 +1,25 @@
-# interfaces — the engine's contract (single source of truth)
+# interfaces — shared engine contracts and design data
 
-## Responsibility (PRD)
+`interfaces/` defines the operation and query vocabulary, shared records, validation helpers, and ports used across the engine. It is the source for the command names and core shapes that transports and solver adapters share.
 
-Every shape the engine speaks is defined once, here: wire schemas
-([suggested-api §1–§9](../PRD/tools-research/suggested-api.md): objects,
-references, components, schematic/layout views), the typed command and
-event envelopes
-([frontend-tooling-spec §2–§4](../PRD/tools-research/frontend-tooling-spec.md)),
-the operation catalog
-([tooling-operations.yaml](../PRD/tools-research/tooling-operations.yaml),
-to be vendored here), and the outbound ports (`ToolAdapter`,
-`IsolationRunner`, `CatalogProvider`). Blueprint B1, as amended
-(`contracts/` merged here — see `docs/prd-feedforward.md` F2).
+## What lives here
 
-## Inputs
+- `vocabulary.py`, `ports.py`, and `errors.py`: operation/query names, the `ToolAdapter` and other boundary types, and contract errors.
+- `documents.py`, `references.py`, `paths.py`, and `runparams.py`: document validation, reference resolution, path containment, and run-parameter validation.
+- `engine_ecs_store.py`, `wireplace.py`, `celllink.py`, and `layout.py`: entity/component, schematic connectivity, cell-link, and layout data operations.
+- `settings_store.py`, `layout_schema.yaml`, and `yaml_dump.py`: project settings and persisted design-data formats.
+- `pdks.py`, `setup.py`, `setup_catalogue.yaml`, and `setup_probes.py`: PDK registration/verification and tool readiness support. The PDK registry performs bounded filesystem I/O; this module is no longer entirely I/O-free.
 
-- PRD YAML catalog and API proposal (prose sources, above).
-- Pydantic v2 + `ruamel.yaml` (stack-pinned).
+The module does not invoke EDA solvers. Some low-level stores and registries are colocated here; project revisions and event ordering belong to [`project/`](../project/README.md), while user-facing engine operations are dispatched by [`composition.py`](../composition.py).
 
-## Outputs
+## API contract generation
 
-- Validated types every module imports; port types generated from
-  schemas (never hand-copied twice); one contract test proving
-  schema↔type agreement.
-
-## Boundaries
-
-Owns: shapes, validation, port definitions. Must not own: any I/O,
-any transport or solver code, any business rules.
+The operation vocabulary is maintained in `vocabulary.py`. Google-style handler docstrings feed `scripts/api_spec.py`, which generates `docs/engine-api.md`, `docs/api-schema.json`, and `docs/api-help.json`. Those generated artifacts must not be edited by hand. The [contributor rules](../../AGENTS.md) describe the required docstring shape; the [generated API reference](../../docs/engine-api.md) is the current operation and query inventory.
 
 ## Routing
 
-- Implementing a transport or tool → `../adapters/README.md`.
-- Running jobs or holding state → `../execution/README.md`,
-  `../project/README.md`.
-- Which check runs when → `../workflows/README.md`.
-
-## Status
-
-GREEN (slice 1): `documents.py` (strict validator), `references.py`
-(resolution + connection checks), `errors.py` (`ContractError`).
-Invariants I01, I02 proven. Tests: `tests/interfaces/` (12 passed).
+- Add or change a transport or solver edge → [`adapters/`](../adapters/README.md).
+- Change revision, document, or event behavior → [`project/`](../project/README.md).
+- Change run lifecycle or verdict evaluation → [`execution/`](../execution/README.md).
+- Change stage coverage or completion rules → [`workflows/`](../workflows/README.md).
+- Product-level contract → [PRD tooling spec](../../../PRD/tools-research/frontend-tooling-spec.md) and [tooling operation catalog](../../../PRD/tools-research/tooling-operations.yaml).

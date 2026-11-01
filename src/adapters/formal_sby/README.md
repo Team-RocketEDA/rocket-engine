@@ -1,22 +1,7 @@
-# adapters/formal_sby — sby formal solver
+# SymbiYosys formal adapter
 
-`run_formal` behind the `ToolAdapter` port: preflight refuses the
-wrong operation, foreign deck tools, bad proof inputs (mode, depth,
-top, engines), missing sources, and unresolvable or impostor sby
-(the banner is version-asserted; the remedy names the PROV
-oss-cad-suite bundle); execute generates a `formal.sby` task from
-the job's project sources and runs `sby -f` bounded and
-cancellable (own process group, timeout SIGKILLs the tree, expiry
-reports scope timeout instead of hanging); parse normalizes the
-sby status plus the DONE summary into scoped measurements —
-proven (prove PASS), bounded (bmc/cover PASS to the depth, FAIL
-with counterexamples), unknown (inconclusive or sby ERROR), or
-timeout — with assumptions, properties, failures, and cover
-witnesses. Never a bare PASS: PASS always carries its scope, and
-unknown/timeout fail loudly.
+FormalSbyAdapter serves run_formal with SBY. It creates a task from the job's project sources, mode, depth, and engines, runs it under a timeout, and parses the status file and DONE summary into scoped evidence.
 
-Verified against sby v0.70 on counter fixtures plus a SERV ALU
-property (`tests/adapters/fixtures/formal/`). Tool resolution is
-PATH plus an explicit job `tool_dir`; where the suite lives is
-PROV/B10 scope. Engine registration is the integrator's wiring
-patch (`docs/work/FORMAL-SBY/wiring.patch`).
+Results distinguish proven, bounded, bounded-vacuous, unknown, and timeout. A PASS always carries its proof scope and checked properties. A proof with no active property is reported as bounded-vacuous failure, not a clean PASS. Counterexamples and assumptions are included where available.
+
+The adapter is registered in Engine as the sby solver. It requires a version-asserted SBY binary, resolved from the job tool_dir or PATH. See the [FORMAL-SBY report](../../../docs/work/FORMAL-SBY/report.md), [FORMAL-EDGE report](../../../docs/work/FORMAL-EDGE/report.md), and [provision plan](../../../docs/provision-plan.md).

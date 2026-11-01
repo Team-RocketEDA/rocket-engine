@@ -1,17 +1,7 @@
-# adapters/hdl_sim — Icarus HDL sim solver
+# Icarus HDL simulation adapter
 
-`run_hdl_test` behind the `ToolAdapter` port: preflight refuses the
-wrong operation, bad timeouts, missing sources, and unresolvable
-tools; execute compiles with iverilog then runs with vvp under a
-timeout; parse normalizes compile diagnostics plus `FATAL:`/`ERROR:`
-lines into `{total, violations[]}` with file/line locations.
+HdlSimAdapter serves run_hdl_test. It compiles project testbench and design sources with iverilog, runs them with vvp under a timeout, and parses compile diagnostics, FATAL, and ERROR output into normalized findings.
 
-Verified against iverilog 14.0 + vvp on counter fixtures
-(`tests/adapters/fixtures/hdl/`). `$error` exits 0, so the verdict
-comes from parsed output, never the exit code alone.
+The adapter is registered in Engine as the icarus solver. Tool resolution uses PATH or an explicit job tool_dir. When a BwrapRunner is supplied, compile and simulation processes run inside the configured isolation boundary.
 
-Tool resolution is PATH plus an explicit job `tool_dir`; where the
-tools live is B10 scope. Pass `runner=` (a `BwrapRunner`) to confine
-compile and sim runs: tool roots bind read-only, the workdir stays
-read-write, output is bounded and sanitized. No Engine registration
-yet (deploy-time config).
+Some HDL failures can exit with status zero. Verdicts come from parsed diagnostics and simulation output, never the exit code alone.

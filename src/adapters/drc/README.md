@@ -1,13 +1,7 @@
-# adapters/drc — Magic DRC solver
+# Magic DRC adapter
 
-Batch DRC behind the `ToolAdapter` port: preflight refuses unknown
-techs, missing cells, and foreign operations; execute runs magic
-headless (`-dnull -noconsole`) over a Tcl script; parse normalizes
-stdout into `{total, violations[]}` with rule text + bbox per area.
+MagicDrcAdapter serves run_drc with deck.tool set to magic, the current default. It loads a cell, runs headless DRC, and parses rule messages and bounding boxes into normalized violations.
 
-Verified against magic 8.3.685 + scmos tech 8.2.8
-(`/usr/local/lib/magic/sys/scmos.tech`). Magic exits 0 even on
-failure, so the verdict comes from parsed output, never the exit code.
+The adapter is registered in Engine. Its documented qualification uses Magic 8.3.685 with the scmos technology. Process-specific support depends on a loadable technology and deck; query get_capabilities and heed preflight results before promising PDK coverage.
 
-Status: I14 GREEN on scmos fixtures. sky130A decks stay gated on the
-deck-source decision (PROV).
+Magic may exit successfully despite DRC errors or a bad cell. The verdict comes from parsed output, not the process exit code. The alternate KLayout adapter handles synthetic rules and foundry .lydrc decks.

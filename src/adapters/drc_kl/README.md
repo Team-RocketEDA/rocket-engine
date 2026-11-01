@@ -1,14 +1,7 @@
-# adapters/drc_kl — KLayout DRC solver
+# KLayout DRC adapter
 
-Batch DRC behind the `ToolAdapter` port: preflight refuses missing
-binaries, GDS files, and insane rules; execute renders a pya check
-script from the rule table and runs `klayout -b -r`; parse normalizes
-VIOL/TOTAL lines into `{total, violations[]}` with rule text + bbox_um.
+KlayoutDrcAdapter serves run_drc when deck.tool is klayout. It supports synthetic width/space rules and foundry .lydrc decks. For a foundry deck it runs KLayout in batch mode and parses the report database; for synthetic rules it renders a pya check script and normalizes the findings.
 
-Verified against KLayout 0.28.16 on synthetic GDS fixtures
-(`tests/adapters/fixtures/drc_kl/`). KLayout exits 0 even on failure,
-so the verdict comes from parsed output, never the exit code.
+The adapter is registered in Engine. The implementation supports synthetic GDS rules and the .lydrc report-database path. Qualification remains process-specific: readiness depends on the registered PDK deck and installed KLayout; use get_capabilities before relying on a deck.
 
-Status: I14 GREEN on synthetic rules. sky130A decks stay gated on the
-deck-source decision (PROV); the Ruby DSL needs a driver macro for
-batch (see `docs/probe-klayout-drc.md`).
+KLayout can exit zero when violations are present. The verdict comes from parsed output, never the exit code alone. The older Ruby-DSL probe describes a separate batch limitation; XML-macro .lydrc decks use the current batch recipe. See the [KLayout DRC probe](../../../docs/probe-klayout-drc.md).

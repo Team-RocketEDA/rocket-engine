@@ -1,39 +1,18 @@
-# workflows — process knowledge as data (never executes)
+# workflows — process inventories and completion gates
 
-## Responsibility (PRD)
+`workflows/` holds the digital, analog, photonic, and mixed-domain verification stages as data. It plans checks and reports whether the requested flow has enough available operations and passing evidence. It never launches a solver.
 
-The ordered domain processes — digital D01–D30, analog A01–A23,
-photonics P01–P23, mixed assembly M01–M16 — with required/conditional
-stages, prerequisites, and entrypoint bindings to engine operations
-([verification-process](../PRD/tools-research/verification-process.md),
-[verification-workflows](../PRD/tools-research/verification-workflows.yaml),
-operation phases in the catalog). Source for `plan_checks` and the
-IDE's check-plan display. Required stages stay required even when
-their backend is absent (a missing stage blocks "fully verified").
+## Current behavior
 
-## Inputs
+- `stages.py` contains the D/A/P/M inventories and their stage-to-operation mappings.
+- `capability_plan.py` marks stages ready or blocked based on available operations.
+- `completion.py` combines the plan with the latest check records. Missing operations, checks that have not run, and non-PASS verdicts remain blockers; only a blocker-free flow can report fully verified.
+- The stage `when` expressions are descriptive today. The planner currently treats planned stages as required instead of evaluating those expressions to narrow applicability.
 
-- PRD process inventory (prose source, above).
+The same plan and completion reports are served by `plan_checks` and `get_design_completion`, so clients can show the engine's reasons and blockers directly.
 
-## Outputs
+## Boundaries and routing
 
-- Stage tables, entrypoint maps, applicability rules consumed by
-  `execution/` (planning) and the UI (display).
+This module owns stage order, applicability metadata, and completion rules. `composition.Engine` supplies registered operations and check results. Solver inputs and evidence belong to [`adapters/`](../adapters/README.md) and [`execution/`](../execution/README.md); command and result shapes belong to [`interfaces/`](../interfaces/README.md).
 
-## Boundaries
-
-Owns: process data. Must not own: solver invocation, scheduling,
-verdicts — this module never calls a tool.
-
-## Routing
-
-- Adding a check type → `../interfaces/README.md` (operation) +
-  `../adapters/README.md` (tool) + a plan slot here.
-- Stage visibility rules → invariants I25–I27.
-
-## Status
-
-GREEN (slice 4): `stages.py` (full D/A/P/M inventory +
-`applicable_stages` planner). Prose `when` evaluation is a later
-slice; v1 treats every planned stage as required. Tests:
-`tests/workflows/` (3 passed).
+For the product process source, see the [PRD verification process](../../../PRD/tools-research/verification-process.md) and [workflow catalog](../../../PRD/tools-research/verification-workflows.yaml). For current engine gaps, see the [sprint board](../../docs/sprint-board.md).

@@ -1,24 +1,7 @@
-# adapters/synth_yosys — Yosys synth solver
+# Yosys synthesis adapter
 
-`run_synth` behind the `ToolAdapter` port: preflight refuses the
-wrong operation, bad tops, missing sources, and unresolvable or
-unassertable tools; execute synthesizes with `synth -top` (plus
-`dfflibmap`/`abc -liberty` mapping when a liberty is given) under a
-timeout; parse normalizes `ERROR:`/`Warning:` lines plus the stat
-report into `{total, violations[]}` with cell counts, the mapped
-area, and the netlist artifact path.
+YosysSynthAdapter serves run_synth. It reads the project RTL, checks and synthesizes the requested top, optionally maps cells using a supplied Liberty file, and returns normalized findings, cell counts, area when available, and the generated netlist artifact.
 
-Verified against Yosys 0.70+219 (oss-cad-suite) on counter fixtures
-(`tests/adapters/fixtures/synth/`) plus vendored SERV (top
-`serv_top`) and picorv32. Warnings (latch inferred, undriven wires)
-are findings that never fail alone; broken RTL and a missing top
-fail loudly via `hierarchy -check`. ABC's own `ABC: Warning:` lines
-are optimizer chatter, never findings.
+The adapter is registered in Engine as the yosys solver. Tool resolution uses PATH or an explicit job tool_dir and checks the Yosys version banner. A BwrapRunner can confine the process with tool roots read-only and a writable job directory.
 
-Tool resolution is PATH plus an explicit job `tool_dir`, and the
-binary must answer `yosys -V` with a parseable banner; where the
-tools live is B10 scope. Pass `runner=` (a `BwrapRunner`) to confine
-synth runs: tool roots bind read-only, the workdir stays read-write,
-output is bounded and sanitized. No Engine registration yet
-(deploy-time config — see `docs/work/SYNTH-YOSYS/report.md` for the
-integrator wiring patch).
+Qualification covers counter fixtures, SERV, and picorv32, including mapped and generic runs. Warnings such as latches and undriven wires are surfaced as findings; broken RTL and missing tops fail loudly. See the [SYNTH-YOSYS report](../../../docs/work/SYNTH-YOSYS/report.md).

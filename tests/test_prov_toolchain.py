@@ -500,6 +500,29 @@ def test_openems_remedy_names_apt_prereqs():
         assert token in text, token
 
 
+def test_xyce_github_clone_bootstraps():
+    # Building-guide verbatim: GitHub checkouts lack
+    # ./configure; run ./bootstrap (autoconf+automake+libtool)
+    # before configuring.
+    text = PROV.read_text()
+    assert "./bootstrap" in text, text
+    for tool in ("autoconf", "automake", "libtool"):
+        assert tool in text, tool
+
+
+def test_openems_remedy_matches_upstream_minimum():
+    # docs.openems.de Debian/Ubuntu minimum verbatim, plus
+    # libfparser-dev + libcgal-dev (both proven by actual
+    # CSXCAD configure errors here). No VTK/Qt: AppCSXCAD
+    # GUI only, headless build skips it.
+    text = PROV.read_text()
+    for token in ("libhdf5-dev", "libboost-all-dev",
+                  "libtinyxml-dev", "zlib1g-dev",
+                  "libfparser-dev", "libcgal-dev"):
+        assert token in text, token
+    assert "libvtk9-dev" not in text, "GUI-only, headless skip"
+
+
 def test_provisioner_reports_phase2_verdict_and_palace():
     text = PROV.read_text()
     for token in ("PROV-PHASE2:", "palace UNSOURCED",

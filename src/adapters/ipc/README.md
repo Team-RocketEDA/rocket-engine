@@ -1,26 +1,9 @@
-# adapters/ipc — Electron stdio transport
+# adapters/ipc — JSON command handler for desktop IPC
 
-## Responsibility (PRD)
+`IpcTransport.handle(text)` accepts one JSON envelope with `project_id`, `operation`, optional `arguments`, and optional `request_id`. It enforces an optional project binding and delegates the call to `Engine.submit`.
 
-The desktop wire: Electron main owns one engine child over stdio;
-framed length-prefixed JSON envelopes carry commands, responses, and
-async events with correlation IDs and project identity
-([tech-stack](../PRD/tech-stack.md) "Desktop engine transport",
-[frontend-tooling-spec §8](../PRD/tools-research/frontend-tooling-spec.md)).
-One process owns engine stdin; independent clients must not write it.
-Duplex: framed commands in, framed events out.
+The current class does not implement the planned length-prefixed framing, persistent Electron child process, reconnect handling, or pushed event stream. Clients can read ordered changes through `get_events_since`. Keep desktop process lifecycle and renderer code outside the engine package.
 
 ## Boundaries
 
-Owns: framing, correlation, reconnect cursor handoff. Must not own:
-business logic, evidence, or anything renderer-side (RocketIDE).
-
-## Routing
-
-- Command/event shapes → `../../interfaces/README.md`.
-- Parent rules → `../README.md`.
-
-## Status
-
-Stub (empty). Slice 5. Invariants I05, I12. Tests:
-`tests/adapters/` vs fake engine.
+This adapter owns JSON envelope parsing, request IDs, and project-scope checks. It does not own project logic or solver behavior. Shared shapes live in [`interfaces/`](../../interfaces/README.md); the transport overview is in [`adapters/`](../README.md).

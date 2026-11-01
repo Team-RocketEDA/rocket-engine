@@ -1,35 +1,9 @@
-# adapters/http — HTTP service surface
+# HTTP JSON command transport
 
-## Responsibility (PRD)
+HttpTransport.handle parses one JSON object containing project_id, operation, optional arguments, and optional request_id. It enforces an optional bound project and delegates to Engine.submit.
 
-The engine's HTTP face: commands and artifact fetch over HTTP, project
-events over SSE ([tech-stack](../PRD/tech-stack.md) "Web service":
-FastAPI + Uvicorn; separate UI and agent streams). Duplex: requests in
-through the `interfaces/` command port, events and results out.
+This package is the request adapter only. It does not currently start an HTTP listener, expose FastAPI routes, stream events over SSE, or implement authentication. Clients can query get_events_since through the shared operation surface. The accepted [HTTP boundary decision](../../../docs/adr/006-localhost-only-http.md) describes the intended localhost deployment boundary; server wiring remains separate work.
 
 ## Boundaries
 
-Owns: routes, SSE resume, auth/project scope, request limits. Must not
-own: preflight, evidence, solver knowledge of any kind.
-
-## Routing
-
-- Command/event shapes → `../../interfaces/README.md`.
-- Parent rules → `../README.md`.
-
-## Status
-
-Stub (empty). Slice 5. Invariants I05 (caller parity), I12 (transport
-identity). Tests: `tests/adapters/` vs fake engine.
-
-## Authentication (deferred, mandatory)
-
-HTTP senders are untrusted: anyone can reach this surface, so nothing
-in the envelope proves who approved what. The content hashes
-(`interfaces/`) only cover data already in hand — they say nothing
-about the sender. This adapter therefore MUST grow authentication
-before any backend wiring: human vs agent credentials with different
-power (agent credentials request and observe; only human credentials
-approve), actor identity from trusted auth context, never from the
-payload. Deferred until the engine core is done — cross this bridge
-when we get there, not before.
+The adapter owns JSON parsing, request IDs, and project-scope checks. It does not own operation validation, state, solver selection, or verdicts. Command shapes are shared with [interfaces](../../interfaces/README.md); the parent transport map is in [adapters](../README.md).

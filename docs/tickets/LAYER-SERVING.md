@@ -1,6 +1,6 @@
 # LAYER-SERVING: Layer stackup + preset serving for viewer + 3D
 
-*Status: Ready · Size: M · Roadmap: convergence (MVP track)*
+*Status: Done · Size: M · Roadmap: convergence (MVP track)*
 
 ## Why
 
@@ -30,6 +30,16 @@ versioned home.
 - Query surface for viewer rows (visibility + color +
   active) driven by the same schemas; PDK remains truth,
   no user fork of the stackup in MVP.
+
+## Boundary
+
+This ticket serves PDK-owned stackup data, viewer rows, presets
+and 3D heights. It is display support, not an editable project
+layer catalog or a layout editor. It does not authorize geometry
+creation, movement or deletion, and it intentionally keeps the
+served PDK stackup read-only. Separate editor tickets add the
+technology-profile-resolved authoring catalog and shared geometry APIs;
+see ADR-012 as amended by ADR-013.
 
 ## Acceptance
 

@@ -1,40 +1,27 @@
-# project — revisions, snapshots, events (owns state)
+# project — revisioned project state and event ledger
 
-## Responsibility (PRD)
+`ProjectService` owns engine-mediated project state: documents, the project revision, idempotent mutation requests, snapshots, and the ordered event ledger. It also exposes the component/entity queries used by the engine's ECS-shaped design model.
 
-The project service: scoped commands, expected-revision preconditions,
-immutable input snapshots, idempotent `request_id` handling, file
-watching, and the ordered persisted event log with snapshot+cursor
-resync ([frontend-tooling-spec §3–§4, §6](../PRD/tools-research/frontend-tooling-spec.md),
-[suggested-api §4, §9](../PRD/tools-research/suggested-api.md)).
-Actor identity comes from trusted caller context, never the payload.
-Blueprint B3.
+## State and persistence
 
-## Inputs
+- Every mutation checks `expected_revision`. A stale head returns `revision_conflict`; changes are never merged silently.
+- Accepted mutations advance the project revision and append an actor-attributed event. Reusing a `request_id` with the same command replays its stored result; reusing it with different command text is refused.
+- With `engine_root` configured, project ledger files, events, managed documents, and rewind snapshots persist beneath `projects/<project_id>/`. Without an engine root, `ProjectService` keeps them in memory.
+- Event reads are cursor-based and bounded by retention. A reader that requires missing history receives `resync_required` and reloads the snapshot.
+- `rewind` restores engine-managed bytes under a new revision; it does not rewrite history or overwrite caller-owned files in a linked project.
+- `ledger.yaml`, `events.yaml`, `runs/`, and `snapshots/` are engine-owned paths and cannot be written through document CRUD.
 
-- Validated commands (via `interfaces/` ports).
-- Saved source revisions + native-file change notifications.
+## Design entities
 
-## Outputs
-
-- Snapshots, run admissions, ordered events (`job_queued` … `check_updated`
-  … `job_finished`), resync cursors.
+Entities and components are projected through the project document store. IDs are engine-minted; component changes use the same project mutation/event path. The service also handles settings and wire/junction operations through the corresponding interface stores. `get_world_snapshot`, `get_component`, `components_of`, and `entities_with` provide read surfaces for clients.
 
 ## Boundaries
 
-Owns: state, ordering, identity. Must not own: tool output parsing,
-transport protocols, check verdicts.
+`ProjectService` owns project revisions, documents, snapshots, idempotency, and event ordering. Solver output parsing and verdicts belong to [`execution/`](../execution/README.md); transport framing belongs to [`adapters/`](../adapters/README.md). `Engine` in [`composition.py`](../composition.py) routes operations into this service.
 
 ## Routing
 
-- Shapes of commands/events → `../interfaces/README.md`.
-- Job lifecycle after admission → `../execution/README.md`.
-- Which checks exist → `../workflows/README.md`.
-
-## Status
-
-GREEN (slice 1): `service.py` (in-memory revisions, idempotency,
-ordered events), `errors.py` (`ProjectError`). Persistence and file
-watching arrive in later slices. Invariants I05, I06, I07 proven.
-Tests: `tests/project/` (4 passed; fake adapter, real qualification
-waits for slice 4).
+- Contract shapes and path rules → [`interfaces/`](../interfaces/README.md).
+- Run admission, results, and verdicts → [`execution/`](../execution/README.md).
+- External behavior → [generated engine API](../../docs/engine-api.md) and [storage policy](../../docs/storage-policy.md).
+- Product semantics → [PRD tooling spec](../../../PRD/tools-research/frontend-tooling-spec.md).
