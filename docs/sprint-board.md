@@ -58,6 +58,9 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
 - [API-V1-RESULTS] Freeze typed result/renderer contracts and task io classification
 - [API-V1-PYTHON] Finish and lock Pydantic boundary generation
+- [REFACTOR-SERVICE] Split src/project/service.py (3809 lines, over limit)
+- [REFACTOR-COMPOSITION] Split src/composition.py before it hits the limit
+- [REFACTOR-EXEC] Split execution mega modules
 ## Doing
 
 

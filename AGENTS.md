@@ -145,6 +145,17 @@ debt in `src/project/service.py` must be reduced, and
 limit. This is an architecture constraint, not a test-only
 style preference.
 
+Split into nested cohesive subpackages, never sideways mega
+files: short names of normally no more than two words per path
+segment, one responsibility per module, inward hexagonal
+dependencies (adapters → interfaces + project + execution,
+execution → interfaces ports only). Feature-local helpers live
+with their feature; only genuinely shared pure helpers go in
+small `src/common/` modules — never a giant `utils.py`, `service.py`
+or `composition.py`. Do not create speculative utility modules;
+extract only proven-shared code. See REFACTOR-SERVICE,
+REFACTOR-COMPOSITION, REFACTOR-EXEC.
+
 ## Environment: install.sh is the only path
 
 `scripts/install.sh --install` provisions everything (UV sync,
