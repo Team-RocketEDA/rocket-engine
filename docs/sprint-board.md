@@ -58,6 +58,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [REFACTOR-COMPOSITION] Split src/composition.py before it hits the limit
 - [REFACTOR-EXEC] Split execution mega modules
 - [API-V1-ADAPTERS] Migrate every solver adapter to emit v1 ResultBundles
+- [TOOL-OUTPUTS] Research pinned tool output shapes for v1 normalization
 ## Doing
 
 

@@ -1,0 +1,67 @@
+# TOOL-OUTPUTS: Research pinned tool output shapes for v1 normalization
+
+*Status: Ready · Design: ADR-014, API-V1-ADAPTERS · Created: 2026-11-01*
+
+Depends: none (research starts immediately, per tool). Blocks:
+API-V1-ADAPTERS wave staffing — no normalizer is written for a tool
+whose output note is missing.
+
+## Problem
+
+Writing correct v1 normalizers requires knowing the FULL space of what
+each pinned tool can emit: report inventory per mode, report grammars,
+units, exit-state semantics, and what crashes/timeouts/truncations look
+like versus clean failures. Harvesting this experimentally across input
+matrices is combinatorial hell (and several tools are not even
+installed here). Fixture-only mapping would silently drop shapes the
+fixtures never showed.
+
+## Method (analytical, not experimental)
+
+Per pinned tool+version from the provision matrix, dissect the OUTPUT
+side of its source (report writers, result printers, file writers, exit
+paths) at the pinned revision and record, grounded in file:line:
+
+1. Report inventory: which files/stdout sections each mode emits, and
+   their stability contract (machine-readable vs human log).
+2. Grammar: field layout, units, and number formats for every report
+   the task's presentation kinds consume (regex/EBNF where feasible).
+3. Exit states: exit codes/signals plus what partial outputs survive
+   each failure mode (clean fail vs crash vs timeout vs truncated
+   write) so gates can tell them apart.
+4. Version sensitivity: which shapes are stable API vs incidental log
+   text that may drift between releases.
+
+Scope guard: research ONLY what the task's classified kinds + the
+adapter's `parse()` consume. The note explicitly lists out-of-scope
+shapes; the normalizer maps those to loud `unmapped_output` findings,
+never silent drops. Golden fixtures (one good + one bad recorded
+native output per tool) are harvested from real runs where installed,
+else transcribed from upstream tests/docs with provenance noted.
+
+## Deliverables
+
+`docs/tool-outputs/<tool>-<version>.md` per tool: inventory, grammars,
+exit states, version notes, fixture paths. One note per tool keeps
+reviews small; waves below define staffing order.
+
+## Waves (aligned with API-V1-ADAPTERS)
+
+Wave 1 — checks: magic, klayout (DRC deck reports), netgen (LVS
+reports), slang, connectgraph (own code: read it, don't guess),
+sby (counterexample traces).
+Wave 2 — sims: ngspice (all four analyses), icarus (VCD/assertion
+output), sax, circulax, cosim harness, post-layout report chain.
+Wave 3 — implementation: librelane run-dir layout + per-step reports
+(synth stat, STA rpt, DRC/LVS reports, GDS/operate outputs), yosys
+(stat JSON), opensta reports (with the tool, when it lands),
+gdsfactory export inventory.
+Wave 4 — deferred with the tools: xyce, openems, meep, meow/EM,
+thermal/device.
+
+## Acceptance
+
+Per tool: note exists with file:line-grounded grammars for every
+consumed shape; golden good+bad fixtures recorded with provenance;
+explicit out-of-scope list. A normalizer author can implement purely
+from the note plus `parse()` source without running the tool.
