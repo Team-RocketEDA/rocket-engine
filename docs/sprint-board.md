@@ -30,7 +30,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PROV] B10 full-bundle provisioning via install.sh (phase 1+2 encoded; live --install pending on networked host)
 - [BUILD-LOCAL] Repo-local toolchain default + super-repo build plan
 - [MCP-CONTRACT] Conform to fuel Contract 1 + expose cancel_job
-- [MCP-SCHEMA] Real input schemas on every MCP tool
 - [I22-AMEND] Approvals at client edge (needs I22 ruling)
 - [ENTITY-CAS] Per-entity revisions + compare-and-swap
 - [BATCH-PARALLEL] Concurrent batch dispatch + per-item cancel
@@ -71,6 +70,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PR-RED] RED-tests PR under user review (external)
 
 - [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
+- [MCP-SCHEMA] Real input schemas on every MCP tool
 ## Done
 
 - [S1] Slice 1 GREEN (interfaces I01-I02, project I05-I07)

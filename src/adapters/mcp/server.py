@@ -2,9 +2,10 @@
 
 One tool per cataloged operation/query; handlers route through
 McpTransport so validation stays single-sourced. Tool descriptions
-read from the serving handler docstrings — the same text the
-generated reference serves (ADR-003 double-use). build_server()
-is transport-free; only main() touches stdio.
+and input schemas read from the serving handler docstrings via the
+api_spec generator — the same text the generated reference serves
+(ADR-003 double-use). build_server() is transport-free; only main()
+touches stdio.
 
 Bound to a project (`--project`), the server fills project_id and the
 current expected_revision itself; submit runs inline (same run_id ack
@@ -38,9 +39,16 @@ from . import McpTransport
 _ENGINE_ERRORS = (AdapterError, ProjectError, ExecutionError)
 
 
+# Grandfathered override: python_execute keeps its richer hand
+# validation schema (types, bounds, mode oneOf) until API-V1-CLIENTS
+# retires this wire. Every other tool derives its schema from the
+# api_spec generator — never add a second entry here.
 _TOOL_SCHEMAS = {
     "python_execute": MCP_INPUT_SCHEMA,
 }
+
+
+_API_SCHEMAS = None
 
 
 _HELP_ENGINE = None
@@ -119,21 +127,119 @@ def describe_tool(name):
     return f"Declared {kind} `{name}`; no handler wired yet."
 
 
+def _engine_root():
+    """Repo root holding docs/ for the generated-schema fallback.
+
+    Returns:
+        Path three levels above this file
+            (src/adapters/mcp/server.py).
+    """
+    return Path(__file__).resolve().parents[3]
+
+
+def _load_generated_schemas():
+    """Load the api_spec generator output (package data or repo docs).
+
+    The wheel ships docs/api-schema.json as adapter package data;
+    a repo checkout falls back to docs/api-schema.json on disk.
+
+    Returns:
+        {"operations": {...}, "queries": {...}} mapping, or {} when
+            neither source is readable.
+    """
+    try:
+        from importlib.resources import files
+
+        text = (files(__package__) / "api-schema.json").read_text(
+            encoding="utf-8"
+        )
+        return json.loads(text)
+    except Exception:
+        pass
+    try:
+        return json.loads(
+            (_engine_root() / "docs" / "api-schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+    except Exception:
+        return {}
+
+
+def _generated_schemas():
+    """Per-op schemas from the api_spec generator output, cached.
+
+    Returns:
+        {"operations": {...}, "queries": {...}} mapping, or {} when
+            no generator output is readable.
+    """
+    global _API_SCHEMAS
+    if _API_SCHEMAS is None:
+        _API_SCHEMAS = _load_generated_schemas()
+    return _API_SCHEMAS
+
+
+def input_schema_for(name):
+    """Wire inputSchema for one cataloged tool, from the generator.
+
+    Wired tools carry their generated properties/required verbatim;
+    unwired names keep the generic object with a loud marker naming
+    the tool. python_execute keeps its richer hand validation
+    schema (pinned by test_python_exec_wiring.py) until
+    API-V1-CLIENTS retires this wire.
+
+    Args:
+        name: Cataloged operation or query name.
+
+    Returns:
+        JSON Schema dict for the tool's inputSchema.
+    """
+    if name in _TOOL_SCHEMAS:
+        return _TOOL_SCHEMAS[name]
+    if name in OPERATIONS:
+        section = "operations"
+    elif name in QUERIES:
+        section = "queries"
+    else:
+        section = None
+    entry = None
+    if section is not None:
+        entry = _generated_schemas().get(section, {}).get(name)
+    if entry and entry.get("wired"):
+        return {
+            "type": "object",
+            "properties": entry.get("properties", {}),
+            "required": entry.get("required", []),
+        }
+    kind = "operation" if name in OPERATIONS else "query"
+    return {
+        "type": "object",
+        "description": (
+            f"No generated schema for {kind} `{name}` yet — no "
+            "handler wired; see docs/engine-api.md."
+        ),
+    }
+
+
 def tool_definitions():
     """Build one MCP tool per cataloged operation/query.
 
-    Descriptions come from the serving handler docstrings — the
-    same text the generated reference serves (ADR-003 double-use).
+    Descriptions come from the serving handler docstrings and input
+    schemas come from the api_spec generator over those same
+    docstrings — the same text the generated reference serves
+    (ADR-003 double-use). A new documented op gains its wire schema
+    with no server edit.
 
     Returns:
-        Tool list with per-operation descriptions, sorted by name.
+        Tool list with per-operation descriptions and generated
+            input schemas, sorted by name.
     """
     tools = []
     for name in sorted(OPERATIONS | QUERIES):
         tools.append(Tool(
             name=name,
             description=describe_tool(name),
-            inputSchema=_TOOL_SCHEMAS.get(name, {"type": "object"}),
+            inputSchema=input_schema_for(name),
         ))
     return tools
 

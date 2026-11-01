@@ -10,8 +10,11 @@ output; verdicts come from the real NgspiceAdapter.parse().
 import asyncio
 import json
 import shutil
+from pathlib import Path
 
 import pytest
+
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 PROJECT = "opamp_demo"
 GAIN = {"name": "dc_gain_db", "expr": "vdb(out)[0]", "unit": "dB"}
@@ -191,14 +194,17 @@ def _call(handler, name, arguments):
 
 
 def test_tools_stay_generated_not_handwritten():
-    # Consolidation KEEP: the contract generates schemas from docstrings,
-    # so the server ships generic object schemas — no hand-written copies.
+    # MCP-SCHEMA: wire schemas come from the api_spec generator
+    # (docstrings) — real per-op schemas, still no hand-written copies.
     from rocket_engine.adapters.mcp.server import tool_definitions
     from rocket_engine.interfaces.vocabulary import OPERATIONS, QUERIES
 
     tools = {tool.name: tool for tool in tool_definitions()}
     assert set(OPERATIONS) <= set(tools) and set(QUERIES) <= set(tools)
-    assert tools["run_spice"].input_schema == {"type": "object"}
+    entry = json.loads((ROOT / "docs" / "api-schema.json").read_text())
+    entry = entry["operations"]["run_spice"]
+    assert tools["run_spice"].input_schema["properties"] == entry["properties"]
+    assert tools["run_spice"].input_schema["required"] == entry["required"]
 
 
 def test_bound_server_fills_project_and_revision_and_returns_results():
