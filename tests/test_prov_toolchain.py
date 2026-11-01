@@ -465,6 +465,15 @@ def test_klayout_deb_usr_prefix_normalized():
     assert 'KLAYOUT_PREFIX/usr' in text, text
 
 
+def test_klayout_prefix_wraps_binary_with_lib_path():
+    # .deb binaries resolve their libs via system paths; our
+    # prefix is not on them. Install must wrap bin/klayout so
+    # LD_LIBRARY_PATH reaches prefix/lib/klayout.
+    text = PROV.read_text()
+    assert "klayout.bin" in text, text
+    assert "LD_LIBRARY_PATH" in text, text
+
+
 def test_klayout_pinned_tree_asserts(tmp_path):
     # Post-normalization tree (prefix/bin/klayout + pinfile)
     # must assert pinned — the contract normalization keeps.
