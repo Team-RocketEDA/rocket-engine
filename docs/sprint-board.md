@@ -55,7 +55,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-CLIENTS] Generate and migrate MCP, stdio, HTTP and Python clients to v1
 - [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
 - [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
-- [API-V1-PYTHON] Finish and lock Pydantic boundary generation
 - [REFACTOR-COMPOSITION] Split src/composition.py before it hits the limit
 - [REFACTOR-EXEC] Split execution mega modules
 ## Doing
@@ -161,3 +160,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SETUP-HONESTY] No false-ready probes, fresh tests, capable readiness
 - [I27-GATE] Wire plan_checks/design-completion gate (I27)
 - [API-V1-CONTRACT] Freeze canonical v1 API, entities, tasks and consumer artifacts
+- [API-V1-PYTHON] Finish and lock Pydantic boundary generation
