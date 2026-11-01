@@ -27,6 +27,14 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 - [PROV] B10 full-bundle provisioning via install.sh (phase 1+2 encoded; live --install pending on networked host)
 - [BUILD-LOCAL] Repo-local toolchain default + super-repo build plan
+- [MCP-CONTRACT] Conform to fuel Contract 1 + expose cancel_job
+- [MCP-SCHEMA] Real input schemas on every MCP tool
+- [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
+- [I22-AMEND] Approvals at client edge (needs I22 ruling)
+- [ENTITY-CAS] Per-entity revisions + compare-and-swap
+- [BATCH-PARALLEL] Concurrent batch dispatch + per-item cancel
+- [DECK-XSCHEM] Schematic to netlist to sim execution deck
+- [WORKFLOW-COVERAGE] Stage tables as the tool coverage map
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
