@@ -62,6 +62,20 @@ bash scripts/install.sh --install   # one command: venv + locked deps + sealed p
 
 Result: **51 passed**. The locked Python env reproduces from zero.
 
+## Loopback-only HTTP (no remote deploy)
+
+The engine HTTP adapter (`serve_http`) needs no provisioned
+dependency — it is a stdlib listener — but it must never be
+exposed beyond the demo machine: it is localhost-only with no
+auth, serving the same caller-blind API as every other
+transport, per [ADR-006](adr/006-localhost-only-http.md). The
+trust boundary is the loopback interface: any non-loopback
+bind is refused with `non_loopback_bind_denied`, and the
+startup banner states the model. No install.sh recipe, reverse
+proxy, or container port-mapping may publish this listener;
+remote/multi-user access is a future separate authenticated
+adapter (REMOTE-EXEC, off MVP track).
+
 ## Blockers
 
 - Deck-source decision (vendor sky130A snapshot vs user-installed PDK path)

@@ -8,7 +8,7 @@ This package contains the client transports and wrappers around existing EDA too
 |---|---|
 | cli/ | Interactive command loop, one-operation mode, sequential --batch, and JSON output; entry point is python -m rocket_engine. |
 | mcp/ | Project-scoped MCP stdio server with one tool per catalog operation/query; descriptions come from handler docstrings. Most input schemas remain generic. |
-| http/ | HttpTransport.handle routes one JSON command/query envelope. A listening HTTP/SSE service is not implemented here. |
+| http/ | HttpTransport.handle routes one JSON command/query envelope; serve_http adds a stdlib POST listener on loopback only (no auth, ADR-006). SSE is not implemented here. |
 | ipc/ | IpcTransport.handle routes one JSON command/query envelope. Length-prefix framing and Electron child-process lifecycle are not implemented here. |
 
 Events are read through the engine event-query surface; HTTP SSE and pushed IPC events are not currently provided by these transport classes.

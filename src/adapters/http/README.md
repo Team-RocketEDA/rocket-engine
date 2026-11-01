@@ -1,8 +1,10 @@
 # HTTP JSON command transport
 
-HttpTransport.handle parses one JSON object containing project_id, operation, optional arguments, and optional request_id. It enforces an optional bound project and delegates to Engine.submit.
+HttpTransport.handle parses one JSON object containing project_id, operation, optional arguments, and optional request_id. It enforces an optional bound project and delegates to Engine.submit. `serve_http` wraps the same transport in a stdlib listener: POST a JSON envelope to `/` for an admission ack or query result, GET `/health` for a liveness probe. SSE event streams are not implemented; clients query get_events_since through the shared operation surface.
 
-This package is the request adapter only. It does not currently start an HTTP listener, expose FastAPI routes, stream events over SSE, or implement authentication. Clients can query get_events_since through the shared operation surface. The accepted [HTTP boundary decision](../../../docs/adr/006-localhost-only-http.md) describes the intended localhost deployment boundary; server wiring remains separate work.
+## Trust boundary (ADR-006)
+
+This adapter is localhost-only with no auth, serving the same caller-blind API as every other transport. The trust boundary is the loopback interface: `serve_http`/`create_server` bind loopback hosts only (127.0.0.1 by default; any 127/8 address, `localhost`, or `::1`) and refuse any non-loopback bind with `non_loopback_bind_denied`. Startup prints a banner stating the model. Remote/multi-user access needs a separate authenticated adapter — never this one with a flag. See the [HTTP boundary decision](../../../docs/adr/006-localhost-only-http.md) and the [provision plan](../../../docs/provision-plan.md#loopback-only-http-no-remote-deploy).
 
 ## Boundaries
 
