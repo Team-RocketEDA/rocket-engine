@@ -35,6 +35,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [BATCH-PARALLEL] Concurrent batch dispatch + per-item cancel
 - [DECK-XSCHEM] Schematic to netlist to sim execution deck
 - [WORKFLOW-COVERAGE] Stage tables as the tool coverage map
+- [OP-GATES] Engine-side depends_on + gate-on-verdict guardrails
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
