@@ -491,7 +491,9 @@ check_devsim() { check_pypkg devsim "$DEVSIM_PIN" "https://pypi.org/project/devs
 check_pymeep() {
     if [ -x "$PYMEEP_PY" ]; then
         local got
-        got="$("$PYMEEP_PY" -c "import meep; print(meep.__version__)" 2>/dev/null || true)"
+        # import meep chatters after the version line
+        # ("Elapsed run time = ..."): first line only.
+        got="$("$PYMEEP_PY" -c "import meep; print(meep.__version__)" 2>/dev/null | head -n 1 || true)"
         if [ "$got" = "$PYMEEP_PIN" ]; then
             note "pymeep pinned $got [$PYMEEP_PY]"
             mark2_ok
@@ -530,7 +532,7 @@ check_elmer() {
     local out
     out="$(banner_of "$bin" --version)"
     case "$out" in
-        *"$ELMER_EXPECT"*|*[Ee]lmer*)
+        *"$ELMER_EXPECT"*|*[Ee]lmer*|*ELMER*)
             note "elmer ambient $out [$bin]"
             mark2_ok
             ;;
@@ -792,19 +794,35 @@ install_klayout() {
     ATTEMPTED=1
     mkdir -p "$KLAYOUT_PREFIX" || return 1
     local deb="$TOOLS_DIR/klayout-$KLAYOUT_PIN-amd64.deb"
-    note "install klayout: fetching $KLAYOUT_DEB"
-    fetch "$KLAYOUT_DEB" "$deb" || {
-        remedy "klayout" "deb download failed (offline?)" \
-            "retry with network, then re-run --install" \
-            "https://www.klayout.de/build.html"
-        return 1
-    }
+    if [ -s "$deb" ]; then
+        note "install klayout: reusing $deb"
+    else
+        note "install klayout: fetching $KLAYOUT_DEB"
+        fetch "$KLAYOUT_DEB" "$deb" || {
+            remedy "klayout" "deb download failed (offline?)" \
+                "retry with network, then re-run --install" \
+                "https://www.klayout.de/build.html"
+            return 1
+        }
+    fi
     dpkg-deb -x "$deb" "$KLAYOUT_PREFIX" || {
         remedy "klayout" "deb extract failed" \
             "remove $deb and retry --install" \
             "https://www.klayout.de/build.html"
         return 1
     }
+    # .debs extract under usr/, but checks + prov-phase1.env +
+    # engine setup all resolve prefix/bin: merge usr/* up one
+    # level (bin/../share relative layout preserved).
+    if [ -d "$KLAYOUT_PREFIX/usr" ]; then
+        (cd "$KLAYOUT_PREFIX/usr" && cp -a . "$KLAYOUT_PREFIX/") \
+            && rm -rf "$KLAYOUT_PREFIX/usr" || {
+            remedy "klayout" "usr-prefix normalization failed" \
+                "remove $KLAYOUT_PREFIX and retry --install" \
+                "https://www.klayout.de/build.html"
+            return 1
+        }
+    fi
     # .deb extraction needs no root but also resolves no deps: the
     # banner check after install proves liveness; a dead binary
     # remedies toward sudo apt install ./deb instead.
@@ -868,6 +886,10 @@ install_xyce() {
     # (MPI OFF), and forcing ShyLU=ON against Trilinos 17
     # breaks configure — ShyLU requires the disabled
     # ShyLU_DD chain (trilinos/trilinos#6255, same error).
+    # gtest TPL likewise OFF: pulled in by ShyLU_NodeTacho
+    # tests, and Xyce needs no Trilinos test infra. TriBITS
+    # itself names this flag as the escape when gtest is
+    # absent — set it up front instead of failing into it.
     # A stale dir from that failed configure has no Makefile;
     # clear it so retries reconfigure clean instead of
     # inheriting the broken cache. A dir WITH a Makefile
@@ -886,6 +908,7 @@ install_xyce() {
             -DTrilinos_ENABLE_Sacado=ON -DTrilinos_ENABLE_Stokhos=ON \
             -DTrilinos_ENABLE_NOX=ON -DTrilinos_ENABLE_Zoltan=ON \
             -DTPL_ENABLE_MPI=OFF \
+            -DTPL_ENABLE_gtest=OFF \
             -DCMAKE_BUILD_TYPE=Release .. \
         && make -j"$(nproc)" && make install) || {
         remedy "xyce" "Trilinos build failed" \
@@ -1016,7 +1039,7 @@ install_openems() {
         && cmake -DCMAKE_INSTALL_PREFIX="$OPENEMS_PREFIX" .. \
         && make -j"$(nproc)" && make install) || {
         remedy "openems" "CSXCAD build failed" \
-            "see the openEMS manual prerequisites (hdf5/vtk/boost)" \
+            "sudo apt-get install -y libtinyxml-dev libfparser-dev libhdf5-dev libvtk9-dev libboost-all-dev, then re-run --install" \
             "https://docs.openEMS.de/"
         return 1
     }

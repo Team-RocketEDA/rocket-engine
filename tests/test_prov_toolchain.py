@@ -86,7 +86,8 @@ def _phase2_bin_stubs(bindir):
     _stub(bindir / "Xyce", "echo 'Xyce Release 7.10.0 stub'")
     _stub(bindir / "xschem", "echo 'XSCHEM V3.5.0 stub'")
     _stub(bindir / "openEMS", "echo 'openEMS 0.37.0 stub'")
-    _stub(bindir / "ElmerSolver", "echo 'ElmerSolver 9.0 stub'")
+    _stub(bindir / "ElmerSolver",
+           "echo 'ELMER SOLVER (v 26.2) STARTED AT: stub'")
 
 
 def _prov_python(tmp_path, pins):
@@ -103,11 +104,15 @@ def _prov_python(tmp_path, pins):
 
 
 def _pymeep_env(tools, pins):
-    """Stub conda pymeep interpreter at the expected prefix path."""
+    """Stub conda pymeep interpreter at the expected prefix path.
+
+    Real `import meep` chatters after the version line
+    ("Elapsed run time = ...") — the stub replays that.
+    """
     pydir = tools / "miniforge3" / "envs" / "pymeep" / "bin"
     pydir.mkdir(parents=True, exist_ok=True)
     _stub(pydir / "python",
-           f"echo '{pins['PYMEEP_PIN']}'")
+           f"printf '{pins['PYMEEP_PIN']}\\n\\nElapsed run time = 0.0001 s\\n'")
     return pydir / "python"
 
 
@@ -442,6 +447,48 @@ def test_xyce_trilinos_config_omits_shylu():
     text = PROV.read_text()
     assert "Trilinos_ENABLE_ShyLU=ON" not in text, text
     assert "ShyLU" in text, "omission must be documented"
+
+
+def test_xyce_trilinos_disables_gtest_tpl():
+    # gtest is pulled in by ShyLU_NodeTacho tests; Xyce needs
+    # no Trilinos test infra. TriBITS names -DTPL_ENABLE_gtest=OFF
+    # as the escape when the TPL is absent — use it up front.
+    text = PROV.read_text()
+    assert "TPL_ENABLE_gtest=OFF" in text, text
+
+
+def test_klayout_deb_usr_prefix_normalized():
+    # .debs extract under usr/, but checks + prov-phase1.env +
+    # engine setup all resolve prefix/bin. Install must merge
+    # usr/* up one level (bin/../share layout preserved).
+    text = PROV.read_text()
+    assert 'KLAYOUT_PREFIX/usr' in text, text
+
+
+def test_klayout_pinned_tree_asserts(tmp_path):
+    # Post-normalization tree (prefix/bin/klayout + pinfile)
+    # must assert pinned — the contract normalization keeps.
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    env = _env(tmp_path, empty, tmp_path / "no-bundle")
+    tools = Path(env["TOOLS_DIR"])
+    prefix = tools / "klayout-0.30.12"
+    (prefix / "bin").mkdir(parents=True)
+    _stub(prefix / "bin" / "klayout", "echo 'KLayout 0.30.12'")
+    (prefix / "KLAYOUT_PIN").write_text("0.30.12\n",
+                                        encoding="utf-8")
+
+    proc = run_prov(["--check-only"], env_over=env)
+
+    assert "klayout pinned 0.30.12" in proc.stdout, proc.stdout
+
+
+def test_openems_remedy_names_apt_prereqs():
+    # CSXCAD needs dev headers TriBITS probes for (TinyXML,
+    # fparser, hdf5, vtk); the remedy must name the apt line.
+    text = PROV.read_text()
+    for token in ("libtinyxml-dev", "libfparser-dev"):
+        assert token in text, token
 
 
 def test_provisioner_reports_phase2_verdict_and_palace():
