@@ -1,6 +1,6 @@
 # ASAP7-DRC-DECK: Clean-room KLayout DRC deck transcribed from the DRM
 
-*Status: Ready · Depends: PDK-ASAP7 (spike) · Size: L ·
+*Status: Done · Depends: PDK-ASAP7 (spike) · Size: L ·
 Roadmap: pdk-onboarding (MVP track)*
 
 ## Why
