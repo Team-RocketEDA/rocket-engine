@@ -41,6 +41,43 @@ Vivado-style modular install screen (ENGINE-SETUP).
   remedy), so ENGINE-SETUP can drive per-tool install /
   status without parsing prose. setup_catalogue mirrors
   the tool list; no second source of install truth.
+  Per-row provision prerequisites (shown BEFORE the user
+  ticks — the honest-checkbox rule):
+  - oss-cad-suite: network + ~1GB disk; fetch tarball.
+  - librelane: network + ~2GB disk; fetch AppImage.
+  - opensta: network + build prereqs (git cmake make g++
+    swig bison flex tcl eigen) + ~30min build.
+  - magic/netgen/xschem: network + build prereqs (git
+    make gcc tclsh wish) + ~10min builds each.
+  - klayout: network + dpkg-deb; host Qt runtime libs
+    (banner check proves liveness, else remedy toward
+    apt).
+  - ngspice: network + build prereqs (make gcc bison
+    flex) + ~15min build.
+  - xyce: network + heavy build prereqs (cmake g++
+    gfortran ...) + Trilinos first: HOURS. Warn loudly.
+  - cace/devsim: uv + engine venv + network; pip into
+    the venv (lockfile update rides a lane commit).
+  - pymeep: network + ~3GB disk; miniforge bootstrap
+    once, then conda-forge env. A user conda override
+    skips the bootstrap (assert-only path).
+  - openems: network + build prereqs (cmake hdf5 vtk
+    boost fparser tinyxml) + CSXCAD first: LONG.
+  - elmer: sudo + network (apt PPA). No-sudo hosts get
+    the remedy, never a silent skip.
+  - palace: NO ROW ACTION (unsourced) — visible,
+    disabled, with the reason.
+  - bwrap: usually ambient; else apt (document, no
+    provisioner build).
+- Stage 3b (PATH flag backend — DONE): `--print-path`
+  emits the marker-guarded block
+  (`# >>> rocketeda toolchain >>>` ... `export PATH=...`
+  ... `# <<< rocketeda toolchain <<<`) listing only
+  existing provisioned bin dirs (AppImage dir excluded:
+  no binaries). The installer flag appends this block to
+  the shell rc ONCE (marker check first); the engine
+  never edits the shell itself. Re-run after
+  provisioning more tools.
 - Stage 4 (super-repo build contract, RocketEDA repo):
   define the bundle layout (`engine/`, `fuel/`,
   `ui/dist/`, `tools/`, `stores/`) and a `build.sh` that

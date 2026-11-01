@@ -5,14 +5,15 @@ Tests assume `scripts/provision_toolchain.sh` with `--check-only`
 installs where network allows, else loud remedy), and usage exit
 2. Valid RED = the provisioner does not exist yet.
 
-Policy under test (docs/tickets/PROV.md, PHASE 1 ONLY):
-  pinned oss-cad-suite asserted on ambient, LibreLane
-  supported-distribution install per upstream docs, OpenSTA
-  install, version asserts everywhere, loud remedies where
-  install is impossible. Offline degrades to version-asserted
-  ambient + loud remedy, never fake-green. GTKWave is EXCLUDED
-  by the headless rule (recorded, never installed). Phase 2
-  (rest of the matrix) is out of scope.
+Policy under test (docs/tickets/PROV.md + BUILD-LOCAL):
+  phase 1 (oss-cad-suite pin, LibreLane AppImage, OpenSTA)
+  plus phase 2 (rest of the matrix), version asserts
+  everywhere, loud remedies where install is impossible.
+  Offline degrades to version-asserted ambient + loud
+  remedy, never fake-green. GTKWave is EXCLUDED by the
+  headless rule (recorded, never installed). Palace stays
+  UNSOURCED. --print-path emits the idempotent shell block
+  behind the installer "add to PATH" flag.
 """
 
 import os
@@ -490,3 +491,78 @@ def test_wiring_patch_applies_or_is_integrated():
         capture_output=True, text=True, timeout=60, cwd=ROOT,
     )
     assert proc.returncode == 0, proc.stderr
+
+
+def _write_env_file(tools, entries):
+    env_file = tools / "prov-phase1.env"
+    env_file.write_text(
+        "# test fixture\n" + "".join(
+            f'{key}="{value}"\n' for key, value in entries),
+        encoding="utf-8")
+    return env_file
+
+
+def test_print_path_emits_idempotent_block(tmp_path):
+    tools = tmp_path / "tools"
+    oss_bin = tools / "oss-cad-suite" / "bin"
+    magic_bin = tools / "magic-707d67e" / "bin"
+    pymeep_bin = tools / "miniforge3" / "envs" / "pymeep" / "bin"
+    for bindir in (oss_bin, magic_bin, pymeep_bin):
+        bindir.mkdir(parents=True)
+    _write_env_file(tools, [
+        ("OSS_CAD_SUITE_DIR", str(tools / "oss-cad-suite")),
+        ("MAGIC_PREFIX", str(tools / "magic-707d67e")),
+        ("PYMEEP_PY", str(pymeep_bin / "python")),
+        ("LIBRELANE_APPIMAGE",
+         str(tools / "librelane-3.0.17"
+             / "librelane-devshell-x86_64.AppImage")),
+    ])
+    env = {"PATH": os.environ["PATH"],
+           "HOME": str(tmp_path / "home"),
+           "TOOLS_DIR": str(tools),
+           "OSS_CAD_SUITE_DIR": str(tools / "oss-cad-suite")}
+
+    proc = run_prov(["--print-path"], env_over=env)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "# >>> rocketeda toolchain >>>" in proc.stdout
+    assert "# <<< rocketeda toolchain <<<" in proc.stdout
+    for bindir in (oss_bin, magic_bin, pymeep_bin):
+        assert str(bindir) in proc.stdout, bindir
+    # The AppImage dir holds no binaries: never on PATH.
+    assert "librelane-3.0.17" not in proc.stdout, proc.stdout
+
+
+def test_print_path_skips_absent_dirs(tmp_path):
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    oss_bin = tools / "oss-cad-suite" / "bin"
+    oss_bin.mkdir(parents=True)
+    _write_env_file(tools, [
+        ("OSS_CAD_SUITE_DIR", str(tools / "oss-cad-suite")),
+        ("MAGIC_PREFIX", str(tools / "magic-missing")),
+    ])
+    env = {"PATH": os.environ["PATH"],
+           "HOME": str(tmp_path / "home"),
+           "TOOLS_DIR": str(tools),
+           "OSS_CAD_SUITE_DIR": str(tools / "oss-cad-suite")}
+
+    proc = run_prov(["--print-path"], env_over=env)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert str(oss_bin) in proc.stdout, proc.stdout
+    assert "magic-missing" not in proc.stdout, proc.stdout
+
+
+def test_print_path_without_env_file_fails_loud(tmp_path):
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    env = {"PATH": os.environ["PATH"],
+           "HOME": str(tmp_path / "home"),
+           "TOOLS_DIR": str(tools),
+           "OSS_CAD_SUITE_DIR": str(tools / "oss-cad-suite")}
+
+    proc = run_prov(["--print-path"], env_over=env)
+
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "--install" in proc.stdout, proc.stdout
