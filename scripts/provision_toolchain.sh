@@ -863,6 +863,18 @@ install_xyce() {
             return 1
         }
     fi
+    # ShyLU deliberately NOT enabled: the Xyce building guide
+    # requires it only for Parallel Xyce, this build is serial
+    # (MPI OFF), and forcing ShyLU=ON against Trilinos 17
+    # breaks configure — ShyLU requires the disabled
+    # ShyLU_DD chain (trilinos/trilinos#6255, same error).
+    # A stale dir from that failed configure has no Makefile;
+    # clear it so retries reconfigure clean instead of
+    # inheriting the broken cache. A dir WITH a Makefile
+    # (failed make, not configure) keeps its objects.
+    if [ ! -f "$tsrc/build/Makefile" ]; then
+        rm -rf "$tsrc/build"
+    fi
     note "install xyce: building Trilinos (long; per the Xyce building guide)"
     (mkdir -p "$tsrc/build" && cd "$tsrc/build" \
         && cmake -DCMAKE_INSTALL_PREFIX="$tpref" \
@@ -873,7 +885,7 @@ install_xyce() {
             -DTrilinos_ENABLE_Belos=ON -DTrilinos_ENABLE_Amesos2=ON \
             -DTrilinos_ENABLE_Sacado=ON -DTrilinos_ENABLE_Stokhos=ON \
             -DTrilinos_ENABLE_NOX=ON -DTrilinos_ENABLE_Zoltan=ON \
-            -DTrilinos_ENABLE_ShyLU=ON -DTPL_ENABLE_MPI=OFF \
+            -DTPL_ENABLE_MPI=OFF \
             -DCMAKE_BUILD_TYPE=Release .. \
         && make -j"$(nproc)" && make install) || {
         remedy "xyce" "Trilinos build failed" \

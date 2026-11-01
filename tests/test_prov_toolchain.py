@@ -434,6 +434,16 @@ def test_report_names_pins():
         assert token in text, token
 
 
+def test_xyce_trilinos_config_omits_shylu():
+    # Serial-first build (MPI OFF): ShyLU is a Parallel-Xyce
+    # package per the building guide, and forcing it ON
+    # against Trilinos 17 breaks configure (ShyLU requires
+    # the disabled ShyLU_DD chain — trilinos#6255).
+    text = PROV.read_text()
+    assert "Trilinos_ENABLE_ShyLU=ON" not in text, text
+    assert "ShyLU" in text, "omission must be documented"
+
+
 def test_provisioner_reports_phase2_verdict_and_palace():
     text = PROV.read_text()
     for token in ("PROV-PHASE2:", "palace UNSOURCED",
