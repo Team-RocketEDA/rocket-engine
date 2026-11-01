@@ -2,6 +2,11 @@
 
 *Status: Done · Depends: CIRCULAX-LIVE · Size: S · Roadmap: orch-build-mvp*
 
+*Scope clarification 2026-11-01: this was an EME smoke +
+locality verdict, preserved as history. It does not qualify
+`simulate.em` (post_mvp) or any field-solver task binding;
+see API-V1-TOOLS-DEFERRED.*
+
 ## Why
 
 MEOW (0.15.0) is JAX-local at its core but hard-depends on the

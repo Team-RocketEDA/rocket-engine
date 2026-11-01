@@ -26,7 +26,7 @@ and the cancel gap together.
   test against the stub's expectations.
 - Expose `cancel_job` in vocabulary → submit → MCP:
   queued or running job by run_id, cancelled state,
-  no ledger event (like every cancelled job).
+  attributed durable cancellation request/completion events (ADR-014 supersedes the earlier no-event clause).
 - `{request_id, run_id}` on every reply and log line
   so fuel chat and engine results join in the UI.
 - Contract + api_spec regen; full suite + gate green.
@@ -38,3 +38,13 @@ and the cancel gap together.
   replies.
 - Cancelling a running sim kills its worker tree
   promptly and reports `cancelled` (test pins).
+- v0 shapes sunset into API-V1-CLIENTS (v1 envelopes
+  + generated types); `cancel_job` and run_id joining
+  persist across the migration.
+
+## V1 migration amendment
+
+Legacy fuel payloads remain compatibility inputs until both consumers migrate.
+The new six-method boundary and generated help/types come from the canonical
+v1 contract bundle (ADR-014); no handwritten fuel/IDE copies. `run_job` is not a
+mandatory second start. Use run controls and watch/query for lifecycle evidence.

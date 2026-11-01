@@ -19,10 +19,14 @@ deck covers M14-thermal") are named, not felt.
 
 ## What
 
-- Every stage gains its covering deck(s): op +
-  deck.tool + provision requirement, or an
-  explicit `uncovered` marker with the reason
-  (no tool / not provisioned / bespoke-script
+- Every stage gains its covering deck(s) via the
+  v1 catalog mechanism: task `io` ports +
+  `presentation` kinds + `delivery` in
+  `contracts/v1/catalog/tasks.json` joined with live
+  setup probes — op + deck.tool + provision
+  requirement, or an explicit `uncovered` marker
+  with the reason (no tool / not provisioned /
+  bespoke-script
   escape hatch).
 - `plan_from_capabilities` answers per-step
   ready/blocked from live setup state; the

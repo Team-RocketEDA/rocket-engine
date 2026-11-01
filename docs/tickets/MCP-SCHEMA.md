@@ -27,6 +27,10 @@ reach the wire.
 - Keep the generic-object fallback only for tools
   the generator cannot describe, loudly marked.
 - Contract + api_spec regen; full suite + gate green.
+- Interim v0 unblock with an explicit sunset:
+  API-V1-CLIENTS replaces the MCP wire with v1
+  envelopes + generated types; this ticket buys
+  fuel its schemas this week, then retires.
 
 ## Acceptance
 

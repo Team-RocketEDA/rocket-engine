@@ -7,15 +7,19 @@ Roadmap: B10 release gate (MVP track, unblocks DIGITAL-FLOW
 ## Why
 
 B10 in the PRD is one goal with one name: install.sh
-provisions EVERY dependency in the tech-stack matrix —
-ngspice, Icarus, LibreLane, the oss-cad-suite
-distribution, all of it — pinned, version-asserted, and
-rendered in the Vivado-style setup menu. There is no
-separate "toolchain ticket" vs "B10": this ticket IS B10
-as executed. The probes prove the gap (LibreLane,
-OpenSTA, OpenROAD absent); the to-GDS closeout is just
-the first consumer, so it phases first — but the ticket
-stays open until the matrix is fully provisioned.
+provisions the MVP delivery subset of the tech-stack
+matrix (PRD/tech-stack.md) — pinned, version-asserted,
+and rendered in the Vivado-style setup menu. The subset
+is defined by task `delivery` in
+`contracts/v1/catalog/tasks.json`, not by the ticket
+author's ambition: post/off-MVP packs live in
+PROV-DEFERRED with RED evidence and never block the
+MVP bundle claim. There is no separate "toolchain
+ticket" vs "B10": this ticket IS B10 as executed. The
+probes prove the gap (LibreLane, OpenSTA absent); the
+to-GDS closeout is just the first consumer, so it
+phases first — but the ticket stays open until the MVP
+subset is fully provisioned.
 
 ## What
 
@@ -25,16 +29,20 @@ stays open until the matrix is fully provisioned.
   install per upstream docs, OpenSTA install, version
   asserts everywhere, loud remedies where install is
   impossible.
-- Phase 2 (remainder): every other native pack in
-  PRD/tech-stack.md — analog (ngspice pin, Xyce, Xschem,
-  CACE, OpenVAF), physical (Magic, Netgen, KLayout
+- Phase 2 (MVP remainder): analog (ngspice pin, Xyce,
+  Xschem, CACE), physical (Magic, Netgen, KLayout
   asserts), HDL (Verilator, Icarus, GHDL, cocotb),
-  formal (oss-cad-suite contents), FPGA (nextpnr),
-  photonic profiles, EM (Meep, openEMS, Palace, Gmsh),
-  thermal (Elmer, DEVSIM) — plus per-profile Python
-  locks. setup_catalogue recipes turn real for all of
-  it; `provisionable: false` with "no recipe yet" is no
-  longer an accepted state for anything in the matrix.
+  formal (oss-cad-suite contents), MVP photonic
+  profiles (sax, circulax, gdsfactory) — plus
+  per-profile Python locks. setup_catalogue recipes
+  turn real for all of it; `provisionable: false`
+  with "no recipe yet" is no longer an accepted
+  state for anything in the MVP subset.
+- Deferred packs (PROV-DEFERRED, never gating this
+  ticket): nextpnr (off_mvp), pymeep, openEMS,
+  palace, gmsh (EM), elmer (thermal), devsim
+  (device). OpenVAF has no recipe yet — recorded
+  openly, not faked, and not MVP-gating.
 - GTKWave is EXCLUDED from engine provisioning by the
   headless rule (display-side, RocketIDE concern) —
   record the exclusion, never the install.
@@ -57,7 +65,11 @@ stays open until the matrix is fully provisioned.
   with version asserts (or exactly-named remedies);
   DIGITAL-FLOW/TIMING-STA lanes can green on it.
   Ticket stays Ready until Phase 2 lands.
-- Full: fresh install.sh yields the whole matrix
+- Full: fresh install.sh yields the MVP subset
   pinned + asserted; B10 gate (installed tests on
-  Ubuntu 24.04) green.
+  Ubuntu 24.04) green on the subset. Deferred packs
+  report separately, never as MVP missing.
+- Verdict split: `--check-only` gains an MVP-subset
+  verdict line so B10 reads green while deferred
+  packs stay missing (PROV-DEFERRED owns their line).
 - Contract + api_spec regen; full suite + gate green.

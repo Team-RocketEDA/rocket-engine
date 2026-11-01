@@ -20,6 +20,8 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 - [REVIEW-TAILS] Doc + surface cleanups from E2E-REREVIEW
+- [PROV-DEFERRED] Provision + qualify post/off-MVP packs
+- [API-V1-TOOLS-DEFERRED] Bind deferred FPGA/physics tasks (post-MVP)
 ## Ready
 
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)

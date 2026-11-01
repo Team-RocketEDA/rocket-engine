@@ -1,0 +1,9 @@
+# API-V1-TOOLS: Bind complete v1 task catalog, workflow gates and tool qualification
+
+*Status: Ready · Design: ADR-014 · Created: 2026-11-01*
+
+Depends: API-V1-CORE, CANVAS-CST, WORKFLOW-COVERAGE. Use contracts/v1/catalog/tasks.json and tools.json plus task schemas; do not expose opaque parameters or invent endpoints per binary. Binds the `mvp` delivery subset only; deferred tasks live in API-V1-TOOLS-DEFERRED with RED evidence and never gate this ticket.
+
+Bridge existing run_* names to typed run.start tasks. Implement button workflows with parent/child DAG, required coverage resolution and truthful skipped/unsupported states. Explicit SPICE op/dc/ac/tran/noise/tf/pz/sens/disto and qualified Xyce harmonic_balance; HDL/cocotb, specific cosim synchronization, SAX/Circulax, generation/netlist, all checks/formal/equivalence/mutation, synthesis, LibreLane ASIC stages/registered steps, timing/power, extraction/postlayout, CACE sweeps/PVT/MonteCarlo, model compilation, export and measurement call points. FPGA targets and EM/modes/thermal/device binding are API-V1-TOOLS-DEFERRED (post-MVP), not this ticket. Selected task/tool registration remains distinct from installed/qualified/target-ready.
+
+Report full stack capability records including subordinate libraries/solvers/viewers; no fake endpoint for each helper. Build/pin new Amaranth frontend/profile through installer and qualify separately; do not mark Hardcaml supported. Keep artifact-only tasks source-neutral; edits/adoption publish explicitly. Preserve independent LVS reference, process decks, model dialect/corners, convergence and tool-specific limitations. Each tool needs real external representative fixtures + regressions; current cosim sampled path must not claim general continuous feedback. Generated configs are exhaust, all consumed inputs including canvas.toml join I28.

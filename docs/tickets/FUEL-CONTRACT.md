@@ -1,6 +1,6 @@
 # FUEL-CONTRACT: Pin fuel mcp-stub to the engine contract
 
-*Status: Backlog · Depends: API-GEN · Size: S · Roadmap: codesign*
+*Status: Doing · Depends: API-V1-CONTRACT, API-V1-RESULTS · Size: S · Roadmap: codesign*
 
 ## Why
 
@@ -15,9 +15,11 @@ must share request/run ids.
 
 ## What
 
-- Consume the engine's generated contract artifact
-  (API-GEN schemas) from the stub: generated or verified
-  shapes, never hand-copied. Pin mechanism + version handshake
+- Consume the engine's generated v1 contract artifacts
+  (`contracts/generated/`: expanded schema, TS types,
+  Pydantic boundary, help) from the stub: generated or
+  verified shapes, never hand-copied. Pin mechanism +
+  version handshake against the manifest `$id`
   documented (stale stub fails loudly, not silently).
 - Shared request/run id plumbing so both audit trails join.
 - A contract-drift check runnable from either repo (stub
