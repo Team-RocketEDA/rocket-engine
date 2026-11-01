@@ -42,7 +42,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [LVS-ESCAPE] Bulk-rename mutant escapes LVS 3/3 seeds
 - [EXTRACT-GDS] run_extraction must accept GDS, not .mag-only
 - [MIXED-TOP-TRIAGE] m4.5ab DRC, deck-mode cell arg, xschem top-LVS
-- [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
 
 - [LAYER-CATALOG] Technology-resolved editable layer catalog
 - [LAYOUT-EDIT] Shared geometry create/edit operations for the layout editor
@@ -71,6 +70,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 - [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
 - [MCP-SCHEMA] Real input schemas on every MCP tool
+- [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
 ## Done
 
 - [S1] Slice 1 GREEN (interfaces I01-I02, project I05-I07)

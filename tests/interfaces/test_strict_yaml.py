@@ -53,6 +53,31 @@ def test_aliases_and_merge_keys_rejected():
     assert _code(excinfo) == "invalid_yaml"
 
 
+def test_composition_fixtures_rejected_by_composition_guard():
+    from ruamel.yaml import YAML
+
+    from rocket_engine.interfaces import validate_document
+    from rocket_engine.interfaces.documents import (
+        ALLOWED_TOP_LEVEL,
+        REQUIRED_TOP_LEVEL,
+    )
+
+    cases = (
+        ("alias_merge.yaml", "Anchors and aliases are not allowed."),
+        ("merge_key.yaml", "Merge keys are not allowed."),
+    )
+    for name, guard_message in cases:
+        text = (FIXTURES / "invalid" / name).read_text()
+        shape = YAML(typ="safe").load(text)
+        assert isinstance(shape, dict), name
+        assert set(REQUIRED_TOP_LEVEL) <= set(shape), name
+        assert set(shape) <= set(ALLOWED_TOP_LEVEL), name
+        with pytest.raises(Exception) as excinfo:
+            validate_document(text)
+        assert _code(excinfo) == "invalid_yaml", name
+        assert guard_message in str(excinfo.value), name
+
+
 def test_deep_nesting_rejected():
     from rocket_engine.interfaces import validate_document  # RED: missing surface
 
