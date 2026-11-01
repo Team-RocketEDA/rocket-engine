@@ -37,17 +37,37 @@ set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MODE="${1:---install}"
 
+# Flair: colors on interactive terminals only; piped output
+# (tests, logs) stays byte-identical plain. NO_COLOR=1 wins.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    C_OK=$'\033[32m'
+    C_WARN=$'\033[33m'
+    C_ERR=$'\033[31m'
+    C_HEAD=$'\033[1;36m'
+    C_DIM=$'\033[2m'
+    C_OFF=$'\033[0m'
+else
+    C_OK=''
+    C_WARN=''
+    C_ERR=''
+    C_HEAD=''
+    C_DIM=''
+    C_OFF=''
+fi
+step() { printf '%s\n' "${C_HEAD}==> $1${C_OFF}"; }
+
 probe() {  # name, version-argv...
     local name="$1"; shift
     local bin
     bin="$(command -v "$name" || true)"
     if [ -z "$bin" ]; then
-        printf '%-10s %-9s %s\n' "$name" "absent" "-"
+        printf "%-10s ${C_ERR}%-9s${C_OFF} %s\n" "$name" "absent" "-"
         return 0
     fi
     local ver
     ver="$("$@" </dev/null 2>&1 | head -n 1 | cut -c1-72 || true)"
-    printf '%-10s %-9s %s [%s]\n' "$name" "present" "$ver" "$bin"
+    printf "%-10s ${C_OK}%-9s${C_OFF} %s [${C_DIM}%s${C_OFF}]\n" \
+        "$name" "present" "$ver" "$bin"
 }
 
 pdk_pip_sky130gf() {
@@ -122,17 +142,17 @@ fi
 
 if [ "$MODE" = "--install" ]; then
     command -v uv >/dev/null 2>&1 || { echo "install.sh: uv not on PATH" >&2; echo "next: install uv (https://docs.astral.sh/uv/), then retry" >&2; exit 1; }
-    echo "==> venv + locked sync (deps only: the editable project install is broken for the src-as-root layout)"
+    step "venv + locked sync (deps only: the editable project install is broken for the src-as-root layout)"
     (cd "$ROOT" && uv venv --clear --python 3.12 && uv sync --locked --group dev --no-install-project) || exit 1
-    echo "==> engine package install (sealed copy)"
+    step "engine package install (sealed copy)"
     (cd "$ROOT" && uv pip install --python .venv/bin/python --no-deps .) || exit 1
-    echo "==> engine import check"
+    step "engine import check"
     (cd "$ROOT" && .venv/bin/python -c "import rocket_engine; print('ok')") || exit 1
-    echo "==> PDK register"
+    step "PDK register"
     bash "$0" --pdk-only || exit 1
 fi
 
-echo "==> tool capability probe (engine = batch-capable only)"
+step "tool capability probe (engine = batch-capable only)"
 printf '%-10s %-9s %s\n' "TOOL" "STATE" "VERSION"
 probe bwrap bwrap --version
 probe magic magic --version
@@ -148,8 +168,8 @@ probe librelane librelane --version
 probe sta sta -version
 probe ngspice ngspice --version
 probe netgen netgen -batch
-echo "pins: PROV phase 1 (scripts/provision_toolchain.sh + tests/installed)."
-echo "==> toolchain provision (PROV phase 1; loud verdict, never blocks venv/PDK)"
+printf '%s\n' "${C_DIM}pins: PROV phases 1+2 (scripts/provision_toolchain.sh + tests/installed).${C_OFF}"
+step "toolchain provision (PROV phases 1+2; loud verdict, never blocks venv/PDK)"
 if [ "$MODE" = "--check-only" ]; then
     bash "$ROOT/scripts/provision_toolchain.sh" --check-only || true
 else

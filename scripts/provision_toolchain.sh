@@ -110,6 +110,25 @@ if [ "$MODE" != "--check-only" ] && [ "$MODE" != "--install" ] \
     exit 2
 fi
 
+# Flair: colors on interactive terminals only. Piped output
+# (tests, logs, machine readers) stays byte-identical plain.
+# NO_COLOR=1 disables even on a tty.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    C_OK=$'\033[32m'
+    C_WARN=$'\033[33m'
+    C_ERR=$'\033[31m'
+    C_HEAD=$'\033[1;36m'
+    C_DIM=$'\033[2m'
+    C_OFF=$'\033[0m'
+else
+    C_OK=''
+    C_WARN=''
+    C_ERR=''
+    C_HEAD=''
+    C_DIM=''
+    C_OFF=''
+fi
+
 TOOLS_DIR="${TOOLS_DIR:-$HOME/tools}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OSS_DIR="${OSS_CAD_SUITE_DIR:-$TOOLS_DIR/oss-cad-suite}"
@@ -139,9 +158,18 @@ OK_COUNT=0
 MISSING=""
 ATTEMPTED=0
 
-note() { printf '%s\n' "$1"; }
+note() {
+    case "$1" in
+        *MISMATCH*|*UNPINNED*|*UNRUNNABLE*|*absent*)
+            printf '%s\n' "${C_WARN}$1${C_OFF}" ;;
+        *']')
+            printf '%s\n' "${C_OK}$1${C_OFF}" ;;
+        *)
+            printf '%s\n' "$1" ;;
+    esac
+}
 remedy() {  # tool, cause, next-step, url
-    printf 'REMEDY %s: %s. next: %s. see: %s\n' "$1" "$2" "$3" "$4"
+    printf '%s\n' "${C_ERR}REMEDY $1: $2. next: $3. see: $4${C_OFF}"
 }
 mark_ok() { OK_COUNT=$((OK_COUNT + 1)); }
 mark_missing() { MISSING="$MISSING $1"; }
@@ -547,14 +575,14 @@ run_checks() {
 
 verdict() {
     if [ "$OK_COUNT" -eq 4 ]; then
-        note "PROV-PHASE1: OK (4/4 version-asserted)"
+        printf '%s\n' "${C_OK}PROV-PHASE1: OK (4/4 version-asserted)${C_OFF}"
     else
-        note "PROV-PHASE1: DEGRADED (missing:$MISSING)"
+        printf '%s\n' "${C_ERR}PROV-PHASE1: DEGRADED (missing:$MISSING)${C_OFF}"
     fi
     if [ "$OK2_COUNT" -eq 11 ]; then
-        note "PROV-PHASE2: OK (11/11 provisioned-or-ambient-recorded)"
+        printf '%s\n' "${C_OK}PROV-PHASE2: OK (11/11 provisioned-or-ambient-recorded)${C_OFF}"
     else
-        note "PROV-PHASE2: DEGRADED (missing:$MISSING2)"
+        printf '%s\n' "${C_ERR}PROV-PHASE2: DEGRADED (missing:$MISSING2)${C_OFF}"
     fi
     if [ "$OK_COUNT" -eq 4 ] && [ "$OK2_COUNT" -eq 11 ]; then
         return 0

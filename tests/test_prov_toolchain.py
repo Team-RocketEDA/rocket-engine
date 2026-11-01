@@ -18,6 +18,7 @@ Policy under test (docs/tickets/PROV.md + BUILD-LOCAL):
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import time
@@ -126,7 +127,8 @@ def _sysbin(tmp_path):
     """Minimal system utils so stub-only PATH stays hermetic."""
     sysbin = tmp_path / "sysbin"
     sysbin.mkdir(exist_ok=True)
-    for name in ("head", "cut", "tr", "grep", "mkdir", "id"):
+    for name in ("head", "cut", "tr", "grep", "mkdir", "id",
+                 "dirname"):
         src = shutil.which(name)
         assert src, f"system {name} missing"
         link = sysbin / name
@@ -566,3 +568,91 @@ def test_print_path_without_env_file_fails_loud(tmp_path):
 
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "--install" in proc.stdout, proc.stdout
+
+
+SCRIPT = shutil.which("script") or "/usr/bin/script"
+
+
+def _run_prov_pty(args, env_over, timeout=60):
+    """Run the provisioner under a pty (colors on) via `script`.
+
+    Absolute `script` path: hermetic envs replace PATH, so the
+    bare name would not resolve.
+    """
+    inner = " ".join(
+        shlex.quote(part) for part in [BASH, str(PROV), *args])
+    env = dict(os.environ)
+    if env_over:
+        env.update(env_over)
+    return subprocess.run(
+        [SCRIPT, "-qec", inner, "/dev/null"],
+        capture_output=True, text=True, timeout=timeout,
+        env=env, cwd=ROOT,
+    )
+
+
+def test_check_only_plain_bytes_without_tty(tmp_path):
+    bindir = _bindir(tmp_path)
+    bundle = _bundle(tmp_path)
+    env = _phase2_ok(tmp_path, _env(tmp_path, bindir, bundle))
+    tools = Path(env["TOOLS_DIR"])
+    pins = read_pins()
+    appdir = tools / f"librelane-{pins['LIBRELANE_PIN']}"
+    appdir.mkdir(parents=True)
+    app = appdir / "librelane-devshell-x86_64.AppImage"
+    app.write_text("#!/bin/sh\necho stub\n", encoding="utf-8")
+    app.chmod(0o755)
+    (appdir / "LIBRELANE_PIN").write_text(
+        pins["LIBRELANE_PIN"] + "\n", encoding="utf-8")
+    (appdir / "tool_versions.txt").write_text(
+        "opensta stub\n", encoding="utf-8")
+    prefix = tools / "opensta-857316f"
+    (prefix / "bin").mkdir(parents=True)
+    _stub(prefix / "bin" / "sta", f"echo '{STA_BANNER}'")
+    (prefix / "OPENSTA_PIN").write_text(
+        pins["OPENSTA_PIN"] + "\n", encoding="utf-8")
+
+    proc = run_prov(["--check-only"], env_over=env)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "\x1b[" not in proc.stdout, "piped output must stay plain"
+
+
+def test_check_only_colors_on_tty(tmp_path):
+    bindir = _bindir(tmp_path)
+    bundle = _bundle(tmp_path)
+    env = _phase2_ok(tmp_path, _env(tmp_path, bindir, bundle))
+    tools = Path(env["TOOLS_DIR"])
+    pins = read_pins()
+    appdir = tools / f"librelane-{pins['LIBRELANE_PIN']}"
+    appdir.mkdir(parents=True)
+    app = appdir / "librelane-devshell-x86_64.AppImage"
+    app.write_text("#!/bin/sh\necho stub\n", encoding="utf-8")
+    app.chmod(0o755)
+    (appdir / "LIBRELANE_PIN").write_text(
+        pins["LIBRELANE_PIN"] + "\n", encoding="utf-8")
+    (appdir / "tool_versions.txt").write_text(
+        "opensta stub\n", encoding="utf-8")
+    prefix = tools / "opensta-857316f"
+    (prefix / "bin").mkdir(parents=True)
+    _stub(prefix / "bin" / "sta", f"echo '{STA_BANNER}'")
+    (prefix / "OPENSTA_PIN").write_text(
+        pins["OPENSTA_PIN"] + "\n", encoding="utf-8")
+
+    proc = _run_prov_pty(["--check-only"], env)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "\x1b[" in proc.stdout, "tty output should carry color"
+    assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2: OK (11/11" in proc.stdout, proc.stdout
+
+
+def test_no_color_disables_tty_color(tmp_path):
+    bindir = _bindir(tmp_path)
+    bundle = _bundle(tmp_path)
+    env = _phase2_ok(tmp_path, _env(tmp_path, bindir, bundle))
+    env["NO_COLOR"] = "1"
+
+    proc = _run_prov_pty(["--check-only"], env)
+
+    assert "\x1b[" not in proc.stdout, "NO_COLOR must win on tty"
