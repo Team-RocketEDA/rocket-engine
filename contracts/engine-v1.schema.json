@@ -71,6 +71,10 @@
   "x-validation-boundary": "JSON Schema validates observable shapes/conditional forms. Provider must also prove the relational, ownership, dimensional and scheduling semantics in x-semantics and docs/work/API-V1/execution-review.md; fixtures do not claim live provider conformance.",
   "x-schema-modules": [
     {
+      "path": "v1/schemas/arrays.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:arrays"
+    },
+    {
       "path": "v1/schemas/bench.schema.json",
       "id": "urn:rocketeda:engine:v1:schemas:bench"
     },
@@ -85,6 +89,10 @@
     {
       "path": "v1/schemas/core.schema.json",
       "id": "urn:rocketeda:engine:v1:schemas:core"
+    },
+    {
+      "path": "v1/schemas/datasets.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:datasets"
     },
     {
       "path": "v1/schemas/edit.schema.json",
@@ -123,8 +131,16 @@
       "id": "urn:rocketeda:engine:v1:schemas:queries"
     },
     {
+      "path": "v1/schemas/results.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:results"
+    },
+    {
       "path": "v1/schemas/schematic.schema.json",
       "id": "urn:rocketeda:engine:v1:schemas:schematic"
+    },
+    {
+      "path": "v1/schemas/stages.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:stages"
     },
     {
       "path": "v1/schemas/task-implementation.schema.json",
@@ -137,6 +153,10 @@
     {
       "path": "v1/schemas/task-workflows-checks.schema.json",
       "id": "urn:rocketeda:engine:v1:schemas:task-workflows-checks"
+    },
+    {
+      "path": "v1/schemas/views.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:views"
     }
   ],
   "x-derived-schema": {
@@ -751,6 +771,177 @@
     },
     "SpiceAnalysis": {
       "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/SpiceAnalysis"
+    },
+    "BoolBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/BoolBuffer"
+    },
+    "BoolColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/BoolColumn"
+    },
+    "CanonicalSignal": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/CanonicalSignal"
+    },
+    "ChunkRef": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/ChunkRef"
+    },
+    "ChunkedBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/ChunkedBuffer"
+    },
+    "ComplexBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/ComplexBuffer"
+    },
+    "ComplexColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/ComplexColumn"
+    },
+    "ComplexValue": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/ComplexValue"
+    },
+    "DataAxis": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/DataAxis"
+    },
+    "DataBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/DataBuffer"
+    },
+    "DataCondition": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/DataCondition"
+    },
+    "DataMarker": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DataMarker"
+    },
+    "DataSignal": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/DataSignal"
+    },
+    "DataView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/DataView"
+    },
+    "Dataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/Dataset"
+    },
+    "DatasetRecord": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DatasetRecord"
+    },
+    "DigitalDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DigitalDataset"
+    },
+    "DigitalSignal": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DigitalSignal"
+    },
+    "DigitalTransition": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DigitalTransition"
+    },
+    "DigitalView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/DigitalView"
+    },
+    "Event_run_log": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_run_log"
+    },
+    "Event_run_result_ready": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_run_result_ready"
+    },
+    "FieldDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/FieldDataset"
+    },
+    "FieldVariable": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/FieldVariable"
+    },
+    "FieldView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/FieldView"
+    },
+    "IntegerBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/IntegerBuffer"
+    },
+    "IntegerColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/IntegerColumn"
+    },
+    "LogDescriptor": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:results#/$defs/LogDescriptor"
+    },
+    "MarkerDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/MarkerDataset"
+    },
+    "MarkerGeometry": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/MarkerGeometry"
+    },
+    "MarkerView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/MarkerView"
+    },
+    "MatrixDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/MatrixDataset"
+    },
+    "MatrixView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/MatrixView"
+    },
+    "MeshDescriptor": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/MeshDescriptor"
+    },
+    "RealBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/RealBuffer"
+    },
+    "RealColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/RealColumn"
+    },
+    "ResultBundle": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:results#/$defs/ResultBundle"
+    },
+    "ResultGap": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:results#/$defs/ResultGap"
+    },
+    "ResultProvenance": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:results#/$defs/ResultProvenance"
+    },
+    "SampleQuality": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/SampleQuality"
+    },
+    "SeriesDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/SeriesDataset"
+    },
+    "TableColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TableColumn"
+    },
+    "TableDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TableDataset"
+    },
+    "TableView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TableView"
+    },
+    "TaskContract": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskContract"
+    },
+    "TaskInput": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskInput"
+    },
+    "TaskInvocation": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskInvocation"
+    },
+    "TaskOutput": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskOutput"
+    },
+    "TaskPort": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskPort"
+    },
+    "TaskResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskResult"
+    },
+    "TextColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TextColumn"
+    },
+    "TraceBinding": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TraceBinding"
+    },
+    "TraceView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TraceView"
+    },
+    "TreeDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TreeDataset"
+    },
+    "TreeNode": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TreeNode"
+    },
+    "TreeNodeValue": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TreeNodeValue"
+    },
+    "TreeView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TreeView"
     }
   }
 }

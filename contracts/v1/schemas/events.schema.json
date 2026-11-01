@@ -29,7 +29,9 @@
               "script.output",
               "capacity.changed",
               "runtime.recovered",
-              "testbench.stale"
+              "testbench.stale",
+              "run.result_ready",
+              "run.log"
             ]
           },
           "uniqueItems": true
@@ -721,6 +723,12 @@
         },
         {
           "$ref": "urn:rocketeda:engine:v1#/$defs/Event_testbench_stale"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_run_result_ready"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_run_log"
         }
       ]
     },
@@ -749,6 +757,145 @@
         "events",
         "cursor",
         "has_more"
+      ]
+    },
+    "Event_run_result_ready": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "run.result_ready"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "result": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+            }
+          },
+          "required": [
+            "run_id",
+            "result"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
+      ]
+    },
+    "Event_run_log": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "run.log"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "log_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "stream": {
+              "type": "string",
+              "enum": [
+                "stdout",
+                "stderr",
+                "tool"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "artifact": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+            }
+          },
+          "required": [
+            "run_id",
+            "log_id",
+            "stream",
+            "text",
+            "truncated",
+            "artifact"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
       ]
     }
   }

@@ -1,0 +1,1077 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:datasets",
+  "title": "Engine v1 datasets schemas",
+  "$defs": {
+    "SeriesDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "series"
+        },
+        "analysis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "axes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataAxis"
+          },
+          "minItems": 1
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataSignal"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "analysis",
+        "axes",
+        "signals",
+        "conditions"
+      ],
+      "description": "DC/AC/transient, frequency/wavelength responses, sweeps and corners. Every signal shape follows the same ordered axes."
+    },
+    "RealColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "float64"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "values": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "IntegerColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "int64"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?(0|[1-9][0-9]*)$"
+          }
+        },
+        "values": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "TextColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "utf8"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "values": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "BoolColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "bool"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "values": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "ComplexColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "complex128"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/ComplexValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "values": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "TableColumn": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RealColumn"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/IntegerColumn"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TextColumn"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/BoolColumn"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ComplexColumn"
+        }
+      ]
+    },
+    "TableDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "table"
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TableColumn"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "row_count",
+        "columns",
+        "conditions"
+      ],
+      "description": "All columns have exactly row_count values; int64 is decimal string data, IDs remain strings."
+    },
+    "MatrixDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "matrix"
+        },
+        "axes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataAxis"
+          },
+          "minItems": 2
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "values": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DataBuffer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "axes",
+        "quantity",
+        "unit",
+        "values",
+        "conditions"
+      ],
+      "description": "Explicit coordinate axes allow heatmaps/slices, including complex optical S matrices and parameter sweeps. A one-dimensional spectrum stays series."
+    },
+    "MarkerGeometry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "point"
+            },
+            "point": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+            }
+          },
+          "required": [
+            "type",
+            "point"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "box"
+            },
+            "minimum": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+            },
+            "maximum": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+            }
+          },
+          "required": [
+            "type",
+            "minimum",
+            "maximum"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "polygon"
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+              },
+              "minItems": 3
+            }
+          },
+          "required": [
+            "type",
+            "points"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "path"
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+              },
+              "minItems": 2
+            }
+          },
+          "required": [
+            "type",
+            "points"
+          ]
+        }
+      ]
+    },
+    "DataMarker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "finding_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "layer": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "instance_path": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "geometry": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/MarkerGeometry"
+        }
+      },
+      "required": [
+        "id",
+        "finding_id",
+        "rule",
+        "severity",
+        "message",
+        "source",
+        "geometry"
+      ],
+      "description": "Structured violation geometry cross-probes exact authored/native layout and layer; source revision belongs to the result snapshot."
+    },
+    "MarkerDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "markers"
+        },
+        "view": {
+          "type": "string",
+          "enum": [
+            "schematic",
+            "layout",
+            "source"
+          ]
+        },
+        "coordinate_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markers": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataMarker"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "view",
+        "coordinate_unit",
+        "markers",
+        "conditions"
+      ],
+      "description": "Zero violations means markers:[], not prose or invented markers."
+    },
+    "DigitalTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "time": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            }
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[01uxzwlh-]+$"
+        }
+      },
+      "required": [
+        "time",
+        "value"
+      ],
+      "description": "Ordered event time in dataset time_unit; preserve HDL unknown/high-impedance/weak/uninitialized states. Wide ticks use decimal strings."
+    },
+    "DigitalSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DigitalTransition"
+          }
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/CanonicalSignal"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "width",
+        "transitions"
+      ],
+      "description": "Transition values have exactly width characters; ordering and width are relational conformance rules."
+    },
+    "DigitalDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "digital"
+        },
+        "time_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DigitalSignal"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "time_unit",
+        "signals",
+        "conditions"
+      ]
+    },
+    "MeshDescriptor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "topology": {
+              "const": "rectilinear"
+            },
+            "coordinate_unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "axes": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/DataAxis"
+              },
+              "minItems": 1,
+              "maxItems": 3
+            }
+          },
+          "required": [
+            "topology",
+            "coordinate_unit",
+            "axes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "topology": {
+              "const": "unstructured"
+            },
+            "coordinate_unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "points": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/DataBuffer"
+            },
+            "cells": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/DataBuffer"
+            },
+            "cell_type": {
+              "type": "string",
+              "enum": [
+                "line",
+                "triangle",
+                "quad",
+                "tetrahedron",
+                "hexahedron"
+              ]
+            },
+            "artifact": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+            }
+          },
+          "required": [
+            "topology",
+            "coordinate_unit",
+            "points",
+            "cells",
+            "cell_type"
+          ]
+        }
+      ]
+    },
+    "FieldVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "association": {
+          "type": "string",
+          "enum": [
+            "point",
+            "cell"
+          ]
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "values": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DataBuffer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "quantity",
+        "unit",
+        "association",
+        "components",
+        "values"
+      ]
+    },
+    "FieldDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "field"
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "electromagnetic",
+            "optical",
+            "thermal",
+            "semiconductor"
+          ]
+        },
+        "mesh": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/MeshDescriptor"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/FieldVariable"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "domain",
+        "mesh",
+        "fields",
+        "conditions"
+      ],
+      "description": "Defined post-MVP field data; schema validity is not evidence of an installed/qualified physics adapter."
+    },
+    "Dataset": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/SeriesDataset"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TableDataset"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/MatrixDataset"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/MarkerDataset"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DigitalDataset"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/FieldDataset"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TreeDataset"
+        }
+      ]
+    },
+    "DatasetRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Dataset"
+        }
+      },
+      "required": [
+        "ref",
+        "run_id",
+        "snapshot",
+        "data"
+      ]
+    },
+    "TreeNodeValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "description": "One named scalar attached to a tree node, such as worst slack in nanoseconds."
+    },
+    "TreeNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "parent_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "running",
+            "completed",
+            "failed",
+            "skipped"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TreeNodeValue"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "status"
+      ],
+      "description": "One flat hierarchy node. Roots have no parent_id; nesting is by reference, never by document depth."
+    },
+    "TreeDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "kind": {
+          "const": "tree"
+        },
+        "root_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TreeNode"
+          },
+          "minItems": 1
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataCondition"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "root_ids",
+        "nodes",
+        "conditions"
+      ],
+      "description": "Stage and grouped-violation trees: flow stages, timing paths, violation groups. Flat nodes with stable IDs."
+    }
+  }
+}

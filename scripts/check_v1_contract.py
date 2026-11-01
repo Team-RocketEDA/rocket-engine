@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -247,6 +248,20 @@ def ts(schema):
     return base or "unknown"
 
 
+def render_python(contract):
+    """Derive Python consumer DTOs via the sibling boundary generator.
+
+    Loaded by exact path: tests import this checker with
+    importlib.util.spec_from_file_location, so scripts is not
+    guaranteed to be on sys.path for a plain sibling import.
+    """
+    path = Path(__file__).with_name("schema_models.py")
+    spec = importlib.util.spec_from_file_location("v1_schema_models", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.render_python(contract)
+
+
 def render(contract):
     """Generate artifacts exclusively from the canonical contract."""
     definitions = contract["$defs"]
@@ -281,11 +296,13 @@ def render(contract):
     examples = ["# Generated contract examples", "", "Illustrative contract fixtures; these are not claimed live solver executions."]
     for item in contract["x-examples"]:
         examples += ["", "## " + item["name"], "", "Schema: `" + item["schema"] + "`", "", "```json", json.dumps(item["value"], indent=2), "```"]
-    return {"engine-v1.expanded.schema.json": json.dumps(contract, indent=2) + "\n",
-            "client-types.d.ts": "\n".join(types) + "\n",
-            "help.json": json.dumps(help_data, indent=2) + "\n",
-            "CATALOG.md": "\n".join(catalog) + "\n",
-            "EXAMPLES.md": "\n".join(examples) + "\n"}
+    artifacts = {"engine-v1.expanded.schema.json": json.dumps(contract, indent=2) + "\n",
+                 "client-types.d.ts": "\n".join(types) + "\n",
+                 "help.json": json.dumps(help_data, indent=2) + "\n",
+                 "CATALOG.md": "\n".join(catalog) + "\n",
+                 "EXAMPLES.md": "\n".join(examples) + "\n"}
+    artifacts.update(render_python(contract))
+    return artifacts
 
 
 def check(contract, manifest=None, registry=None):

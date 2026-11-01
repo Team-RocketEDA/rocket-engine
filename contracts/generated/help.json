@@ -105,7 +105,72 @@
       "availability": "contextual_not_promised",
       "providers": [
         "librelane"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "tree"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "flow_report",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "workflow.analog": {
       "description": "Generate/netlist, simulate, characterize, verify physical views, and optionally compare extracted behavior according to the saved plan.",
@@ -137,7 +202,59 @@
       "qualification": "required",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
-      "providers": []
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "workflow.photonic": {
       "description": "Run a saved photonic construction, circuit response, geometry verification, and qualified device-solver plan.",
@@ -170,7 +287,60 @@
       "qualification": "required",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
-      "providers": []
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "circuit",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": false,
+            "many": false
+          }
+        ]
+      }
     },
     "check.syntax": {
       "description": "Parse and lint the selected source language and supported language subset.",
@@ -206,7 +376,50 @@
         "verilator",
         "ghdl",
         "icarus"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.connectivity": {
       "description": "Check canonical circuit connectivity and interface mappings.",
@@ -234,7 +447,48 @@
       "availability": "contextual_not_promised",
       "providers": [
         "connectgraph"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.erc": {
       "description": "Apply electrical rules to circuit participants and declared electrical semantics.",
@@ -262,7 +516,48 @@
       "availability": "contextual_not_promised",
       "providers": [
         "connectgraph"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.drc": {
       "description": "Check physical geometry against the selected pinned technology rule deck.",
@@ -291,7 +586,49 @@
       "providers": [
         "magic",
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.lvs": {
       "description": "Compare independently selected layout extraction and reference circuit netlists.",
@@ -320,7 +657,59 @@
       "providers": [
         "netgen",
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.antenna": {
       "description": "Check process antenna ratios and routing antenna properties.",
@@ -350,7 +739,49 @@
       "providers": [
         "openroad",
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.view_sync": {
       "description": "Compare selected source/native/extracted views using canonical identity and pin mappings.",
@@ -380,7 +811,60 @@
       "availability": "contextual_not_promised",
       "providers": [
         "connectgraph"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "intended",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python",
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "extracted",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.layout_xor": {
       "description": "Compare two layout stream-outs using geometric XOR.",
@@ -407,7 +891,60 @@
       "availability": "contextual_not_promised",
       "providers": [
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout_a",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "layout_b",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.formal": {
       "description": "Prove, bound, or cover formal properties, preserving assumptions, bounds, solver status, and counterexamples.",
@@ -437,12 +974,65 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "sby"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "properties",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "systemverilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "property_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "counterexamples",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.equivalence": {
       "description": "Compare golden and candidate implementations under explicit mapping and assumptions.",
@@ -466,12 +1056,65 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "eqy"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "reference",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "equivalence_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "counterexamples",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.mutation": {
       "description": "Evaluate test/property effectiveness against controlled source mutations.",
@@ -494,12 +1137,44 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "mcy"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "mutation_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.spice": {
       "description": "Run the explicitly selected SPICE analysis with compatible circuit/model views; every mode is qualified separately per backend and device model.",
@@ -529,7 +1204,58 @@
       "providers": [
         "ngspice",
         "xyce"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "bench",
+            "kind": "source",
+            "schema": "rocketeda/testbench/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.hdl": {
       "description": "Compile/elaborate and simulate the canvas-selected HDL language using an HDL bench or qualified Python cocotb test source.",
@@ -565,7 +1291,63 @@
         "verilator",
         "ghdl",
         "amaranth"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "digital",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "testbench",
+            "kind": "source",
+            "schema": "rocketeda/testbench/v1",
+            "formats": [
+              "systemverilog",
+              "verilog",
+              "vhdl",
+              "python"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "assertions",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.cosim": {
       "description": "Run the selected analog/digital coupling contract. A sampled one-way handoff and a live feedback solver are distinct qualified coupling capabilities.",
@@ -596,7 +1378,61 @@
       "qualification": "required",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
-      "providers": []
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "digital",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "assertions",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.optical": {
       "description": "Simulate a circuit using calibrated optical/mixed-domain compact models; advertise each model and analysis compatibility independently.",
@@ -627,7 +1463,48 @@
       "providers": [
         "sax",
         "circulax"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "circuit",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "synthesize.hdl": {
       "description": "Elaborate the canvas-selected HDL/frontend and synthesize a logic netlist, optionally mapping into a pinned standard-cell library.",
@@ -662,7 +1539,49 @@
         "yosys",
         "ghdl",
         "amaranth"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "mapped_netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "cell_statistics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "implement.asic": {
       "description": "Run a full qualified ASIC flow or a registered stage from a pinned compatible prior state.",
@@ -701,7 +1620,72 @@
       "providers": [
         "librelane",
         "openroad"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "tree"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "flow_state",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "implement.fpga": {
       "description": "Perform synthesis/place-and-route and architecture-specific bitstream generation for an explicitly qualified FPGA device; programming is outside this task.",
@@ -734,7 +1718,70 @@
       "availability": "contextual_not_promised",
       "providers": [
         "nextpnr"
-      ]
+      ],
+      "delivery": "off_mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "bitstream",
+            "kind": "artifact",
+            "schema": "rocketeda/export/v1",
+            "formats": [
+              "bitstream"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "utilization",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "analyze.timing": {
       "description": "Perform static timing with explicit clocks, constraints, libraries, corners and optional extracted RC; report missing constraints and coverage.",
@@ -763,7 +1810,37 @@
       "providers": [
         "opensta",
         "openroad"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "critical_paths",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "analyze.power": {
       "description": "Estimate characterized digital power or calculate a qualified physical IR-drop study from declared activity and supplies.",
@@ -786,13 +1863,43 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "openroad",
         "opensta"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "power",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "analyze.measurements": {
       "description": "Evaluate saved measurements, spectra/FFT, comparisons and plots against pinned result artifacts and measurement definitions.",
@@ -823,7 +1930,48 @@
       "qualification": "required",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
-      "providers": []
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "results",
+            "kind": "result",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "tables",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "extract.layout": {
       "description": "Extract devices/circuit connectivity or parasitic RC from a selected physical view using a compatible technology/extraction deck.",
@@ -857,7 +2005,48 @@
         "magic",
         "openrcx",
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "extracted_netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "parasitics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "characterize.circuit": {
       "description": "Repeat supported simulations across explicit parameter/corner/statistical samples and evaluate a saved characterization specification.",
@@ -894,7 +2083,38 @@
         "cace",
         "ngspice",
         "xyce"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.em": {
       "description": "Solve a saved physical field study with explicit geometry, materials, ports, boundaries, mesh and convergence settings; electromagnetic compliance requires its own modeled limits.",
@@ -937,7 +2157,51 @@
         "palace",
         "meow",
         "femwell"
-      ]
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "matrix",
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "fields",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "s_parameters",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.thermal": {
       "description": "Solve a saved thermal study with explicit materials, power sources, boundaries and mesh; coupled electrothermal behavior requires a separately qualified study.",
@@ -966,7 +2230,50 @@
       "availability": "contextual_not_promised",
       "providers": [
         "elmer_fem"
-      ]
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "temperature_map",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.device": {
       "description": "Solve declared semiconductor-device equations and physical boundary conditions in a saved qualified DEVSIM study.",
@@ -995,7 +2302,50 @@
       "availability": "contextual_not_promised",
       "providers": [
         "devsim"
-      ]
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "mesh",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "msh",
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "device_fields",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "characteristics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "generate.views": {
       "description": "Generate selected component views from pinned sources/factories, producing candidate artifacts and canonical mappings; project adoption uses the shared revision-checked edit contract.",
@@ -1033,7 +2383,48 @@
         "xschem",
         "vlsir",
         "amaranth"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "component",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "generated_views",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "py",
+              "gds"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "mappings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "generate.netlist": {
       "description": "Emit a circuit netlist for the selected schematic/component closure with explicit canonical-to-native terminal ordering.",
@@ -1068,7 +2459,39 @@
         "gdsfactory",
         "kfactory",
         "vlsir"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem",
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "export.design": {
       "description": "Export a pinned design view or project bundle, retaining supported native properties and reporting any lossy conversion.",
@@ -1108,7 +2531,54 @@
         "xschem",
         "yosys",
         "vlsir"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "design",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python",
+              "xschem",
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "exported_design",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas",
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "mappings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "compile.model": {
       "description": "Compile a pinned Verilog-A source closure into a compatible OSDI model artifact in the isolated worker.",
@@ -1129,12 +2599,42 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "openvaf"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "model",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog-a"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "compiled_model",
+            "kind": "model",
+            "schema": "rocketeda/model/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     }
   },
   "tools": {

@@ -1,0 +1,611 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:arrays",
+  "title": "Engine v1 arrays schemas",
+  "$defs": {
+    "ComplexValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "real": {
+          "type": "number"
+        },
+        "imag": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "real",
+        "imag"
+      ],
+      "description": "Complex float64 pair; never magnitude-only or ambiguous two-element array. Ingest rejects nonfinite JSON numbers."
+    },
+    "SampleQuality": {
+      "type": "string",
+      "enum": [
+        "valid",
+        "missing",
+        "invalid",
+        "not_converged"
+      ]
+    },
+    "ChunkRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "offset": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "arrow",
+            "npy",
+            "json"
+          ]
+        },
+        "byte_order": {
+          "type": "string",
+          "enum": [
+            "little",
+            "not_applicable"
+          ]
+        },
+        "compression": {
+          "type": "string",
+          "enum": [
+            "none",
+            "zstd"
+          ]
+        },
+        "byte_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "artifact",
+        "sha256",
+        "offset",
+        "shape",
+        "format"
+      ],
+      "description": "Immutable bounded chunk. Offset/shape are element coordinates, not bytes; fetch validates hash, codec, dtype and shape. Arrow/NPY/JSON format is data, never executable codec source."
+    },
+    "RealBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "inline"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        },
+        "dtype": {
+          "const": "float64"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "data"
+      ],
+      "description": "Flattened C-order samples. Shape equals axis sizes; null requires quality metadata. int64 uses decimal strings to preserve precision in JavaScript.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "contains": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "required": [
+              "quality"
+            ]
+          }
+        }
+      ]
+    },
+    "IntegerBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "inline"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        },
+        "dtype": {
+          "const": "int64"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?(0|[1-9][0-9]*)$"
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "data"
+      ],
+      "description": "Flattened C-order samples. Shape equals axis sizes; null requires quality metadata. int64 uses decimal strings to preserve precision in JavaScript.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "contains": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "required": [
+              "quality"
+            ]
+          }
+        }
+      ]
+    },
+    "ComplexBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "inline"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        },
+        "dtype": {
+          "const": "complex128"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/ComplexValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "data"
+      ],
+      "description": "Flattened C-order samples. Shape equals axis sizes; null requires quality metadata. int64 uses decimal strings to preserve precision in JavaScript.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "contains": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "required": [
+              "quality"
+            ]
+          }
+        }
+      ]
+    },
+    "BoolBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "inline"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        },
+        "dtype": {
+          "const": "bool"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "data"
+      ],
+      "description": "Flattened C-order samples. Shape equals axis sizes; null requires quality metadata. int64 uses decimal strings to preserve precision in JavaScript.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "contains": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "required": [
+              "quality"
+            ]
+          }
+        }
+      ]
+    },
+    "ChunkedBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "chunked"
+        },
+        "dtype": {
+          "type": "string",
+          "enum": [
+            "float64",
+            "int64",
+            "complex128",
+            "bool"
+          ]
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "order": {
+          "const": "C"
+        },
+        "chunks": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/ChunkRef"
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "order",
+        "chunks"
+      ],
+      "description": "Chunk coverage must exactly cover the logical shape with no unintended gaps/overlaps; a partial result explicitly declares missing portions."
+    },
+    "DataBuffer": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RealBuffer"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/IntegerBuffer"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ComplexBuffer"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/BoolBuffer"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ChunkedBuffer"
+        }
+      ]
+    },
+    "DataAxis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "continuous",
+            "discrete",
+            "categorical"
+          ]
+        },
+        "scale": {
+          "type": "string",
+          "enum": [
+            "linear",
+            "log"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "quantity",
+        "unit",
+        "kind",
+        "scale",
+        "values"
+      ],
+      "description": "Every axis has stable identity and explicit units. Coordinate order is stored, not guessed; values may be decimal-string integer ticks for exact large time coordinates.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "categorical"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DataCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "oneOf": [
+            {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Scalar"
+            },
+            {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            }
+          ]
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "description": "PVT corner, temperature, voltage, sample seed/index, wavelength or parameter condition attached to the exact data slice."
+    },
+    "CanonicalSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instance_path": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "net_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "instance_path"
+      ],
+      "description": "Canonical design locator; at least one port_id/net_id is required, resolved against the result snapshot.",
+      "anyOf": [
+        {
+          "required": [
+            "port_id"
+          ]
+        },
+        {
+          "required": [
+            "net_id"
+          ]
+        }
+      ]
+    },
+    "DataSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "values": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DataBuffer"
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/CanonicalSignal"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "quantity",
+        "unit",
+        "values"
+      ]
+    }
+  }
+}

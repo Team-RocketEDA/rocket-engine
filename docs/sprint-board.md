@@ -36,7 +36,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DECK-XSCHEM] Schematic to netlist to sim execution deck
 - [WORKFLOW-COVERAGE] Stage tables as the tool coverage map
 - [OP-GATES] Engine-side depends_on + gate-on-verdict guardrails
-- [CANVAS-CST] Single global canvas.cst design-intent file
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
@@ -45,6 +44,20 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MIXED-TOP-TRIAGE] m4.5ab DRC, deck-mode cell arg, xschem top-LVS
 - [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
 
+- [LAYER-CATALOG] Technology-resolved editable layer catalog
+- [LAYOUT-EDIT] Shared geometry create/edit operations for the layout editor
+- [SCHEMATIC-EDIT] Hierarchical schematic authoring operations
+- [SYMBOL-CELL-EDIT] Editable symbol and physical-cell libraries
+- [PROCESS-LAYER-MODEL] Versioned technology semantics and export recipes
+- [API-V1-CORE] Implement shared v1 runtime, discovery, references and lossless admission
+- [API-V1-EDITORS] Implement typed project, schematic, symbol, cell and layout edit transactions
+- [TESTBENCH-COMPONENT] Scoped SPICE, HDL and cocotb testbench blocks with editable templates
+- [API-V1-TOOLS] Bind complete v1 task catalog, workflow gates and tool qualification
+- [API-V1-CLIENTS] Generate and migrate MCP, stdio, HTTP and Python clients to v1
+- [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
+- [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
+- [API-V1-RESULTS] Freeze typed result/renderer contracts and task io classification
+- [API-V1-PYTHON] Finish and lock Pydantic boundary generation
 ## Doing
 
 
@@ -142,3 +155,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [FORMAL-EDGE] Vacuity guard + ifdef-aware property sites
 - [SETUP-HONESTY] No false-ready probes, fresh tests, capable readiness
 - [I27-GATE] Wire plan_checks/design-completion gate (I27)
+- [API-V1-CONTRACT] Freeze canonical v1 API, entities, tasks and consumer artifacts

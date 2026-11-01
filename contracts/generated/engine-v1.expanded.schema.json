@@ -71,6 +71,610 @@
   "x-validation-boundary": "JSON Schema validates observable shapes/conditional forms. Provider must also prove the relational, ownership, dimensional and scheduling semantics in x-semantics and docs/work/API-V1/execution-review.md; fixtures do not claim live provider conformance.",
   "x-generated-from": "contracts/engine-v1.schema.json",
   "$defs": {
+    "ComplexValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "real": {
+          "type": "number"
+        },
+        "imag": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "real",
+        "imag"
+      ],
+      "description": "Complex float64 pair; never magnitude-only or ambiguous two-element array. Ingest rejects nonfinite JSON numbers."
+    },
+    "SampleQuality": {
+      "type": "string",
+      "enum": [
+        "valid",
+        "missing",
+        "invalid",
+        "not_converged"
+      ]
+    },
+    "ChunkRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Hash"
+        },
+        "offset": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "arrow",
+            "npy",
+            "json"
+          ]
+        },
+        "byte_order": {
+          "type": "string",
+          "enum": [
+            "little",
+            "not_applicable"
+          ]
+        },
+        "compression": {
+          "type": "string",
+          "enum": [
+            "none",
+            "zstd"
+          ]
+        },
+        "byte_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "artifact",
+        "sha256",
+        "offset",
+        "shape",
+        "format"
+      ],
+      "description": "Immutable bounded chunk. Offset/shape are element coordinates, not bytes; fetch validates hash, codec, dtype and shape. Arrow/NPY/JSON format is data, never executable codec source."
+    },
+    "RealBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "inline"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        },
+        "dtype": {
+          "const": "float64"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "data"
+      ],
+      "description": "Flattened C-order samples. Shape equals axis sizes; null requires quality metadata. int64 uses decimal strings to preserve precision in JavaScript.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "contains": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "required": [
+              "quality"
+            ]
+          }
+        }
+      ]
+    },
+    "IntegerBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "inline"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        },
+        "dtype": {
+          "const": "int64"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?(0|[1-9][0-9]*)$"
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "data"
+      ],
+      "description": "Flattened C-order samples. Shape equals axis sizes; null requires quality metadata. int64 uses decimal strings to preserve precision in JavaScript.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "contains": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "required": [
+              "quality"
+            ]
+          }
+        }
+      ]
+    },
+    "ComplexBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "inline"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        },
+        "dtype": {
+          "const": "complex128"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ComplexValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "data"
+      ],
+      "description": "Flattened C-order samples. Shape equals axis sizes; null requires quality metadata. int64 uses decimal strings to preserve precision in JavaScript.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "contains": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "required": [
+              "quality"
+            ]
+          }
+        }
+      ]
+    },
+    "BoolBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "inline"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        },
+        "dtype": {
+          "const": "bool"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "data"
+      ],
+      "description": "Flattened C-order samples. Shape equals axis sizes; null requires quality metadata. int64 uses decimal strings to preserve precision in JavaScript.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "contains": {
+                  "type": "null"
+                }
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "required": [
+              "quality"
+            ]
+          }
+        }
+      ]
+    },
+    "ChunkedBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": {
+          "const": "chunked"
+        },
+        "dtype": {
+          "type": "string",
+          "enum": [
+            "float64",
+            "int64",
+            "complex128",
+            "bool"
+          ]
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "order": {
+          "const": "C"
+        },
+        "chunks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChunkRef"
+          },
+          "minItems": 1
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "storage",
+        "dtype",
+        "shape",
+        "order",
+        "chunks"
+      ],
+      "description": "Chunk coverage must exactly cover the logical shape with no unintended gaps/overlaps; a partial result explicitly declares missing portions."
+    },
+    "DataBuffer": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RealBuffer"
+        },
+        {
+          "$ref": "#/$defs/IntegerBuffer"
+        },
+        {
+          "$ref": "#/$defs/ComplexBuffer"
+        },
+        {
+          "$ref": "#/$defs/BoolBuffer"
+        },
+        {
+          "$ref": "#/$defs/ChunkedBuffer"
+        }
+      ]
+    },
+    "DataAxis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "continuous",
+            "discrete",
+            "categorical"
+          ]
+        },
+        "scale": {
+          "type": "string",
+          "enum": [
+            "linear",
+            "log"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "quantity",
+        "unit",
+        "kind",
+        "scale",
+        "values"
+      ],
+      "description": "Every axis has stable identity and explicit units. Coordinate order is stored, not guessed; values may be decimal-string integer ticks for exact large time coordinates.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "categorical"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DataCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Scalar"
+            },
+            {
+              "$ref": "#/$defs/Quantity"
+            }
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "description": "PVT corner, temperature, voltage, sample seed/index, wavelength or parameter condition attached to the exact data slice."
+    },
+    "CanonicalSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instance_path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OpaqueId"
+          }
+        },
+        "port_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "net_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "instance_path"
+      ],
+      "description": "Canonical design locator; at least one port_id/net_id is required, resolved against the result snapshot.",
+      "anyOf": [
+        {
+          "required": [
+            "port_id"
+          ]
+        },
+        {
+          "required": [
+            "net_id"
+          ]
+        }
+      ]
+    },
+    "DataSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "values": {
+          "$ref": "#/$defs/DataBuffer"
+        },
+        "source": {
+          "$ref": "#/$defs/CanonicalSignal"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "quantity",
+        "unit",
+        "values"
+      ]
+    },
     "BenchTarget": {
       "type": "object",
       "additionalProperties": false,
@@ -1464,6 +2068,1076 @@
       ],
       "description": "Operating point, DC, AC, transient, noise, transfer function, pole-zero, sensitivity, distortion and qualified Xyce harmonic balance. Backend/model/version readiness is per analysis."
     },
+    "SeriesDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "series"
+        },
+        "analysis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "axes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataAxis"
+          },
+          "minItems": 1
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataSignal"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "analysis",
+        "axes",
+        "signals",
+        "conditions"
+      ],
+      "description": "DC/AC/transient, frequency/wavelength responses, sweeps and corners. Every signal shape follows the same ordered axes."
+    },
+    "RealColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "float64"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "values": {
+          "$ref": "#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "IntegerColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "int64"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?(0|[1-9][0-9]*)$"
+          }
+        },
+        "values": {
+          "$ref": "#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "TextColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "utf8"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "values": {
+          "$ref": "#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "BoolColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "bool"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "values": {
+          "$ref": "#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "ComplexColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dtype": {
+          "const": "complex128"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ComplexValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "values": {
+          "$ref": "#/$defs/ChunkedBuffer"
+        },
+        "quality": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleQuality"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dtype",
+        "unit"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "data"
+          ],
+          "not": {
+            "required": [
+              "values"
+            ]
+          }
+        },
+        {
+          "required": [
+            "values"
+          ],
+          "not": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ]
+    },
+    "TableColumn": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RealColumn"
+        },
+        {
+          "$ref": "#/$defs/IntegerColumn"
+        },
+        {
+          "$ref": "#/$defs/TextColumn"
+        },
+        {
+          "$ref": "#/$defs/BoolColumn"
+        },
+        {
+          "$ref": "#/$defs/ComplexColumn"
+        }
+      ]
+    },
+    "TableDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "table"
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TableColumn"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "row_count",
+        "columns",
+        "conditions"
+      ],
+      "description": "All columns have exactly row_count values; int64 is decimal string data, IDs remain strings."
+    },
+    "MatrixDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "matrix"
+        },
+        "axes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataAxis"
+          },
+          "minItems": 2
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "values": {
+          "$ref": "#/$defs/DataBuffer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "axes",
+        "quantity",
+        "unit",
+        "values",
+        "conditions"
+      ],
+      "description": "Explicit coordinate axes allow heatmaps/slices, including complex optical S matrices and parameter sweeps. A one-dimensional spectrum stays series."
+    },
+    "MarkerGeometry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "point"
+            },
+            "point": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "type",
+            "point"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "box"
+            },
+            "minimum": {
+              "$ref": "#/$defs/Point"
+            },
+            "maximum": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "type",
+            "minimum",
+            "maximum"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "polygon"
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Point"
+              },
+              "minItems": 3
+            }
+          },
+          "required": [
+            "type",
+            "points"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "path"
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Point"
+              },
+              "minItems": 2
+            }
+          },
+          "required": [
+            "type",
+            "points"
+          ]
+        }
+      ]
+    },
+    "DataMarker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "finding_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "layer": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "instance_path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OpaqueId"
+          }
+        },
+        "geometry": {
+          "$ref": "#/$defs/MarkerGeometry"
+        }
+      },
+      "required": [
+        "id",
+        "finding_id",
+        "rule",
+        "severity",
+        "message",
+        "source",
+        "geometry"
+      ],
+      "description": "Structured violation geometry cross-probes exact authored/native layout and layer; source revision belongs to the result snapshot."
+    },
+    "MarkerDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "markers"
+        },
+        "view": {
+          "type": "string",
+          "enum": [
+            "schematic",
+            "layout",
+            "source"
+          ]
+        },
+        "coordinate_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataMarker"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "view",
+        "coordinate_unit",
+        "markers",
+        "conditions"
+      ],
+      "description": "Zero violations means markers:[], not prose or invented markers."
+    },
+    "DigitalTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "time": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            }
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[01uxzwlh-]+$"
+        }
+      },
+      "required": [
+        "time",
+        "value"
+      ],
+      "description": "Ordered event time in dataset time_unit; preserve HDL unknown/high-impedance/weak/uninitialized states. Wide ticks use decimal strings."
+    },
+    "DigitalSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DigitalTransition"
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/CanonicalSignal"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "width",
+        "transitions"
+      ],
+      "description": "Transition values have exactly width characters; ordering and width are relational conformance rules."
+    },
+    "DigitalDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "digital"
+        },
+        "time_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DigitalSignal"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "time_unit",
+        "signals",
+        "conditions"
+      ]
+    },
+    "MeshDescriptor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "topology": {
+              "const": "rectilinear"
+            },
+            "coordinate_unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "axes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DataAxis"
+              },
+              "minItems": 1,
+              "maxItems": 3
+            }
+          },
+          "required": [
+            "topology",
+            "coordinate_unit",
+            "axes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "topology": {
+              "const": "unstructured"
+            },
+            "coordinate_unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "points": {
+              "$ref": "#/$defs/DataBuffer"
+            },
+            "cells": {
+              "$ref": "#/$defs/DataBuffer"
+            },
+            "cell_type": {
+              "type": "string",
+              "enum": [
+                "line",
+                "triangle",
+                "quad",
+                "tetrahedron",
+                "hexahedron"
+              ]
+            },
+            "artifact": {
+              "$ref": "#/$defs/PinnedRef"
+            }
+          },
+          "required": [
+            "topology",
+            "coordinate_unit",
+            "points",
+            "cells",
+            "cell_type"
+          ]
+        }
+      ]
+    },
+    "FieldVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "association": {
+          "type": "string",
+          "enum": [
+            "point",
+            "cell"
+          ]
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "values": {
+          "$ref": "#/$defs/DataBuffer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "quantity",
+        "unit",
+        "association",
+        "components",
+        "values"
+      ]
+    },
+    "FieldDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataCondition"
+          }
+        },
+        "kind": {
+          "const": "field"
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "electromagnetic",
+            "optical",
+            "thermal",
+            "semiconductor"
+          ]
+        },
+        "mesh": {
+          "$ref": "#/$defs/MeshDescriptor"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldVariable"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "domain",
+        "mesh",
+        "fields",
+        "conditions"
+      ],
+      "description": "Defined post-MVP field data; schema validity is not evidence of an installed/qualified physics adapter."
+    },
+    "Dataset": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SeriesDataset"
+        },
+        {
+          "$ref": "#/$defs/TableDataset"
+        },
+        {
+          "$ref": "#/$defs/MatrixDataset"
+        },
+        {
+          "$ref": "#/$defs/MarkerDataset"
+        },
+        {
+          "$ref": "#/$defs/DigitalDataset"
+        },
+        {
+          "$ref": "#/$defs/FieldDataset"
+        },
+        {
+          "$ref": "#/$defs/TreeDataset"
+        }
+      ]
+    },
+    "DatasetRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "run_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "data": {
+          "$ref": "#/$defs/Dataset"
+        }
+      },
+      "required": [
+        "ref",
+        "run_id",
+        "snapshot",
+        "data"
+      ]
+    },
+    "TreeNodeValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "$ref": "#/$defs/Quantity"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "description": "One named scalar attached to a tree node, such as worst slack in nanoseconds."
+    },
+    "TreeNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "parent_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "running",
+            "completed",
+            "failed",
+            "skipped"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeNodeValue"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "status"
+      ],
+      "description": "One flat hierarchy node. Roots have no parent_id; nesting is by reference, never by document depth."
+    },
+    "TreeDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "kind": {
+          "const": "tree"
+        },
+        "root_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeNode"
+          },
+          "minItems": 1
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataCondition"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "root_ids",
+        "nodes",
+        "conditions"
+      ],
+      "description": "Stage and grouped-violation trees: flow stages, timing paths, violation groups. Flat nodes with stable IDs."
+    },
     "Precondition": {
       "type": "object",
       "additionalProperties": false,
@@ -2583,7 +4257,9 @@
               "script.output",
               "capacity.changed",
               "runtime.recovered",
-              "testbench.stale"
+              "testbench.stale",
+              "run.result_ready",
+              "run.log"
             ]
           },
           "uniqueItems": true
@@ -3275,6 +4951,12 @@
         },
         {
           "$ref": "#/$defs/Event_testbench_stale"
+        },
+        {
+          "$ref": "#/$defs/Event_run_result_ready"
+        },
+        {
+          "$ref": "#/$defs/Event_run_log"
         }
       ]
     },
@@ -3303,6 +4985,145 @@
         "events",
         "cursor",
         "has_more"
+      ]
+    },
+    "Event_run_result_ready": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "run.result_ready"
+        },
+        "project_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "$ref": "#/$defs/OpaqueId"
+            },
+            "result": {
+              "$ref": "#/$defs/PinnedRef"
+            }
+          },
+          "required": [
+            "run_id",
+            "result"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
+      ]
+    },
+    "Event_run_log": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "run.log"
+        },
+        "project_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "$ref": "#/$defs/OpaqueId"
+            },
+            "log_id": {
+              "$ref": "#/$defs/OpaqueId"
+            },
+            "stream": {
+              "type": "string",
+              "enum": [
+                "stdout",
+                "stderr",
+                "tool"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "artifact": {
+              "$ref": "#/$defs/PinnedRef"
+            }
+          },
+          "required": [
+            "run_id",
+            "log_id",
+            "stream",
+            "text",
+            "truncated",
+            "artifact"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
       ]
     },
     "Artifact": {
@@ -3694,6 +5515,24 @@
         },
         "cancel_requested": {
           "type": "boolean"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinnedRef"
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskInput"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskOutput"
+          }
         }
       },
       "required": [
@@ -6411,7 +8250,9 @@
             "run",
             "artifact",
             "request",
-            "workspace"
+            "workspace",
+            "result",
+            "dataset"
           ]
         },
         "id": {
@@ -6547,7 +8388,11 @@
             "artifacts",
             "logs",
             "content",
-            "requests"
+            "requests",
+            "results",
+            "datasets",
+            "views",
+            "chunks"
           ]
         },
         "filters": {
@@ -6791,6 +8636,21 @@
         },
         {
           "$ref": "#/$defs/RequestRecord"
+        },
+        {
+          "$ref": "#/$defs/ResultBundle"
+        },
+        {
+          "$ref": "#/$defs/DatasetRecord"
+        },
+        {
+          "$ref": "#/$defs/ChunkRef"
+        },
+        {
+          "$ref": "#/$defs/TaskContract"
+        },
+        {
+          "$ref": "#/$defs/LogDescriptor"
         }
       ]
     },
@@ -7013,6 +8873,217 @@
           }
         }
       ]
+    },
+    "LogDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "run_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "stream": {
+          "type": "string",
+          "enum": [
+            "stdout",
+            "stderr",
+            "tool"
+          ]
+        },
+        "artifact": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "encoding": {
+          "const": "utf-8"
+        }
+      },
+      "required": [
+        "id",
+        "run_id",
+        "stream",
+        "artifact",
+        "cursor",
+        "encoding"
+      ],
+      "description": "Verbose text belongs to the subscribed output terminal and raw artifact, not the normal plot/violations surface."
+    },
+    "ResultProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snapshot": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "input_lock": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "closure_hash": {
+          "$ref": "#/$defs/Hash"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ToolIngredient"
+          }
+        },
+        "parents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinnedRef"
+          }
+        }
+      },
+      "required": [
+        "snapshot",
+        "input_lock",
+        "closure_hash",
+        "tools",
+        "parents"
+      ],
+      "description": "I28 exact consumed closure and upstream outputs; every dataset is tied to this immutable result revision."
+    },
+    "ResultGap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dataset_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "code",
+        "reason"
+      ],
+      "description": "Precise missing/partial/convergence metadata; not editorial copy for a default screen."
+    },
+    "ResultBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "rocketeda/results/v1"
+        },
+        "ref": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "run_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "invalid"
+          ]
+        },
+        "freshness": {
+          "type": "string",
+          "enum": [
+            "current",
+            "stale",
+            "unknown"
+          ]
+        },
+        "convergence": {
+          "type": "string",
+          "enum": [
+            "converged",
+            "not_converged",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/ResultProvenance"
+        },
+        "datasets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Dataset"
+          }
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataView"
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Measurement"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Finding"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          }
+        },
+        "logs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LogDescriptor"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResultGap"
+          }
+        }
+      },
+      "required": [
+        "schema",
+        "ref",
+        "run_id",
+        "task",
+        "target",
+        "state",
+        "freshness",
+        "convergence",
+        "provenance",
+        "datasets",
+        "views",
+        "measurements",
+        "findings",
+        "artifacts",
+        "logs",
+        "gaps"
+      ],
+      "description": "Immutable, headless result data. Views bind dataset IDs; frontend owns plot/theme/docking. No HTML/JS/components, canned prose or renderer-specific payloads."
     },
     "PortData": {
       "type": "object",
@@ -7434,6 +9505,305 @@
         "annotation_type"
       ],
       "description": "Graphical-only: excluded from netlisting, ERC and fabricated circuit; plot links evidence without adding a device."
+    },
+    "TaskPort": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "source",
+            "artifact",
+            "dataset",
+            "model",
+            "config",
+            "result"
+          ]
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "many": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "schema",
+        "formats",
+        "required",
+        "many"
+      ],
+      "description": "A declared task boundary port. Native formats include their codec/profile; downstream input must match kind/schema/format and exact snapshot."
+    },
+    "TaskContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskPort"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskPort"
+          }
+        }
+      },
+      "required": [
+        "task",
+        "inputs",
+        "outputs"
+      ],
+      "description": "Data-bearing task-to-task contract. Logs are evidence, never normal stage inputs."
+    },
+    "TaskInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "source",
+            "artifact",
+            "dataset",
+            "model",
+            "config",
+            "result"
+          ]
+        },
+        "ref": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "producer_run_id": {
+          "$ref": "#/$defs/OpaqueId"
+        }
+      },
+      "required": [
+        "port",
+        "kind",
+        "ref",
+        "schema",
+        "format"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "artifact",
+                  "dataset",
+                  "result"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "producer_run_id"
+            ]
+          }
+        }
+      ]
+    },
+    "TaskOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "artifact",
+            "dataset",
+            "result",
+            "model"
+          ]
+        },
+        "ref": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "producer_run_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "producer_snapshot": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "port",
+        "kind",
+        "ref",
+        "schema",
+        "format",
+        "producer_run_id",
+        "producer_snapshot"
+      ],
+      "description": "Published immutable output matches the declared output port; adoption as source is a separate edit."
+    },
+    "TaskInvocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "request": {
+          "$ref": "#/$defs/RunStart"
+        },
+        "input_lock": {
+          "$ref": "#/$defs/InputLock"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskInput"
+          }
+        },
+        "profile": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "run_id",
+        "request",
+        "input_lock",
+        "inputs",
+        "profile"
+      ],
+      "description": "Application-owned outbound port DTO. Adapter maps this to native input; transport/framework objects never cross the boundary."
+    },
+    "TaskResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled",
+            "skipped"
+          ]
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskOutput"
+          }
+        },
+        "result": {
+          "$ref": "#/$defs/ResultBundle"
+        },
+        "failure": {
+          "$ref": "#/$defs/ExecutionFailure"
+        },
+        "skip_reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "run_id",
+        "task",
+        "state",
+        "outputs"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "failed"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "failure"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "skipped"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "skip_reason"
+            ]
+          }
+        }
+      ]
     },
     "TaskSynthesizeHdl": {
       "type": "object",
@@ -9379,6 +11749,399 @@
         "max_mutations"
       ]
     },
+    "TraceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "signal": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "real",
+            "imag",
+            "magnitude",
+            "phase_deg",
+            "phase_rad",
+            "magnitude_db",
+            "power_db"
+          ]
+        },
+        "axis": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right"
+          ]
+        },
+        "reference": {
+          "$ref": "#/$defs/Quantity"
+        }
+      },
+      "required": [
+        "signal",
+        "transform",
+        "axis"
+      ],
+      "description": "Transforms are deterministic display operations on raw values, never alternative electrical results. Dimensioned dB requires an explicit reference."
+    },
+    "TraceView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "traces"
+        },
+        "x_axis": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "traces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TraceBinding"
+          },
+          "minItems": 1
+        },
+        "slice": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "axis": {
+                "$ref": "#/$defs/OpaqueId"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "axis",
+              "index"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id",
+        "x_axis",
+        "traces"
+      ]
+    },
+    "TableView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "table"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "column": {
+                "$ref": "#/$defs/OpaqueId"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "ascending",
+                  "descending"
+                ]
+              }
+            },
+            "required": [
+              "column",
+              "direction"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id"
+      ]
+    },
+    "MatrixView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "heatmap"
+        },
+        "row_axis": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "column_axis": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "real",
+            "imag",
+            "magnitude",
+            "phase_deg",
+            "phase_rad",
+            "magnitude_db",
+            "power_db"
+          ]
+        },
+        "slice": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "axis": {
+                "$ref": "#/$defs/OpaqueId"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "axis",
+              "index"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id",
+        "row_axis",
+        "column_axis",
+        "transform"
+      ],
+      "description": "Requires actual matrix axes; data shape determines display, never solver brand or decorative choice."
+    },
+    "MarkerView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "markers"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id"
+      ]
+    },
+    "DigitalView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "waveform"
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        },
+        "radix": {
+          "type": "string",
+          "enum": [
+            "binary",
+            "hex",
+            "decimal",
+            "signed_decimal"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id"
+      ]
+    },
+    "FieldView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "field"
+        },
+        "field": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "real",
+            "imag",
+            "magnitude",
+            "phase_deg"
+          ]
+        },
+        "slice": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "axis": {
+              "$ref": "#/$defs/OpaqueId"
+            },
+            "position": {
+              "$ref": "#/$defs/Quantity"
+            }
+          },
+          "required": [
+            "axis",
+            "position"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id",
+        "field"
+      ]
+    },
+    "DataView": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TraceView"
+        },
+        {
+          "$ref": "#/$defs/TableView"
+        },
+        {
+          "$ref": "#/$defs/MatrixView"
+        },
+        {
+          "$ref": "#/$defs/MarkerView"
+        },
+        {
+          "$ref": "#/$defs/DigitalView"
+        },
+        {
+          "$ref": "#/$defs/FieldView"
+        },
+        {
+          "$ref": "#/$defs/TreeView"
+        }
+      ]
+    },
+    "TreeView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "tree"
+        },
+        "expanded": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OpaqueId"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id"
+      ],
+      "description": "Tree descriptor: which node IDs render expanded. Expansion state is data, not renderer code."
+    },
     "EditEntityData": {
       "oneOf": [
         {
@@ -10852,7 +13615,72 @@
       "availability": "contextual_not_promised",
       "providers": [
         "librelane"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "tree"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "flow_report",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "workflow.analog": {
       "description": "Generate/netlist, simulate, characterize, verify physical views, and optionally compare extracted behavior according to the saved plan.",
@@ -10884,7 +13712,59 @@
       "qualification": "required",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
-      "providers": []
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "workflow.photonic": {
       "description": "Run a saved photonic construction, circuit response, geometry verification, and qualified device-solver plan.",
@@ -10917,7 +13797,60 @@
       "qualification": "required",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
-      "providers": []
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "circuit",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": false,
+            "many": false
+          }
+        ]
+      }
     },
     "check.syntax": {
       "description": "Parse and lint the selected source language and supported language subset.",
@@ -10953,7 +13886,50 @@
         "verilator",
         "ghdl",
         "icarus"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.connectivity": {
       "description": "Check canonical circuit connectivity and interface mappings.",
@@ -10981,7 +13957,48 @@
       "availability": "contextual_not_promised",
       "providers": [
         "connectgraph"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.erc": {
       "description": "Apply electrical rules to circuit participants and declared electrical semantics.",
@@ -11009,7 +14026,48 @@
       "availability": "contextual_not_promised",
       "providers": [
         "connectgraph"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.drc": {
       "description": "Check physical geometry against the selected pinned technology rule deck.",
@@ -11038,7 +14096,49 @@
       "providers": [
         "magic",
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.lvs": {
       "description": "Compare independently selected layout extraction and reference circuit netlists.",
@@ -11067,7 +14167,59 @@
       "providers": [
         "netgen",
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.antenna": {
       "description": "Check process antenna ratios and routing antenna properties.",
@@ -11097,7 +14249,49 @@
       "providers": [
         "openroad",
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.view_sync": {
       "description": "Compare selected source/native/extracted views using canonical identity and pin mappings.",
@@ -11127,7 +14321,60 @@
       "availability": "contextual_not_promised",
       "providers": [
         "connectgraph"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "intended",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python",
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "extracted",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.layout_xor": {
       "description": "Compare two layout stream-outs using geometric XOR.",
@@ -11154,7 +14401,60 @@
       "availability": "contextual_not_promised",
       "providers": [
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout_a",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "layout_b",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.formal": {
       "description": "Prove, bound, or cover formal properties, preserving assumptions, bounds, solver status, and counterexamples.",
@@ -11184,12 +14484,65 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "sby"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "properties",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "systemverilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "property_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "counterexamples",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.equivalence": {
       "description": "Compare golden and candidate implementations under explicit mapping and assumptions.",
@@ -11213,12 +14566,65 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "eqy"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "reference",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "equivalence_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "counterexamples",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "check.mutation": {
       "description": "Evaluate test/property effectiveness against controlled source mutations.",
@@ -11241,12 +14647,44 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "mcy"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "mutation_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.spice": {
       "description": "Run the explicitly selected SPICE analysis with compatible circuit/model views; every mode is qualified separately per backend and device model.",
@@ -11276,7 +14714,58 @@
       "providers": [
         "ngspice",
         "xyce"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "bench",
+            "kind": "source",
+            "schema": "rocketeda/testbench/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.hdl": {
       "description": "Compile/elaborate and simulate the canvas-selected HDL language using an HDL bench or qualified Python cocotb test source.",
@@ -11312,7 +14801,63 @@
         "verilator",
         "ghdl",
         "amaranth"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "digital",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "testbench",
+            "kind": "source",
+            "schema": "rocketeda/testbench/v1",
+            "formats": [
+              "systemverilog",
+              "verilog",
+              "vhdl",
+              "python"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "assertions",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.cosim": {
       "description": "Run the selected analog/digital coupling contract. A sampled one-way handoff and a live feedback solver are distinct qualified coupling capabilities.",
@@ -11343,7 +14888,61 @@
       "qualification": "required",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
-      "providers": []
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "digital",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "assertions",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.optical": {
       "description": "Simulate a circuit using calibrated optical/mixed-domain compact models; advertise each model and analysis compatibility independently.",
@@ -11374,7 +14973,48 @@
       "providers": [
         "sax",
         "circulax"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "circuit",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "synthesize.hdl": {
       "description": "Elaborate the canvas-selected HDL/frontend and synthesize a logic netlist, optionally mapping into a pinned standard-cell library.",
@@ -11409,7 +15049,49 @@
         "yosys",
         "ghdl",
         "amaranth"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "mapped_netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "cell_statistics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "implement.asic": {
       "description": "Run a full qualified ASIC flow or a registered stage from a pinned compatible prior state.",
@@ -11448,7 +15130,72 @@
       "providers": [
         "librelane",
         "openroad"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "tree"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "flow_state",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "implement.fpga": {
       "description": "Perform synthesis/place-and-route and architecture-specific bitstream generation for an explicitly qualified FPGA device; programming is outside this task.",
@@ -11481,7 +15228,70 @@
       "availability": "contextual_not_promised",
       "providers": [
         "nextpnr"
-      ]
+      ],
+      "delivery": "off_mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "bitstream",
+            "kind": "artifact",
+            "schema": "rocketeda/export/v1",
+            "formats": [
+              "bitstream"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "utilization",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "analyze.timing": {
       "description": "Perform static timing with explicit clocks, constraints, libraries, corners and optional extracted RC; report missing constraints and coverage.",
@@ -11510,7 +15320,37 @@
       "providers": [
         "opensta",
         "openroad"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "critical_paths",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "analyze.power": {
       "description": "Estimate characterized digital power or calculate a qualified physical IR-drop study from declared activity and supplies.",
@@ -11533,13 +15373,43 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "openroad",
         "opensta"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "power",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "analyze.measurements": {
       "description": "Evaluate saved measurements, spectra/FFT, comparisons and plots against pinned result artifacts and measurement definitions.",
@@ -11570,7 +15440,48 @@
       "qualification": "required",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
-      "providers": []
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "results",
+            "kind": "result",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "tables",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "extract.layout": {
       "description": "Extract devices/circuit connectivity or parasitic RC from a selected physical view using a compatible technology/extraction deck.",
@@ -11604,7 +15515,48 @@
         "magic",
         "openrcx",
         "klayout"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "extracted_netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "parasitics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "characterize.circuit": {
       "description": "Repeat supported simulations across explicit parameter/corner/statistical samples and evaluate a saved characterization specification.",
@@ -11641,7 +15593,38 @@
         "cace",
         "ngspice",
         "xyce"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.em": {
       "description": "Solve a saved physical field study with explicit geometry, materials, ports, boundaries, mesh and convergence settings; electromagnetic compliance requires its own modeled limits.",
@@ -11684,7 +15667,51 @@
         "palace",
         "meow",
         "femwell"
-      ]
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "matrix",
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "fields",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "s_parameters",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.thermal": {
       "description": "Solve a saved thermal study with explicit materials, power sources, boundaries and mesh; coupled electrothermal behavior requires a separately qualified study.",
@@ -11713,7 +15740,50 @@
       "availability": "contextual_not_promised",
       "providers": [
         "elmer_fem"
-      ]
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "temperature_map",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "simulate.device": {
       "description": "Solve declared semiconductor-device equations and physical boundary conditions in a saved qualified DEVSIM study.",
@@ -11742,7 +15812,50 @@
       "availability": "contextual_not_promised",
       "providers": [
         "devsim"
-      ]
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "mesh",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "msh",
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "device_fields",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "characteristics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "generate.views": {
       "description": "Generate selected component views from pinned sources/factories, producing candidate artifacts and canonical mappings; project adoption uses the shared revision-checked edit contract.",
@@ -11780,7 +15893,48 @@
         "xschem",
         "vlsir",
         "amaranth"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "component",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "generated_views",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "py",
+              "gds"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "mappings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "generate.netlist": {
       "description": "Emit a circuit netlist for the selected schematic/component closure with explicit canonical-to-native terminal ordering.",
@@ -11815,7 +15969,39 @@
         "gdsfactory",
         "kfactory",
         "vlsir"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem",
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "export.design": {
       "description": "Export a pinned design view or project bundle, retaining supported native properties and reporting any lossy conversion.",
@@ -11855,7 +16041,54 @@
         "xschem",
         "yosys",
         "vlsir"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "design",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python",
+              "xschem",
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "exported_design",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas",
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "mappings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     },
     "compile.model": {
       "description": "Compile a pinned Verilog-A source closure into a compatible OSDI model artifact in the isolated worker.",
@@ -11876,12 +16109,42 @@
         "logs"
       ],
       "coalescing": "snapshot",
-      "qualification": "required",
+      "qualification": "optional",
       "effects": "artifacts_only",
       "availability": "contextual_not_promised",
       "providers": [
         "openvaf"
-      ]
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "model",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog-a"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "compiled_model",
+            "kind": "model",
+            "schema": "rocketeda/model/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
     }
   },
   "x-tools": {

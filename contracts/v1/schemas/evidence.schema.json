@@ -392,6 +392,24 @@
         },
         "cancel_requested": {
           "type": "boolean"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TaskInput"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TaskOutput"
+          }
         }
       },
       "required": [

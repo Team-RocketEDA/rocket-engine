@@ -19,7 +19,9 @@
             "run",
             "artifact",
             "request",
-            "workspace"
+            "workspace",
+            "result",
+            "dataset"
           ]
         },
         "id": {
@@ -155,7 +157,11 @@
             "artifacts",
             "logs",
             "content",
-            "requests"
+            "requests",
+            "results",
+            "datasets",
+            "views",
+            "chunks"
           ]
         },
         "filters": {
@@ -399,6 +405,21 @@
         },
         {
           "$ref": "urn:rocketeda:engine:v1#/$defs/RequestRecord"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ResultBundle"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DatasetRecord"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ChunkRef"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TaskContract"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/LogDescriptor"
         }
       ]
     },

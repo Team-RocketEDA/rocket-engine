@@ -10,17 +10,47 @@ Constructor parameters live in the class docstring under `Args:`.
 New endpoints ship documented from day one — no undocumented
 handlers land, even behind a feature flag.
 
-## Why: docstrings are the contract (ADR-003)
+## Contract authority: v1 schema bundle, v0 docstring generation
 
-[ADR-003](docs/adr/003-docstring-generated-api-contract.md) makes
-docstrings the API contract source. One text feeds three
-consumers — the human API reference, per-operation JSON Schemas
-(IDE types, fuel stubs), and MCP tool descriptions plus help —
-so drift becomes structurally impossible. `docs/engine-api.md`
-endpoint prose migrates into docstrings; once generated, that
-file is output plus a pointer, never hand-edited again.
+[ADR-014](docs/adr/014-contract-first-editor-and-tool-api.md) makes
+[`contracts/engine-v1.schema.json`](contracts/engine-v1.schema.json) the
+canonical v1 boundary bundle. Change its typed shapes and examples before
+changing providers/consumers. Derive client types/help/expanded schema with
+`.venv/bin/python scripts/check_v1_contract.py --write`, then check without
+`--write`. Docstrings explain implementations and must conform to v1.
 
-## The two laws every endpoint doc respects
+[ADR-003](docs/adr/003-docstring-generated-api-contract.md) still governs
+current v0 handlers: `scripts/api_spec.py` generates their human reference,
+per-operation schemas and help. Existing generated `docs/engine-api.md`,
+`docs/api-schema.json` and `docs/api-help.json` remain output, never
+hand-edited. Their existence does not prove v1 provider conformance.
+
+## Contract map (read these, don't duplicate them)
+
+- Boundary shapes: [`contracts/engine-v1.schema.json`](contracts/engine-v1.schema.json)
+  (manifest) + `contracts/v1/schemas/*.schema.json` (modules own each
+  definition once) + `contracts/v1/catalog/*.json` (methods, tasks with
+  `io`/`presentation`/`delivery`, tools, workflows). Start at
+  [`contracts/README.md`](contracts/README.md).
+- Generated output (never hand-edit): `contracts/generated/` — expanded
+  schema, `client-types.d.ts`, `help.json`, `CATALOG.md`, `EXAMPLES.md`,
+  `edit-inputs.schema.json`, `python/` (Pydantic boundary). Regenerate with
+  `scripts/check_v1_contract.py --write`, then verify without `--write`.
+- The lock: manifest `$defs` must exactly match authored/derived exports;
+  the checker enforces it plus fixture validity, task/tool consistency,
+  and generated-artifact freshness. `tests/contracts/` pins result shapes
+  and the Python boundary; `contracts/conformance/deferred/` stays RED
+  by user direction (deferred solvers, not missing definitions).
+- Results vocabulary: datasets/views/results/stages/arrays schemas define
+  series, tables, matrices, markers, digital, fields, trees. Task results
+  are data + short diagnostics; rendering belongs to React.
+- Direction: [ADR-014](docs/adr/014-contract-first-editor-and-tool-api.md)
+  (v1 design), [ADR-015](docs/adr/015-local-desktop-results-and-roadmap.md)
+  (local desktop, results, roadmap), `docs/roadmap.md` (status/thresholds).
+- AI-client usage: [`skills/rocket-engine/SKILL.md`](skills/rocket-engine/SKILL.md)
+  (discover live v0 vs future v1, I28, permissions, deferred features).
+
+## The laws every endpoint doc respects
 
 - **BYOC doctrine ([F12/I32](docs/prd-feedforward.md)).** The hot
   path is local-first; cloud backends are bring-your-own-credential
@@ -29,12 +59,22 @@ file is output plus a pointer, never hand-edited again.
   optional cloud path, document the gate, the key state, and the
   remedy — never a default cloud path.
 - **Ledger law ([ADR-002](docs/adr/002-engine-owns-project-ledger.md)).**
-  The engine owns the project ledger: every mutation advances the
-  revision, stale `expected_revision` fails with
-  `revision_conflict` instead of merging, every event carries its
-  actor, and verdicts are engine-owned (clients ask for a run and
+  The engine owns the project ledger: every design transaction advances the
+  global snapshot revision; v1 checks per-entity CAS under ADR-008,
+  stale entity versions fail with `revision_conflict` instead of merging;
+  unrelated entity edits do not conflict merely on the global cursor.
+  Every event carries its actor, and verdicts are engine-owned (clients ask for a run and
   read back). Document revision, actor, and verdict behavior; never
   promise a merge, an overwrite, or a client-written result.
+- **Run replay law (I28).** Every run preserves the full ingredient
+  closure needed to reproduce it: project revision (including
+  `canvas.toml` and contained references), PDK id/revision/manifest
+  hash, deck, solver/version, seeds, resolved configuration, and
+  any other consumed input. Replay must reproduce verdicts,
+  findings, and measurements; native output bytes may differ.
+  Missing or drifted ingredients fail loudly. Generated configs and
+  outputs are exhaust, never design truth. See
+  [storage-policy.md](docs/storage-policy.md).
 
 ## Shape
 
@@ -94,6 +134,16 @@ unit-tests plus promised-workflow proofs in one. That
 routing fidelity over an open project standard is the
 product: many tools, one IDE, verification and synthesis
 where possible.
+
+## Module-size rule
+
+Keep every engine source module below 3,000 lines. Split a
+module by cohesive responsibility before it reaches the limit;
+do not grow an existing oversized module. Current decomposition
+debt in `src/project/service.py` must be reduced, and
+`src/composition.py` should be split before it approaches the
+limit. This is an architecture constraint, not a test-only
+style preference.
 
 ## Environment: install.sh is the only path
 

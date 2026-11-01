@@ -184,3 +184,14 @@ def test_strict_json_ingest_rejects_nonfinite_samples(tmp_path):
     path.write_text('{"values": [NaN]}')
     with pytest.raises(ValueError, match="Non-finite"):
         CONTRACT.read_json(path)
+
+
+def test_stage_and_hierarchy_results_have_tree_data(contract):
+    """Stage and grouped-violation trees are basic data, not custom report pages."""
+    value = {"id": "asic-stages", "kind": "tree", "root_ids": ["build"],
+             "nodes": [{"id": "build", "name": "ASIC build", "kind": "stage", "status": "completed"},
+                       {"id": "sta", "parent_id": "build", "name": "Timing", "kind": "stage",
+                        "status": "completed", "values": [{"name": "worst_slack", "value": {"value": 0.2, "unit": "ns"}}]}],
+             "conditions": []}
+    assert not check(contract, "Dataset", value)
+    assert not check(contract, "DataView", {"id": "build-tree", "kind": "tree", "dataset_id": "asic-stages"})
