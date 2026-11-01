@@ -57,6 +57,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
 - [REFACTOR-COMPOSITION] Split src/composition.py before it hits the limit
 - [REFACTOR-EXEC] Split execution mega modules
+- [API-V1-ADAPTERS] Migrate every solver adapter to emit v1 ResultBundles
 ## Doing
 
 
