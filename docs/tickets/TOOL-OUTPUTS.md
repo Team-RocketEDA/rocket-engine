@@ -1,6 +1,6 @@
 # TOOL-OUTPUTS: Research pinned tool output shapes for v1 normalization
 
-*Status: Ready · Design: ADR-014, API-V1-ADAPTERS · Created: 2026-11-01*
+*Status: Ready · Design: ADR-014, API-V1-ADAPTERS · Created: 2026-11-01 · Re-scoped 2026-11-01 per docs/tool-bindings-audit.md (waves 1-3 kept tools only; deferred to wave 4)*
 
 Depends: none (research starts immediately, per tool). Blocks:
 API-V1-ADAPTERS wave staffing — no normalizer is written for a tool
@@ -41,20 +41,24 @@ else transcribed from upstream tests/docs with provenance noted.
 
 ## Extraction preference (bindings first, grammars last)
 
-Verified 2026-11-01 (PyPI probes + upstream docs). Where a tool offers
-a native structured readout, the normalizer uses it and NO text grammar
-is researched for that shape:
+Verified 2026-11-01 (PyPI probes + upstream docs; see
+docs/tool-bindings-audit.md for the full 71-tool table). Where a tool
+offers a native structured readout, the dump reader uses it and NO text
+grammar is researched for that shape:
 
-1. Native Python API or queryable DB: pyosys (official Yosys pybind11
-   bindings, limited subset), `openroad -python` (`import odb` for
-   checkpoints/geometries), klayout `pya` + RDB results DBs, pyslang
-   AST, pyGHDL, cocotb/VPI for Icarus/Verilator/GHDL, Yosys `write_json`,
-   SBY JSON status, VCD/FST for waveforms, `import librelane` where
-   useful. Execution stays subprocess (isolation + SIGKILL); bindings
-   are for READING results, not running tools in-process.
-2. Text grammars (TOOL-OUTPUTS proper) only for the residue with no
-   bindings: magic/netgen Tcl-driven reports, ngspice/xyce listings,
-   STA report text, file-based EM/thermal/device outputs.
+1. Native Python API or queryable DB: Yosys `write_json` (pyosys lags
+   the bundle and is exit()-unsafe — do NOT use), `openroad -python`
+   (`import odb` for checkpoints/geometries; PyPI `openroad` is a
+   squat), klayout `pya` + RDB results DBs, pyslang AST, pyGHDL
+   (bundle/upstream, not stale PyPI), cocotb results.xml, SBY status
+   file + DONE grammar, VCD/FST for waveforms (pywellen),
+   `import librelane` where useful. Execution stays subprocess
+   (isolation + SIGKILL); bindings are for READING results, not running
+   tools in-process.
+2. Text grammars (TOOL-OUTPUTS proper) only for the parse-only residue:
+   magic/netgen Tcl-driven reports, ngspice raw ASCII + meas listings,
+   xschem batch netlist print, STA report text (residue recorded for
+   when opensta lands; the tool itself stays deferred).
 
 ## Deliverables
 
@@ -64,17 +68,22 @@ reviews small; waves below define staffing order.
 
 ## Waves (aligned with API-V1-ADAPTERS)
 
-Wave 1 — checks: magic, klayout (DRC deck reports), netgen (LVS
-reports), slang, connectgraph (own code: read it, don't guess),
-sby (counterexample traces).
-Wave 2 — sims: ngspice (all four analyses), icarus (VCD/assertion
-output), sax, circulax, cosim harness, post-layout report chain.
-Wave 3 — implementation: librelane run-dir layout + per-step reports
-(synth stat, STA rpt, DRC/LVS reports, GDS/operate outputs), yosys
-(stat JSON), opensta reports (with the tool, when it lands),
-gdsfactory export inventory.
-Wave 4 — deferred with the tools: xyce, openems, meep, meow/EM,
-thermal/device.
+Wave 1 — checks (all kept): magic, klayout (DRC deck reports),
+netgen (LVS reports), slang, connectgraph (own code: read it, don't
+guess), sby (counterexample traces).
+Wave 2 — sims (all kept): ngspice (all four analyses), icarus
+(VCD/assertion output), sax, circulax, cosim harness, post-layout
+report chain.
+Wave 3 — implementation (kept only): librelane run-dir layout +
+per-step reports (synth stat, DRC/LVS reports, GDS/operate outputs —
+no STA rpt until the tool lands), yosys (stat JSON), gdsfactory
+export inventory, xschem batch netlist print.
+Wave 4 — deferred with the tools (do NOT staff): opensta reports
+(STA-text grammar residue lives in the audit), xyce, openems, meep,
+meow/EM, palace, thermal (elmer_fem), device (devsim), gmsh/meshwell,
+scikit_fem, csxcad, femwell, gplugins, FPGA toolchain
+(nextpnr/icestorm/trellis/oxide/apicula), openvaf, abc/yices/cvc4
+(engine-only), cudd/trilinos/miniforge (build/bootstrap).
 
 ## Acceptance
 
