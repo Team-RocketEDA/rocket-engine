@@ -73,11 +73,21 @@ deps.
      The PyPI package is flow infrastructure, NOT tools.
 - CLI shape: `python3 -m librelane --pdk-root <root>
   <config>`, e.g. `--pdk-root $HOME/.ciel`.
-- install.sh strategy: Nix route via the determinate
-  installer + the pinned flake (hermetic, matches
-  upstream); pip route rejected unless the full closure
-  is provisioned separately (that just rebuilds nix-eda
-  by hand). PDK side: ciel (`~/.ciel`) volumes, see PDK
+- install.sh strategy (DECIDED: AppImage route — the
+  script is the truth, this doc follows it): fetch the
+  pinned `librelane-devshell-x86_64.AppImage` +
+  `tool_versions.txt` from the GitHub release into the
+  app-owned tools dir; assert via LIBRELANE_PIN plus
+  `librelane --version` inside the devshell. Rationale:
+  the AppImage is a self-contained devshell (full tool
+  closure in one file, no root, no clone); the Nix
+  route needs the determinate installer (sudo) plus an
+  interactive nix-shell, which is hostile to headless
+  engine subprocess invocation. Nix stays a documented
+  alternate for users who already run it. pip route
+  rejected unless the full closure is provisioned
+  separately (that just rebuilds nix-eda by hand).
+  PDK side: ciel (`~/.ciel`) volumes, see PDK
   section.
 
 ## 4. OpenROAD (place & route)
