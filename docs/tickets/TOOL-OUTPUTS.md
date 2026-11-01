@@ -39,6 +39,23 @@ never silent drops. Golden fixtures (one good + one bad recorded
 native output per tool) are harvested from real runs where installed,
 else transcribed from upstream tests/docs with provenance noted.
 
+## Extraction preference (bindings first, grammars last)
+
+Verified 2026-11-01 (PyPI probes + upstream docs). Where a tool offers
+a native structured readout, the normalizer uses it and NO text grammar
+is researched for that shape:
+
+1. Native Python API or queryable DB: pyosys (official Yosys pybind11
+   bindings, limited subset), `openroad -python` (`import odb` for
+   checkpoints/geometries), klayout `pya` + RDB results DBs, pyslang
+   AST, pyGHDL, cocotb/VPI for Icarus/Verilator/GHDL, Yosys `write_json`,
+   SBY JSON status, VCD/FST for waveforms, `import librelane` where
+   useful. Execution stays subprocess (isolation + SIGKILL); bindings
+   are for READING results, not running tools in-process.
+2. Text grammars (TOOL-OUTPUTS proper) only for the residue with no
+   bindings: magic/netgen Tcl-driven reports, ngspice/xyce listings,
+   STA report text, file-based EM/thermal/device outputs.
+
 ## Deliverables
 
 `docs/tool-outputs/<tool>-<version>.md` per tool: inventory, grammars,
