@@ -1,0 +1,1059 @@
+{
+  "workflow.asic": {
+    "description": "Run a pinned ASIC implementation and verification plan; completion requires every applicable configured check and complete evidence.",
+    "family": "workflow",
+    "input_schema": "#/$defs/TaskWorkflowAsic",
+    "tools": [
+      "librelane"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "layout",
+      "netlists",
+      "timing",
+      "findings",
+      "flow_report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "librelane"
+    ]
+  },
+  "workflow.analog": {
+    "description": "Generate/netlist, simulate, characterize, verify physical views, and optionally compare extracted behavior according to the saved plan.",
+    "family": "workflow",
+    "input_schema": "#/$defs/TaskWorkflowAnalog",
+    "tools": [
+      "ngspice",
+      "xyce",
+      "cace",
+      "magic",
+      "netgen",
+      "klayout",
+      "xschem"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "measurements",
+      "waveforms",
+      "findings",
+      "comparison",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": []
+  },
+  "workflow.photonic": {
+    "description": "Run a saved photonic construction, circuit response, geometry verification, and qualified device-solver plan.",
+    "family": "workflow",
+    "input_schema": "#/$defs/TaskWorkflowPhotonic",
+    "tools": [
+      "gdsfactory",
+      "kfactory",
+      "sax",
+      "circulax",
+      "klayout",
+      "meow",
+      "femwell",
+      "meep"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "layout",
+      "spectra",
+      "fields",
+      "findings",
+      "convergence",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": []
+  },
+  "check.syntax": {
+    "description": "Parse and lint the selected source language and supported language subset.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckSyntax",
+    "tools": [
+      "slang",
+      "yosys_slang",
+      "verilator",
+      "ghdl",
+      "icarus"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "findings",
+      "coverage",
+      "markers",
+      "report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "slang",
+      "yosys_slang",
+      "verilator",
+      "ghdl",
+      "icarus"
+    ]
+  },
+  "check.connectivity": {
+    "description": "Check canonical circuit connectivity and interface mappings.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckConnectivity",
+    "tools": [
+      "connectgraph"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "findings",
+      "coverage",
+      "markers",
+      "report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "connectgraph"
+    ]
+  },
+  "check.erc": {
+    "description": "Apply electrical rules to circuit participants and declared electrical semantics.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckErc",
+    "tools": [
+      "connectgraph"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "findings",
+      "coverage",
+      "markers",
+      "report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "connectgraph"
+    ]
+  },
+  "check.drc": {
+    "description": "Check physical geometry against the selected pinned technology rule deck.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckDrc",
+    "tools": [
+      "magic",
+      "klayout"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "findings",
+      "coverage",
+      "markers",
+      "report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "magic",
+      "klayout"
+    ]
+  },
+  "check.lvs": {
+    "description": "Compare independently selected layout extraction and reference circuit netlists.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckLvs",
+    "tools": [
+      "netgen",
+      "klayout"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "findings",
+      "coverage",
+      "markers",
+      "report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "netgen",
+      "klayout"
+    ]
+  },
+  "check.antenna": {
+    "description": "Check process antenna ratios and routing antenna properties.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckAntenna",
+    "tools": [
+      "openroad",
+      "opendb",
+      "klayout"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "findings",
+      "coverage",
+      "markers",
+      "report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "openroad",
+      "klayout"
+    ]
+  },
+  "check.view_sync": {
+    "description": "Compare selected source/native/extracted views using canonical identity and pin mappings.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckViewSync",
+    "tools": [
+      "connectgraph",
+      "gdsfactory",
+      "kfactory"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "findings",
+      "coverage",
+      "markers",
+      "report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "connectgraph"
+    ]
+  },
+  "check.layout_xor": {
+    "description": "Compare two layout stream-outs using geometric XOR.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckLayoutXor",
+    "tools": [
+      "klayout"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "findings",
+      "coverage",
+      "markers",
+      "report",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "klayout"
+    ]
+  },
+  "check.formal": {
+    "description": "Prove, bound, or cover formal properties, preserving assumptions, bounds, solver status, and counterexamples.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckFormal",
+    "tools": [
+      "sby",
+      "yosys",
+      "abc",
+      "z3",
+      "boolector",
+      "bitwuzla",
+      "yices"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "property_results",
+      "counterexamples",
+      "assumptions",
+      "bounds",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "sby"
+    ]
+  },
+  "check.equivalence": {
+    "description": "Compare golden and candidate implementations under explicit mapping and assumptions.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckEquivalence",
+    "tools": [
+      "eqy",
+      "yosys",
+      "abc"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "equivalence_results",
+      "counterexamples",
+      "mappings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "eqy"
+    ]
+  },
+  "check.mutation": {
+    "description": "Evaluate test/property effectiveness against controlled source mutations.",
+    "family": "check",
+    "input_schema": "#/$defs/TaskCheckMutation",
+    "tools": [
+      "mcy",
+      "yosys"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "mutation_results",
+      "coverage",
+      "survivors",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "mcy"
+    ]
+  },
+  "simulate.spice": {
+    "description": "Run the explicitly selected SPICE analysis with compatible circuit/model views; every mode is qualified separately per backend and device model.",
+    "family": "simulate",
+    "input_schema": "#/$defs/TaskSimulateSpice",
+    "tools": [
+      "ngspice",
+      "xyce"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "measurements",
+      "waveforms",
+      "findings",
+      "convergence",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "ngspice",
+      "xyce"
+    ]
+  },
+  "simulate.hdl": {
+    "description": "Compile/elaborate and simulate the canvas-selected HDL language using an HDL bench or qualified Python cocotb test source.",
+    "family": "simulate",
+    "input_schema": "#/$defs/TaskSimulateHdl",
+    "tools": [
+      "icarus",
+      "verilator",
+      "ghdl",
+      "cocotb",
+      "amaranth"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "assertions",
+      "measurements",
+      "waveforms",
+      "coverage",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "icarus",
+      "verilator",
+      "ghdl",
+      "amaranth"
+    ]
+  },
+  "simulate.cosim": {
+    "description": "Run the selected analog/digital coupling contract. A sampled one-way handoff and a live feedback solver are distinct qualified coupling capabilities.",
+    "family": "simulate",
+    "input_schema": "#/$defs/TaskSimulateCosim",
+    "tools": [
+      "ngspice",
+      "xyce",
+      "icarus",
+      "verilator",
+      "ghdl"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "measurements",
+      "waveforms",
+      "assertions",
+      "coupling_report",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": []
+  },
+  "simulate.optical": {
+    "description": "Simulate a circuit using calibrated optical/mixed-domain compact models; advertise each model and analysis compatibility independently.",
+    "family": "simulate",
+    "input_schema": "#/$defs/TaskSimulateOptical",
+    "tools": [
+      "sax",
+      "circulax"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "spectra",
+      "traces",
+      "measurements",
+      "findings",
+      "convergence",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "sax",
+      "circulax"
+    ]
+  },
+  "synthesize.hdl": {
+    "description": "Elaborate the canvas-selected HDL/frontend and synthesize a logic netlist, optionally mapping into a pinned standard-cell library.",
+    "family": "synthesize",
+    "input_schema": "#/$defs/TaskSynthesizeHdl",
+    "tools": [
+      "yosys",
+      "abc",
+      "slang",
+      "yosys_slang",
+      "ghdl",
+      "amaranth"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "mapped_netlist",
+      "cell_statistics",
+      "area",
+      "mappings",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "yosys",
+      "ghdl",
+      "amaranth"
+    ]
+  },
+  "implement.asic": {
+    "description": "Run a full qualified ASIC flow or a registered stage from a pinned compatible prior state.",
+    "family": "implement",
+    "input_schema": "#/$defs/TaskImplementAsic",
+    "tools": [
+      "librelane",
+      "yosys",
+      "abc",
+      "openroad",
+      "opendb",
+      "opensta",
+      "openrcx",
+      "magic",
+      "netgen",
+      "klayout"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "layout",
+      "netlists",
+      "timing",
+      "parasitics",
+      "flow_state",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "librelane",
+      "openroad"
+    ]
+  },
+  "implement.fpga": {
+    "description": "Perform synthesis/place-and-route and architecture-specific bitstream generation for an explicitly qualified FPGA device; programming is outside this task.",
+    "family": "implement",
+    "input_schema": "#/$defs/TaskImplementFpga",
+    "tools": [
+      "yosys",
+      "nextpnr",
+      "icestorm",
+      "trellis",
+      "oxide",
+      "apicula"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "routed_design",
+      "timing",
+      "utilization",
+      "bitstream",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "nextpnr"
+    ]
+  },
+  "analyze.timing": {
+    "description": "Perform static timing with explicit clocks, constraints, libraries, corners and optional extracted RC; report missing constraints and coverage.",
+    "family": "analyze",
+    "input_schema": "#/$defs/TaskAnalyzeTiming",
+    "tools": [
+      "opensta",
+      "openroad"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "critical_paths",
+      "measurements",
+      "coverage",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "opensta",
+      "openroad"
+    ]
+  },
+  "analyze.power": {
+    "description": "Estimate characterized digital power or calculate a qualified physical IR-drop study from declared activity and supplies.",
+    "family": "analyze",
+    "input_schema": "#/$defs/TaskAnalyzePower",
+    "tools": [
+      "openroad",
+      "opensta"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "power",
+      "voltage_map",
+      "coverage",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "openroad",
+      "opensta"
+    ]
+  },
+  "analyze.measurements": {
+    "description": "Evaluate saved measurements, spectra/FFT, comparisons and plots against pinned result artifacts and measurement definitions.",
+    "family": "analyze",
+    "input_schema": "#/$defs/TaskAnalyzeMeasurements",
+    "tools": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "matplotlib",
+      "scikit_rf"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "measurements",
+      "spectra",
+      "tables",
+      "plots",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": []
+  },
+  "extract.layout": {
+    "description": "Extract devices/circuit connectivity or parasitic RC from a selected physical view using a compatible technology/extraction deck.",
+    "family": "extract",
+    "input_schema": "#/$defs/TaskExtractLayout",
+    "tools": [
+      "magic",
+      "openrcx",
+      "klayout",
+      "kfactory",
+      "gdsfactory"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "extracted_netlist",
+      "parasitics",
+      "mappings",
+      "coverage",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "magic",
+      "openrcx",
+      "klayout"
+    ]
+  },
+  "characterize.circuit": {
+    "description": "Repeat supported simulations across explicit parameter/corner/statistical samples and evaluate a saved characterization specification.",
+    "family": "characterize",
+    "input_schema": "#/$defs/TaskCharacterizeCircuit",
+    "tools": [
+      "cace",
+      "ngspice",
+      "xyce",
+      "pyspice",
+      "numpy",
+      "scipy",
+      "pandas"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance",
+      "testbench"
+    ],
+    "outputs": [
+      "measurements",
+      "distributions",
+      "yield",
+      "specification_results",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "cace",
+      "ngspice",
+      "xyce"
+    ]
+  },
+  "simulate.em": {
+    "description": "Solve a saved physical field study with explicit geometry, materials, ports, boundaries, mesh and convergence settings; electromagnetic compliance requires its own modeled limits.",
+    "family": "simulate",
+    "input_schema": "#/$defs/TaskSimulateEm",
+    "tools": [
+      "meep",
+      "openems",
+      "csxcad",
+      "palace",
+      "gmsh",
+      "meow",
+      "femwell",
+      "meshwell",
+      "scikit_fem",
+      "scikit_rf",
+      "gplugins"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "fields",
+      "modes",
+      "s_parameters",
+      "measurements",
+      "convergence",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "meep",
+      "openems",
+      "palace",
+      "meow",
+      "femwell"
+    ]
+  },
+  "simulate.thermal": {
+    "description": "Solve a saved thermal study with explicit materials, power sources, boundaries and mesh; coupled electrothermal behavior requires a separately qualified study.",
+    "family": "simulate",
+    "input_schema": "#/$defs/TaskSimulateThermal",
+    "tools": [
+      "elmer_fem",
+      "gmsh",
+      "meshwell"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "temperature_map",
+      "measurements",
+      "convergence",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "elmer_fem"
+    ]
+  },
+  "simulate.device": {
+    "description": "Solve declared semiconductor-device equations and physical boundary conditions in a saved qualified DEVSIM study.",
+    "family": "simulate",
+    "input_schema": "#/$defs/TaskSimulateDevice",
+    "tools": [
+      "devsim",
+      "gmsh"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "device_fields",
+      "characteristics",
+      "measurements",
+      "convergence",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "devsim"
+    ]
+  },
+  "generate.views": {
+    "description": "Generate selected component views from pinned sources/factories, producing candidate artifacts and canonical mappings; project adoption uses the shared revision-checked edit contract.",
+    "family": "generate",
+    "input_schema": "#/$defs/TaskGenerateViews",
+    "tools": [
+      "gdsfactory",
+      "kfactory",
+      "klayout",
+      "xschem",
+      "vlsir",
+      "vlsirtools",
+      "amaranth"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "generated_views",
+      "mappings",
+      "interface_candidates",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "gdsfactory",
+      "kfactory",
+      "klayout",
+      "xschem",
+      "vlsir",
+      "amaranth"
+    ]
+  },
+  "generate.netlist": {
+    "description": "Emit a circuit netlist for the selected schematic/component closure with explicit canonical-to-native terminal ordering.",
+    "family": "generate",
+    "input_schema": "#/$defs/TaskGenerateNetlist",
+    "tools": [
+      "connectgraph",
+      "xschem",
+      "gdsfactory",
+      "kfactory",
+      "vlsir",
+      "vlsirtools"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "netlist",
+      "mappings",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "connectgraph",
+      "xschem",
+      "gdsfactory",
+      "kfactory",
+      "vlsir"
+    ]
+  },
+  "export.design": {
+    "description": "Export a pinned design view or project bundle, retaining supported native properties and reporting any lossy conversion.",
+    "family": "export",
+    "input_schema": "#/$defs/TaskExportDesign",
+    "tools": [
+      "gdsfactory",
+      "kfactory",
+      "klayout",
+      "magic",
+      "xschem",
+      "yosys",
+      "vlsir",
+      "vlsirtools"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "exported_design",
+      "mappings",
+      "conversion_report",
+      "findings",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "gdsfactory",
+      "kfactory",
+      "klayout",
+      "magic",
+      "xschem",
+      "yosys",
+      "vlsir"
+    ]
+  },
+  "compile.model": {
+    "description": "Compile a pinned Verilog-A source closure into a compatible OSDI model artifact in the isolated worker.",
+    "family": "compile",
+    "input_schema": "#/$defs/TaskCompileModel",
+    "tools": [
+      "openvaf"
+    ],
+    "target_kinds": [
+      "project",
+      "component",
+      "instance"
+    ],
+    "outputs": [
+      "compiled_model",
+      "model_manifest",
+      "diagnostics",
+      "logs"
+    ],
+    "coalescing": "snapshot",
+    "qualification": "required",
+    "effects": "artifacts_only",
+    "availability": "contextual_not_promised",
+    "providers": [
+      "openvaf"
+    ]
+  }
+}

@@ -1,0 +1,745 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:edit",
+  "title": "Engine v1 edit schemas",
+  "$defs": {
+    "Precondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "revision": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "description": "Per-entity CAS including affected relationship owners, view manifests and read dependencies. Distinct entities do not conflict merely because global project revision advanced."
+    },
+    "CreateChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "create"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^@[A-Za-z0-9_-]+$"
+        },
+        "entity": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditEntityData"
+        }
+      },
+      "required": [
+        "op",
+        "key",
+        "entity"
+      ],
+      "description": "Client temporary keys resolve atomically to engine-issued IDs, including nested references in the change set."
+    },
+    "ReplaceChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "replace"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "entity": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditEntityData"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "entity"
+      ],
+      "description": "Full typed replacement; kind and stable identity cannot change. Required existing-entity CAS is in preconditions."
+    },
+    "DeleteChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "delete"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "dependents": {
+          "type": "string",
+          "enum": [
+            "reject",
+            "detach_explicit"
+          ]
+        }
+      },
+      "required": [
+        "op",
+        "id"
+      ],
+      "description": "Default reject on dangling links. Explicit detach requires all affected entities and CAS preconditions."
+    },
+    "ConnectChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "connect"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Endpoint"
+          },
+          "minItems": 2
+        },
+        "net": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "wire_points": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+          },
+          "minItems": 2
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "op",
+        "parent",
+        "endpoints"
+      ],
+      "description": "Maintains canonical net membership and visual connectivity atomically; geometry proximity alone is not connectivity."
+    },
+    "DisconnectChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "disconnect"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "net": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Endpoint"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "op",
+        "parent",
+        "net",
+        "endpoints"
+      ]
+    },
+    "TransformChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "transform"
+        },
+        "ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "view": {
+          "type": "string",
+          "enum": [
+            "schematic",
+            "symbol",
+            "layout"
+          ]
+        },
+        "transform": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Transform"
+        },
+        "snap": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "op",
+        "ids",
+        "view",
+        "transform"
+      ]
+    },
+    "GeometryAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "paint",
+                "erase"
+              ]
+            },
+            "cell": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "layer": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+            },
+            "region": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/ShapeGeometry"
+            }
+          },
+          "required": [
+            "action",
+            "cell",
+            "layer",
+            "region"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "boolean"
+            },
+            "cell": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "operation": {
+              "type": "string",
+              "enum": [
+                "union",
+                "intersection",
+                "difference",
+                "xor"
+              ]
+            },
+            "left": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              },
+              "minItems": 1
+            },
+            "right": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              },
+              "minItems": 1
+            },
+            "layer": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+            }
+          },
+          "required": [
+            "action",
+            "cell",
+            "operation",
+            "left",
+            "right",
+            "layer"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "array"
+            },
+            "cell": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              },
+              "minItems": 1
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "columns": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "pitch": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+            }
+          },
+          "required": [
+            "action",
+            "cell",
+            "ids",
+            "rows",
+            "columns",
+            "pitch"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "route"
+            },
+            "cell": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "endpoints": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Endpoint"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "layer": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+            },
+            "waypoints": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+              }
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "recipe": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+            }
+          },
+          "required": [
+            "action",
+            "cell",
+            "endpoints",
+            "layer",
+            "width",
+            "recipe"
+          ]
+        }
+      ]
+    },
+    "GeometryChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "geometry"
+        },
+        "change": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/GeometryAction"
+        }
+      },
+      "required": [
+        "op",
+        "change"
+      ],
+      "description": "Technology-driven paint/erase/contact behavior; use pinned technology semantics, preserve material/source layers and derived output provenance."
+    },
+    "WriteSourceChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "write_source"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "text": {
+          "type": "string"
+        },
+        "encoding": {
+          "const": "utf-8"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "text",
+        "encoding"
+      ],
+      "description": "Writes generic editor text including HDL/SPICE/Python/docs. Save never executes source. Source reparse reports interface drift; it never silently deletes connected ports."
+    },
+    "PublishLayoutChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "publish_layout"
+        },
+        "cell": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "artifact": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "source_snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "port_map": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/PortMapEntry"
+          }
+        }
+      },
+      "required": [
+        "op",
+        "cell",
+        "artifact",
+        "source_snapshot",
+        "port_map"
+      ],
+      "description": "Publishes worker/native GF cell data into managed project state under CAS; validates hierarchy, technology, grid and port links."
+    },
+    "AdoptChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "adopt"
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "artifact": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_source_view": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "op",
+        "owner",
+        "artifact",
+        "role"
+      ],
+      "description": "Explicitly promotes generated artifact to a versioned source/view, retaining provenance; no implicit promotion by a run."
+    },
+    "ProjectLifecycleChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "project"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "open",
+            "close",
+            "fork",
+            "archive",
+            "restore_snapshot",
+            "migrate_config"
+          ]
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        },
+        "new_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "new_location": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "op",
+        "action",
+        "id"
+      ],
+      "description": "Open/close affects runtime attachment only; fork/archive/restore/migrate has explicit source effects. Restore advances a new revision and never erases ledger history."
+    },
+    "TemplateChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "template"
+        },
+        "testbench": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "action": {
+          "const": "generate_new_source"
+        },
+        "template": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "destination": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "op",
+        "testbench",
+        "action",
+        "destination"
+      ],
+      "description": "Always emits a new source revision/file with preview/diff; relink explicitly. Existing edited code is never overwritten automatically."
+    },
+    "EditChange": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/CreateChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ReplaceChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DeleteChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ConnectChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DisconnectChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TransformChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/GeometryChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/WriteSourceChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PublishLayoutChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/AdoptChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ProjectLifecycleChange"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TemplateChange"
+        }
+      ]
+    },
+    "EditParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Precondition"
+          },
+          "uniqueItems": true
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditChange"
+          },
+          "minItems": 1,
+          "maxItems": 10000
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "preconditions",
+        "changes"
+      ],
+      "description": "Atomic typed transaction. Existing-project edits require project_id; creating a project may omit it. One durable revision/event group per committed design transaction. No automatic merging.",
+      "allOf": [
+        {
+          "if": {
+            "not": {
+              "required": [
+                "project_id"
+              ]
+            }
+          },
+          "then": {
+            "properties": {
+              "preconditions": {
+                "maxItems": 0
+              },
+              "changes": {
+                "items": {
+                  "properties": {
+                    "op": {
+                      "const": "create"
+                    }
+                  },
+                  "required": [
+                    "op"
+                  ]
+                },
+                "contains": {
+                  "properties": {
+                    "op": {
+                      "const": "create"
+                    },
+                    "entity": {
+                      "properties": {
+                        "kind": {
+                          "const": "project"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "entity"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "changes": {
+                "contains": {
+                  "properties": {
+                    "op": {
+                      "enum": [
+                        "replace",
+                        "delete",
+                        "connect",
+                        "disconnect",
+                        "transform",
+                        "geometry",
+                        "write_source",
+                        "publish_layout",
+                        "adopt",
+                        "template"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "changes"
+            ]
+          },
+          "then": {
+            "required": [
+              "project_id"
+            ],
+            "properties": {
+              "preconditions": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EditResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "revision": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        },
+        "changed": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EntityRecord"
+          }
+        },
+        "deleted": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "ids": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "event_cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Finding"
+          }
+        }
+      },
+      "required": [
+        "project_id",
+        "revision",
+        "changed",
+        "deleted",
+        "ids",
+        "event_cursor",
+        "diagnostics"
+      ]
+    }
+  }
+}

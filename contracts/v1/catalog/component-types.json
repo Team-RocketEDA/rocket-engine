@@ -1,0 +1,26 @@
+{
+  "spice_block": {
+    "description": "Editable pure SPICE subcircuit and terminal interface; simulation-only by default, physical views attach explicitly.",
+    "primary_role": "implementation",
+    "primary_format": "spice"
+  },
+  "gdsf_component": {
+    "description": "Project-owned Python factory with full installed GDSFactory, declared ports, materialized managed layout and generated symbol.",
+    "primary_role": "layout_generator",
+    "primary_format": "python"
+  },
+  "hdl_component": {
+    "description": "Digital component with source set/top/parameters, inherited canvas authoring language, elaborated canonical interface and implementation flow.",
+    "primary_role": "implementation",
+    "primary_format": "canvas.hdl.language"
+  },
+  "assembly": {
+    "description": "Hierarchical circuit composition with linked schematic and layout cell."
+  },
+  "primitive": {
+    "description": "Qualified PDK or library device/cell reference with canonical interface and model availability."
+  },
+  "testbench": {
+    "description": "Harness entity, not fabricated circuit component; SPICE/HDL/cocotb templates target legal sibling/descendant DUTs."
+  }
+}

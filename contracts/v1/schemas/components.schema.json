@@ -1,0 +1,452 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:components",
+  "title": "Engine v1 components schemas",
+  "$defs": {
+    "PortMapEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "native_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "native_index": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "port_id",
+        "native_name"
+      ]
+    },
+    "SourceView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "implementation",
+            "behavioral_model",
+            "layout_generator",
+            "schematic",
+            "layout",
+            "testbench",
+            "properties",
+            "timing",
+            "abstract",
+            "extracted",
+            "documentation"
+          ]
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 1
+        },
+        "entry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "port_map": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/PortMapEntry"
+          }
+        },
+        "default_for": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "authored",
+            "generator",
+            "native_source",
+            "model_reference",
+            "derived"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "format",
+        "sources",
+        "authority"
+      ],
+      "description": "format must resolve a registered schema/capability. Multiple source files are one source set; output generated HDL does not change authoring language."
+    },
+    "SpiceModel": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "provided"
+            },
+            "source": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+            },
+            "view": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dialect": {
+              "type": "string",
+              "enum": [
+                "spice",
+                "ngspice",
+                "xyce",
+                "cdl"
+              ]
+            },
+            "entry": {
+              "type": "string",
+              "minLength": 1
+            },
+            "terminal_order": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              },
+              "uniqueItems": true
+            },
+            "port_map": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/PortMapEntry"
+              }
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+              }
+            },
+            "provenance": {
+              "type": "string",
+              "enum": [
+                "authored",
+                "pdk_reference",
+                "mapped_netlist",
+                "extracted"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "source",
+            "dialect",
+            "entry",
+            "terminal_order",
+            "port_map",
+            "provenance"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "derivable"
+            },
+            "task": {
+              "type": "string",
+              "minLength": 1
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+              }
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "state",
+            "task",
+            "inputs",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "unavailable",
+                "not_applicable"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "state",
+            "reason"
+          ]
+        }
+      ]
+    },
+    "Models": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "spice": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/SpiceModel"
+        },
+        "other": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SourceView"
+          }
+        }
+      },
+      "required": [
+        "spice"
+      ],
+      "description": "Every circuit component has the SPICE slot; availability is honest. Optical-only, abstract and unelaborated blocks need no invented electrical model."
+    },
+    "ComponentData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "component"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "component_type": {
+          "type": "string",
+          "enum": [
+            "assembly",
+            "primitive",
+            "spice_block",
+            "gdsf_component",
+            "hdl_component"
+          ]
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "analog",
+              "digital",
+              "photonic",
+              "thermal"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "uniqueItems": true
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Parameter"
+          }
+        },
+        "models": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Models"
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/SourceView"
+          }
+        },
+        "symbol": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "schematic": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "layout": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "pdk": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "hdl_language": {
+          "type": "string",
+          "enum": [
+            "inherit"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "component_type",
+        "domains",
+        "ports",
+        "models",
+        "views"
+      ],
+      "description": "Creation presets share one component identity. Exactly one authoring owner per view; generator and manual layout are explicit variants, never competing writers."
+    },
+    "InstanceData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "instance"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "definition": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Scalar"
+          }
+        },
+        "schematic_transform": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Transform"
+        },
+        "layout_transform": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Transform"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "parent",
+        "definition"
+      ]
+    },
+    "SourceData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "source"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "implementation",
+            "testbench",
+            "generator",
+            "model",
+            "properties",
+            "documentation",
+            "configuration"
+          ]
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "path",
+        "format",
+        "role"
+      ],
+      "description": "Project-contained source bytes are saved through write_source, never executed by reading/cataloging."
+    },
+    "ScriptData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "script"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "entry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "source",
+        "profile"
+      ]
+    }
+  }
+}

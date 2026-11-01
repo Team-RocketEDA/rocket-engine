@@ -1,0 +1,755 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:events",
+  "title": "Engine v1 events schemas",
+  "$defs": {
+    "WatchParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "project.changed",
+              "entity.changed",
+              "run.state",
+              "run.findings",
+              "run.artifact",
+              "script.output",
+              "capacity.changed",
+              "runtime.recovered",
+              "testbench.stale"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000,
+          "default": 0
+        }
+      },
+      "required": [
+        "after"
+      ],
+      "description": "after:null establishes bootstrap snapshot/cursor atomically. Cursors are opaque, ordered per runtime stream and bound to filters/scope."
+    },
+    "Event_project_changed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "project.changed"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "project_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "revision": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+            },
+            "changes": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              }
+            }
+          },
+          "required": [
+            "project_id",
+            "revision",
+            "changes"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id",
+        "request_id"
+      ]
+    },
+    "Event_entity_changed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "entity.changed"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "entity": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/EntityRecord"
+            }
+          },
+          "required": [
+            "entity"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id",
+        "request_id"
+      ]
+    },
+    "Event_run_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "run.state"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "completed",
+                "failed",
+                "cancelled",
+                "interrupted",
+                "quarantined",
+                "discarded",
+                "skipped"
+              ]
+            },
+            "verdict": {
+              "type": "string",
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN",
+                "NOT_RUN",
+                "UNSUPPORTED",
+                "NOT_APPLICABLE"
+              ]
+            }
+          },
+          "required": [
+            "run_id",
+            "state",
+            "verdict"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "queued"
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "verdict": {
+                    "const": "NOT_RUN"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "running"
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "verdict": {
+                    "type": "string",
+                    "enum": [
+                      "UNKNOWN",
+                      "NOT_RUN"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "not": {
+                      "const": "completed"
+                    }
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "verdict": {
+                    "not": {
+                      "const": "PASS"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
+      ]
+    },
+    "Event_run_findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "run.findings"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Finding"
+              }
+            }
+          },
+          "required": [
+            "run_id",
+            "findings"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
+      ]
+    },
+    "Event_run_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "run.artifact"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "artifact": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Artifact"
+            }
+          },
+          "required": [
+            "run_id",
+            "artifact"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
+      ]
+    },
+    "Event_script_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "script.output"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "stream": {
+              "type": "string",
+              "enum": [
+                "stdout",
+                "stderr"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "artifact": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+            }
+          },
+          "required": [
+            "run_id",
+            "stream",
+            "text",
+            "truncated"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
+      ]
+    },
+    "Event_capacity_changed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "capacity.changed"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Capacity"
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data"
+      ]
+    },
+    "Event_runtime_recovered": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "runtime.recovered"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "survivors": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              }
+            },
+            "automatic_execution": {
+              "const": false
+            }
+          },
+          "required": [
+            "survivors",
+            "automatic_execution"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data"
+      ]
+    },
+    "Event_testbench_stale": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "testbench.stale"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "testbench": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "target_moved",
+                "interface_changed",
+                "language_changed",
+                "target_deleted"
+              ]
+            },
+            "target": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/BenchTarget"
+            }
+          },
+          "required": [
+            "testbench",
+            "reason"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "cursor",
+        "type",
+        "actor",
+        "time",
+        "data",
+        "project_id"
+      ]
+    },
+    "Event": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_project_changed"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_entity_changed"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_run_state"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_run_findings"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_run_artifact"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_script_output"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_capacity_changed"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_runtime_recovered"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Event_testbench_stale"
+        }
+      ]
+    },
+    "WatchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Event"
+          }
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "bootstrap_snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "events",
+        "cursor",
+        "has_more"
+      ]
+    }
+  }
+}

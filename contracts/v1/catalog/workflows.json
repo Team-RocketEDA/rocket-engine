@@ -1,0 +1,58 @@
+{
+  "workflow.asic": {
+    "label": "Build ASIC",
+    "entry": "run",
+    "required_gates": [
+      "syntax",
+      "elaboration",
+      "synthesis",
+      "implementation",
+      "timing",
+      "drc",
+      "lvs",
+      "antenna",
+      "final_view_consistency"
+    ],
+    "behavior": "Resolve coverage plan from target+canvas+PDK. Execute prerequisite DAG, allow independent checks to overlap, block completion when required steps are unsupported/skipped/failed. Partial stop_after is not signoff."
+  },
+  "workflow.analog": {
+    "label": "Verify analog circuit",
+    "entry": "run",
+    "required_gates": [
+      "netlist",
+      "connectivity",
+      "selected_analyses",
+      "measurements"
+    ],
+    "conditional_gates": {
+      "physical": [
+        "drc",
+        "lvs",
+        "extraction",
+        "post_layout_simulation"
+      ]
+    },
+    "behavior": "Use declared testbench/analysis plan and target specs; process-profile-required stages cannot be omitted by a client flag."
+  },
+  "workflow.photonic": {
+    "label": "Verify photonic circuit",
+    "entry": "run",
+    "required_gates": [
+      "interface_and_connectivity",
+      "qualified_compact_models",
+      "optical_circuit_response"
+    ],
+    "conditional_gates": {
+      "physical": [
+        "layout_drc",
+        "physical_connectivity",
+        "layout_to_model_comparison"
+      ],
+      "requested_device_physics": [
+        "mode_or_field_solver",
+        "mesh_convergence"
+      ]
+    },
+    "behavior": "Honor required coverage profile; no claim that generic DRC/LVS or device physics applies to every PDK."
+  }
+}

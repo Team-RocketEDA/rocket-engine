@@ -1,0 +1,808 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:task-simulations",
+  "title": "Engine v1 task-simulations schemas",
+  "$defs": {
+    "TaskSimulateSpice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "analysis": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/SpiceAnalysis"
+        },
+        "frequency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "spacing": {
+              "type": "string",
+              "enum": [
+                "linear",
+                "log"
+              ]
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "required": [
+            "spacing",
+            "start",
+            "stop",
+            "points"
+          ]
+        },
+        "time": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "max_step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            }
+          },
+          "required": [
+            "stop",
+            "step"
+          ]
+        },
+        "sweeps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "parameter": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Qualified design/model parameter identifier."
+              },
+              "target": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+              },
+              "start": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "stop": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "step": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+                },
+                "minItems": 1
+              }
+            },
+            "required": [
+              "parameter"
+            ],
+            "oneOf": [
+              {
+                "required": [
+                  "start",
+                  "stop",
+                  "step"
+                ]
+              },
+              {
+                "required": [
+                  "values"
+                ]
+              }
+            ]
+          },
+          "minItems": 1
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 1
+        },
+        "excitation": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "corner": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        },
+        "temperature": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "testbench": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "sensitivity_parameters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": ""
+          },
+          "minItems": 1
+        },
+        "pole_zero_kind": {
+          "type": "string",
+          "enum": [
+            "poles",
+            "zeros",
+            "both"
+          ]
+        },
+        "distortion_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fundamental": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "harmonics": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "analysis"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "analysis": {
+                "const": "dc"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "sweeps"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "analysis": {
+                "enum": [
+                  "ac",
+                  "noise",
+                  "disto"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "frequency"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "analysis": {
+                "const": "tran"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "time"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "analysis": {
+                "const": "harmonic_balance"
+              }
+            },
+            "required": [
+              "analysis"
+            ]
+          },
+          "then": {
+            "required": [
+              "fundamental",
+              "harmonics"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "analysis": {
+                "const": "tf"
+              }
+            },
+            "required": [
+              "analysis"
+            ]
+          },
+          "then": {
+            "required": [
+              "excitation",
+              "probes"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "analysis": {
+                "const": "pz"
+              }
+            },
+            "required": [
+              "analysis"
+            ]
+          },
+          "then": {
+            "required": [
+              "excitation",
+              "probes",
+              "pole_zero_kind"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "analysis": {
+                "const": "sens"
+              }
+            },
+            "required": [
+              "analysis"
+            ]
+          },
+          "then": {
+            "required": [
+              "probes",
+              "sensitivity_parameters"
+            ]
+          }
+        }
+      ],
+      "description": "Qualified simulator-specific analyses; harmonic_balance requires a qualified Xyce path. No experimental PSS promise. Frequency/time dimensions, sweeps, excitation and measurement semantics validated before admission."
+    },
+    "TaskSimulateHdl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "testbench": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "test_kind": {
+          "type": "string",
+          "enum": [
+            "hdl",
+            "cocotb"
+          ]
+        },
+        "top": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": ""
+          },
+          "minItems": 1
+        },
+        "duration": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "waves": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "testbench",
+        "test_kind"
+      ],
+      "description": "HDL or cocotb bench execution in the selected canvas dialect. Qualified Amaranth native simulation uses the hdl bench role with Python Amaranth source; exported Verilog can instead use qualified HDL/cocotb paths."
+    },
+    "TaskSimulateCosim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "analog": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ViewSelection"
+        },
+        "digital": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ViewSelection"
+        },
+        "coupling": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "testbench": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "time": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "max_step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            }
+          },
+          "required": [
+            "stop",
+            "step"
+          ]
+        }
+      },
+      "required": [
+        "analog",
+        "digital",
+        "coupling",
+        "testbench"
+      ]
+    },
+    "TaskSimulateOptical": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "analysis": {
+          "type": "string",
+          "enum": [
+            "sparameters",
+            "op",
+            "ac",
+            "tran",
+            "harmonic_balance"
+          ]
+        },
+        "wavelengths": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "required": [
+            "start",
+            "stop",
+            "points"
+          ]
+        },
+        "frequency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "spacing": {
+              "type": "string",
+              "enum": [
+                "linear",
+                "log"
+              ]
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "required": [
+            "spacing",
+            "start",
+            "stop",
+            "points"
+          ]
+        },
+        "time": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "max_step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            }
+          },
+          "required": [
+            "stop",
+            "step"
+          ]
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 1
+        },
+        "harmonics": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fundamental": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "testbench": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "analysis"
+      ]
+    },
+    "TaskSimulateEm": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "study": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "fdtd",
+            "fem_frequency",
+            "eigenmode",
+            "eme"
+          ]
+        },
+        "frequency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "spacing": {
+              "type": "string",
+              "enum": [
+                "linear",
+                "log"
+              ]
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "required": [
+            "spacing",
+            "start",
+            "stop",
+            "points"
+          ]
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 1
+        },
+        "mesh": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "max_refinements": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "study",
+        "method"
+      ]
+    },
+    "TaskSimulateThermal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "study": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "analysis": {
+          "type": "string",
+          "enum": [
+            "steady",
+            "tran"
+          ]
+        },
+        "time": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "max_step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            }
+          },
+          "required": [
+            "stop",
+            "step"
+          ]
+        },
+        "mesh": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "study",
+        "analysis"
+      ]
+    },
+    "TaskSimulateDevice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "study": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "analysis": {
+          "type": "string",
+          "enum": [
+            "equilibrium",
+            "dc",
+            "ac",
+            "tran"
+          ]
+        },
+        "sweeps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "parameter": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Qualified design/model parameter identifier."
+              },
+              "target": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+              },
+              "start": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "stop": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "step": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+                },
+                "minItems": 1
+              }
+            },
+            "required": [
+              "parameter"
+            ],
+            "oneOf": [
+              {
+                "required": [
+                  "start",
+                  "stop",
+                  "step"
+                ]
+              },
+              {
+                "required": [
+                  "values"
+                ]
+              }
+            ]
+          },
+          "minItems": 1
+        },
+        "frequency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "spacing": {
+              "type": "string",
+              "enum": [
+                "linear",
+                "log"
+              ]
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "required": [
+            "spacing",
+            "start",
+            "stop",
+            "points"
+          ]
+        },
+        "time": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stop": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "start": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            },
+            "max_step": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            }
+          },
+          "required": [
+            "stop",
+            "step"
+          ]
+        },
+        "mesh": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "study",
+        "analysis"
+      ]
+    }
+  }
+}

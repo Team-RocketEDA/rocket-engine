@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:protocol",
+  "title": "Engine v1 protocol schemas",
+  "$defs": {
+    "DescribeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "describe"
+        },
+        "params": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DescribeParams"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "params"
+      ]
+    },
+    "QueryRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "query"
+        },
+        "params": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/QueryParams"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "params"
+      ]
+    },
+    "EditRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "edit"
+        },
+        "params": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditParams"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "params"
+      ]
+    },
+    "RunRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "run"
+        },
+        "params": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunParams"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "params"
+      ]
+    },
+    "ScriptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "script"
+        },
+        "params": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ScriptParams"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "params"
+      ]
+    },
+    "WatchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "watch"
+        },
+        "params": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/WatchParams"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "params"
+      ]
+    },
+    "Request": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DescribeRequest"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/QueryRequest"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRequest"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunRequest"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ScriptRequest"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/WatchRequest"
+        }
+      ]
+    },
+    "DescribeSuccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "describe"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DescribeResult"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "data"
+      ]
+    },
+    "QuerySuccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "query"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/QueryResult"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "data"
+      ]
+    },
+    "EditSuccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "edit"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditResult"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "data"
+      ]
+    },
+    "RunSuccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "run"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunResult"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "data"
+      ]
+    },
+    "ScriptSuccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "script"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ScriptResult"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "data"
+      ]
+    },
+    "WatchSuccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "const": "watch"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/WatchResult"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "method",
+        "data"
+      ]
+    },
+    "Response": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DescribeSuccess"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/QuerySuccess"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditSuccess"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunSuccess"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ScriptSuccess"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/WatchSuccess"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ErrorResponse"
+        }
+      ]
+    }
+  }
+}

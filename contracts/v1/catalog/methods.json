@@ -1,0 +1,77 @@
+{
+  "describe": {
+    "description": "Inspect methods, tasks, tools, entity schemas, templates and requirements.",
+    "request_schema": "#/$defs/DescribeRequest",
+    "result_schema": "#/$defs/DescribeResult",
+    "side_effects": "none",
+    "http": {
+      "method": "GET",
+      "path": "/api/v1/catalog"
+    },
+    "mcp_tool": "describe",
+    "stdio_method": "describe"
+  },
+  "query": {
+    "description": "Read any registered project, PDK, library, hierarchy, package or evidence catalog.",
+    "request_schema": "#/$defs/QueryRequest",
+    "result_schema": "#/$defs/QueryResult",
+    "side_effects": "none",
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/queries",
+      "semantics": "read-only snapshot query; POST carries bounded structured predicates"
+    },
+    "mcp_tool": "query",
+    "stdio_method": "query"
+  },
+  "edit": {
+    "description": "Commit atomic editor/project changes with typed entities and per-entity CAS.",
+    "request_schema": "#/$defs/EditRequest",
+    "result_schema": "#/$defs/EditResult",
+    "side_effects": "design",
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/edits"
+    },
+    "mcp_tool": "edit",
+    "stdio_method": "edit"
+  },
+  "run": {
+    "description": "Start workflows or individual tool tasks and control unfinished runs.",
+    "request_schema": "#/$defs/RunRequest",
+    "result_schema": "#/$defs/RunResult",
+    "side_effects": "execution",
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/runs",
+      "controls": "POST /api/v1/runs/{id}/{cancel|resume|discard}"
+    },
+    "mcp_tool": "run",
+    "stdio_method": "run"
+  },
+  "script": {
+    "description": "Execute full prepared Python/library APIs with managed project publication.",
+    "request_schema": "#/$defs/ScriptRequest",
+    "result_schema": "#/$defs/ScriptResult",
+    "side_effects": "workspace",
+    "http": {
+      "method": "POST",
+      "path": "/api/v1/executions"
+    },
+    "mcp_tool": "script",
+    "stdio_method": "script"
+  },
+  "watch": {
+    "description": "Read or stream ordered events including edits, results and capacity transitions.",
+    "request_schema": "#/$defs/WatchRequest",
+    "result_schema": "#/$defs/WatchResult",
+    "side_effects": "none",
+    "http": {
+      "method": "GET",
+      "path": "/api/v1/events",
+      "stream": "SSE or bounded long-poll; same Event schema"
+    },
+    "mcp_tool": "watch",
+    "stdio_method": "watch"
+  }
+}

@@ -1,0 +1,385 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:core",
+  "title": "Engine v1 core schemas",
+  "$defs": {
+    "OpaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Opaque stable ID; never infer meaning, parse a path, or coerce to a number.",
+      "pattern": "^[^@].*$"
+    },
+    "Revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "Scalar": {
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "null"
+      ]
+    },
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/JsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/JsonValue"
+          }
+        }
+      ]
+    },
+    "Quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "description": "Finite value and explicit unit; domain registry validates dimensions and canonical conversion."
+    },
+    "Availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "blocked",
+            "unavailable",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "installed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "qualified": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "state",
+        "installed",
+        "qualified",
+        "reasons"
+      ]
+    },
+    "Capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lane": {
+          "type": "string",
+          "enum": [
+            "jobs",
+            "scripts",
+            "edits"
+          ]
+        },
+        "accepting": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "generation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retry_after_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "lane",
+        "accepting",
+        "available",
+        "pending",
+        "generation"
+      ]
+    },
+    "Point": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "Transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "translation": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+        },
+        "rotation_deg": {
+          "type": "number"
+        },
+        "mirror_x": {
+          "type": "boolean"
+        },
+        "mirror_y": {
+          "type": "boolean"
+        },
+        "magnification": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [],
+      "description": "View units and pinned grid are explicit in the owning view; engine reports snapping."
+    },
+    "Parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "number",
+            "integer",
+            "boolean",
+            "string"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Scalar"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Scalar"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ]
+    },
+    "PinnedRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "project",
+            "library",
+            "pdk",
+            "package",
+            "engine"
+          ]
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "revision": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "revision"
+      ],
+      "description": "Exact immutable reference. Required on resolved catalog/evidence/lock data. Project source design links may instead use WorkingRef and resolve under the run snapshot."
+    },
+    "WorkingRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "const": "project"
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        }
+      },
+      "required": [
+        "scope",
+        "id"
+      ],
+      "description": "Live project identity in editable design records. Source saves are visible to the next run; snapshot resolution freezes exact revisions under I28."
+    },
+    "Ref": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/WorkingRef"
+        }
+      ]
+    },
+    "LocalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "local": {
+          "type": "string",
+          "pattern": "^@[A-Za-z0-9_-]+$"
+        }
+      },
+      "required": [
+        "local"
+      ],
+      "description": "Edit-transaction-only reference to a newly created entity. Engine resolves ID and revision before commit. Never persisted or returned."
+    },
+    "EditRef": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/WorkingRef"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/LocalRef"
+        }
+      ]
+    },
+    "EditId": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        {
+          "type": "string",
+          "pattern": "^@[A-Za-z0-9_-]+$"
+        }
+      ]
+    },
+    "PortWidth": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "parameter": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "parameter"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "expression": {
+              "type": "string",
+              "minLength": 1
+            },
+            "language": {
+              "const": "inherit"
+            }
+          },
+          "required": [
+            "expression",
+            "language"
+          ]
+        }
+      ]
+    },
+    "SpiceAnalysis": {
+      "type": "string",
+      "enum": [
+        "op",
+        "dc",
+        "ac",
+        "tran",
+        "noise",
+        "tf",
+        "pz",
+        "sens",
+        "disto",
+        "harmonic_balance"
+      ],
+      "description": "Operating point, DC, AC, transient, noise, transfer function, pole-zero, sensitivity, distortion and qualified Xyce harmonic balance. Backend/model/version readiness is per analysis."
+    }
+  }
+}

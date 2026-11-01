@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:errors",
+  "title": "Engine v1 errors schemas",
+  "$defs": {
+    "ErrorDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "expected": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Scalar"
+        },
+        "actual": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Scalar"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "not_found",
+            "revision_conflict",
+            "request_conflict",
+            "unknown_task",
+            "unknown_schema",
+            "invalid_scope",
+            "unsupported_target",
+            "capability_unavailable",
+            "ambiguous_view",
+            "incompatible_language",
+            "testbench_scope_violation",
+            "interface_drift",
+            "ingredient_drift",
+            "prerequisite_failed",
+            "quarantined_run",
+            "invalid_run_state",
+            "cursor_expired",
+            "queue_full",
+            "runtime_unavailable",
+            "internal_error",
+            "duplicate_configuration",
+            "invalid_testbench_binding",
+            "read_set_incomplete"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/ErrorDetail"
+          }
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "admitted": {
+          "const": false
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "retry_after_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capacity": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Capacity"
+        },
+        "resync": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Locator"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "details",
+        "retryable",
+        "admitted"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "queue_full"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "required": [
+              "capacity",
+              "retry_after_ms"
+            ],
+            "properties": {
+              "retryable": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "cursor_expired"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "required": [
+              "resync"
+            ]
+          }
+        }
+      ]
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "rocketeda/v1"
+        },
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "error": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Error"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "error"
+      ]
+    }
+  }
+}

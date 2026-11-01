@@ -1,0 +1,1920 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:execution",
+  "title": "Engine v1 execution schemas",
+  "$defs": {
+    "Target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "project",
+            "component",
+            "instance",
+            "testbench",
+            "selection"
+          ]
+        },
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "occurrence": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "project_id",
+        "kind"
+      ],
+      "description": "Non-project targets require id; occurrence is a root-anchored array of instance IDs. Runs pin the resolved occurrence/dependency closure. A target id with repeated definition instances needs occurrence; never select an arbitrary first match.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "component",
+                  "instance",
+                  "testbench"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "selection"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "members"
+            ]
+          }
+        }
+      ]
+    },
+    "ViewSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "implementation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "layout": {
+          "type": "string",
+          "minLength": 1
+        },
+        "testbench": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          }
+        }
+      },
+      "required": [],
+      "description": "Explicit named view selection. Missing values use a unique declared default; ambiguous selection is an error."
+    },
+    "RunStart": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "start"
+        },
+        "target": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Target"
+        },
+        "task": {
+          "type": "string",
+          "enum": [
+            "workflow.asic",
+            "workflow.analog",
+            "workflow.photonic",
+            "check.syntax",
+            "check.connectivity",
+            "check.erc",
+            "check.drc",
+            "check.lvs",
+            "check.antenna",
+            "check.view_sync",
+            "check.layout_xor",
+            "check.formal",
+            "check.equivalence",
+            "check.mutation",
+            "simulate.spice",
+            "simulate.hdl",
+            "simulate.cosim",
+            "simulate.optical",
+            "synthesize.hdl",
+            "implement.asic",
+            "implement.fpga",
+            "analyze.timing",
+            "analyze.power",
+            "analyze.measurements",
+            "extract.layout",
+            "characterize.circuit",
+            "simulate.em",
+            "simulate.thermal",
+            "simulate.device",
+            "generate.views",
+            "generate.netlist",
+            "export.design",
+            "compile.model"
+          ]
+        },
+        "options": {
+          "type": "object"
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "views": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ViewSelection"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "description": "Additional caller dependencies only; engine unions mandatory prerequisite DAG. Cannot weaken hard input or check gates."
+        },
+        "fresh": {
+          "type": "boolean",
+          "default": false
+        },
+        "override_failed_gates": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "seeds": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "action",
+        "target",
+        "task",
+        "options"
+      ],
+      "description": "options is constrained by task dispatch allOf below. Fresh bypasses in-flight coalescing, never request-id idempotency. Gate overrides require distinct trusted authorization; hard prerequisites are mandatory. All task outputs are run artifacts; adoption into project truth is explicit through edit. Managed scripts use their own commit checkpoints.",
+      "oneOf": [
+        {
+          "properties": {
+            "task": {
+              "const": "workflow.asic"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskWorkflowAsic"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "librelane"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "workflow.analog"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskWorkflowAnalog"
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ],
+          "not": {
+            "required": [
+              "tool"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "workflow.photonic"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskWorkflowPhotonic"
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ],
+          "not": {
+            "required": [
+              "tool"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.syntax"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckSyntax"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "slang",
+                "yosys_slang",
+                "verilator",
+                "ghdl",
+                "icarus"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.connectivity"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckConnectivity"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "connectgraph"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.erc"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckErc"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "connectgraph"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.drc"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckDrc"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "magic",
+                "klayout"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.lvs"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckLvs"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "netgen",
+                "klayout"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.antenna"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckAntenna"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "openroad",
+                "klayout"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.view_sync"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckViewSync"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "connectgraph"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.layout_xor"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckLayoutXor"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "klayout"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.formal"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckFormal"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "sby"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.equivalence"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckEquivalence"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "eqy"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "check.mutation"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCheckMutation"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "mcy"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "simulate.spice"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskSimulateSpice"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "ngspice",
+                "xyce"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "simulate.hdl"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskSimulateHdl"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "icarus",
+                "verilator",
+                "ghdl",
+                "amaranth"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "simulate.cosim"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskSimulateCosim"
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ],
+          "not": {
+            "required": [
+              "tool"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "simulate.optical"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskSimulateOptical"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "sax",
+                "circulax"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "synthesize.hdl"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskSynthesizeHdl"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "yosys",
+                "ghdl",
+                "amaranth"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "implement.asic"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskImplementAsic"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "librelane",
+                "openroad"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "implement.fpga"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskImplementFpga"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "nextpnr"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "analyze.timing"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskAnalyzeTiming"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "opensta",
+                "openroad"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "analyze.power"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskAnalyzePower"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "openroad",
+                "opensta"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "analyze.measurements"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskAnalyzeMeasurements"
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ],
+          "not": {
+            "required": [
+              "tool"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "extract.layout"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskExtractLayout"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "magic",
+                "openrcx",
+                "klayout"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "characterize.circuit"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCharacterizeCircuit"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "cace",
+                "ngspice",
+                "xyce"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance",
+                    "testbench"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "simulate.em"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskSimulateEm"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "meep",
+                "openems",
+                "palace",
+                "meow",
+                "femwell"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "simulate.thermal"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskSimulateThermal"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "elmer_fem"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "simulate.device"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskSimulateDevice"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "devsim"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "generate.views"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskGenerateViews"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "gdsfactory",
+                "kfactory",
+                "klayout",
+                "xschem",
+                "vlsir",
+                "amaranth"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "generate.netlist"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskGenerateNetlist"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "connectgraph",
+                "xschem",
+                "gdsfactory",
+                "kfactory",
+                "vlsir"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "export.design"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskExportDesign"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "gdsfactory",
+                "kfactory",
+                "klayout",
+                "magic",
+                "xschem",
+                "yosys",
+                "vlsir"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        },
+        {
+          "properties": {
+            "task": {
+              "const": "compile.model"
+            },
+            "options": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/TaskCompileModel"
+            },
+            "tool": {
+              "type": "string",
+              "enum": [
+                "openvaf"
+              ]
+            },
+            "target": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "project",
+                    "component",
+                    "instance"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "task",
+            "options"
+          ]
+        }
+      ]
+    },
+    "RunControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "cancel",
+            "resume",
+            "discard"
+          ]
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "override_quarantine": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "action",
+        "project_id",
+        "run_id"
+      ],
+      "description": "Controls remain responsive under saturation. Resume applies only unfinished/interrupted runs; finished reruns are fresh starts.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "enum": [
+                  "cancel",
+                  "discard"
+                ]
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "override_quarantine"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "override_quarantine": {
+                "const": true
+              }
+            },
+            "required": [
+              "override_quarantine"
+            ]
+          },
+          "then": {
+            "required": [
+              "reason"
+            ]
+          }
+        }
+      ]
+    },
+    "RunParams": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunStart"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunControl"
+        }
+      ]
+    },
+    "ScriptOpen": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "open"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "action",
+        "project_id",
+        "profile"
+      ],
+      "description": "Creates workspace history/context, executes no user code."
+    },
+    "ScriptExecute": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "execute"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "workspace_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "generation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        },
+        "history_cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "action",
+        "project_id",
+        "workspace_id",
+        "generation",
+        "snapshot",
+        "history_cursor"
+      ],
+      "description": "Exactly one of code/source. Uses ordinary durable run admission, same execution isolation and I28; never coalesce mutating scripts. Earlier explicit edits survive later exceptions.",
+      "oneOf": [
+        {
+          "required": [
+            "code"
+          ],
+          "not": {
+            "required": [
+              "source"
+            ]
+          }
+        },
+        {
+          "required": [
+            "source"
+          ],
+          "not": {
+            "required": [
+              "code"
+            ]
+          }
+        }
+      ]
+    },
+    "ScriptReset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "reset"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "workspace_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "generation": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "action",
+        "project_id",
+        "workspace_id",
+        "generation"
+      ],
+      "description": "Revokes old worker authority/history generation; does not replay code."
+    },
+    "ScriptParams": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ScriptOpen"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ScriptExecute"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ScriptReset"
+        }
+      ]
+    },
+    "RunReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "admitted": {
+          "const": true
+        },
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running"
+          ]
+        },
+        "coalesced": {
+          "type": "boolean"
+        },
+        "event_cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capacity": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Capacity"
+        }
+      },
+      "required": [
+        "admitted",
+        "run_id",
+        "project_id",
+        "snapshot",
+        "state",
+        "coalesced",
+        "event_cursor",
+        "capacity"
+      ],
+      "description": "Durable acknowledgment; execution begins without a second start message. Every coalesced request ID persists. state records immutable admission state; query/watch provide current state, including an immediate completion."
+    },
+    "RunControlResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "cancel",
+            "resume",
+            "discard"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+            "interrupted",
+            "quarantined",
+            "discarded",
+            "skipped"
+          ]
+        },
+        "event_cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cancel_requested": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "run_id",
+        "project_id",
+        "action",
+        "state",
+        "event_cursor",
+        "cancel_requested"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "resume"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "running"
+                ]
+              },
+              "cancel_requested": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "discard"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "const": "discarded"
+              },
+              "cancel_requested": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "cancel"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "cancel_requested": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AuthorizationPending": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "admitted": {
+          "const": false
+        },
+        "state": {
+          "const": "awaiting_authorization"
+        },
+        "submission_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "closure_hash": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "admitted",
+        "state",
+        "submission_id",
+        "closure_hash",
+        "reason"
+      ],
+      "description": "Existing trusted approval policy resolves this out of band; clients cannot forge actor/approval in request payloads. No run exists yet."
+    },
+    "RunResult": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunReceipt"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunControlResult"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/AuthorizationPending"
+        }
+      ]
+    },
+    "Workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "generation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "history_cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prebound": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "generation",
+        "profile",
+        "history_cursor",
+        "prebound"
+      ]
+    },
+    "ScriptResult": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Workspace"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunReceipt"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/AuthorizationPending"
+        }
+      ]
+    },
+    "ExecutionFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/ErrorDetail"
+          }
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "details",
+        "retryable"
+      ]
+    },
+    "CommittedEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "revision": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "event_cursor": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "request_id",
+        "project_id",
+        "revision",
+        "entities",
+        "event_cursor"
+      ]
+    }
+  }
+}

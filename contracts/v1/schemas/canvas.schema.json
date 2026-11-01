@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:canvas",
+  "title": "Engine v1 canvas schemas",
+  "$defs": {
+    "MetricConstraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "lt",
+            "le",
+            "eq",
+            "ge",
+            "gt"
+          ]
+        },
+        "limit": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "target": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "required": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "metric",
+        "operator",
+        "limit"
+      ],
+      "description": "Metric and unit schemas are registered; unknown metrics fail loudly. Applies per stated target, otherwise project top."
+    },
+    "ToolSetting": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "configuration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "description": "Optional project-relative configuration references validate against the pinned task/tool schema and enter I28. No environment interpolation."
+    },
+    "CanvasConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "rocketeda/canvas/v1"
+        },
+        "hdl": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "language": {
+              "type": "string",
+              "enum": [
+                "verilog",
+                "systemverilog",
+                "vhdl",
+                "amaranth"
+              ]
+            },
+            "top": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "language"
+          ],
+          "description": "One authored HDL dialect per canvas. Generated backend Verilog and qualified imported macro model views are separate from authored HDL; Amaranth requires qualified frontend/profile."
+        },
+        "technology": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "pdks": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/MetricConstraint"
+          }
+        },
+        "tools": {
+          "type": "object",
+          "properties": {
+            "librelane": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/ToolSettings_librelane"
+            },
+            "ngspice": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/ToolSettings_ngspice"
+            },
+            "xyce": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/ToolSettings_xyce"
+            },
+            "yosys": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/ToolSettings_yosys"
+            },
+            "openroad": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/ToolSettings_openroad"
+            }
+          },
+          "additionalProperties": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/ToolSetting"
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        }
+      },
+      "required": [
+        "schema",
+        "hdl",
+        "pdks",
+        "targets",
+        "tools"
+      ],
+      "description": "Parsed TOML canvas.toml. Geometry/source data stay in referenced project files. Reject conflicting legacy canvas.cst and canvas.toml; explicit migration is an attributed revisioned edit."
+    },
+    "ToolSettings_librelane": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "configuration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "density": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "effort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "standard",
+            "high"
+          ]
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "description": "Inline options and delegated configuration cannot set the same field; report duplicate_configuration, never guess precedence. Run overrides are explicit and frozen in resolved configuration."
+    },
+    "ToolSettings_ngspice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "configuration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "temperature": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "reltol": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "abstol": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "vntol": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "trap",
+            "gear"
+          ]
+        },
+        "max_order": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "description": "Inline options and delegated configuration cannot set the same field; report duplicate_configuration, never guess precedence. Run overrides are explicit and frozen in resolved configuration."
+    },
+    "ToolSettings_xyce": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "configuration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "temperature": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "reltol": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "abstol": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "vntol": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "trap",
+            "gear"
+          ]
+        },
+        "max_order": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "description": "Inline options and delegated configuration cannot set the same field; report duplicate_configuration, never guess precedence. Run overrides are explicit and frozen in resolved configuration."
+    },
+    "ToolSettings_yosys": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "configuration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "flatten": {
+          "type": "boolean"
+        },
+        "optimization": {
+          "type": "string",
+          "enum": [
+            "area",
+            "delay",
+            "balanced"
+          ]
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "description": "Inline options and delegated configuration cannot set the same field; report duplicate_configuration, never guess precedence. Run overrides are explicit and frozen in resolved configuration."
+    },
+    "ToolSettings_openroad": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "configuration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "density": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "effort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "standard",
+            "high"
+          ]
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "description": "Inline options and delegated configuration cannot set the same field; report duplicate_configuration, never guess precedence. Run overrides are explicit and frozen in resolved configuration."
+    }
+  }
+}
