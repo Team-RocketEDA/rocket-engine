@@ -47,8 +47,14 @@ def read_pins():
     """Pin values parsed from the provisioner (single source)."""
     text = PROV.read_text()
     pins = {}
-    for name in ("OSS_CAD_SUITE_PIN", "LIBRELANE_PIN", "OPENSTA_PIN"):
-        match = re.search(rf'^{name}="([^"]+)"', text, re.M)
+    for name in (
+        "OSS_CAD_SUITE_PIN", "LIBRELANE_PIN", "OPENSTA_PIN",
+        "MAGIC_REF", "NETGEN_REF", "KLAYOUT_PIN", "NGSPICE_PIN",
+        "XYCE_REF", "TRILINOS_REF", "XSCHEM_REF", "CACE_PIN",
+        "PYMEEP_PIN", "OPENEMS_REF", "CSXCAD_REF", "DEVSIM_PIN",
+    ):
+        pattern = rf'^{name}="([^"]+)"'
+        match = re.search(pattern, text, re.M)
         assert match, f"{name} not pinned in provisioner"
         pins[name] = match.group(1)
     return pins
@@ -66,7 +72,41 @@ def _bindir(tmp_path, yosys=YOSYS_BANNER, sby=SBY_BANNER):
     _stub(bindir / "sby", f"echo '{sby}'")
     _stub(bindir / "librelane", f"echo '{LIBRELANE_VERSION}'")
     _stub(bindir / "sta", f"echo '{STA_BANNER}'")
+    _phase2_bin_stubs(bindir)
     return bindir
+
+
+def _phase2_bin_stubs(bindir):
+    _stub(bindir / "magic", "echo '8.3.685'")
+    _stub(bindir / "netgen", "echo 'Netgen 1.5.326 stub'")
+    _stub(bindir / "klayout", "echo 'KLayout 0.30.12'")
+    _stub(bindir / "ngspice", "echo 'ngspice-47'")
+    _stub(bindir / "Xyce", "echo 'Xyce Release 7.10.0 stub'")
+    _stub(bindir / "xschem", "echo 'XSCHEM V3.5.0 stub'")
+    _stub(bindir / "openEMS", "echo 'openEMS 0.37.0 stub'")
+    _stub(bindir / "ElmerSolver", "echo 'ElmerSolver 9.0 stub'")
+
+
+def _prov_python(tmp_path, pins):
+    """Stub interpreter answering metadata queries with the pins."""
+    pydir = tmp_path / "pydir"
+    pydir.mkdir(exist_ok=True)
+    stub = pydir / "python"
+    _stub(stub,
+           "case \"$*\" in "
+           f"*cace*) echo '{pins['CACE_PIN']}';; "
+           f"*devsim*) echo '{pins['DEVSIM_PIN']}';; "
+           "*) exit 1;; esac")
+    return stub
+
+
+def _pymeep_env(tools, pins):
+    """Stub conda pymeep interpreter at the expected prefix path."""
+    pydir = tools / "miniforge3" / "envs" / "pymeep" / "bin"
+    pydir.mkdir(parents=True, exist_ok=True)
+    _stub(pydir / "python",
+           f"echo '{pins['PYMEEP_PIN']}'")
+    return pydir / "python"
 
 
 def _bundle(tmp_path, version="20261025", with_bins=False):
@@ -85,7 +125,7 @@ def _sysbin(tmp_path):
     """Minimal system utils so stub-only PATH stays hermetic."""
     sysbin = tmp_path / "sysbin"
     sysbin.mkdir(exist_ok=True)
-    for name in ("head", "cut", "tr"):
+    for name in ("head", "cut", "tr", "grep", "mkdir", "id"):
         src = shutil.which(name)
         assert src, f"system {name} missing"
         link = sysbin / name
@@ -135,6 +175,21 @@ def test_provisioner_pins_are_expected_values():
     assert pins["LIBRELANE_PIN"] == "3.0.17"
     assert pins["OPENSTA_PIN"] == \
         "857316ff001b2a8dbbdc5996944d08a6d38c87ab"
+    assert pins["MAGIC_REF"] == \
+        "707d67e6c66e10fedf1efa7e2930017032ff6716"
+    assert pins["NETGEN_REF"] == \
+        "e310f3049e1f07c02d77aa509742ebc04b24f808"
+    assert pins["KLAYOUT_PIN"] == "0.30.12"
+    assert pins["NGSPICE_PIN"] == "47"
+    assert pins["XYCE_REF"] == "Release-7.10.0"
+    assert pins["TRILINOS_REF"] == "trilinos-release-17-2-1"
+    assert pins["XSCHEM_REF"] == \
+        "7811010c934a93b14ed07cbf2afd217fb2058ee6"
+    assert pins["CACE_PIN"] == "2.13.0"
+    assert pins["PYMEEP_PIN"] == "1.35.0"
+    assert pins["OPENEMS_REF"] == "v0.37.0"
+    assert pins["CSXCAD_REF"] == "v0.7.0"
+    assert pins["DEVSIM_PIN"] == "2.11.2"
 
 
 def test_downloads_retry_and_resume():
@@ -152,41 +207,18 @@ def test_gtkwave_excluded_by_headless_rule():
     assert "RocketIDE" in text, text
 
 
+def _phase2_ok(tmp_path, env):
+    """Wire phase-2 python stubs so a fully-stubbed tree is green."""
+    pins = read_pins()
+    env["PROV_PYTHON"] = str(_prov_python(tmp_path, pins))
+    _pymeep_env(Path(env["TOOLS_DIR"]), pins)
+    return env
+
+
 def test_check_only_ok_with_matching_stubs(tmp_path):
     bindir = _bindir(tmp_path)
     bundle = _bundle(tmp_path)
-    tools = Path(_env(tmp_path, bindir, bundle)["TOOLS_DIR"])
-    pins = read_pins()
-    appdir = tools / f"librelane-{pins['LIBRELANE_PIN']}"
-    appdir.mkdir(parents=True)
-    app = appdir / "librelane-devshell-x86_64.AppImage"
-    app.write_text("#!/bin/sh\necho stub\n", encoding="utf-8")
-    app.chmod(0o755)
-    (appdir / "LIBRELANE_PIN").write_text(
-        pins["LIBRELANE_PIN"] + "\n", encoding="utf-8")
-    (appdir / "tool_versions.txt").write_text(
-        "opensta stub\n", encoding="utf-8")
-    prefix = tools / "opensta-857316f"
-    (prefix / "bin").mkdir(parents=True)
-    _stub(prefix / "bin" / "sta", f"echo '{STA_BANNER}'")
-    (prefix / "OPENSTA_PIN").write_text(
-        pins["OPENSTA_PIN"] + "\n", encoding="utf-8")
-
-    proc = run_prov(["--check-only"],
-                    env_over=_env(tmp_path, bindir, bundle))
-
-    assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
-    assert "REMEDY" not in proc.stdout, proc.stdout
-
-
-def test_check_only_finds_bundle_bin_without_dev_path(tmp_path):
-    bindir = tmp_path / "bin"
-    bindir.mkdir()
-    _stub(bindir / "librelane", f"echo '{LIBRELANE_VERSION}'")
-    _stub(bindir / "sta", f"echo '{STA_BANNER}'")
-    bundle = _bundle(tmp_path, with_bins=True)
-    env = _env(tmp_path, bindir, bundle)
+    env = _phase2_ok(tmp_path, _env(tmp_path, bindir, bundle))
     tools = Path(env["TOOLS_DIR"])
     pins = read_pins()
     appdir = tools / f"librelane-{pins['LIBRELANE_PIN']}"
@@ -208,6 +240,40 @@ def test_check_only_finds_bundle_bin_without_dev_path(tmp_path):
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2: OK (11/11" in proc.stdout, proc.stdout
+    assert "REMEDY" not in proc.stdout, proc.stdout
+
+
+def test_check_only_finds_bundle_bin_without_dev_path(tmp_path):
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    _stub(bindir / "librelane", f"echo '{LIBRELANE_VERSION}'")
+    _stub(bindir / "sta", f"echo '{STA_BANNER}'")
+    _phase2_bin_stubs(bindir)
+    bundle = _bundle(tmp_path, with_bins=True)
+    env = _phase2_ok(tmp_path, _env(tmp_path, bindir, bundle))
+    tools = Path(env["TOOLS_DIR"])
+    pins = read_pins()
+    appdir = tools / f"librelane-{pins['LIBRELANE_PIN']}"
+    appdir.mkdir(parents=True)
+    app = appdir / "librelane-devshell-x86_64.AppImage"
+    app.write_text("#!/bin/sh\necho stub\n", encoding="utf-8")
+    app.chmod(0o755)
+    (appdir / "LIBRELANE_PIN").write_text(
+        pins["LIBRELANE_PIN"] + "\n", encoding="utf-8")
+    (appdir / "tool_versions.txt").write_text(
+        "opensta stub\n", encoding="utf-8")
+    prefix = tools / "opensta-857316f"
+    (prefix / "bin").mkdir(parents=True)
+    _stub(prefix / "bin" / "sta", f"echo '{STA_BANNER}'")
+    (prefix / "OPENSTA_PIN").write_text(
+        pins["OPENSTA_PIN"] + "\n", encoding="utf-8")
+
+    proc = run_prov(["--check-only"], env_over=env)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2: OK (11/11" in proc.stdout, proc.stdout
 
 
 def test_check_only_yosys_mismatch_fails_loud(tmp_path):
@@ -317,7 +383,7 @@ def test_install_detects_unreachable_network(tmp_path):
 def test_install_ok_when_all_asserted(tmp_path):
     bindir = _bindir(tmp_path)
     bundle = _bundle(tmp_path)
-    env = _env(tmp_path, bindir, bundle)
+    env = _phase2_ok(tmp_path, _env(tmp_path, bindir, bundle))
     tools = Path(env["TOOLS_DIR"])
     pins = read_pins()
     appdir = tools / f"librelane-{pins['LIBRELANE_PIN']}"
@@ -339,6 +405,7 @@ def test_install_ok_when_all_asserted(tmp_path):
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2: OK (11/11" in proc.stdout, proc.stdout
 
 
 def test_live_check_only_reports_a_verdict():
@@ -346,20 +413,65 @@ def test_live_check_only_reports_a_verdict():
 
     assert proc.returncode in (0, 1), proc.stdout + proc.stderr
     assert "PROV-PHASE1:" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2:" in proc.stdout, proc.stdout
     if proc.returncode == 0:
         assert "(4/4" in proc.stdout, proc.stdout
+        assert "(11/11" in proc.stdout, proc.stdout
     else:
         assert "DEGRADED" in proc.stdout, proc.stdout
         assert "REMEDY" in proc.stdout, proc.stdout
 
 
-def test_report_names_pins_and_phase2_out_of_scope():
+def test_report_names_pins():
     report = ROOT / "docs" / "work" / "PROV" / "report.md"
     assert report.is_file(), "docs/work/PROV/report.md missing"
     text = report.read_text()
-    for token in ("20261025", "3.0.17", "857316f", "Phase 2",
+    for token in ("20261025", "3.0.17", "857316f",
                   "wiring.patch", "Integrator"):
         assert token in text, token
+
+
+def test_provisioner_reports_phase2_verdict_and_palace():
+    text = PROV.read_text()
+    for token in ("PROV-PHASE2:", "palace UNSOURCED",
+                  "UNSOURCED", "ambient-recorded", "install_magic",
+                  "install_ngspice", "install_xyce", "install_cace",
+                  "install_pymeep", "install_openems", "install_devsim",
+                  "install_klayout", "install_xschem", "install_netgen",
+                  "install_elmer"):
+        assert token in text, token
+
+
+def test_provisioner_cites_phase2_sources():
+    text = PROV.read_text()
+    for url in (
+        "github.com/RTimothyEdwards/magic",
+        "github.com/RTimothyEdwards/netgen",
+        "github.com/StefanSchippers/xschem",
+        "klayout.de",
+        "ngspice.sourceforge.io",
+        "xyce.sandia.gov",
+        "github.com/efabless/cace",
+        "meep.readthedocs.io",
+        "openEMS.de",
+        "pypi.org/project/devsim",
+        "csc.fi/web/elmer",
+    ):
+        assert url in text, url
+    docs = (ROOT / "docs" / "provision-sources.md").read_text()
+    for url in (
+        "opencircuitdesign.com/magic",
+        "klayout",
+        "ngspice",
+        "xyce",
+        "cace",
+        "pymeep",
+        "openems",
+        "devsim",
+        "elmer",
+        "palace",
+    ):
+        assert url in docs.lower(), url
 
 
 def test_wiring_patch_applies_or_is_integrated():

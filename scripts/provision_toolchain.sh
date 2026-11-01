@@ -38,7 +38,12 @@
 #   OSS_CAD_SUITE_DIR bundle dir (default: $TOOLS_DIR/oss-cad-suite)
 #   PROV_OFFLINE=1    skip every network attempt (fast air-gap path)
 #
-# Phase 2 (rest of the PRD matrix) is out of scope here.
+# Phase 2 (rest of the PRD matrix: magic, netgen, klayout,
+# ngspice, xyce, xschem, cace, pymeep, openems, elmer,
+# devsim) is wired below with per-tool pins, version asserts,
+# pinned-or-ambient-recorded checks, and doc-cited installers.
+# Palace stays UNSOURCED until its install docs are read
+# (docs/provision-sources.md 12) — recorded, never installed.
 
 set -u
 
@@ -51,6 +56,39 @@ LIBRELANE_PIN="3.0.17"
 LIBRELANE_COMMIT="64ef80802d3d189b476636d2a6b17888c03304ee"
 OPENSTA_PIN="857316ff001b2a8dbbdc5996944d08a6d38c87ab"
 CUDD_PIN="3.0.0"
+# ---- phase-2 pins (B10 full matrix; resolved 2026-11-01) ----
+MAGIC_REPO="https://github.com/RTimothyEdwards/magic"
+MAGIC_REF="707d67e6c66e10fedf1efa7e2930017032ff6716"
+MAGIC_EXPECT="8.3"
+NETGEN_REPO="https://github.com/RTimothyEdwards/netgen"
+NETGEN_REF="e310f3049e1f07c02d77aa509742ebc04b24f808"
+NETGEN_EXPECT="Netgen 1.5"
+KLAYOUT_PIN="0.30.12"
+KLAYOUT_DEB="https://www.klayout.org/downloads/Ubuntu-24/klayout_0.30.12-1_amd64.deb"
+KLAYOUT_EXPECT="KLayout 0.30.12"
+NGSPICE_PIN="47"
+NGSPICE_TGZ="https://sourceforge.net/projects/ngspice/files/ng-spice-rework/47/ngspice-47.tar.gz/download"
+NGSPICE_EXPECT="ngspice-4"
+XYCE_REF="Release-7.10.0"
+XYCE_REPO="https://github.com/Xyce/Xyce"
+TRILINOS_REF="trilinos-release-17-2-1"
+TRILINOS_REPO="https://github.com/trilinos/Trilinos"
+XYCE_EXPECT="Xyce"
+XSCHEM_REPO="https://github.com/StefanSchippers/xschem"
+XSCHEM_REF="7811010c934a93b14ed07cbf2afd217fb2058ee6"
+XSCHEM_EXPECT="XSCHEM V3"
+CACE_PIN="2.13.0"
+PYMEEP_PIN="1.35.0"
+MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
+OPENEMS_REF="v0.37.0"
+OPENEMS_REPO="https://github.com/thliebig/openEMS"
+CSXCAD_REF="v0.7.0"
+CSXCAD_REPO="https://github.com/thliebig/CSXCAD"
+OPENEMS_EXPECT="openEMS"
+ELMER_PPA="ppa:elmer-csc-ubuntu/elmer-csc-ppa"
+ELMER_EXPECT="ElmerSolver"
+DEVSIM_PIN="2.11.2"
+# PALACE: UNSOURCED (docs/provision-sources.md 12) — no pin until docs read.
 # -------------------------------------------------------------
 
 OSS_URL="https://github.com/YosysHQ/oss-cad-suite-build/releases"
@@ -68,10 +106,23 @@ if [ "$MODE" != "--check-only" ] && [ "$MODE" != "--install" ]; then
 fi
 
 TOOLS_DIR="${TOOLS_DIR:-$HOME/tools}"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OSS_DIR="${OSS_CAD_SUITE_DIR:-$TOOLS_DIR/oss-cad-suite}"
 LIBRELANE_DIR="$TOOLS_DIR/librelane-$LIBRELANE_PIN"
 APPIMAGE="$LIBRELANE_DIR/librelane-devshell-x86_64.AppImage"
 OPENSTA_PREFIX="$TOOLS_DIR/opensta-$OPENSTA_SHORT"
+MAGIC_SHORT="$(printf '%s' "$MAGIC_REF" | cut -c1-7)"
+NETGEN_SHORT="$(printf '%s' "$NETGEN_REF" | cut -c1-7)"
+XSCHEM_SHORT="$(printf '%s' "$XSCHEM_REF" | cut -c1-7)"
+MAGIC_PREFIX="$TOOLS_DIR/magic-$MAGIC_SHORT"
+NETGEN_PREFIX="$TOOLS_DIR/netgen-$NETGEN_SHORT"
+KLAYOUT_PREFIX="$TOOLS_DIR/klayout-$KLAYOUT_PIN"
+NGSPICE_PREFIX="$TOOLS_DIR/ngspice-$NGSPICE_PIN"
+XYCE_PREFIX="$TOOLS_DIR/xyce-7.10.0"
+XSCHEM_PREFIX="$TOOLS_DIR/xschem-$XSCHEM_SHORT"
+OPENEMS_PREFIX="$TOOLS_DIR/openems-0.37.0"
+MINIFORGE="$TOOLS_DIR/miniforge3"
+PYMEEP_PY="$MINIFORGE/envs/pymeep/bin/python"
 OFFLINE="${PROV_OFFLINE:-0}"
 
 # Dev-PATH inside the provisioner: the bundle and tools bins win
@@ -221,6 +272,249 @@ check_opensta() {
     mark_missing "opensta"
 }
 
+OK2_COUNT=0
+MISSING2=""
+
+mark2_ok() { OK2_COUNT=$((OK2_COUNT + 1)); }
+mark2_missing() { MISSING2="$MISSING2 $1"; }
+
+# Phase-2 policy: provisioned (pinfile matches pin) -> OK pinned;
+# else ambient banner in the EXPECT family -> OK ambient-recorded
+# (version always printed, never assumed); else missing + remedy.
+check_pinned_or_ambient() {  # id, prefix, pinfile-name, pin, expect, url, bin, version-argv...
+    local id="$1" prefix="$2" pinname="$3" pin="$4" expect="$5" url="$6"
+    local bin="$7"
+    shift 7
+    local pinfile="$prefix/$pinname"
+    local prov_bin="$prefix/bin/$bin"
+    if [ -x "$prov_bin" ] && [ -f "$pinfile" ] \
+        && [ "$(head -n 1 "$pinfile")" = "$pin" ]
+    then
+        local out
+        out="$(banner_of "$prov_bin" "$@")"
+        case "$out" in
+            *"$expect"*)
+                note "$id pinned $pin [$prov_bin] $out"
+                mark2_ok
+                return 0
+                ;;
+        esac
+        note "$id UNRUNNABLE ($prov_bin banner '$out' lacks '$expect')"
+        remedy "$id" "provisioned build fails its banner" \
+            "rebuild via scripts/provision_toolchain.sh --install" "$url"
+        mark2_missing "$id"
+        return 0
+    fi
+    local ambient
+    ambient="$(command -v "$bin" || true)"
+    if [ -z "$ambient" ]; then
+        note "$id absent [$prov_bin]"
+        remedy "$id" "no provisioned build, none ambient" \
+            "run scripts/provision_toolchain.sh --install" "$url"
+        mark2_missing "$id"
+        return 0
+    fi
+    local out
+    out="$(banner_of "$ambient" "$@")"
+    case "$out" in
+        *"$expect"*)
+            note "$id ambient $out [$ambient]"
+            mark2_ok
+            ;;
+        *)
+            note "$id MISMATCH got '$out' want '*$expect*'"
+            remedy "$id" "ambient '$out' outside family '$expect'" \
+                "run scripts/provision_toolchain.sh --install" "$url"
+            mark2_missing "$id"
+            ;;
+    esac
+}
+
+check_magic() {
+    check_pinned_or_ambient magic "$MAGIC_PREFIX" MAGIC_REF \
+        "$MAGIC_REF" "$MAGIC_EXPECT" "$MAGIC_REPO" magic \
+        -dnull -noconsole --version
+}
+
+check_netgen() {
+    check_pinned_or_ambient netgen "$NETGEN_PREFIX" NETGEN_REF \
+        "$NETGEN_REF" "$NETGEN_EXPECT" "$NETGEN_REPO" netgen \
+        -batch -h
+}
+
+check_klayout() {
+    check_pinned_or_ambient klayout "$KLAYOUT_PREFIX" KLAYOUT_PIN \
+        "$KLAYOUT_PIN" "$KLAYOUT_EXPECT" \
+        "https://www.klayout.de/build.html" klayout -v
+}
+
+check_ngspice() {
+    # ngspice --version banners on a later line; grep the family.
+    local prefix="$NGSPICE_PREFIX" pinfile="$NGSPICE_PREFIX/NGSPICE_PIN"
+    local prov_bin="$prefix/bin/ngspice"
+    if [ -x "$prov_bin" ] && [ -f "$pinfile" ] \
+        && [ "$(head -n 1 "$pinfile")" = "$NGSPICE_PIN" ]
+    then
+        note "ngspice pinned $NGSPICE_PIN [$prov_bin]"
+        mark2_ok
+        return 0
+    fi
+    local ambient
+    ambient="$(command -v ngspice || true)"
+    if [ -z "$ambient" ]; then
+        note "ngspice absent [$prov_bin]"
+        remedy "ngspice" "no provisioned build, none ambient" \
+            "run scripts/provision_toolchain.sh --install" \
+            "https://ngspice.sourceforge.io/download.html"
+        mark2_missing "ngspice"
+        return 0
+    fi
+    local out
+    out="$("$ambient" --version </dev/null 2>&1 | grep -m1 -o 'ngspice-[0-9]*' || true)"
+    case "$out" in
+        "$NGSPICE_EXPECT"*)
+            note "ngspice ambient $out [$ambient]"
+            mark2_ok
+            ;;
+        *)
+            note "ngspice MISMATCH got '$out' want '$NGSPICE_EXPECT*'"
+            remedy "ngspice" "ambient '$out' outside family" \
+                "run scripts/provision_toolchain.sh --install" \
+                "https://ngspice.sourceforge.io/download.html"
+            mark2_missing "ngspice"
+            ;;
+    esac
+}
+
+check_xyce() {
+    check_pinned_or_ambient xyce "$XYCE_PREFIX" XYCE_REF \
+        "$XYCE_REF" "$XYCE_EXPECT" "$XYCE_REPO" Xyce -version
+}
+
+check_xschem() {
+    # xschem -v buries the version after X-notice lines; grep it.
+    local pinfile="$XSCHEM_PREFIX/XSCHEM_REF"
+    local prov_bin="$XSCHEM_PREFIX/bin/xschem"
+    local bin="$prov_bin" pinned="no"
+    if [ -x "$prov_bin" ] && [ -f "$pinfile" ] \
+        && [ "$(head -n 1 "$pinfile")" = "$XSCHEM_REF" ]
+    then
+        pinned="yes"
+    else
+        bin="$(command -v xschem || true)"
+    fi
+    if [ -z "$bin" ]; then
+        note "xschem absent [$prov_bin]"
+        remedy "xschem" "no provisioned build, none ambient" \
+            "run scripts/provision_toolchain.sh --install" "$XSCHEM_REPO"
+        mark2_missing "xschem"
+        return 0
+    fi
+    local out
+    out="$("$bin" -v </dev/null 2>&1 | grep -m1 -o 'XSCHEM V[0-9]*' || true)"
+    case "$out" in
+        "$XSCHEM_EXPECT"*)
+            if [ "$pinned" = "yes" ]; then
+                note "xschem pinned $XSCHEM_REF [$bin] $out"
+            else
+                note "xschem ambient $out [$bin]"
+            fi
+            mark2_ok
+            ;;
+        *)
+            note "xschem MISMATCH got '$out' want '$XSCHEM_EXPECT*'"
+            remedy "xschem" "banner outside family" \
+                "run scripts/provision_toolchain.sh --install" "$XSCHEM_REPO"
+            mark2_missing "xschem"
+            ;;
+    esac
+}
+
+check_pypkg() {  # id, pin, url — importable in the engine venv
+    local id="$1" pin="$2" url="$3"
+    local py="${PROV_PYTHON:-$ROOT_DIR/.venv/bin/python}"
+    [ -x "$py" ] || py="python3"
+    local got
+    got="$("$py" -c "import importlib.metadata as m; print(m.version('$id'))" 2>/dev/null || true)"
+    if [ "$got" = "$pin" ]; then
+        note "$id pinned $pin [engine venv]"
+        mark2_ok
+    elif [ -n "$got" ]; then
+        note "$id MISMATCH got '$got' want '$pin'"
+        remedy "$id" "venv has $got, pin is $pin" \
+            "run scripts/provision_toolchain.sh --install" "$url"
+        mark2_missing "$id"
+    else
+        note "$id absent [engine venv]"
+        remedy "$id" "$id==$pin not installed" \
+            "run scripts/provision_toolchain.sh --install" "$url"
+        mark2_missing "$id"
+    fi
+}
+
+check_cace() { check_pypkg cace "$CACE_PIN" "https://github.com/efabless/cace"; }
+check_devsim() { check_pypkg devsim "$DEVSIM_PIN" "https://pypi.org/project/devsim/"; }
+
+check_pymeep() {
+    if [ -x "$PYMEEP_PY" ]; then
+        local got
+        got="$("$PYMEEP_PY" -c "import meep; print(meep.__version__)" 2>/dev/null || true)"
+        if [ "$got" = "$PYMEEP_PIN" ]; then
+            note "pymeep pinned $got [$PYMEEP_PY]"
+            mark2_ok
+            return 0
+        fi
+        note "pymeep MISMATCH got '$got' want '$PYMEEP_PIN'"
+        remedy "pymeep" "conda env version drift" \
+            "run scripts/provision_toolchain.sh --install" \
+            "https://meep.readthedocs.io/en/latest/Installation/"
+        mark2_missing "pymeep"
+        return 0
+    fi
+    note "pymeep absent [$PYMEEP_PY]"
+    remedy "pymeep" "conda-forge pymeep==$PYMEEP_PIN not installed" \
+        "run scripts/provision_toolchain.sh --install" \
+        "https://meep.readthedocs.io/en/latest/Installation/"
+    mark2_missing "pymeep"
+}
+
+check_openems() {
+    check_pinned_or_ambient openems "$OPENEMS_PREFIX" OPENEMS_REF \
+        "$OPENEMS_REF" "$OPENEMS_EXPECT" "$OPENEMS_REPO" openEMS --version
+}
+
+check_elmer() {
+    local bin
+    bin="$(command -v ElmerSolver || true)"
+    if [ -z "$bin" ]; then
+        note "elmer absent [ElmerSolver]"
+        remedy "elmer" "ElmerSolver not installed" \
+            "run scripts/provision_toolchain.sh --install (needs sudo for $ELMER_PPA)" \
+            "https://www.csc.fi/web/elmer"
+        mark2_missing "elmer"
+        return 0
+    fi
+    local out
+    out="$(banner_of "$bin" --version)"
+    case "$out" in
+        *"$ELMER_EXPECT"*|*[Ee]lmer*)
+            note "elmer ambient $out [$bin]"
+            mark2_ok
+            ;;
+        *)
+            note "elmer MISMATCH got '$out'"
+            remedy "elmer" "banner unrecognized" \
+                "run scripts/provision_toolchain.sh --install" \
+                "https://www.csc.fi/web/elmer"
+            mark2_missing "elmer"
+            ;;
+    esac
+}
+
+check_palace() {
+    note "palace UNSOURCED (docs/provision-sources.md 12) — no pin until install docs are read"
+}
+
 run_checks() {
     OK_COUNT=0
     MISSING=""
@@ -230,14 +524,36 @@ run_checks() {
     check_librelane
     check_opensta
     note "note: GTKWave excluded from engine provisioning by the headless rule"
+    OK2_COUNT=0
+    MISSING2=""
+    check_magic
+    check_netgen
+    check_klayout
+    check_ngspice
+    check_xyce
+    check_xschem
+    check_cace
+    check_pymeep
+    check_openems
+    check_elmer
+    check_devsim
+    check_palace
 }
 
 verdict() {
     if [ "$OK_COUNT" -eq 4 ]; then
         note "PROV-PHASE1: OK (4/4 version-asserted)"
+    else
+        note "PROV-PHASE1: DEGRADED (missing:$MISSING)"
+    fi
+    if [ "$OK2_COUNT" -eq 11 ]; then
+        note "PROV-PHASE2: OK (11/11 provisioned-or-ambient-recorded)"
+    else
+        note "PROV-PHASE2: DEGRADED (missing:$MISSING2)"
+    fi
+    if [ "$OK_COUNT" -eq 4 ] && [ "$OK2_COUNT" -eq 11 ]; then
         return 0
     fi
-    note "PROV-PHASE1: DEGRADED (missing:$MISSING)"
     return 1
 }
 
@@ -378,13 +694,355 @@ install_opensta() {
     return 0
 }
 
+prereqs_or_remedy() {  # id, url, tools...
+    local id="$1" url="$2"
+    shift 2
+    local missing_prereq=""
+    for tool in "$@"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            missing_prereq="$missing_prereq $tool"
+        fi
+    done
+    if [ -n "$missing_prereq" ]; then
+        remedy "$id" "build prerequisites missing:$missing_prereq" \
+            "install them (see $url prerequisites), then re-run --install" \
+            "$url"
+        return 1
+    fi
+    return 0
+}
+
+autotools_git_install() {  # id, repo, ref, prefix, pinname, configure-args...
+    local id="$1" repo="$2" ref="$3" prefix="$4" pinname="$5"
+    shift 5
+    local src="$TOOLS_DIR/src/$id-$ref"
+    mkdir -p "$TOOLS_DIR/src" "$prefix" || return 1
+    if [ ! -d "$src" ]; then
+        note "install $id: cloning $ref"
+        clone_retry "$repo" "$src" "$ref" || {
+            remedy "$id" "git clone/checkout failed (offline?)" \
+                "retry with network, then re-run --install" "$repo"
+            return 1
+        }
+    fi
+    note "install $id: configure + make"
+    (cd "$src" && ./configure --prefix="$prefix" "$@" \
+        && make -j"$(nproc)" && make install) || {
+        remedy "$id" "configure/make/install failed" \
+            "see the tool README prerequisites, then re-run --install" "$repo"
+        return 1
+    }
+    printf '%s\n' "$ref" >"$prefix/$pinname"
+    return 0
+}
+
+install_magic() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "magic"; return 1; fi
+    prereqs_or_remedy "magic" "$MAGIC_REPO" git make gcc tclsh wish || return 1
+    ATTEMPTED=1
+    autotools_git_install magic "$MAGIC_REPO" "$MAGIC_REF" \
+        "$MAGIC_PREFIX" MAGIC_REF --enable-cairo-offscreen
+}
+
+install_netgen() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "netgen"; return 1; fi
+    prereqs_or_remedy "netgen" "$NETGEN_REPO" git make gcc tclsh || return 1
+    ATTEMPTED=1
+    autotools_git_install netgen "$NETGEN_REPO" "$NETGEN_REF" \
+        "$NETGEN_PREFIX" NETGEN_REF
+}
+
+install_klayout() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "klayout"; return 1; fi
+    prereqs_or_remedy "klayout" "https://www.klayout.de/build.html" \
+        dpkg-deb || return 1
+    ATTEMPTED=1
+    mkdir -p "$KLAYOUT_PREFIX" || return 1
+    local deb="$TOOLS_DIR/klayout-$KLAYOUT_PIN-amd64.deb"
+    note "install klayout: fetching $KLAYOUT_DEB"
+    fetch "$KLAYOUT_DEB" "$deb" || {
+        remedy "klayout" "deb download failed (offline?)" \
+            "retry with network, then re-run --install" \
+            "https://www.klayout.de/build.html"
+        return 1
+    }
+    dpkg-deb -x "$deb" "$KLAYOUT_PREFIX" || {
+        remedy "klayout" "deb extract failed" \
+            "remove $deb and retry --install" \
+            "https://www.klayout.de/build.html"
+        return 1
+    }
+    # .deb extraction needs no root but also resolves no deps: the
+    # banner check after install proves liveness; a dead binary
+    # remedies toward sudo apt install ./deb instead.
+    printf '%s\n' "$KLAYOUT_PIN" >"$KLAYOUT_PREFIX/KLAYOUT_PIN"
+    note "install klayout: extracted to $KLAYOUT_PREFIX (deps: host Qt/runtime libs)"
+    return 0
+}
+
+install_ngspice() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "ngspice"; return 1; fi
+    prereqs_or_remedy "ngspice" \
+        "https://ngspice.sourceforge.io/download.html" \
+        make gcc bison flex || return 1
+    ATTEMPTED=1
+    local tgz="$TOOLS_DIR/ngspice-$NGSPICE_PIN.tar.gz"
+    note "install ngspice: fetching rework $NGSPICE_PIN"
+    fetch "$NGSPICE_TGZ" "$tgz" || {
+        remedy "ngspice" "tarball download failed (offline?)" \
+            "retry with network, then re-run --install" \
+            "https://ngspice.sourceforge.io/download.html"
+        return 1
+    }
+    mkdir -p "$TOOLS_DIR/src" "$NGSPICE_PREFIX" || return 1
+    tar -xzf "$tgz" -C "$TOOLS_DIR/src" || {
+        remedy "ngspice" "extract failed" \
+            "remove $tgz and retry --install" \
+            "https://ngspice.sourceforge.io/download.html"
+        return 1
+    }
+    (cd "$TOOLS_DIR/src/ngspice-$NGSPICE_PIN" \
+        && ./configure --prefix="$NGSPICE_PREFIX" \
+        && make -j"$(nproc)" && make install) || {
+        remedy "ngspice" "configure/make/install failed" \
+            "see the ngspice manual ch. 32 prerequisites" \
+            "https://ngspice.sourceforge.io/download.html"
+        return 1
+    }
+    printf '%s\n' "$NGSPICE_PIN" >"$NGSPICE_PREFIX/NGSPICE_PIN"
+    return 0
+}
+
+install_xyce() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "xyce"; return 1; fi
+    prereqs_or_remedy "xyce" "https://xyce.sandia.gov/" \
+        git cmake make gcc g++ gfortran bison flex || return 1
+    ATTEMPTED=1
+    local tsrc="$TOOLS_DIR/src/trilinos-$TRILINOS_REF"
+    local tpref="$TOOLS_DIR/trilinos-$TRILINOS_REF"
+    mkdir -p "$TOOLS_DIR/src" "$tpref" "$XYCE_PREFIX" || return 1
+    if [ ! -d "$tsrc" ]; then
+        note "install xyce: cloning Trilinos $TRILINOS_REF (serial-first)"
+        clone_retry "$TRILINOS_REPO" "$tsrc" "$TRILINOS_REF" || {
+            remedy "xyce" "Trilinos clone failed (offline?)" \
+                "retry with network, then re-run --install" \
+                "https://xyce.sandia.gov/"
+            return 1
+        }
+    fi
+    note "install xyce: building Trilinos (long; per the Xyce building guide)"
+    (mkdir -p "$tsrc/build" && cd "$tsrc/build" \
+        && cmake -DCMAKE_INSTALL_PREFIX="$tpref" \
+            -DTrilinos_ENABLE_ALL_PACKAGES=OFF \
+            -DTrilinos_ENABLE_Teuchos=ON -DTrilinos_ENABLE_Epetra=ON \
+            -DTrilinos_ENABLE_EpetraExt=ON -DTrilinos_ENABLE_Ifpack=ON \
+            -DTrilinos_ENABLE_Amesos=ON -DTrilinos_ENABLE_AztecOO=ON \
+            -DTrilinos_ENABLE_Belos=ON -DTrilinos_ENABLE_Amesos2=ON \
+            -DTrilinos_ENABLE_Sacado=ON -DTrilinos_ENABLE_Stokhos=ON \
+            -DTrilinos_ENABLE_NOX=ON -DTrilinos_ENABLE_Zoltan=ON \
+            -DTrilinos_ENABLE_ShyLU=ON -DTPL_ENABLE_MPI=OFF \
+            -DCMAKE_BUILD_TYPE=Release .. \
+        && make -j"$(nproc)" && make install) || {
+        remedy "xyce" "Trilinos build failed" \
+            "check the Xyce building guide Trilinos section for $XYCE_REF" \
+            "https://xyce.sandia.gov/"
+        return 1
+    }
+    local xsrc="$TOOLS_DIR/src/xyce-$XYCE_REF"
+    if [ ! -d "$xsrc" ]; then
+        note "install xyce: cloning Xyce $XYCE_REF"
+        clone_retry "$XYCE_REPO" "$xsrc" "$XYCE_REF" || {
+            remedy "xyce" "Xyce clone failed (offline?)" \
+                "retry with network, then re-run --install" \
+                "https://xyce.sandia.gov/"
+            return 1
+        }
+    fi
+    note "install xyce: autotools build against $tpref"
+    (cd "$xsrc" && ./configure --prefix="$XYCE_PREFIX" \
+        --with-trilinosdir="$tpref" ARCHDIR="$tpref" \
+        && make -j"$(nproc)" && make install) || {
+        remedy "xyce" "Xyce configure/make/install failed" \
+            "check the Xyce building guide for $XYCE_REF (+Trilinos compat)" \
+            "https://xyce.sandia.gov/"
+        return 1
+    }
+    printf '%s\n' "$XYCE_REF" >"$XYCE_PREFIX/XYCE_REF"
+    return 0
+}
+
+install_xschem() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "xschem"; return 1; fi
+    prereqs_or_remedy "xschem" "$XSCHEM_REPO" git make gcc tclsh wish || return 1
+    ATTEMPTED=1
+    autotools_git_install xschem "$XSCHEM_REPO" "$XSCHEM_REF" \
+        "$XSCHEM_PREFIX" XSCHEM_REF
+}
+
+venv_pip_install() {  # id, pin, url
+    if [ "$OFFLINE" = "1" ]; then offline_stop "$1"; return 1; fi
+    if ! command -v uv >/dev/null 2>&1; then
+        remedy "$1" "uv not on PATH" \
+            "install uv (see install.sh), then re-run --install" "$3"
+        return 1
+    fi
+    if [ ! -x "$ROOT_DIR/.venv/bin/python" ]; then
+        remedy "$1" "engine venv missing" \
+            "run scripts/install.sh --install first, then re-run" "$3"
+        return 1
+    fi
+    ATTEMPTED=1
+    note "install $1: uv pip install $1==$2 (lockfile update rides a lane commit)"
+    uv pip install --python "$ROOT_DIR/.venv/bin/python" "$1==$2" || {
+        remedy "$1" "uv pip install failed (offline?)" \
+            "retry with network, then re-run --install" "$3"
+        return 1
+    }
+    return 0
+}
+
+install_cace() {
+    # CACE brings no tools of its own: require its deps first.
+    for dep in xschem magic netgen ngspice; do
+        case " $MISSING2 " in
+            *" $dep "*) : ;;
+            *) continue ;;
+        esac
+        remedy "cace" "dependency $dep not provisioned" \
+            "provision $dep first (same --install run), then retry" \
+            "https://github.com/efabless/cace"
+        return 1
+    done
+    venv_pip_install cace "$CACE_PIN" "https://github.com/efabless/cace"
+}
+
+install_devsim() {
+    venv_pip_install devsim "$DEVSIM_PIN" "https://pypi.org/project/devsim/"
+}
+
+install_pymeep() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "pymeep"; return 1; fi
+    ATTEMPTED=1
+    if [ ! -x "$MINIFORGE/bin/conda" ]; then
+        note "install pymeep: bootstrapping miniforge"
+        local inst="$TOOLS_DIR/miniforge-installer.sh"
+        fetch "$MINIFORGE_URL" "$inst" || {
+            remedy "pymeep" "miniforge download failed (offline?)" \
+                "retry with network, then re-run --install" \
+                "https://meep.readthedocs.io/en/latest/Installation/"
+            return 1
+        }
+        bash "$inst" -b -p "$MINIFORGE" || {
+            remedy "pymeep" "miniforge bootstrap failed" \
+                "see the conda-forge install docs, then re-run --install" \
+                "https://meep.readthedocs.io/en/latest/Installation/"
+            return 1
+        }
+    fi
+    note "install pymeep: conda create pymeep=$PYMEEP_PIN"
+    "$MINIFORGE/bin/conda" create -y -n pymeep -c conda-forge \
+        "pymeep=$PYMEEP_PIN" || {
+        remedy "pymeep" "conda create failed (offline?)" \
+            "retry with network, then re-run --install" \
+            "https://meep.readthedocs.io/en/latest/Installation/"
+        return 1
+    }
+    return 0
+}
+
+install_openems() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "openems"; return 1; fi
+    prereqs_or_remedy "openems" "https://docs.openEMS.de/" \
+        git cmake make gcc g++ || return 1
+    ATTEMPTED=1
+    local csrc="$TOOLS_DIR/src/csxcad-$CSXCAD_REF"
+    mkdir -p "$TOOLS_DIR/src" "$OPENEMS_PREFIX" || return 1
+    if [ ! -d "$csrc" ]; then
+        note "install openems: cloning CSXCAD $CSXCAD_REF"
+        clone_retry "$CSXCAD_REPO" "$csrc" "$CSXCAD_REF" || {
+            remedy "openems" "CSXCAD clone failed (offline?)" \
+                "retry with network, then re-run --install" \
+                "https://docs.openEMS.de/"
+            return 1
+        }
+    fi
+    note "install openems: building CSXCAD"
+    (mkdir -p "$csrc/build" && cd "$csrc/build" \
+        && cmake -DCMAKE_INSTALL_PREFIX="$OPENEMS_PREFIX" .. \
+        && make -j"$(nproc)" && make install) || {
+        remedy "openems" "CSXCAD build failed" \
+            "see the openEMS manual prerequisites (hdf5/vtk/boost)" \
+            "https://docs.openEMS.de/"
+        return 1
+    }
+    local osrc="$TOOLS_DIR/src/openems-$OPENEMS_REF"
+    if [ ! -d "$osrc" ]; then
+        note "install openems: cloning openEMS $OPENEMS_REF"
+        clone_retry "$OPENEMS_REPO" "$osrc" "$OPENEMS_REF" || {
+            remedy "openems" "openEMS clone failed (offline?)" \
+                "retry with network, then re-run --install" \
+                "https://docs.openEMS.de/"
+            return 1
+        }
+    fi
+    note "install openems: building openEMS"
+    (mkdir -p "$osrc/build" && cd "$osrc/build" \
+        && cmake -DCMAKE_INSTALL_PREFIX="$OPENEMS_PREFIX" \
+            -DCSXCAD_ROOT_DIR="$OPENEMS_PREFIX" .. \
+        && make -j"$(nproc)" && make install) || {
+        remedy "openems" "openEMS build failed" \
+            "see the openEMS manual prerequisites" \
+            "https://docs.openEMS.de/"
+        return 1
+    }
+    printf '%s\n' "$OPENEMS_REF" >"$OPENEMS_PREFIX/OPENEMS_REF"
+    return 0
+}
+
+install_elmer() {
+    if [ "$OFFLINE" = "1" ]; then offline_stop "elmer"; return 1; fi
+    if [ "$(id -u)" -ne 0 ] && ! command -v sudo >/dev/null 2>&1; then
+        remedy "elmer" "apt route needs sudo" \
+            "sudo add-apt-repository -y $ELMER_PPA && sudo apt-get update && sudo apt-get install -y elmerfem-csc" \
+            "https://www.csc.fi/web/elmer"
+        return 1
+    fi
+    ATTEMPTED=1
+    note "install elmer: CSC PPA + apt (needs sudo)"
+    sudo add-apt-repository -y "$ELMER_PPA" \
+        && sudo apt-get update \
+        && sudo apt-get install -y elmerfem-csc || {
+        remedy "elmer" "apt install failed" \
+            "see the Elmer CSC install docs, then re-run --install" \
+            "https://www.csc.fi/web/elmer"
+        return 1
+    }
+    return 0
+}
+
+install_palace() {
+    remedy "palace" "install docs not yet sourced" \
+        "read awslabs palace install docs into docs/provision-sources.md 12 first" \
+        "docs/provision-sources.md"
+    return 1
+}
+
 write_env() {
     # Consumer contract (DIGITAL-FLOW/TIMING-STA): source this file.
     cat >"$TOOLS_DIR/prov-phase1.env" <<EOF
-# PROV phase 1 toolchain paths (generated; do not hand-edit).
+# PROV toolchain paths (generated; do not hand-edit).
 OSS_CAD_SUITE_DIR="$OSS_DIR"
 LIBRELANE_APPIMAGE="$APPIMAGE"
 OPENSTA_PREFIX="$OPENSTA_PREFIX"
+MAGIC_PREFIX="$MAGIC_PREFIX"
+NETGEN_PREFIX="$NETGEN_PREFIX"
+KLAYOUT_PREFIX="$KLAYOUT_PREFIX"
+NGSPICE_PREFIX="$NGSPICE_PREFIX"
+XYCE_PREFIX="$XYCE_PREFIX"
+XSCHEM_PREFIX="$XSCHEM_PREFIX"
+OPENEMS_PREFIX="$OPENEMS_PREFIX"
+MINIFORGE="$MINIFORGE"
+PYMEEP_PY="$PYMEEP_PY"
 EOF
 }
 
@@ -402,7 +1060,7 @@ net_ok() {
 }
 
 run_checks
-if [ "$OK_COUNT" -eq 4 ]; then
+if [ "$OK_COUNT" -eq 4 ] && [ "$OK2_COUNT" -eq 11 ]; then
     mkdir -p "$TOOLS_DIR" 2>/dev/null && write_env
     verdict
     exit $?
@@ -423,6 +1081,11 @@ esac
 case " $MISSING " in
     *" opensta "*) install_opensta || true ;;
 esac
+for tool in magic netgen klayout ngspice xyce xschem cace pymeep openems elmer devsim; do
+    case " $MISSING2 " in
+        *" $tool "*) "install_$tool" || true ;;
+    esac
+done
 
 run_checks
 if [ "$OK_COUNT" -eq 4 ] || [ "$ATTEMPTED" = "1" ]; then

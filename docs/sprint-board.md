@@ -25,7 +25,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 
-- [PROV] B10 full-bundle provisioning via install.sh (phase 1: to-GDS toolchain)
+- [PROV] B10 full-bundle provisioning via install.sh (phase 1+2 encoded; live --install pending on networked host)
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
