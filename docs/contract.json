@@ -24,11 +24,19 @@
           "run_id"
         ],
         "run_completed": [
+          "findings",
+          "findings_truncated",
+          "log_excerpt",
+          "log_lines",
           "operation",
           "run_id",
           "verdict"
         ],
         "run_failed": [
+          "findings",
+          "findings_truncated",
+          "log_excerpt",
+          "log_lines",
           "operation",
           "run_id",
           "verdict"
@@ -402,6 +410,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -476,6 +492,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -770,6 +794,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -831,6 +863,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -917,6 +957,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -998,6 +1046,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -1091,6 +1147,14 @@
                 "vhdl"
               ],
               "type": "string"
+            },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
             },
             "top_is_subckt": {
               "default": false,
@@ -1188,6 +1252,14 @@
                   ],
                   "type": "string"
                 },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
                 "top_is_subckt": {
                   "default": false,
                   "description": "Emit the top cell as a subcircuit.",
@@ -1278,6 +1350,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -1288,6 +1368,9 @@
         },
         "tech": {
           "description": "Magic tech name (default scmos)."
+        },
+        "timeout_s": {
+          "description": "Sim budget in seconds (default 120)."
         },
         "workdir": {
           "description": "Run directory (default \".\")."
@@ -1343,6 +1426,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -1408,6 +1499,14 @@
                   ],
                   "type": "string"
                 },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
                 "top_is_subckt": {
                   "default": false,
                   "description": "Emit the top cell as a subcircuit.",
@@ -1418,6 +1517,9 @@
             },
             "tech": {
               "description": "Magic tech name (default scmos)."
+            },
+            "timeout_s": {
+              "description": "Sim budget in seconds (default 120)."
             },
             "workdir": {
               "description": "Run directory (default \".\")."
@@ -1475,6 +1577,14 @@
                 "vhdl"
               ],
               "type": "string"
+            },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
             },
             "top_is_subckt": {
               "default": false,
@@ -1540,6 +1650,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -1617,6 +1735,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -1678,6 +1804,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -1752,6 +1886,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -1821,6 +1963,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -1903,6 +2053,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -1980,6 +2138,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -2061,6 +2227,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -2128,6 +2302,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -2236,6 +2418,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -2305,6 +2495,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -2379,6 +2577,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -2444,6 +2650,14 @@
                   ],
                   "type": "string"
                 },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
                 "top_is_subckt": {
                   "default": false,
                   "description": "Emit the top cell as a subcircuit.",
@@ -2507,6 +2721,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -2604,6 +2826,14 @@
                 "vhdl"
               ],
               "type": "string"
+            },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
             },
             "top_is_subckt": {
               "default": false,
@@ -2711,6 +2941,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -2821,6 +3059,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -2911,6 +3157,14 @@
                   ],
                   "type": "string"
                 },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
                 "top_is_subckt": {
                   "default": false,
                   "description": "Emit the top cell as a subcircuit.",
@@ -2991,6 +3245,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -3058,6 +3320,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -3141,6 +3411,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -3215,6 +3493,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -3310,6 +3596,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -3389,6 +3683,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -3481,6 +3783,14 @@
               ],
               "type": "string"
             },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
             "top_is_subckt": {
               "default": false,
               "description": "Emit the top cell as a subcircuit.",
@@ -3546,6 +3856,14 @@
                     "vhdl"
                   ],
                   "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "top_is_subckt": {
                   "default": false,
@@ -4352,7 +4670,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "9da7eb49479244094e13f004a886f835297950e9fc07f914b59a559a0bf80633",
+  "schema_sha256": "212bf70ca2006a84b432431e4a412eceae81dc3d664b689ef9a0267d77deedb2",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

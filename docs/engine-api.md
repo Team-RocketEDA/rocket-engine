@@ -764,6 +764,7 @@ Arguments:
 - `tech`: Magic tech name (default scmos).
 - `deck`: Optional mapping; deck.tool selects the solver (magic here, klayout for the KLayout path).
 - `workdir`: Run directory (default ".").
+- `timeout_s`: Sim budget in seconds (default 120).
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
 - `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
@@ -779,7 +780,7 @@ Raises:
 
 (parse) AdapterError: runner_unavailable when the output has no DRC total line.
 
-Caution: Magic exits 0 even for broken cells and unknown techs — the verdict always comes from parsed output, never the exit code. Timeout is fixed at 120 s.
+Caution: Magic exits 0 even for broken cells and unknown techs — the verdict always comes from parsed output, never the exit code. Timeout rides the job budget.
 
 #### Tool `klayout`
 
