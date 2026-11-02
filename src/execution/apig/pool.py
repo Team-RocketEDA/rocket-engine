@@ -17,6 +17,9 @@ caller, and drains them — so a kill mid-queue still completes every
 request exactly once after reboot.
 """
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
 from ruamel.yaml import YAML
 
 try:
@@ -26,6 +29,7 @@ except ImportError:  # standalone verification before install
 
 POOL_VERSION = 1
 DEFAULT_MAX_DEPTH = 64
+DEFAULT_MAX_WORKERS = 4
 
 _yaml = YAML(typ="safe")
 
@@ -123,21 +127,29 @@ class ApigPool:
         max_depth: Maximum undrained backlog; admissions past it
             are refused with `pool_full`, never queued, never
             dropped silently.
+        max_workers: Drain fan-out for independent items
+            (BATCH-PARALLEL). Reads and sims run concurrently;
+            same-entity mutations serialize upstream through
+            ENTITY-CAS. 1 keeps the legacy sequential drain.
 
     Caution: The bound applies to new admissions only — replay
         re-enqueues crash survivors past the bound rather than
         abandoning admitted work.
     """
 
-    def __init__(self, project, runner, max_depth=DEFAULT_MAX_DEPTH):
+    def __init__(self, project, runner, max_depth=DEFAULT_MAX_DEPTH,
+                 max_workers=1):
         self._project = project
         self._runner = runner
         self._max_depth = max_depth
+        self._max_workers = max(1, int(max_workers))
+        self._lock = threading.Lock()
         self._backlog = []
         self._queued = {}
         self._acks = {}
         self._completions = {}
         self._completed_runs = None
+        self._discarded = set()
 
     @property
     def max_depth(self):
@@ -155,7 +167,8 @@ class ApigPool:
         Returns:
             Number of admitted runs awaiting drain.
         """
-        return len(self._backlog)
+        with self._lock:
+            return len(self._backlog)
 
     def _seed_completed(self):
         if self._completed_runs is None:
@@ -193,28 +206,30 @@ class ApigPool:
             ProjectError: invalid_yaml, revision_conflict, or
                 request_conflict from the ledger, untouched.
         """
-        if request_id in self._acks:
-            return dict(self._acks[request_id])
-        if len(self._backlog) >= self._max_depth:
-            raise ExecutionError(
-                "pool_full",
-                f"Pool saturated: {request_id} refused at "
-                f"depth {len(self._backlog)}/{self._max_depth}; "
-                "drain before submitting more.",
-                fields=[{"depth": len(self._backlog),
-                         "max_depth": self._max_depth}],
-            )
+        with self._lock:
+            if request_id in self._acks:
+                return dict(self._acks[request_id])
+            if len(self._backlog) >= self._max_depth:
+                raise ExecutionError(
+                    "pool_full",
+                    f"Pool saturated: {request_id} refused at "
+                    f"depth {len(self._backlog)}/{self._max_depth}; "
+                    "drain before submitting more.",
+                    fields=[{"depth": len(self._backlog),
+                             "max_depth": self._max_depth}],
+                )
         ack = self._project.submit(
             command_text, request_id, expected_revision=expected_revision
         )
         self._seed_completed()
         command = _yaml.load(command_text)
-        self._acks[request_id] = dict(ack)
-        if ack["run_id"] in self._completed_runs:
-            return dict(ack)
-        self._enqueue(
-            request_id, ack["run_id"], command, ack["snapshot_id"]
-        )
+        with self._lock:
+            self._acks[request_id] = dict(ack)
+            if ack["run_id"] in self._completed_runs:
+                return dict(ack)
+            self._enqueue_locked(
+                request_id, ack["run_id"], command, ack["snapshot_id"]
+            )
         return dict(ack)
 
     def adopt(self, request_id, run_id, command, snapshot_id):
@@ -239,24 +254,29 @@ class ApigPool:
             ExecutionError: pool_full when the undrained backlog
                 is at its bound.
         """
-        if request_id in self._queued or request_id in self._completions:
-            return False
-        self._seed_completed()
-        if run_id in self._completed_runs:
-            return False
-        if len(self._backlog) >= self._max_depth:
-            raise ExecutionError(
-                "pool_full",
-                f"Pool saturated: {request_id} refused at "
-                f"depth {len(self._backlog)}/{self._max_depth}; "
-                "drain before submitting more.",
-                fields=[{"depth": len(self._backlog),
-                         "max_depth": self._max_depth}],
-            )
-        self._enqueue(request_id, run_id, command, snapshot_id)
+        with self._lock:
+            if request_id in self._queued or request_id in self._completions:
+                return False
+            self._seed_completed()
+            if run_id in self._completed_runs:
+                return False
+            if len(self._backlog) >= self._max_depth:
+                raise ExecutionError(
+                    "pool_full",
+                    f"Pool saturated: {request_id} refused at "
+                    f"depth {len(self._backlog)}/{self._max_depth}; "
+                    "drain before submitting more.",
+                    fields=[{"depth": len(self._backlog),
+                             "max_depth": self._max_depth}],
+                )
+            self._enqueue_locked(request_id, run_id, command, snapshot_id)
         return True
 
     def _enqueue(self, request_id, run_id, command, snapshot_id):
+        with self._lock:
+            self._enqueue_locked(request_id, run_id, command, snapshot_id)
+
+    def _enqueue_locked(self, request_id, run_id, command, snapshot_id):
         entry = {
             "request_id": request_id,
             "run_id": run_id,
@@ -273,7 +293,8 @@ class ApigPool:
         Returns:
             Run ids in drain order.
         """
-        return [entry["run_id"] for entry in self._backlog]
+        with self._lock:
+            return [entry["run_id"] for entry in self._backlog]
 
     def drain(self, limit=None):
         """Run undrained entries oldest first.
@@ -287,13 +308,42 @@ class ApigPool:
                 becomes a failed completion carrying the error,
                 and the drain continues past it.
         """
-        run_ids = [entry["run_id"] for entry in self._backlog]
+        with self._lock:
+            run_ids = [entry["run_id"] for entry in self._backlog]
         if limit is not None:
             run_ids = run_ids[: max(0, limit)]
         return self.drain_ids(run_ids)
 
+    def discard(self, run_id):
+        """Drop one undrained backlog entry without running it.
+
+        Cancel-before-drain uses this: the admission stands in the
+        ledger, but the run never executes here. A later drain of
+        the same id returns a cancelled (NOT_RUN) completion; a
+        drain of an id never admitted still raises
+        unknown_request.
+
+        Args:
+            run_id: Backlog run id to drop.
+
+        Returns:
+            True when an entry was dropped, False when no backlog
+            entry names the id.
+        """
+        with self._lock:
+            for entry in self._backlog:
+                if entry["run_id"] == run_id:
+                    self._backlog.remove(entry)
+                    del self._queued[entry["request_id"]]
+                    self._discarded.add(run_id)
+                    return True
+        return False
+
     def drain_ids(self, run_ids):
         """Run named backlog entries in the given order.
+
+        With max_workers > 1 the runners overlap (BATCH-PARALLEL);
+        results still return in the given order.
 
         Args:
             run_ids: Backlog run ids to drain, in order.
@@ -305,40 +355,72 @@ class ApigPool:
             ExecutionError: unknown_request for a run id with no
                 backlog entry.
         """
-        completions = []
-        for run_id in run_ids:
-            entry = None
-            for candidate in self._backlog:
-                if candidate["run_id"] == run_id:
-                    entry = candidate
-                    break
-            if entry is None:
-                raise ExecutionError(
-                    "unknown_request", f"No queued request: {run_id}."
-                )
-            self._backlog.remove(entry)
-            del self._queued[entry["request_id"]]
-            try:
-                completion = self._runner(
-                    entry["operation"],
-                    dict(entry["arguments"]),
-                    entry["snapshot_id"],
-                    entry["request_id"],
-                    entry["run_id"],
-                )
-            except Exception as exc:  # noqa: BLE001 — recorded, never raised
-                code = getattr(exc, "code", type(exc).__name__)
-                completion = {
-                    "run_id": entry["run_id"],
-                    "state": "failed",
-                    "error": f"{code}: {exc}",
-                    "operation": entry["operation"],
-                }
+        cancelled_ids = []
+        with self._lock:
+            entries = []
+            for run_id in run_ids:
+                entry = None
+                for candidate in self._backlog:
+                    if candidate["run_id"] == run_id:
+                        entry = candidate
+                        break
+                if entry is None:
+                    if run_id in self._discarded:
+                        cancelled_ids.append(run_id)
+                        continue
+                    raise ExecutionError(
+                        "unknown_request", f"No queued request: {run_id}."
+                    )
+                self._backlog.remove(entry)
+                del self._queued[entry["request_id"]]
+                entries.append(entry)
+        by_id = {}
+        for run_id in cancelled_ids:
+            by_id[run_id] = {
+                "run_id": run_id,
+                "state": "cancelled",
+                "reason": "cancelled before dispatch",
+                "verdict": {
+                    "status": "NOT_RUN",
+                    "reason": "cancelled before dispatch",
+                },
+            }
+        if entries:
+            if self._max_workers <= 1 or len(entries) <= 1:
+                drained = [self._drain_one(entry) for entry in entries]
+            else:
+                with ThreadPoolExecutor(
+                    max_workers=min(self._max_workers, len(entries)),
+                    thread_name_prefix="apig-drain",
+                ) as pool:
+                    drained = list(pool.map(self._drain_one, entries))
+            for entry, completion in zip(entries, drained):
+                by_id.setdefault(entry["run_id"], completion)
+        return [by_id[run_id] for run_id in run_ids]
+
+    def _drain_one(self, entry):
+        """Run one backlog entry, recording its completion."""
+        try:
+            completion = self._runner(
+                entry["operation"],
+                dict(entry["arguments"]),
+                entry["snapshot_id"],
+                entry["request_id"],
+                entry["run_id"],
+            )
+        except Exception as exc:  # noqa: BLE001 — recorded, never raised
+            code = getattr(exc, "code", type(exc).__name__)
+            completion = {
+                "run_id": entry["run_id"],
+                "state": "failed",
+                "error": f"{code}: {exc}",
+                "operation": entry["operation"],
+            }
+        with self._lock:
             self._completions[entry["request_id"]] = completion
             self._seed_completed()
             self._completed_runs.add(entry["run_id"])
-            completions.append(completion)
-        return completions
+        return completion
 
     def replay(self, events, resolve):
         """Re-enqueue crash survivors from ledger events, then drain them.

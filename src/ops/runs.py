@@ -8,6 +8,20 @@ from ..execution.errors import ExecutionError
 from ..execution.replay_safe import content_key_for
 from ..interfaces.yaml_dump import dump_yaml_text
 from ..project.errors import ProjectError
+from .gates import check_submit_gates
+
+#: Per-item state rank for the batch worst-state-wins summary —
+#: a failed run outranks a cancelled one, which outranks a refused
+#: (never attempted) one, which outranks a clean completion.
+_STATE_RANK = {"failed": 3, "cancelled": 2, "refused": 1, "completed": 0}
+
+
+def _item_state(completion):
+    """Batch state for one completion: verdict FAIL reads failed."""
+    verdict = (completion or {}).get("verdict") or {}
+    if verdict.get("status") == "FAIL":
+        return "failed"
+    return completion.get("state", "completed")
 
 
 class _RunMixin:
@@ -62,6 +76,27 @@ class _RunMixin:
     def _pool_execute(self, operation, arguments, snapshot_id, request_id,
                       run_id):
         """Execute one pooled run through its solver, contained."""
+        try:
+            cancelled = (
+                self._execution.status(run_id)["state"] == "cancelled"
+            )
+        except ExecutionError:
+            cancelled = False
+        if cancelled:
+            verdict = {
+                "status": "NOT_RUN",
+                "reason": "cancelled before dispatch",
+            }
+            self._project.append_run_event(
+                "run_failed", run_id, operation, verdict, request_id
+            )
+            return {
+                "run_id": run_id,
+                "state": "cancelled",
+                "operation": operation,
+                "reason": "cancelled before dispatch",
+                "verdict": verdict,
+            }
         if not self._solvers.get(operation):
             self._latest[operation] = run_id
             self._logs[run_id] = (
@@ -102,13 +137,23 @@ class _RunMixin:
             contain=True,
         )
 
-    def _run_batch(self, run_ids):
+    def _run_batch(self, run_ids, force=False):
         """Pump a batch of admitted runs oldest-listed first.
 
         Finished runs contribute their stored completion without
-        re-executing; the rest are admitted to the pool (pool_full
-        refuses loudly past the bound) and drained in order. Every
-        listed id lands in exactly one of completions/refused.
+        re-executing; runs cancelled before drain contribute a
+        cancelled completion without running; the rest are
+        admitted to the pool (pool_full refuses loudly past the
+        bound), gate-rechecked at drain time (a verdict that moved
+        since submit refuses loud), and drained — concurrently
+        when the pool fans out. Every listed id lands in exactly
+        one of completions/refused, and states/summary roll the
+        per-item outcomes up worst-first.
+
+        Args:
+            run_ids: Admitted run ids to pump, in order.
+            force: Bypass drain-time verdict gates only (hard deps
+                still refuse).
         """
         if not isinstance(run_ids, list) or not run_ids:
             raise ProjectError(
@@ -147,14 +192,33 @@ class _RunMixin:
                 })
                 continue
             stored_command, ack = self._project.command_for(request_id)
-            if not self._solvers.get(stored_command.get("operation")):
+            operation = stored_command.get("operation")
+            if not self._solvers.get(operation):
                 refused.append({
                     "run_id": run_id,
                     "code": "unsupported_operation",
-                    "message": (
-                        "No solver registered: "
-                        f"{stored_command.get('operation')}."
-                    ),
+                    "message": f"No solver registered: {operation}.",
+                })
+                continue
+            if self._is_cancelled(run_id):
+                completions.append(
+                    self._record_cancelled_skip(
+                        run_id, operation, stored_command, request_id
+                    )
+                )
+                continue
+            try:
+                check_submit_gates(
+                    operation,
+                    stored_command.get("arguments") or {},
+                    self._project,
+                    force=force,
+                )
+            except ProjectError as exc:
+                refused.append({
+                    "run_id": run_id,
+                    "code": exc.code,
+                    "message": str(exc),
                 })
                 continue
             self._resolve_pending(request_id)
@@ -178,10 +242,46 @@ class _RunMixin:
             admitted.append(run_id)
         if admitted:
             completions.extend(self._pool.drain_ids(admitted))
+        states = {}
+        for completion in completions:
+            states[completion.get("run_id")] = _item_state(completion)
+        for entry in refused:
+            states[entry.get("run_id")] = "refused"
+        summary = "completed"
+        for state in states.values():
+            if _STATE_RANK.get(state, 0) > _STATE_RANK.get(summary, 0):
+                summary = state
         return {
             "run_ids": list(run_ids),
             "completions": completions,
             "refused": refused,
+            "states": states,
+            "summary": summary,
+        }
+
+    def _is_cancelled(self, run_id):
+        """True when the run was cancelled before this drain."""
+        try:
+            return self._execution.status(run_id)["state"] == "cancelled"
+        except ExecutionError:
+            return False
+
+    def _record_cancelled_skip(self, run_id, operation, stored_command,
+                               request_id):
+        """Record a cancel-before-drain skip as a terminal NOT_RUN."""
+        verdict = {
+            "status": "NOT_RUN",
+            "reason": "cancelled before dispatch",
+        }
+        self._project.append_run_event(
+            "run_failed", run_id, operation, verdict, request_id
+        )
+        return {
+            "run_id": run_id,
+            "state": "cancelled",
+            "operation": operation,
+            "reason": "cancelled before dispatch",
+            "verdict": verdict,
         }
 
     def _replay_once(self):

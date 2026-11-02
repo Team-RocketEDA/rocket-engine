@@ -31,6 +31,7 @@ untouched: only engine-tracked bytes restore, and files outside
 """
 
 import hashlib
+import threading
 import uuid
 from pathlib import Path
 
@@ -112,6 +113,10 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         self._actor = actor
         self._current_revision = current_revision
         self._max_retained_events = max_retained_events
+        # BATCH-PARALLEL: concurrent drains append run/replay events
+        # from worker threads — refresh/append/persist runs as one
+        # critical section so the durable log never interleaves.
+        self._ledger_lock = threading.RLock()
         self._requests = {}
         self._events = []
         self._docs = {}

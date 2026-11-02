@@ -35,13 +35,14 @@ class _RunMixin:
             raise ProjectError(
                 "invalid_command", f"Unknown run outcome: {outcome}."
             )
-        self._refresh_durable()
-        record = self._append_event(
-            outcome,
-            request_id,
-            {"run_id": run_id, "operation": operation, "verdict": verdict},
-        )
-        self._persist_after_mutation()
+        with self._ledger_lock:
+            self._refresh_durable()
+            record = self._append_event(
+                outcome,
+                request_id,
+                {"run_id": run_id, "operation": operation, "verdict": verdict},
+            )
+            self._persist_after_mutation()
         return record
 
     def append_replay_event(self, event, request_id, data):
@@ -79,9 +80,10 @@ class _RunMixin:
             raise ProjectError(
                 "invalid_command", "Replay event needs a data.run_id."
             )
-        self._refresh_durable()
-        record = self._append_event(event, request_id, dict(data))
-        self._persist_after_mutation()
+        with self._ledger_lock:
+            self._refresh_durable()
+            record = self._append_event(event, request_id, dict(data))
+            self._persist_after_mutation()
         return record
 
     def log_coalesced_request(self, command_text, request_id, run_id,

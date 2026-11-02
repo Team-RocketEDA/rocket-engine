@@ -60,10 +60,14 @@ from .adapters.synth_yosys import YosysSynthAdapter
 from .adapters.timing_sta import OpenStaTimingAdapter
 from .adapters.view_sync import ViewSyncAdapter
 from .execution.apig.pool import (
+    DEFAULT_MAX_WORKERS,
     ApigPool,
     request_for_run,
     stored_completion_from_events,
 )
+
+#: Batch drain fan-out for independent solver items (BATCH-PARALLEL).
+DEFAULT_BATCH_WORKERS = DEFAULT_MAX_WORKERS
 from .execution.apig.submit import merge_ack_completion
 from .execution.block_runs_scope import (
     BlockScopeError,
@@ -308,7 +312,8 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
         self._latest = {}
         self._run_jobs = {}
         self._pool = ApigPool(
-            self._project, self._pool_execute, max_depth=pool_max_depth
+            self._project, self._pool_execute, max_depth=pool_max_depth,
+            max_workers=DEFAULT_BATCH_WORKERS,
         )
         self._replay = ReplaySafe(self._project, self._replay_execute)
         self._cells = ApigCatalog(
@@ -950,8 +955,11 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
     def cancel_job(self, run_id=None):
         """Cancel a queued or running job through the job surface.
 
-        A live python_execute worker tree is killed promptly;
-        finished runs keep their terminal state, truthfully.
+        python_execute cells route to the cell runner (a live worker
+        tree is killed promptly); solver-lane runs route to the
+        execution record plus the pool backlog, so a queued batch
+        item never executes after cancel. Finished runs keep their
+        terminal state, truthfully.
 
         Args:
             run_id: Admitted execution id to cancel.
@@ -967,7 +975,16 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             raise ProjectError(
                 "invalid_command", "cancel_job needs a run_id argument."
             )
-        return self._pyexec.cancel(run_id)
+        try:
+            return self._pyexec.cancel(run_id)
+        except ExecutionError as exc:
+            if exc.code != "unknown_run" or not self._execution.known(
+                run_id
+            ):
+                raise
+        cancelled = self._execution.cancel(run_id)
+        self._pool.discard(run_id)
+        return cancelled
 
 
     def job_status(self, run_id=None):
@@ -1406,6 +1423,8 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
                 (resolves to its run when run_id is absent).
             run_ids: Batch form — admitted runs to pump oldest
                 listed first.
+            force: Batch form only — bypass drain-time verdict
+                gates (hard deps still refuse).
 
         Args:
             command: Envelope whose arguments carry run_id,
@@ -1415,9 +1434,10 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             Completion mapping with run_id, state, verdict, and
             operation for a single id (stored, never
             re-executed, when the run already finished); batch
-            mapping with run_ids, completions, and refused for
-            the batch form (every listed id lands in exactly
-            one of the two lists).
+            mapping with run_ids, completions, refused, per-item
+            states, and worst-state-wins summary for the batch
+            form (every listed id lands in exactly one of
+            completions/refused).
 
         Raises:
             ProjectError: invalid_command when the arguments lack a
@@ -1428,7 +1448,10 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
         """
         arguments = dict(command.get("arguments") or {})
         if arguments.get("run_ids") is not None:
-            return self._run_batch(arguments.get("run_ids"))
+            return self._run_batch(
+                arguments.get("run_ids"),
+                force=arguments.get("force") is True,
+            )
         run_id = arguments.get("run_id")
         if run_id is not None:
             # Idempotent fetch: a finished run returns its stored
