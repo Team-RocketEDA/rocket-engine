@@ -53,7 +53,7 @@ PARSE-ONLY→STRUCTURED (VCD is IEEE-grammar-stable).
 
 | tool | pin | adapter | bindings + evidence | structured escapes | MVP verdict |
 |---|---|---|---|---|---|
-| openroad | 2.x via LibreLane nix-eda 6.11.0 closure | — (flow-internal) | OFFICIAL in-binary: `openroad -python` exposes ord/odb/sta/... (SWIG Tcl+Python, test/python/). WARNING: PyPI `openroad` 0.0.1 is UNOFFICIAL squat (ethanmoon) — never use | .odb checkpoints, LEF/DEF, SPEF, SDC, `-metrics file.json` | KEEP-BINDINGS |
+| openroad | 2.x via LibreLane nix-eda 6.11.0 closure | — (flow-internal) | OFFICIAL: Python API is now a Bazel-built wheel — `openroad -python` NO LONGER EXISTS upstream (dissection correction; re-verify inside LibreLane 3.0.17 closure). WARNING: PyPI `openroad` 0.0.1 is UNOFFICIAL squat (ethanmoon) — never use | .odb checkpoints, LEF/DEF, SPEF, SDC, `-metrics file.json` | KEEP-BINDINGS |
 | opendb | via openroad closure | — | OFFICIAL: `import odb` inside `openroad -python` (same repo src/odb) | queryable .odb; LEF/DEF round-trip | KEEP-BINDINGS |
 | opensta | 857316f | timing_sta (deferred) | NONE standalone (Tcl interpreter only; `sta` python module exists solely inside OpenROAD) | none (report text) | DEFER (directive; STA-text grammar kept as residue) |
 | openrcx | via openroad/LibreLane closure | — | NONE of its own (Tcl cmds inside openroad) | SPEF output (IEEE 1481) + queryable .odb | KEEP-STRUCTURED |
@@ -61,7 +61,7 @@ PARSE-ONLY→STRUCTURED (VCD is IEEE-grammar-stable).
 | netgen | e310f30 (expect 1.5) | lvs_netgen | NONE (Tcl batch; PyPI/apt `netgen` may be mesh-generator collision — banner-probe) | none (report text) | KEEP-PARSE-ONLY |
 | klayout | 0.30.12 locked | drc_kl | NATIVE official: PyPI `klayout` 0.30.12 (owner matthias67) + `pya`/`klayout.db` | .lyrdb report-DB XML; GDS/OASIS I/O | KEEP-BINDINGS |
 | gdsfactory | 9.51.0 locked | gdsfactory | NATIVE Python library | GDS/OASIS/STL/GERBER + YAML settings/netlists | KEEP-BINDINGS |
-| kfactory | 3.0.4 locked (transitive) | — | NATIVE Python on KLayout engine (requires klayout>=0.30.9,<0.31 — satisfied) | KCell/DKCell, kdb.Region; GDS/OASIS | KEEP-BINDINGS |
+| kfactory | 3.0.4 locked (transitive) | — | NATIVE Python on KLayout engine. STALE: clone is 3.5.0 needing klayout>=0.30.12 (dissection) — satisfied by pin 0.30.12, re-lock on adopt | KCell/DKCell, kdb.Region; GDS/OASIS | KEEP-BINDINGS |
 
 ### analog
 
@@ -70,8 +70,8 @@ PARSE-ONLY→STRUCTURED (VCD is IEEE-grammar-stable).
 | ngspice | 47 (expect ngspice-4) | ngspice, postlayout, cosim | No PyPI (404). C shared-lib API (manual ch.19) + PySpice CFFI exist but are POST-MVP; MVP reads dumps | `-r rawfile` ASCII (`SPICE_ASCIIRAWFILE`/`filetype=ascii`, ch.16), `wrdata` tables | KEEP-PARSE-ONLY |
 | xyce | Release-7.10.0 | — | PyPI `xyce` is a PLACEHOLDER (PyMi needs separate shared-object build, not pip-installable) | .PRINT FORMAT=CSV/RAW, .MEASURE .mt0/.ms0/.ma0 | DEFER (directive) |
 | xschem | 7811010 (expect V3) | — | NONE official (Tcl/Tk; pyxschem is self-declared WIP, not for production) | product IS text: batch `xschem -n -x -q -s` netlist print | KEEP-PARSE-ONLY |
-| cace | 2.13.0 (pip) | — | NATIVE: `pip install cace`, `import cace` | YAML datasheet in/out (format 5.2) + JSON project file | KEEP-BINDINGS |
-| openvaf | UNPINNED, not in lock | — | verilogae PyPI STALE (Jan 2022); openvaf-py experimental; Original-vs-Reloaded fork split | `--dump-json` IR; output is OSDI .so (build-id risk) | DEFER (pin fork+rev first) |
+| cace | 2.13.0 (pip) | — | NATIVE: `pip install cace`, `import cace`. NOTE: dissection evidence at 2.5.6, ~8 minors behind pin — re-verify filenames/grammars before normalizer | YAML datasheet in/out (format 5.2) + JSON project file | KEEP-BINDINGS |
+| openvaf | UNPINNED, not in lock | — | verilogae PyPI stale (May 2023, not Jan 2022 — dissection); openvaf-py experimental; Original-vs-Reloaded fork split | `--dump-json` is a DEAD FLAG at a9697ae (driver bails `currently unimplemented`); output is OSDI .so (build-id risk); exit-0-on-hard-failure bug | DEFER (pin fork+rev first) |
 | pyspice | 1.5 locked | — (lib) | NATIVE: PyPI PySpice/1.5 (CFFI libngspice + netlist parser + raw→numpy) | raw parsers → numpy; Xyce netlist support | KEEP-BINDINGS |
 
 ### photonic-em
@@ -80,19 +80,19 @@ PARSE-ONLY→STRUCTURED (VCD is IEEE-grammar-stable).
 |---|---|---|---|---|---|
 | sax | 0.18.2 locked | sax | native Python (JAX S-params); JSON-envelope driver exists | in-API numpy/JAX arrays | KEEP-BINDINGS |
 | circulax | 0.2.5 locked | circulax | native Python (JAX/Optimistix/Diffrax); driver exists | in-API arrays | KEEP-BINDINGS |
-| meep | pymeep 1.35.0 (conda-forge) | — | official Python interface, CONDA-ONLY. PyPI `meep` 1.0.6 is an unrelated task-runner SQUAT — never pip-install | HDF5 field dumps; in-API numpy via h5py | DEFER (heavy physics, post_mvp) |
+| meep | pymeep 1.35.0 (conda-forge) | — | official Python interface; install doc shows official pymeep wheels on PyPI (dissection correction — conda-only claim was wrong). PyPI bare `meep` 1.0.6 is still an unrelated task-runner SQUAT — never pip-install | HDF5 field dumps; in-API numpy via h5py | DEFER (unstaffed: provisioned, needs adapter+proof) |
 | openems | v0.37.0 | — | official Python extension (`update_openEMS.sh --python`, isolated venv) | Touchstone .sNp, HDF5/VTK, CSX XML | DEFER (directive + post_mvp) |
 | csxcad | v0.7.0 | — | official Python module (`pip install .` from CSXCAD/python) | .csx geometry XML | DEFER (post_mvp-only) |
-| palace | UNSOURCED | — | NONE official (C++ binary, JSON config) | port-S.csv → Touchstone, palace.json log, VTU | DEFER (post_mvp + unsourced) |
+| palace | UNSOURCED | — | NONE official (C++ binary, JSON config) | port-S.csv is mag-dB/phase-deg CSV, NOT Touchstone (dissection correction); palace.json run metadata; VTU; MFEM .gf; _resolved.json | DEFER (post_mvp + unsourced) |
 | gmsh | UNPINNED | — | official `gmsh` PyPI wheel (`import gmsh`) | .msh mesh files, .geo scripts | DEFER (post_mvp-only; pin on adopt) |
-| meow | meow-sim 0.15.0 locked | meow (deferred) | native Python EME (Tidy3D cloud excluded by no-cloud rule); adapter exists | in-API T/R/phase/modes | DEFER (heavy; simulate.em post_mvp; wave 4) |
+| meow | meow-sim 0.15.0 locked | meow (deferred) | native Python EME (Tidy3D cloud excluded by no-cloud rule); adapter exists | in-API T/R/phase/modes | DEFER (unstaffed: locked + adapter exists, needs proof fixtures) |
 | femwell | UNPINNED | — | native Python FEM (scikit-fem based) | in-API fields/modes | DEFER (post_mvp; pin on adopt) |
 | meshwell | UNPINNED | — | native Python GMSH wrapper | returns gmsh meshes | DEFER (post_mvp-only) |
 | scikit_fem | UNPINNED | — | pure-Python FEM assembly | sparse matrices/vectors | DEFER (post_mvp-only) |
 | scikit_rf | 1.13.0 locked | — (lib) | native Python (`skrf.Network`, numpy FxNxN) | Touchstone I/O built in | KEEP-BINDINGS |
 | gplugins | UNPINNED | — | native meta-package (femwell/meow/elmer/gmsh/sax plugins) | per-plugin | DEFER (post_mvp-only; EXCLUDE tidy3d cloud plugin) |
-| elmer_fem | UNPINNED (PPA) | — | NONE official (ElmerSolver binaries + .sif); pyelmer = SIF writer only | VTU via ResultOutputSolve, SaveScalars .dat | DEFER (post_mvp-only) |
-| devsim | 2.11.2 (pip) | — | native Python-scripted TCAD (devsim.solve/get_contact_charge/write_devices) | ParaView ASCII + restart format | DEFER (post_mvp-only) |
+| elmer_fem | UNPINNED (PPA) | — | NONE official (ElmerSolver binaries + .sif); pyelmer = SIF writer only | VTU via ResultOutputSolve, SaveScalars .dat/JSON/CSV, convergence.dat | DEFER (unstaffed: ambient + file channels per dissection, needs adapter+proof) |
+| devsim | 2.11.2 (pip) | — | native Python-scripted TCAD (devsim.solve/get_contact_charge/write_devices) | ParaView ASCII + restart format | DEFER (unstaffed: installed in venv, needs adapter+proof) |
 
 ### flow-infra
 
@@ -153,21 +153,33 @@ adapter never trusts the exit code alone.
 
 ## Deferred list with reasons (26)
 
-Directive (stay deferred regardless of bindings): opensta (STA-text
-grammar kept as residue), xyce (CSV/RAW escapes documented for later),
-openems.
+Re-triaged 2026-11-02 under the rule: defer iff unproven AND
+heavy/unprovisioned. Implemented + provisioned physics is NOT deferred
+as a tool — it is unstaffed (needs adapter + proof fixtures). See
+`docs/tool-frontends-review.md`: only 12 of these 26 are frontends;
+the other 14 are internals that ride with their frontend.
 
-Heavy physics, post_mvp tasks only: meep, csxcad, palace (also
-unsourced — sourcing gates any adapter work), gmsh, femwell, meshwell,
-scikit_fem, gplugins, elmer_fem, devsim, meow (adapter exists but
-simulate.em is post_mvp; wave 4).
+A. Directive + scope (8 — stay deferred): opensta, xyce, openems
+(directive; STA-text/CSV/RAW grammars kept as residue for later);
+nextpnr, icestorm, trellis, oxide, apicula (off_mvp FPGA scope).
 
-FPGA toolchain, off_mvp: nextpnr, icestorm, trellis, oxide, apicula.
+B. Blocked on concrete cause (8): palace (unsourced — sourcing gates
+any work); openvaf (unpinned + fork split; `--dump-json` dead at
+a9697ae; compile.model ships without it until pinned); abc
+(yosys-internal sub-pass, no standalone adapter ever); yices (stale
+bindings); cvc4 (legacy); cudd + trilinos (build-only); miniforge
+(bootstrap; pin URL+checksum).
 
-Fragility / structural: abc (yosys owns the interface), yices (stale
-bindings), cvc4 (legacy), openvaf (unpinned + fork split + stale
-verilogae; compile.model ships without this provider until pinned),
-cudd + trilinos (build-only deps), miniforge (bootstrap; pin URL).
+C. Provisioned-but-unstaffed (4 — cheapest adapter wins, NOT tool
+gaps): meep (pymeep 1.35.0 installed; in-API numpy + HDF5), devsim
+(2.11.2 installed; native API), elmer_fem (ambient PPA; SaveScalars
+JSON/CSV + VTU per dissection), meow (locked + adapter exists; needs
+proof fixtures to activate).
+
+D. Pin-and-go (6 — native bindings/files, needs pin + proof):
+femwell, gmsh, meshwell, scikit_fem, gplugins (pin on adopt; EXCLUDE
+tidy3d cloud plugin), csxcad (pin v0.7.0; provision standalone or
+with openEMS).
 
 Note: meow/femwell/meep also appear in workflow.photonic (mvp), but
 their solver role is simulate.em (post_mvp); the workflow's MVP path
@@ -183,8 +195,9 @@ Concretely: 41 kept tools read via bindings or machine grammars, 4 via
 the pinned determinism cases above, and zero adapters ship on unpinned
 text scraping (uranium-grade rule). The demo path runs
 digital/analog/photonic/mixed fixtures end to end on dumps the audience
-can inspect, while 26 deferred tools (heavy physics, FPGA, STA/XYCE,
-fragile bindings) stay out of staffing until scope opens.
+can inspect, while deferred groups A/B stay out of staffing until
+scope opens and groups C/D wait only on adapters + proof (see
+re-triage above and `docs/tools/` grammars).
 
 ## Gaps (weak evidence)
 
