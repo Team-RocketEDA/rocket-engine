@@ -206,15 +206,57 @@ ip_search/get/register/instantiate/promote) are scoped by this
 definition: "instantiate" = place a hierarchical block with its
 symbol+footprint linkage intact. Distinguish from PDK library cells
 (flat, PDK-owned) and from user-authored hierarchy (built bottom-up in
-the editors).
+the editors). INVARIANT (same ruling session): prebuilt IP blocks are
+PER-PDK — each PDK strictly owns its IP blocks. Digital blocks MAY
+generalize across PDKs case-by-case, but the default is per-PDK
+ownership, no exceptions without a recorded case.
 
-RULING-02 (2026-11-02, user-proposed, PENDING CONFIRMATION below):
-latest contract wins over older ones. Proposed authority stack:
+RULING-02 (2026-11-02, user CONFIRMED with scope cut): latest
+contract wins over older ones. Authority stack:
 (1) rocket-engine/contracts/engine-v1.schema.json + contracts/v1 bundle
 (frozen design authority); (2) PRD tools-research + blueprint;
-(3) board tickets; (4) PRD harness docs (known stale-prone);
-(5) running v0 behavior always loses (migrate-to-v1; code never
-overrules the frozen contract).
+(3) board tickets; (4) running v0 behavior always loses
+(migrate-to-v1; code never overrules the frozen contract).
+PRD harness docs are OUT OF SCOPE for engine reconciliation (owned by
+other repos) — engine stays client-agnostic under tools-research.
+
+RULING-03 (2026-11-02, user; X-01/X-02/X-04): openEMS, xyce, opensta are
+PARKED pending user manual build + a provision-script rewrite — the
+script must follow the tools' documented GitHub README recipes
+verbatim (e.g. opensta needs cudd cloned+made per the opensta README,
+nonlinear order included). Parking ends when provisioning is solved,
+not by scope decision. Meow and every python lib with no install
+blocker is ON-TRACK immediately (see PROV-UPSTREAM-RECIPE,
+ADAPT-GROUPC).
+
+RULING-04 (2026-11-02, user; X-03/I22): trusted-local deployment, NO
+cloud hosting ever. All clients are user-controlled; permission stays
+user-side (including MCP) — NO auth needed in-engine. Prune auth.py
+dead code instead of wiring it. The console is a plain python console;
+bwrap-vs-raw (vs prepackaged scripting contexts) is decided by a
+comparative BWRAP-STUDY weighing adoption friction + future-bug risk
+against system hygiene. (Closes the I22 ruling dependency; supersedes
+PYTHON-EXEC UI-only, I22-AMEND attestation, and appendix two-tier
+positions for the engine.)
+
+RULING-05 (2026-11-02, user; X-09/X-12): harness docs out of scope
+(see RULING-02); harness-only ops are fuel-side, not engine gaps.
+Constraints live in canvas.toml sections and drive engine validation
+tools as HARD DESIGN RULES (pass/fail judgment on proposed designs),
+not as agentic guidance. (Directs CANVAS-CST + T-25.)
+
+RULING-06 (2026-11-02, user; X-05/T-26): board-vs-file reconciliation
+is evidence-based per ticket: scour for landing commits before moving
+anything to DONE or back to Ready/Doing. No blanket flips either way.
+
+RULING-07 (2026-11-02, user; recheck challenges): gmsh → INTERNAL
+(mesh backend consumed via elmer/femwell/devsim/palace drivers; no
+agent path invokes it). kfactory → INTERNAL (gdsfactory component;
+re-promote only on a direct RDB/l2n/KCell need gdsfactory does not
+surface). Counts now 32F+38I+1D, coverage 14/32, provider gaps 18.
+Standing requirement: the live python environment provides every
+library a client may need for scripting, with appropriate project
+contexts (feeds CONSOLE-LIFECYCLE + python env work).
 
 ## Counts
 
