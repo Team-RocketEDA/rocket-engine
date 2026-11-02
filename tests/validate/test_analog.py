@@ -155,7 +155,7 @@ def _job(staged, pdk_entry):
         "operation": "run_spice",
         "sources": staged["sources"],
         "workdir": staged["workdir"],
-        "timeout_s": staged["timeout_s"],
+        "request": {"timeout_s": staged["timeout_s"]},
         "measurements": staged["measurements"],
         "analyses": staged["analyses"],
         "options": staged["options"],

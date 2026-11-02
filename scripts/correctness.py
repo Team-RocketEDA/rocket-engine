@@ -228,13 +228,13 @@ def _engine_run(project, operation, arguments):
 
 def _hdl_job(staged):
     return {"operation": "run_hdl_test", "sources": staged["sources"],
-            "workdir": staged["workdir"], "timeout_s": staged["timeout_s"],
+            "workdir": staged["workdir"], "request": {"timeout_s": staged["timeout_s"]},
             "defines": staged["defines"], "deck": {"tool": "icarus"}}
 
 
 def _spice_job(staged, pdk):
     return {"operation": "run_spice", "sources": staged["sources"],
-            "workdir": staged["workdir"], "timeout_s": staged["timeout_s"],
+            "workdir": staged["workdir"], "request": {"timeout_s": staged["timeout_s"]},
             "measurements": staged["measurements"],
             "analyses": staged["analyses"], "options": staged["options"],
             "params": staged["params"], "corner": staged["corner"],
@@ -244,7 +244,7 @@ def _spice_job(staged, pdk):
 
 def _optical_job(staged):
     return {"operation": "run_optical", "sources": staged["sources"],
-            "workdir": staged["workdir"], "timeout_s": staged["timeout_s"],
+            "workdir": staged["workdir"], "request": {"timeout_s": staged["timeout_s"]},
             "deck": {"tool": "sax"}}
 
 

@@ -7,8 +7,6 @@ the import itself fails.
 
 from pathlib import Path
 
-import pytest
-
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
@@ -82,18 +80,14 @@ def test_cancel_queued_running_completed_is_truthful():
     assert kept["verdict"]["status"] == "FAIL"
 
 
-def test_executable_closure_change_invalidates_approval():
-    from rocket_engine.execution import ExecutionService  # RED: missing surface
+def test_generic_approval_ledger_retired():
+    # CORE-EXEC-HARDEN item 6: the generic ExecutionService approval
+    # ledger was dead code (no production callers; the pyexec
+    # UI-route approvals are the live path) and retired per
+    # RULING-04. This pins the removal against resurrection.
+    from rocket_engine.execution import ExecutionService
 
     service = ExecutionService(project_id="analog_demo")
-    approval = service.request_approval(
-        kind="python_factory", closure_hash="abc123", expected_revision="p12"
-    )
-    assert approval["state"] == "pending_approval"
-    with pytest.raises(Exception) as excinfo:
-        service.admit(
-            approval["approval_id"],
-            closure_hash="changed456",
-            expected_revision="p12",
-        )
-    assert getattr(excinfo.value, "code", None) == "approval_invalid"
+    assert not hasattr(service, "request_approval")
+    assert not hasattr(service, "admit")
+    assert not hasattr(service, "_approvals")

@@ -345,7 +345,7 @@ def _run_live_hdl_vendored(ctx, label, sub, design):
             "arguments": {
                 "sources": staged["sources"],
                 "workdir": str(workdir),
-                "timeout_s": staged["timeout_s"],
+                "request": {"timeout_s": staged["timeout_s"]},
                 "defines": staged["defines"],
                 "deck": {"tool": "icarus"},
             },
@@ -400,7 +400,7 @@ def _run_live_ngspice_bandgap(ctx, label, sub):
             "arguments": {
                 "sources": staged["sources"],
                 "workdir": staged["workdir"],
-                "timeout_s": staged["timeout_s"],
+                "request": {"timeout_s": staged["timeout_s"]},
                 "params": staged["params"],
                 "options": staged["options"],
                 "analyses": staged["analyses"],
@@ -463,7 +463,7 @@ def _run_live_ngspice_sdtop(ctx, label, sub):
             "arguments": {
                 "sources": staged["sources"],
                 "workdir": staged["workdir"],
-                "timeout_s": staged["timeout_s"],
+                "request": {"timeout_s": staged["timeout_s"]},
                 "params": staged["params"],
                 "options": staged["options"],
                 "analyses": staged["analyses"],
@@ -525,7 +525,7 @@ def _run_live_sax_mzi(ctx, label, sub):
             "arguments": {
                 "sources": staged["sources"],
                 "workdir": staged["workdir"],
-                "timeout_s": staged["timeout_s"],
+                "request": {"timeout_s": staged["timeout_s"]},
                 "deck": {"tool": "sax"},
             },
             "snapshot_id": ctx["ack"]["snapshot_id"],

@@ -32,6 +32,20 @@ class FakeLedger:
         self._events = []
         self._commands = {}
         self._seq = 0
+        self._revision = "p12"
+
+    def snapshot(self):
+        return {
+            "project_id": "t",
+            "current_revision": self._revision,
+            "event_cursor": self._seq,
+        }
+
+    def advance(self):
+        """Simulate a later submit moving the project head."""
+        number = int(self._revision[1:]) + 1
+        self._revision = f"p{number}"
+        return self._revision
 
     def events_since(self, cursor):
         return [dict(e) for e in self._events if e["seq"] > cursor]
@@ -60,6 +74,7 @@ class FakeLedger:
             "request_id": request_id,
             "run_id": run_id,
             "snapshot_id": f"snap-{request_id}",
+            "current_revision": self._revision,
         }
         self._commands[request_id] = (command, ack)
         data = {"run_id": run_id, "operation": operation}
@@ -413,3 +428,66 @@ def test_quarantine_refusal_logs_full_dev_context(caplog):
     assert ack["run_id"] in blob
     assert key in blob
     assert "2" in blob
+
+
+# drift-checked resume --------------------------------------------------
+
+
+def _stranded(mod, ledger, tag="a"):
+    """Admit + start one run, leaving it an ambiguous survivor."""
+    args = {"cell": tag}
+    ack = ledger.admit("run_syntax", args, f"req-{tag}")
+    key = mod.content_key_for("run_syntax", args)
+    ledger.start(ack["run_id"], f"req-{tag}", "run_syntax", key)
+    return ack
+
+
+def test_resume_refuses_when_head_moved_on():
+    mod = _load_replay()
+    ledger = FakeLedger(mod)
+    ack = _stranded(mod, ledger)
+    ledger.advance()
+    replay = mod.ReplaySafe(ledger, _recorder(ledger))
+    replay.boot()
+    with pytest.raises(Exception) as exc:
+        replay.resume(ack["run_id"])
+    assert exc.value.code == "stale_revision"
+
+
+def test_resume_proceeds_when_head_untouched():
+    mod = _load_replay()
+    ledger = FakeLedger(mod)
+    ack = _stranded(mod, ledger)
+    executor = _recorder(ledger)
+    replay = mod.ReplaySafe(ledger, executor)
+    replay.boot()
+    completion = replay.resume(ack["run_id"])
+    assert completion["state"] == "completed"
+    assert len(executor.calls) == 1
+
+
+def test_resume_force_bypasses_drift_only():
+    mod = _load_replay()
+    ledger = FakeLedger(mod)
+    ack = _stranded(mod, ledger)
+    ledger.advance()
+    executor = _recorder(ledger)
+    replay = mod.ReplaySafe(ledger, executor)
+    replay.boot()
+    completion = replay.resume(ack["run_id"], force=True)
+    assert completion["state"] == "completed"
+    assert len(executor.calls) == 1
+
+
+def test_resume_tolerates_ack_without_revision():
+    mod = _load_replay()
+    ledger = FakeLedger(mod)
+    ack = _stranded(mod, ledger)
+    command, stored = ledger.command_for("req-a")
+    del stored["current_revision"]
+    ledger.advance()
+    executor = _recorder(ledger)
+    replay = mod.ReplaySafe(ledger, executor)
+    replay.boot()
+    completion = replay.resume(ack["run_id"])
+    assert completion["state"] == "completed"

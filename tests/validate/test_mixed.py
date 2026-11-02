@@ -260,7 +260,7 @@ def _hdl_job(staged):
         "operation": "run_hdl_test",
         "sources": staged["sources"],
         "workdir": staged["workdir"],
-        "timeout_s": staged["timeout_s"],
+        "request": {"timeout_s": staged["timeout_s"]},
         "defines": staged["defines"],
         "deck": {"tool": "icarus"},
     }
@@ -271,7 +271,7 @@ def _spice_job(staged, pdk_entry):
         "operation": "run_spice",
         "sources": staged["sources"],
         "workdir": staged["workdir"],
-        "timeout_s": staged["timeout_s"],
+        "request": {"timeout_s": staged["timeout_s"]},
         "measurements": staged["measurements"],
         "analyses": staged["analyses"],
         "options": staged["options"],

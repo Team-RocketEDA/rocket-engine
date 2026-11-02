@@ -32,6 +32,7 @@ def test_field_inventory():
         "lvs_netlist",
         "top_is_subckt",
         "deck_opts",
+        "timeout_s",
     )
     assert set(RUN_REQUEST_DEFAULTS) == set(RUN_REQUEST_FIELDS)
     assert set(NETLIST_TYPES) == {"spice", "spectre", "verilog", "vhdl"}
@@ -44,6 +45,7 @@ def test_missing_request_yields_all_defaults():
         "lvs_netlist": False,
         "top_is_subckt": False,
         "deck_opts": {},
+        "timeout_s": None,
     }
     assert validate_run_request({}) == validate_run_request(None)
 
@@ -55,6 +57,7 @@ def test_partial_request_fills_defaults():
         "lvs_netlist": False,
         "top_is_subckt": False,
         "deck_opts": {},
+        "timeout_s": None,
     }
 
 
@@ -69,6 +72,7 @@ def test_full_shape_accepted_verbatim():
             "scale": 1e-6,
             "threads": 4,
         },
+        "timeout_s": 30,
     }
     assert validate_run_request(params) == params
 

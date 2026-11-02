@@ -133,7 +133,7 @@ def _job(operator, dest, extra=None):
             return {
                 "sources": staged["sources"],
                 "workdir": staged["workdir"],
-                "timeout_s": staged["timeout_s"],
+                "request": {"timeout_s": staged["timeout_s"]},
                 "defines": staged["defines"],
                 "deck": {"tool": "icarus"},
             }
@@ -149,7 +149,7 @@ def _job(operator, dest, extra=None):
             return {
                 "sources": staged["sources"],
                 "workdir": staged["workdir"],
-                "timeout_s": staged["timeout_s"],
+                "request": {"timeout_s": staged["timeout_s"]},
                 "measurements": staged["measurements"],
                 "analyses": staged["analyses"],
                 "options": staged["options"],

@@ -103,7 +103,7 @@ def _job(staged):
         "operation": "run_hdl_test",
         "sources": staged["sources"],
         "workdir": staged["workdir"],
-        "timeout_s": staged["timeout_s"],
+        "request": {"timeout_s": staged["timeout_s"]},
         "defines": staged["defines"],
         "deck": {"tool": "icarus"},
     }

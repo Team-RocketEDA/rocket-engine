@@ -162,7 +162,7 @@ def _optical_job(staged):
         "operation": "run_optical",
         "sources": staged["sources"],
         "workdir": staged["workdir"],
-        "timeout_s": staged["timeout_s"],
+        "request": {"timeout_s": staged["timeout_s"]},
         "deck": {"tool": "sax"},
     }
 
