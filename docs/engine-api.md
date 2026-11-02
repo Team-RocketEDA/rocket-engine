@@ -156,16 +156,17 @@ Arguments:
 - `component` (required): Component name to attach.
 - `data` (required): JSON payload to store.
 - `expected_revision`: Revision the writer read.
+- `expected_entity_revision`: Entity revision the writer read (ENTITY-CAS); naming a current one skips the global head gate even beside a stale head.
 
 Returns:
 
-Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.
+Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, request id, and the bumped entity_revision.
 
 Raises:
 
 ProjectError: component_exists when the component already lives on the entity; otherwise like set_component.
 
-Caution: Every accepted attach advances the revision — a second writer at the old head fails instead of merging.
+Caution: Every accepted attach advances the revision — a second writer at the old head fails instead of merging, unless it names a current entity revision.
 
 ### cancel_job
 
@@ -218,17 +219,17 @@ Arguments:
 
 - `kind`: Kind label carried beside the components.
 - `components`: Optional initial component mapping.
-- `expected_revision`: Revision the writer read.
+- `expected_revision`: Accepted and ignored (ENTITY-CAS): minted ids cannot collide, so creates never conflict — concurrent creates always land with distinct ids.
 
 Returns:
 
-Mutation mapping with the minted entity, kind, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_created event, cursor, request id, and initial component names.
+Mutation mapping with the minted entity, kind, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_created event, cursor, request id, initial component names, and the entity_revision (1).
 
 Raises:
 
-ProjectError: request_conflict for a reused id with new text; invalid_kind, invalid_component, or invalid_data for malformed parts; revision_conflict for a stale head; invalid_ledger when the durable write fails.
+ProjectError: request_conflict for a reused id with new text; invalid_kind, invalid_component, or invalid_data for malformed parts; invalid_ledger when the durable write fails.
 
-Caution: Every accepted create advances the revision — a second writer at the old head fails instead of merging.
+Caution: Every accepted create advances the revision, but never fails on a stale head — identity is minted, so there is nothing to merge or conflict with.
 
 ### create_project
 
@@ -292,16 +293,17 @@ Arguments:
 
 - `entity` (required): Entity id to delete.
 - `expected_revision`: Revision the writer read.
+- `expected_entity_revision`: Entity revision the writer read (ENTITY-CAS).
 
 Returns:
 
-Mutation mapping with entity, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_deleted event, cursor, and request id.
+Mutation mapping with entity, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_deleted event, cursor, request id, and the deleted entity_revision.
 
 Raises:
 
-ProjectError: request_conflict for a reused id with new text; invalid_entity for a malformed id; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable delete fails.
+ProjectError: request_conflict for a reused id with new text; invalid_entity for a malformed id; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head or a stale entity revision; invalid_ledger when the durable delete fails.
 
-Caution: Deleting advances the revision like any mutation — stale writers fail instead of merging.
+Caution: Deleting advances the revision like any mutation — stale writers fail instead of merging, unless they name a current entity revision.
 
 ### delete_junction
 
@@ -362,16 +364,17 @@ Arguments:
 - `entity` (required): Entity id holding the component.
 - `component` (required): Component name to remove.
 - `expected_revision`: Revision the writer read.
+- `expected_entity_revision`: Entity revision the writer read (ENTITY-CAS).
 
 Returns:
 
-Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.
+Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, request id, and the bumped entity_revision.
 
 Raises:
 
 ProjectError: unknown_component for a missing component; otherwise like set_component without the data errors.
 
-Caution: Every accepted detach advances the revision — a second writer at the old head fails instead of merging.
+Caution: Every accepted detach advances the revision — a second writer at the old head fails instead of merging, unless it names a current entity revision.
 
 ### discard_run
 
@@ -1471,16 +1474,17 @@ Arguments:
 - `component` (required): Component name to write.
 - `data` (required): JSON payload to store.
 - `expected_revision`: Revision the writer read.
+- `expected_entity_revision`: Entity revision the writer read (ENTITY-CAS). Naming a current one skips the global head gate even beside a stale head, so writers on different entities never conflict; a stale entity revision fails with revision_conflict.
 
 Returns:
 
-Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.
+Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, request id, and the bumped entity_revision.
 
 Raises:
 
-ProjectError: request_conflict for a reused id with new text; invalid_entity, invalid_component, or invalid_data for malformed parts; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable write fails.
+ProjectError: request_conflict for a reused id with new text; invalid_entity, invalid_component, or invalid_data for malformed parts; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head or a stale entity revision; invalid_ledger when the durable write fails.
 
-Caution: Every accepted write advances the revision — a second writer at the old head fails instead of merging.
+Caution: Every accepted write advances the revision — a second writer at the old head fails instead of merging, unless it names a current entity revision.
 
 ### split_wire
 
@@ -1734,7 +1738,7 @@ Arguments:
 
 Returns:
 
-Mapping with project id, head revision, entity, component, canonical address, storage path, and the component data.
+Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.
 
 Raises:
 

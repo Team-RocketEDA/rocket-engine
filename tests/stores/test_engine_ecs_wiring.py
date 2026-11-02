@@ -155,6 +155,7 @@ def test_create_attach_wire_events_world_via_engine():
     assert events[2]["data"] == {
         "entity": block, "component": "sources",
         "revision": attached["current_revision"],
+        "entity_revision": 2,
     }
 
     world = _submit(engine, "get_world_snapshot", {})
@@ -315,11 +316,23 @@ def test_revision_gate_and_idempotent_replay_through_engine():
         {"kind": "a", "expected_revision": head}, "req-ecs-w1",
     )
     assert replayed == first
+    # ENTITY-CAS: minted identity cannot collide, so a stale-head
+    # create always lands with a distinct id.
+    second = _submit(
+        engine, "create_entity",
+        {"kind": "b", "expected_revision": head},
+        "req-ecs-w2",
+    )
+    assert second["entity"] != first["entity"]
+    assert second["entity_revision"] == 1
+    # The legacy global gate still guards writes that name no
+    # entity revision.
     with pytest.raises(Exception) as excinfo:
         _submit(
-            engine, "create_entity",
-            {"kind": "b", "expected_revision": head},
-            "req-ecs-w2",
+            engine, "set_component",
+            {"entity": first["entity"], "component": "x",
+             "data": {}, "expected_revision": head},
+            "req-ecs-w3",
         )
     assert _code(excinfo) == "revision_conflict"
 

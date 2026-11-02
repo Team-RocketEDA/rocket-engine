@@ -231,7 +231,8 @@ class ConsoleNamespace:
         )
 
     def set_component(self, entity, component, data, request_id=None,
-                      expected_revision=None):
+                      expected_revision=None,
+                      expected_entity_revision=None):
         """Upsert one component payload through admission.
 
         Args:
@@ -240,6 +241,8 @@ class ConsoleNamespace:
             data: JSON payload to store.
             request_id: Client envelope id for idempotent replay.
             expected_revision: Revision the writer read.
+            expected_entity_revision: Entity revision the writer
+                read (ENTITY-CAS).
 
         Returns:
             Mutation mapping with entity, component, canonical
@@ -259,18 +262,21 @@ class ConsoleNamespace:
             second writer at the old head fails instead of
             merging.
         """
+        arguments = {"entity": entity, "component": component, "data": data}
+        if expected_entity_revision is not None:
+            arguments["expected_entity_revision"] = expected_entity_revision
         rid, text = self._admit(
-            "set_component",
-            {"entity": entity, "component": component, "data": data},
-            request_id, expected_revision,
+            "set_component", arguments, request_id, expected_revision,
         )
         return self._wired("set_component", "ENGINE-ECS")(
             entity, component, data, rid, text,
             expected_revision=expected_revision,
+            expected_entity_revision=expected_entity_revision,
         )
 
     def attach_component(self, entity, component, data, request_id=None,
-                         expected_revision=None):
+                         expected_revision=None,
+                         expected_entity_revision=None):
         """Attach one new component through admission.
 
         Args:
@@ -279,6 +285,8 @@ class ConsoleNamespace:
             data: JSON payload to store.
             request_id: Client envelope id for idempotent replay.
             expected_revision: Revision the writer read.
+            expected_entity_revision: Entity revision the writer
+                read (ENTITY-CAS).
 
         Returns:
             Mutation mapping with entity, component, canonical
@@ -297,18 +305,21 @@ class ConsoleNamespace:
             second writer at the old head fails instead of
             merging.
         """
+        arguments = {"entity": entity, "component": component, "data": data}
+        if expected_entity_revision is not None:
+            arguments["expected_entity_revision"] = expected_entity_revision
         rid, text = self._admit(
-            "attach_component",
-            {"entity": entity, "component": component, "data": data},
-            request_id, expected_revision,
+            "attach_component", arguments, request_id, expected_revision,
         )
         return self._wired("attach_component", "ENGINE-ECS")(
             entity, component, data, rid, text,
             expected_revision=expected_revision,
+            expected_entity_revision=expected_entity_revision,
         )
 
     def detach_component(self, entity, component, request_id=None,
-                         expected_revision=None):
+                         expected_revision=None,
+                         expected_entity_revision=None):
         """Detach one component through admission.
 
         Args:
@@ -316,6 +327,8 @@ class ConsoleNamespace:
             component: Component name to remove.
             request_id: Client envelope id for idempotent replay.
             expected_revision: Revision the writer read.
+            expected_entity_revision: Entity revision the writer
+                read (ENTITY-CAS).
 
         Returns:
             Mutation mapping with entity, component, canonical
@@ -334,24 +347,29 @@ class ConsoleNamespace:
             second writer at the old head fails instead of
             merging.
         """
+        arguments = {"entity": entity, "component": component}
+        if expected_entity_revision is not None:
+            arguments["expected_entity_revision"] = expected_entity_revision
         rid, text = self._admit(
-            "detach_component",
-            {"entity": entity, "component": component},
-            request_id, expected_revision,
+            "detach_component", arguments, request_id, expected_revision,
         )
         return self._wired("detach_component", "ENGINE-ECS")(
             entity, component, rid, text,
             expected_revision=expected_revision,
+            expected_entity_revision=expected_entity_revision,
         )
 
     def delete_entity(self, entity, request_id=None,
-                      expected_revision=None):
+                      expected_revision=None,
+                      expected_entity_revision=None):
         """Delete one entity through admission.
 
         Args:
             entity: Entity id to delete.
             request_id: Client envelope id for idempotent replay.
             expected_revision: Revision the writer read.
+            expected_entity_revision: Entity revision the writer
+                read (ENTITY-CAS).
 
         Returns:
             Mutation mapping with entity, storage path, revision
@@ -369,12 +387,15 @@ class ConsoleNamespace:
         Caution: Deleting advances the head like any mutation —
             stale writers fail instead of merging.
         """
+        arguments = {"entity": entity}
+        if expected_entity_revision is not None:
+            arguments["expected_entity_revision"] = expected_entity_revision
         rid, text = self._admit(
-            "delete_entity", {"entity": entity}, request_id,
-            expected_revision,
+            "delete_entity", arguments, request_id, expected_revision,
         )
         return self._wired("delete_entity", "ENGINE-ECS")(
-            entity, rid, text, expected_revision=expected_revision
+            entity, rid, text, expected_revision=expected_revision,
+            expected_entity_revision=expected_entity_revision,
         )
 
     def place_wire(self, segments, layer, endpoints, request_id=None,

@@ -383,13 +383,15 @@ def format_address(entity, component):
     return f"{entity}.{component}"
 
 
-def encode_entity_doc(entity, kind, components):
+def encode_entity_doc(entity, kind, components, entity_revision=1):
     """Render one entity record as canonical JSON text.
 
     Args:
         entity: Entity id the record stores.
         kind: Kind label carried beside the components.
         components: Mapping of component name to JSON payload.
+        entity_revision: Per-entity revision (ENTITY-CAS): starts
+            at 1, bumps on every accepted entity mutation.
 
     Returns:
         Deterministic JSON text (sorted keys): same record in,
@@ -408,9 +410,22 @@ def encode_entity_doc(entity, kind, components):
     for name, data in components.items():
         validate_component_name(name)
         validate_component_data(data)
+    if (
+        not isinstance(entity_revision, int)
+        or isinstance(entity_revision, bool)
+        or entity_revision < 1
+    ):
+        raise EcsError(
+            "invalid_data", "Entity revision must be a positive int."
+        )
     return (
         json.dumps(
-            {"components": components, "entity": entity, "kind": kind},
+            {
+                "components": components,
+                "entity": entity,
+                "entity_revision": entity_revision,
+                "kind": kind,
+            },
             sort_keys=True,
             indent=2,
         )
@@ -426,7 +441,8 @@ def decode_entity_doc(text, path="<entity>"):
         path: Doc path named in errors.
 
     Returns:
-        Mapping with entity, kind, and components.
+        Mapping with entity, kind, components, and
+            entity_revision (legacy records without one read as 1).
 
     Raises:
         EcsError: invalid_document for unparsable text or a record
@@ -464,7 +480,22 @@ def decode_entity_doc(text, path="<entity>"):
             raise EcsError(
                 "invalid_document", f"{path}: {exc}."
             ) from exc
-    return {"entity": entity, "kind": kind, "components": components}
+    entity_revision = data.get("entity_revision", 1)
+    if (
+        not isinstance(entity_revision, int)
+        or isinstance(entity_revision, bool)
+        or entity_revision < 1
+    ):
+        raise EcsError(
+            "invalid_document",
+            f"Entity record carries a bad revision: {path}.",
+        )
+    return {
+        "entity": entity,
+        "kind": kind,
+        "components": components,
+        "entity_revision": entity_revision,
+    }
 
 
 def backfill_id_for_doc(path):
@@ -627,7 +658,9 @@ def build_world_snapshot(project_id, current_revision, records):
     }
 
 
-def component_changed_data(entity, component, revision, detached=False):
+def component_changed_data(
+    entity, component, revision, detached=False, entity_revision=None
+):
     """Build one component_changed event payload.
 
     Args:
@@ -635,14 +668,20 @@ def component_changed_data(entity, component, revision, detached=False):
         component: Component that changed.
         revision: Head revision after the change.
         detached: True when the change removed the component.
+        entity_revision: Per-entity revision after the change
+            (ENTITY-CAS); omitted when unknown so legacy exact
+            shapes keep passing.
 
     Returns:
         Event data mapping with entity, component, revision (plus
-        detached True for removals).
+        detached True for removals, plus entity_revision when
+        supplied).
     """
     data = {"component": component, "entity": entity, "revision": revision}
     if detached:
         data["detached"] = True
+    if entity_revision is not None:
+        data["entity_revision"] = entity_revision
     return data
 
 

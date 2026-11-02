@@ -634,8 +634,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
 
         Returns:
             Mapping with project id, head revision, entity,
-            component, canonical address, storage path, and the
-            component data.
+            component, canonical address, storage path, the
+            component data, and the entity revision.
 
         Raises:
             ProjectError: invalid_entity or invalid_component for
@@ -663,6 +663,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             "current_revision": self._current_revision,
             "data": decoded["components"][component],
             "entity": entity,
+            "entity_revision": self._entity_revision_of(decoded),
             "path": path,
             "project_id": self._project_id,
         }
@@ -1038,24 +1039,27 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             command_text: YAML command text for identity comparison.
             kind: Kind label carried beside the components.
             components: Optional initial component mapping.
-            expected_revision: Revision the writer read.
+            expected_revision: Accepted and ignored (ENTITY-CAS):
+                minted ids cannot collide, so creates never
+                conflict — concurrent creates always land with
+                distinct ids.
 
         Returns:
             Mutation mapping with the minted entity, kind, storage
             path, revision transition, new head, actor, diff
             summary, rewind handle, the entity_created event,
-            cursor, request id, and initial component names.
+            cursor, request id, initial component names, and the
+            entity_revision (1).
 
         Raises:
             ProjectError: request_conflict for a reused id with
                 new text; invalid_kind, invalid_component, or
                 invalid_data for malformed parts;
-                revision_conflict for a stale head; invalid_ledger
-                when the durable write fails.
+                invalid_ledger when the durable write fails.
 
-        Caution: Every accepted create advances the revision — a
-            second writer at the old head fails instead of
-            merging.
+        Caution: Every accepted create advances the revision, but
+            never fails on a stale head — identity is minted, so
+            there is nothing to merge or conflict with.
         """
         self._refresh_durable()
         replay = self._check_replay(request_id, command_text)
@@ -1076,7 +1080,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 ecs.validate_component_data(data)
         except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
-        self._gate_revision(expected_revision)
+        # No head gate: minted identity cannot collide, so concurrent
+        # creates never conflict (ENTITY-CAS).
         previous = self._current_revision
         self._ensure_snapshot(previous)
         taken = set()
@@ -1086,7 +1091,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 taken.add(found)
         entity = ecs.mint_entity_id(existing=taken)
         path = ecs.entity_doc_path(entity)
-        self._store_entity_record(path, entity, kind, initial)
+        self._store_entity_record(path, entity, kind, initial, 1)
         advanced = _advance_revision(previous)
         try:
             self._capture_snapshot(advanced)
@@ -1113,6 +1118,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             {
                 "components": sorted(initial),
                 "entity": entity,
+                "entity_revision": 1,
                 "kind": kind,
                 "path": path,
             },
@@ -1122,7 +1128,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         return response
 
     def set_component(self, entity, component, data, request_id,
-                      command_text, expected_revision=None):
+                      command_text, expected_revision=None,
+                      expected_entity_revision=None):
         """Upsert one component payload (create or overwrite).
 
         Persists through the entity record at entities/<entity>.json
@@ -1141,12 +1148,18 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 without advancing.
             command_text: YAML command text for identity comparison.
             expected_revision: Revision the writer read.
+            expected_entity_revision: Entity revision the writer
+                read (ENTITY-CAS). Naming a current one skips the
+                global head gate even beside a stale head, so
+                writers on different entities never conflict; a
+                stale entity revision fails with revision_conflict.
 
         Returns:
             Mutation mapping with entity, component, canonical
             address, storage path, revision transition, new head,
             actor, diff summary, rewind handle, the
-            component_changed event, cursor, and request id.
+            component_changed event, cursor, request id, and the
+            bumped entity_revision.
 
         Raises:
             ProjectError: request_conflict for a reused id with
@@ -1154,12 +1167,14 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 invalid_data for malformed parts; unknown_entity
                 for a missing entity; backfill_readonly for a
                 backfilled id; invalid_document for a corrupt
-                entity record; revision_conflict for a stale head;
-                invalid_ledger when the durable write fails.
+                entity record; revision_conflict for a stale head
+                or a stale entity revision; invalid_ledger when
+                the durable write fails.
 
         Caution: Every accepted write advances the revision — a
             second writer at the old head fails instead of
-            merging.
+            merging, unless it names a current entity
+            revision.
         """
         self._refresh_durable()
         replay = self._check_replay(request_id, command_text)
@@ -1177,14 +1192,20 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 f"Backfilled entity is read-only: {entity}.",
             )
         path, decoded = self._read_entity_record(entity)
-        self._gate_revision(expected_revision)
+        live = self._gate_entity_revision(
+            entity, decoded, expected_entity_revision
+        )
+        self._gate_entity_write(expected_revision, expected_entity_revision)
         previous = self._current_revision
         self._ensure_snapshot(previous)
         existed = component in decoded["components"]
         merged = dict(decoded["components"])
         merged[component] = data
+        bumped = live + 1
         old_text = self._read_doc_text(path, path)
-        self._store_entity_record(path, entity, decoded["kind"], merged)
+        self._store_entity_record(
+            path, entity, decoded["kind"], merged, bumped
+        )
         advanced = _advance_revision(previous)
         try:
             self._capture_snapshot(advanced)
@@ -1202,7 +1223,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             "component_changed",
             request_id,
             ecs.component_changed_data(
-                entity, component, self._current_revision
+                entity, component, self._current_revision,
+                entity_revision=bumped,
             ),
         )
         response = self._ecs_response(
@@ -1211,6 +1233,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 "address": address,
                 "component": component,
                 "entity": entity,
+                "entity_revision": bumped,
                 "path": path,
             },
         )
@@ -1219,7 +1242,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         return response
 
     def attach_component(self, entity, component, data, request_id,
-                         command_text, expected_revision=None):
+                         command_text, expected_revision=None,
+                         expected_entity_revision=None):
         """Attach one new component (refuses overwrites).
 
         Like set_component, but a component already living on the
@@ -1237,12 +1261,16 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 without advancing.
             command_text: YAML command text for identity comparison.
             expected_revision: Revision the writer read.
+            expected_entity_revision: Entity revision the writer
+                read (ENTITY-CAS); naming a current one skips the
+                global head gate even beside a stale head.
 
         Returns:
             Mutation mapping with entity, component, canonical
             address, storage path, revision transition, new head,
             actor, diff summary, rewind handle, the
-            component_changed event, cursor, and request id.
+            component_changed event, cursor, request id, and the
+            bumped entity_revision.
 
         Raises:
             ProjectError: component_exists when the component
@@ -1251,7 +1279,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
 
         Caution: Every accepted attach advances the revision — a
             second writer at the old head fails instead of
-            merging.
+            merging, unless it names a current entity
+            revision.
         """
         self._refresh_durable()
         replay = self._check_replay(request_id, command_text)
@@ -1275,13 +1304,19 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 "Component already attached: "
                 f"{ecs.format_address(entity, component)}.",
             )
-        self._gate_revision(expected_revision)
+        live = self._gate_entity_revision(
+            entity, decoded, expected_entity_revision
+        )
+        self._gate_entity_write(expected_revision, expected_entity_revision)
         previous = self._current_revision
         self._ensure_snapshot(previous)
         merged = dict(decoded["components"])
         merged[component] = data
+        bumped = live + 1
         old_text = self._read_doc_text(path, path)
-        self._store_entity_record(path, entity, decoded["kind"], merged)
+        self._store_entity_record(
+            path, entity, decoded["kind"], merged, bumped
+        )
         advanced = _advance_revision(previous)
         try:
             self._capture_snapshot(advanced)
@@ -1298,7 +1333,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             "component_changed",
             request_id,
             ecs.component_changed_data(
-                entity, component, self._current_revision
+                entity, component, self._current_revision,
+                entity_revision=bumped,
             ),
         )
         response = self._ecs_response(
@@ -1307,6 +1343,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 "address": address,
                 "component": component,
                 "entity": entity,
+                "entity_revision": bumped,
                 "path": path,
             },
         )
@@ -1315,7 +1352,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         return response
 
     def detach_component(self, entity, component, request_id,
-                         command_text, expected_revision=None):
+                         command_text, expected_revision=None,
+                         expected_entity_revision=None):
         """Detach one component from its entity.
 
         Persists through the entity record with the same admission
@@ -1333,12 +1371,15 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 without advancing.
             command_text: YAML command text for identity comparison.
             expected_revision: Revision the writer read.
+            expected_entity_revision: Entity revision the writer
+                read (ENTITY-CAS).
 
         Returns:
             Mutation mapping with entity, component, canonical
             address, storage path, revision transition, new head,
             actor, diff summary, rewind handle, the
-            component_changed event, cursor, and request id.
+            component_changed event, cursor, request id, and the
+            bumped entity_revision.
 
         Raises:
             ProjectError: unknown_component for a missing
@@ -1347,7 +1388,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
 
         Caution: Every accepted detach advances the revision — a
             second writer at the old head fails instead of
-            merging.
+            merging, unless it names a current entity
+            revision.
         """
         self._refresh_durable()
         replay = self._check_replay(request_id, command_text)
@@ -1369,13 +1411,19 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 "unknown_component",
                 f"No component {component!r} on {entity}.",
             )
-        self._gate_revision(expected_revision)
+        live = self._gate_entity_revision(
+            entity, decoded, expected_entity_revision
+        )
+        self._gate_entity_write(expected_revision, expected_entity_revision)
         previous = self._current_revision
         self._ensure_snapshot(previous)
         merged = dict(decoded["components"])
         del merged[component]
+        bumped = live + 1
         old_text = self._read_doc_text(path, path)
-        self._store_entity_record(path, entity, decoded["kind"], merged)
+        self._store_entity_record(
+            path, entity, decoded["kind"], merged, bumped
+        )
         advanced = _advance_revision(previous)
         try:
             self._capture_snapshot(advanced)
@@ -1393,7 +1441,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             request_id,
             ecs.component_changed_data(
                 entity, component, self._current_revision,
-                detached=True,
+                detached=True, entity_revision=bumped,
             ),
         )
         response = self._ecs_response(
@@ -1402,6 +1450,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 "address": address,
                 "component": component,
                 "entity": entity,
+                "entity_revision": bumped,
                 "path": path,
             },
         )
@@ -1410,7 +1459,8 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         return response
 
     def delete_entity(self, entity, request_id, command_text,
-                      expected_revision=None):
+                      expected_revision=None,
+                      expected_entity_revision=None):
         """Delete one entity and its projected record.
 
         Removes entities/<entity>.json through the same admission
@@ -1426,12 +1476,14 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 without advancing.
             command_text: YAML command text for identity comparison.
             expected_revision: Revision the writer read.
+            expected_entity_revision: Entity revision the writer
+                read (ENTITY-CAS).
 
         Returns:
             Mutation mapping with entity, storage path, revision
             transition, new head, actor, diff summary, rewind
-            handle, the entity_deleted event, cursor, and request
-            id.
+            handle, the entity_deleted event, cursor, request id,
+            and the deleted entity_revision.
 
         Raises:
             ProjectError: request_conflict for a reused id with
@@ -1439,11 +1491,13 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 unknown_entity for a missing entity;
                 backfill_readonly for a backfilled id;
                 invalid_document for a corrupt entity record;
-                revision_conflict for a stale head; invalid_ledger
+                revision_conflict for a stale head or a stale
+                entity revision; invalid_ledger
                 when the durable delete fails.
 
         Caution: Deleting advances the revision like any mutation
-            — stale writers fail instead of merging.
+            — stale writers fail instead of merging, unless they
+            name a current entity revision.
         """
         self._refresh_durable()
         replay = self._check_replay(request_id, command_text)
@@ -1458,8 +1512,11 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 "backfill_readonly",
                 f"Backfilled entity is read-only: {entity}.",
             )
-        path, _decoded = self._read_entity_record(entity)
-        self._gate_revision(expected_revision)
+        path, decoded = self._read_entity_record(entity)
+        live = self._gate_entity_revision(
+            entity, decoded, expected_entity_revision
+        )
+        self._gate_entity_write(expected_revision, expected_entity_revision)
         previous = self._current_revision
         self._ensure_snapshot(previous)
         old_text = self._read_doc_text(path, path)
@@ -1482,7 +1539,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         )
         response = self._ecs_response(
             request_id, previous, diff, record,
-            {"entity": entity, "path": path},
+            {"entity": entity, "entity_revision": live, "path": path},
         )
         self._requests[request_id] = (command_text, response)
         self._persist_after_mutation()

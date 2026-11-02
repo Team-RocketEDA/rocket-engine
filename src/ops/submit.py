@@ -99,6 +99,9 @@ class _SubmitMixin:
                 request_id,
                 command_text,
                 expected_revision=arguments.get("expected_revision"),
+                expected_entity_revision=arguments.get(
+                    "expected_entity_revision"
+                ),
             )
         if name == "detach_component":
             if "entity" not in arguments or "component" not in arguments:
@@ -112,6 +115,9 @@ class _SubmitMixin:
                 request_id,
                 command_text,
                 expected_revision=arguments.get("expected_revision"),
+                expected_entity_revision=arguments.get(
+                    "expected_entity_revision"
+                ),
             )
         if name == "delete_entity":
             if "entity" not in arguments:
@@ -124,6 +130,9 @@ class _SubmitMixin:
                 request_id,
                 command_text,
                 expected_revision=arguments.get("expected_revision"),
+                expected_entity_revision=arguments.get(
+                    "expected_entity_revision"
+                ),
             )
         if name == "place_wire":
             for key in ("segments", "layer", "endpoints"):

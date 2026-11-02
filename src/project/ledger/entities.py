@@ -87,15 +87,69 @@ class _EntityMixin:
             )
         return path, decoded
 
-    def _store_entity_record(self, path, entity, kind, components):
+    def _store_entity_record(
+        self, path, entity, kind, components, entity_revision=1
+    ):
         """Encode and persist one entity record under its path."""
-        text = ecs.encode_entity_doc(entity, kind, components)
+        text = ecs.encode_entity_doc(
+            entity, kind, components, entity_revision=entity_revision
+        )
         if len(text.encode("utf-8")) > _MAX_DOC_BYTES:
             raise ProjectError(
                 "invalid_command",
                 f"Entity record exceeds the size limit: {path}.",
             )
         self._write_doc_text(path, text, path)
+
+    @staticmethod
+    def _entity_revision_of(decoded):
+        """Per-entity revision of a decoded record (legacy reads 1)."""
+        return decoded.get("entity_revision", 1)
+
+    def _gate_entity_revision(
+        self, entity, decoded, expected_entity_revision
+    ):
+        """Compare-and-swap one entity write.
+
+        Args:
+            entity: Entity id being written.
+            decoded: Decoded live record.
+            expected_entity_revision: Revision the writer read, or
+                None to skip the entity gate (legacy global gate
+                still applies).
+
+        Returns:
+            The live entity revision the write may build on.
+
+        Raises:
+            ProjectError: revision_conflict naming the entity plus
+                expected vs actual — safe to retry after re-read.
+        """
+        current = self._entity_revision_of(decoded)
+        if (
+            expected_entity_revision is not None
+            and expected_entity_revision != current
+        ):
+            raise ProjectError(
+                "revision_conflict",
+                f"Entity {entity} at revision {current}, "
+                f"writer expected {expected_entity_revision}.",
+            )
+        return current
+
+    def _gate_entity_write(self, expected_revision, expected_entity_revision):
+        """Apply the global head gate unless entity CAS owns the write.
+
+        A mutation naming a current entity revision skips the
+        global head gate even when it also names a stale head —
+        the head moved because of unrelated entities, and the
+        entity revision is the strictly more precise gate. Naming
+        no entity revision keeps the legacy mandatory-head
+        behavior.
+        """
+        if expected_entity_revision is not None:
+            return
+        self._gate_revision(expected_revision)
 
     def _ecs_response(self, request_id, previous, diff, record, extra):
         """CRUD-shaped mutation mapping for one entity change."""

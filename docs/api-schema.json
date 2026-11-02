@@ -41,6 +41,9 @@
         "entity": {
           "description": "Entity id holding the component."
         },
+        "expected_entity_revision": {
+          "description": "Entity revision the writer read (ENTITY-CAS); naming a current one skips the global head gate even beside a stale head."
+        },
         "expected_revision": {
           "description": "Revision the writer read."
         }
@@ -51,7 +54,7 @@
         "component",
         "data"
       ],
-      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.",
+      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, request id, and the bumped entity_revision.",
       "type": "object",
       "wired": true
     },
@@ -109,15 +112,15 @@
           "description": "Optional initial component mapping."
         },
         "expected_revision": {
-          "description": "Revision the writer read."
+          "description": "Accepted and ignored (ENTITY-CAS): minted ids cannot collide, so creates never conflict \u2014 concurrent creates always land with distinct ids."
         },
         "kind": {
           "description": "Kind label carried beside the components."
         }
       },
-      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_kind, invalid_component, or invalid_data for malformed parts; revision_conflict for a stale head; invalid_ledger when the durable write fails.",
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_kind, invalid_component, or invalid_data for malformed parts; invalid_ledger when the durable write fails.",
       "required": [],
-      "returns": "Mutation mapping with the minted entity, kind, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_created event, cursor, request id, and initial component names.",
+      "returns": "Mutation mapping with the minted entity, kind, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_created event, cursor, request id, initial component names, and the entity_revision (1).",
       "type": "object",
       "wired": true
     },
@@ -175,15 +178,18 @@
         "entity": {
           "description": "Entity id to delete."
         },
+        "expected_entity_revision": {
+          "description": "Entity revision the writer read (ENTITY-CAS)."
+        },
         "expected_revision": {
           "description": "Revision the writer read."
         }
       },
-      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_entity for a malformed id; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable delete fails.",
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_entity for a malformed id; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head or a stale entity revision; invalid_ledger when the durable delete fails.",
       "required": [
         "entity"
       ],
-      "returns": "Mutation mapping with entity, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_deleted event, cursor, and request id.",
+      "returns": "Mutation mapping with entity, storage path, revision transition, new head, actor, diff summary, rewind handle, the entity_deleted event, cursor, request id, and the deleted entity_revision.",
       "type": "object",
       "wired": true
     },
@@ -247,6 +253,9 @@
         "entity": {
           "description": "Entity id holding the component."
         },
+        "expected_entity_revision": {
+          "description": "Entity revision the writer read (ENTITY-CAS)."
+        },
         "expected_revision": {
           "description": "Revision the writer read."
         }
@@ -256,7 +265,7 @@
         "entity",
         "component"
       ],
-      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.",
+      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, request id, and the bumped entity_revision.",
       "type": "object",
       "wired": true
     },
@@ -3504,17 +3513,20 @@
         "entity": {
           "description": "Entity id holding the component."
         },
+        "expected_entity_revision": {
+          "description": "Entity revision the writer read (ENTITY-CAS). Naming a current one skips the global head gate even beside a stale head, so writers on different entities never conflict; a stale entity revision fails with revision_conflict."
+        },
         "expected_revision": {
           "description": "Revision the writer read."
         }
       },
-      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_entity, invalid_component, or invalid_data for malformed parts; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head; invalid_ledger when the durable write fails.",
+      "raises": "ProjectError: request_conflict for a reused id with new text; invalid_entity, invalid_component, or invalid_data for malformed parts; unknown_entity for a missing entity; backfill_readonly for a backfilled id; invalid_document for a corrupt entity record; revision_conflict for a stale head or a stale entity revision; invalid_ledger when the durable write fails.",
       "required": [
         "entity",
         "component",
         "data"
       ],
-      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.",
+      "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, request id, and the bumped entity_revision.",
       "type": "object",
       "wired": true
     },
@@ -3786,7 +3798,7 @@
         "entity",
         "component"
       ],
-      "returns": "Mapping with project id, head revision, entity, component, canonical address, storage path, and the component data.",
+      "returns": "Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.",
       "type": "object",
       "wired": true
     },
