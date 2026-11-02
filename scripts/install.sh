@@ -21,7 +21,8 @@
 #   PDK_ID        store id (default: sky130A; slug sky130a on disk;
 #                 sky130gf takes the pip branch: no tree needed)
 #   PDK_REVISION  store revision (default: open_pdks commit in nodeinfo.json)
-#   ROCKETEDA_HOME  engine store (default: ~/.local/share/rocketeda)
+#   ROCKETEDA_HOME  engine store (default: $ROOT/.stores/rocketeda;
+#                 BUILD-LOCAL stage 2 — explicit env still wins)
 # PDK-GF180 register (generic --pdk-only honors the knobs above, no new
 # mode): PDK_ID=gf180mcu PDK_SOURCE=<gf180mcu tree>
 # PDK_REVISION=d422b869efa544597d3a1256eec7441f8cc89980
@@ -36,6 +37,14 @@ set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MODE="${1:---install}"
+
+# BUILD-LOCAL stage 2: the engine store defaults into the repo
+# ($ROOT/.stores/rocketeda) so a fresh clone writes nothing
+# outside it. Explicit env still wins: existing
+# ~/.local/share/rocketeda users keep working via
+# ROCKETEDA_HOME=~/.local/share/rocketeda.
+ROCKETEDA_HOME="${ROCKETEDA_HOME:-$ROOT/.stores/rocketeda}"
+export ROCKETEDA_HOME
 
 # Flair: colors on interactive terminals only; piped output
 # (tests, logs) stays byte-identical plain. NO_COLOR=1 wins.

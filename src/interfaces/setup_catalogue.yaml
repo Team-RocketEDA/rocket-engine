@@ -73,6 +73,32 @@ entries:
       docs/provision-plan.md); the engine uses `klayout -b`
       batch only — GUI breakage never gates engine work.
     recipe: "docs/provision-plan.md: ambient install kept and version-asserted (B10)."
+  - id: xyce
+    kind: tool
+    label: Xyce (parallel SPICE)
+    binaries: [Xyce]
+    remedy: >-
+      Install the pinned Xyce Release-7.10.0 build (Trilinos
+      trilinos-release-17-2-1 first; run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV phase 2; Xyce building guide recipe)."
+  - id: xschem
+    kind: tool
+    label: Xschem (schematic)
+    binaries: [xschem]
+    remedy: >-
+      Install Xschem from source at 7811010 (run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV phase 2; upstream xschem source build)."
+  - id: cace
+    kind: python
+    label: CACE (characterization)
+    python: [cace]
+    remedy: >-
+      Install cace==2.13.0 into the engine venv (run
+      scripts/provision_toolchain.sh --install; needs
+      xschem/magic/netgen/ngspice first).
+    recipe: "scripts/provision_toolchain.sh (PROV phase 2; pip into the engine venv)."
   - id: bwrap
     kind: tool
     label: Bubblewrap (isolation)
@@ -107,22 +133,65 @@ entries:
     recipe: "pyproject.toml [dependency-groups] layout: uv sync --group layout (B10)."
   - id: cvc
     kind: tool
-    label: cvc
-    binaries: [cvc]
-    provisionable: false
+    label: cvc (SMT solvers)
+    binaries: [cvc4, cvc5]
     remedy: >-
-      cvc is absent with no recipe yet (batch roles per B10
-      matrix; see docs/provision-plan.md).
-    recipe: "none yet (B10 matrix)."
+      Install the pinned oss-cad-suite bundle 20261025 (ships
+      the cvc4/cvc5 SMT solvers; run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh: pinned tarball 20261025 ships cvc4/cvc5 (PROV phase 1)."
   - id: openroad
     kind: tool
     label: OpenROAD
     binaries: [openroad]
+    remedy: >-
+      Install the LibreLane 3.0.17 supported distribution (run
+      scripts/provision_toolchain.sh --install); openroad ships
+      in its tool closure (see docs/provision-sources.md §3-§4).
+    recipe: "scripts/provision_toolchain.sh (PROV phase 1; LibreLane closure ships openroad)."
+  - id: pymeep
+    kind: python
+    label: pymeep (FDTD)
+    python: [meep]
+    remedy: >-
+      Provision pymeep==1.35.0 via the miniforge conda env (run
+      scripts/provision_toolchain.sh --install); it lives in
+      the conda env, not the engine venv, so verify with the
+      env python (see docs/provision-sources.md §10).
+    recipe: "scripts/provision_toolchain.sh (PROV-DEFERRED; conda-forge pymeep env)."
+  - id: openems
+    kind: tool
+    label: openEMS (EC-FDTD)
+    binaries: [openEMS]
+    remedy: >-
+      Install openEMS v0.37.0 + CSXCAD v0.7.0 from source (run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV-DEFERRED; docs.openEMS.de recipe)."
+  - id: elmer
+    kind: tool
+    label: Elmer (thermal/FEM)
+    binaries: [ElmerSolver]
+    remedy: >-
+      Install elmerfem-csc via the CSC PPA (needs sudo; run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV-DEFERRED; CSC PPA apt route)."
+  - id: devsim
+    kind: python
+    label: DEVSIM (TCAD)
+    python: [devsim]
+    remedy: >-
+      Install devsim==2.11.2 into the engine venv (run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV-DEFERRED; pip into the engine venv)."
+  - id: palace
+    kind: tool
+    label: Palace (full-wave FEM)
+    binaries: [palace]
     provisionable: false
     remedy: >-
-      openroad is absent with no recipe yet (batch roles per B10
-      matrix; see docs/provision-plan.md).
-    recipe: "none yet (B10 matrix)."
+      Palace is unsourced: its install docs are not read yet
+      (docs/provision-sources.md §12). No row action.
+    recipe: "docs/provision-sources.md §12 (unsourced — no recipe yet)."
   - id: pdk-sky130A
     kind: pdk
     label: PDK sky130A

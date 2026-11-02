@@ -248,7 +248,7 @@ def test_check_only_ok_with_matching_stubs(tmp_path):
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
-    assert "PROV-PHASE2: OK (11/11" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2: OK (7/7 MVP" in proc.stdout, proc.stdout
     assert "REMEDY" not in proc.stdout, proc.stdout
 
 
@@ -281,7 +281,7 @@ def test_check_only_finds_bundle_bin_without_dev_path(tmp_path):
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
-    assert "PROV-PHASE2: OK (11/11" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2: OK (7/7 MVP" in proc.stdout, proc.stdout
 
 
 def test_check_only_yosys_mismatch_fails_loud(tmp_path):
@@ -413,7 +413,7 @@ def test_install_ok_when_all_asserted(tmp_path):
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
-    assert "PROV-PHASE2: OK (11/11" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2: OK (7/7 MVP" in proc.stdout, proc.stdout
 
 
 def test_live_check_only_reports_a_verdict():
@@ -422,9 +422,11 @@ def test_live_check_only_reports_a_verdict():
     assert proc.returncode in (0, 1), proc.stdout + proc.stderr
     assert "PROV-PHASE1:" in proc.stdout, proc.stdout
     assert "PROV-PHASE2:" in proc.stdout, proc.stdout
+    assert "PROV-DEFERRED:" in proc.stdout, proc.stdout
     if proc.returncode == 0:
         assert "(4/4" in proc.stdout, proc.stdout
-        assert "(11/11" in proc.stdout, proc.stdout
+        assert "(7/7 MVP" in proc.stdout, proc.stdout
+        assert "(4/4 deferred" in proc.stdout, proc.stdout
     else:
         assert "DEGRADED" in proc.stdout, proc.stdout
         assert "REMEDY" in proc.stdout, proc.stdout
@@ -733,7 +735,7 @@ def test_check_only_colors_on_tty(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "\x1b[" in proc.stdout, "tty output should carry color"
     assert "PROV-PHASE1: OK (4/4" in proc.stdout, proc.stdout
-    assert "PROV-PHASE2: OK (11/11" in proc.stdout, proc.stdout
+    assert "PROV-PHASE2: OK (7/7 MVP" in proc.stdout, proc.stdout
 
 
 def test_no_color_disables_tty_color(tmp_path):

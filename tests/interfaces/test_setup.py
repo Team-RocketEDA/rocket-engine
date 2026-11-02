@@ -72,9 +72,12 @@ def _bare_path(monkeypatch, tmp_path):
 
 # Every Python-module solver the setup surface can report: a
 # fresh-machine simulation must mask all of them, or whichever
-# solver it forgets (circulax alongside sax, meow, gdsfactory)
-# reads ready and the simulation lies.
-_MASKED_PYTHON_SOLVERS = frozenset({"sax", "circulax", "meow", "gdsfactory"})
+# solver it forgets (circulax alongside sax, meow, gdsfactory;
+# cace and devsim ship in the catalogue too) reads ready and the
+# simulation lies.
+_MASKED_PYTHON_SOLVERS = frozenset(
+    {"sax", "circulax", "meow", "gdsfactory", "cace", "devsim"}
+)
 
 
 def _no_python_solvers(monkeypatch):

@@ -18,3 +18,7 @@ results/
 fixtures/upstream/*/
 # Mutation scratch (MUTATE-HARNESS): CLI staging copies, never committed.
 tmp/
+# Repo-local provision roots (BUILD-LOCAL): the toolchain and the
+# engine store live inside the repo by default, never committed.
+.tools/
+.stores/

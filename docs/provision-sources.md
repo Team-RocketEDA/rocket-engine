@@ -57,6 +57,13 @@ deps.
   to the pending MIT-vs-GPL decision — record, don't solve.
 - install.sh: source-build recipe with the dep table
   asserted up front; `sta` version-asserted after install.
+- Pinned (single source: `scripts/provision_toolchain.sh`):
+  OpenSTA `857316ff001b2a8dbbdc5996944d08a6d38c87ab`
+  (short `857316f`), CUDD `3.0.0`. Parity: the LibreLane
+  `tool_versions.txt` (release 3.0.17, verified 2026-11-03)
+  names the same OpenSTA revision. Recipe cross-checked
+  against the live OpenSTA README ("Build from source") at
+  provision time.
 
 ## 3. LibreLane (RTL-to-GDS flow driver)
 
@@ -153,6 +160,15 @@ deps.
   gtest TPL off (TriBITS' own documented escape).
 - install.sh: source-build recipe, long-timeout lane;
   serial-first, MPI as an option.
+- Pinned (single source: `scripts/provision_toolchain.sh`):
+  Xyce `Release-7.10.0` (https://github.com/Xyce/Xyce),
+  Trilinos `trilinos-release-17-2-1`
+  (https://github.com/trilinos/Trilinos). Recipe
+  cross-checked against the live Xyce building guide
+  (https://xyce.sandia.gov/) at provision time: Trilinos
+  first (serial, MPI OFF, ShyLU OFF, gtest TPL OFF), then
+  `./bootstrap` for GitHub checkouts, then the Xyce
+  autotools build against the Trilinos prefix.
 
 ## 9. Xschem + CACE (schematic, characterization)
 
@@ -195,6 +211,13 @@ deps.
   trusting).
 - install.sh: source-build recipe per the manual;
   probe apt as a fast path only if version-asserted.
+- Pinned (single source: `scripts/provision_toolchain.sh`):
+  openEMS `v0.37.0` (https://github.com/thliebig/openEMS),
+  CSXCAD `v0.7.0` (https://github.com/thliebig/CSXCAD).
+  Recipe cross-checked against https://docs.openEMS.de/
+  (python/install) at provision time: CSXCAD C++/Python
+  ext first, then the openEMS C++/Python ext against the
+  CSXCAD prefix.
 
 ## 12. Palace (full-wave FEM)
 

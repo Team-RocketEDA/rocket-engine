@@ -32,20 +32,38 @@
 # Usage:
 #   scripts/provision_toolchain.sh --check-only  # assert only
 #   scripts/provision_toolchain.sh --install     # install+assert
+#   scripts/provision_toolchain.sh --only <tool> [--check-only|--install]
+#     scope the assert/install to exactly one tool (backend for
+#     the install-screen per-tool install; --only klayout
+#     --install provisions exactly klayout)
+#   scripts/provision_toolchain.sh --list-tools  # enumerate the
+#     installable tools with their per-row prereqs (install menu)
 #   scripts/provision_toolchain.sh --print-path  # idempotent shell
 #     block exporting the provisioned bin dirs (backend for the
 #     installer "add to PATH" flag; append once, guarded by the
 #     markers — the provisioner itself never touches the shell).
 #
+# Machine-readable verdict (BUILD-LOCAL stage 3): every check
+# run emits one `PROV-ROW` TSV line per tool — id, state
+# (pinned|ambient|absent|mismatch|unpinned|unrunnable|unsourced),
+# version, path, remedy — so ENGINE-SETUP can drive per-tool
+# install/status without parsing prose.
+#
 # Honors:
-#   TOOLS_DIR         app-owned tools dir (default: ~/tools)
+#   TOOLS_DIR         app-owned tools dir (default: $ROOT/.tools;
+#     BUILD-LOCAL stage 2 makes the repo the default so a fresh
+#     clone writes nothing outside it. Explicit env still wins:
+#     existing ~/tools users keep working via TOOLS_DIR=~/tools.)
 #   OSS_CAD_SUITE_DIR bundle dir (default: $TOOLS_DIR/oss-cad-suite)
 #   PROV_OFFLINE=1    skip every network attempt (fast air-gap path)
 #
-# Phase 2 (rest of the PRD matrix: magic, netgen, klayout,
-# ngspice, xyce, xschem, cace, pymeep, openems, elmer,
-# devsim) is wired below with per-tool pins, version asserts,
-# pinned-or-ambient-recorded checks, and doc-cited installers.
+# Phase 2 (MVP remainder: magic, netgen, klayout, ngspice,
+# xyce, xschem, cace) is wired below with per-tool pins,
+# version asserts, pinned-or-ambient-recorded checks, and
+# doc-cited installers. The MVP verdict (PROV-PHASE2) covers
+# exactly these 7: deferred packs (pymeep, openems, elmer,
+# devsim) report on their own PROV-DEFERRED line and never
+# gate the MVP claim (see docs/tickets/PROV-DEFERRED.md).
 # Palace stays UNSOURCED until its install docs are read
 # (docs/provision-sources.md 12) — recorded, never installed.
 
@@ -103,11 +121,56 @@ LIBRELANE_DOC_NIX="$LIBRELANE_DOCS/nix_installation/installation_linux.html"
 OPENSTA_URL="https://github.com/The-OpenROAD-Project/OpenSTA"
 OPENSTA_SHORT="$(printf '%s' "$OPENSTA_PIN" | cut -c1-7)"
 
-MODE="${1:---install}"
-if [ "$MODE" != "--check-only" ] && [ "$MODE" != "--install" ] \
-    && [ "$MODE" != "--print-path" ]; then
-    echo "usage: provision_toolchain.sh [--check-only|--install|--print-path]" >&2
-    exit 2
+list_tools() {
+    # Install-menu enumeration: id + per-row prereqs shown BEFORE
+    # the user ticks (the honest-checkbox rule). Palace is
+    # deliberately absent: unsourced, no row action.
+    cat <<'EOF'
+oss-cad-suite: network + ~1GB disk; fetch pinned tarball.
+librelane: network + ~2GB disk; fetch pinned AppImage.
+opensta: network + build prereqs (git cmake make g++ swig bison flex tcl eigen) + ~30min build.
+magic: network + build prereqs (git make gcc tclsh wish) + ~10min build.
+netgen: network + build prereqs (git make gcc tclsh) + ~10min build.
+klayout: network + dpkg-deb; host Qt runtime libs (banner check proves liveness, else apt remedy).
+ngspice: network + build prereqs (make gcc bison flex) + ~15min build.
+xyce: network + heavy build prereqs (cmake g++ gfortran ...) + Trilinos first: HOURS.
+xschem: network + build prereqs (git make gcc tclsh wish) + ~10min build.
+cace: uv + engine venv + network; pip into the venv.
+pymeep: network + ~3GB disk; miniforge bootstrap once, then conda-forge env.
+openems: network + build prereqs (cmake hdf5 boost fparser tinyxml) + CSXCAD first: LONG.
+elmer: sudo + network (apt PPA). No-sudo hosts get the remedy, never a silent skip.
+devsim: uv + engine venv + network; pip into the venv.
+EOF
+}
+
+ONLY=""
+if [ "${1:---install}" = "--list-tools" ]; then
+    list_tools
+    exit 0
+elif [ "${1:---install}" = "--only" ]; then
+    ONLY="${2:-}"
+    case " oss-cad-suite librelane opensta magic netgen klayout ngspice xyce xschem cace pymeep openems elmer devsim " in
+        *" $ONLY "*) ;;
+        *)
+            echo "unknown tool: '$ONLY' (run --list-tools)" >&2
+            exit 2
+            ;;
+    esac
+    MODE="${3:---check-only}"
+    case "$MODE" in
+        --check-only|--install) ;;
+        *)
+            echo "usage: provision_toolchain.sh --only <tool> [--check-only|--install]" >&2
+            exit 2
+            ;;
+    esac
+else
+    MODE="${1:---install}"
+    if [ "$MODE" != "--check-only" ] && [ "$MODE" != "--install" ] \
+        && [ "$MODE" != "--print-path" ]; then
+        echo "usage: provision_toolchain.sh [--check-only|--install|--print-path|--list-tools|--only <tool> ...]" >&2
+        exit 2
+    fi
 fi
 
 # Flair: colors on interactive terminals only. Piped output
@@ -129,8 +192,8 @@ else
     C_OFF=''
 fi
 
-TOOLS_DIR="${TOOLS_DIR:-$HOME/tools}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+TOOLS_DIR="${TOOLS_DIR:-$ROOT_DIR/.tools}"
 OSS_DIR="${OSS_CAD_SUITE_DIR:-$TOOLS_DIR/oss-cad-suite}"
 LIBRELANE_DIR="$TOOLS_DIR/librelane-$LIBRELANE_PIN"
 APPIMAGE="$LIBRELANE_DIR/librelane-devshell-x86_64.AppImage"
@@ -171,6 +234,14 @@ note() {
 remedy() {  # tool, cause, next-step, url
     printf '%s\n' "${C_ERR}REMEDY $1: $2. next: $3. see: $4${C_OFF}"
 }
+row() {  # id, state, version, path, remedy — one TSV verdict line
+    local id="$1" state="$2" version="$3" path="$4" remedy_text="$5"
+    version="$(printf '%s' "$version" | tr '\t\n' '  ' | cut -c1-100)"
+    path="$(printf '%s' "$path" | tr '\t\n' '  ' | cut -c1-100)"
+    remedy_text="$(printf '%s' "$remedy_text" | tr '\t\n' '  ' | cut -c1-200)"
+    printf 'PROV-ROW\t%s\t%s\t%s\t%s\t%s\n' \
+        "$id" "$state" "$version" "$path" "$remedy_text"
+}
 mark_ok() { OK_COUNT=$((OK_COUNT + 1)); }
 mark_missing() { MISSING="$MISSING $1"; }
 
@@ -183,6 +254,8 @@ check_bundle() {
     local ver_file="$OSS_DIR/VERSION"
     if [ ! -f "$ver_file" ]; then
         note "oss-cad-suite absent [$OSS_DIR]"
+        row "oss-cad-suite" "absent" "-" "$OSS_DIR" \
+            "run scripts/provision_toolchain.sh --install"
         bundle_ok="no"
         return 0
     fi
@@ -190,9 +263,12 @@ check_bundle() {
     got="$(head -n 1 "$ver_file" | tr -d '[:space:]')"
     if [ "$got" = "$OSS_CAD_SUITE_PIN" ]; then
         note "oss-cad-suite $got [$OSS_DIR]"
+        row "oss-cad-suite" "pinned" "$got" "$OSS_DIR" "-"
         bundle_ok="yes"
     else
         note "oss-cad-suite MISMATCH got $got want $OSS_CAD_SUITE_PIN"
+        row "oss-cad-suite" "mismatch" "$got" "$OSS_DIR" \
+            "run scripts/provision_toolchain.sh --install"
         bundle_ok="no"
     fi
 }
@@ -206,6 +282,8 @@ check_binary() {  # tool, expect-prefix, version-argv...
         note "$tool absent"
         remedy "$tool" "$tool not on PATH (nor in $OSS_DIR/bin)" \
             "run scripts/provision_toolchain.sh --install" "$OSS_URL"
+        row "$tool" "absent" "-" "$OSS_DIR/bin/$tool" \
+            "run scripts/provision_toolchain.sh --install"
         mark_missing "$tool"
         return 0
     fi
@@ -213,6 +291,8 @@ check_binary() {  # tool, expect-prefix, version-argv...
         note "$tool UNPINNED ($bin resolves outside bundle $OSS_CAD_SUITE_PIN)"
         remedy "$tool" "bundle $OSS_CAD_SUITE_PIN not asserted" \
             "run scripts/provision_toolchain.sh --install" "$OSS_URL"
+        row "$tool" "unpinned" "-" "$bin" \
+            "run scripts/provision_toolchain.sh --install"
         mark_missing "$tool"
         return 0
     fi
@@ -221,12 +301,15 @@ check_binary() {  # tool, expect-prefix, version-argv...
     case "$banner" in
         "$expect"*)
             note "$tool $banner [$bin]"
+            row "$tool" "pinned" "$banner" "$bin" "-"
             mark_ok
             ;;
         *)
             note "$tool MISMATCH got '$banner' want '$expect*'"
             remedy "$tool" "banner '$banner' != pin '$expect*'" \
                 "run scripts/provision_toolchain.sh --install" "$OSS_URL"
+            row "$tool" "mismatch" "$banner" "$bin" \
+                "run scripts/provision_toolchain.sh --install"
             mark_missing "$tool"
             ;;
     esac
@@ -253,11 +336,14 @@ check_librelane() {
                         "PATH librelane '$ver' != pin $LIBRELANE_PIN" \
                         "align the nix-shell env with $LIBRELANE_PIN" \
                         "$LIBRELANE_URL"
+                    row "librelane" "mismatch" "$ver" "$bin" \
+                        "align the nix-shell env with $LIBRELANE_PIN"
                     mark_missing "librelane"
                     return 0
                     ;;
             esac
         fi
+        row "librelane" "pinned" "$LIBRELANE_PIN" "$APPIMAGE" "-"
         mark_ok
         return 0
     fi
@@ -265,6 +351,8 @@ check_librelane() {
     remedy "librelane" "supported distribution $LIBRELANE_PIN absent" \
         "run scripts/provision_toolchain.sh --install" \
         "$LIBRELANE_DOC_APPIMAGE"
+    row "librelane" "absent" "-" "$APPIMAGE" \
+        "run scripts/provision_toolchain.sh --install"
     mark_missing "librelane"
 }
 
@@ -281,6 +369,7 @@ check_opensta() {
         fi
         if [ -n "$out" ]; then
             note "opensta $OPENSTA_SHORT [$sta] $out"
+            row "opensta" "pinned" "$out" "$sta" "-"
             mark_ok
             return 0
         fi
@@ -288,6 +377,8 @@ check_opensta() {
         remedy "opensta" "$sta prints no version" \
             "rebuild via scripts/provision_toolchain.sh --install" \
             "$OPENSTA_URL"
+        row "opensta" "unrunnable" "-" "$sta" \
+            "rebuild via scripts/provision_toolchain.sh --install"
         mark_missing "opensta"
         return 0
     fi
@@ -297,27 +388,41 @@ check_opensta() {
         note "opensta UNPINNED (ambient $ambient, no $pinfile)"
         remedy "opensta" "ambient sta is not the pinned build" \
             "run scripts/provision_toolchain.sh --install" "$OPENSTA_URL"
+        row "opensta" "unpinned" "-" "$ambient" \
+            "run scripts/provision_toolchain.sh --install"
     else
         note "opensta absent [$sta]"
         remedy "opensta" "pinned build $OPENSTA_SHORT absent" \
             "run scripts/provision_toolchain.sh --install" "$OPENSTA_URL"
+        row "opensta" "absent" "-" "$sta" \
+            "run scripts/provision_toolchain.sh --install"
     fi
     mark_missing "opensta"
 }
 
 OK2_COUNT=0
 MISSING2=""
+OKD_COUNT=0
+MISSINGD=""
 
 mark2_ok() { OK2_COUNT=$((OK2_COUNT + 1)); }
 mark2_missing() { MISSING2="$MISSING2 $1"; }
+markd_ok() { OKD_COUNT=$((OKD_COUNT + 1)); }
+markd_missing() { MISSINGD="$MISSINGD $1"; }
+mark_ok_for() {  # counter, id-unused — mvp vs deferred lane
+    if [ "$1" = "deferred" ]; then markd_ok; else mark2_ok; fi
+}
+mark_missing_for() {  # counter, id
+    if [ "$1" = "deferred" ]; then markd_missing "$2"; else mark2_missing "$2"; fi
+}
 
 # Phase-2 policy: provisioned (pinfile matches pin) -> OK pinned;
 # else ambient banner in the EXPECT family -> OK ambient-recorded
 # (version always printed, never assumed); else missing + remedy.
-check_pinned_or_ambient() {  # id, prefix, pinfile-name, pin, expect, url, bin, version-argv...
+check_pinned_or_ambient() {  # id, prefix, pinfile-name, pin, expect, url, bin, counter, version-argv...
     local id="$1" prefix="$2" pinname="$3" pin="$4" expect="$5" url="$6"
-    local bin="$7"
-    shift 7
+    local bin="$7" counter="$8"
+    shift 8
     local pinfile="$prefix/$pinname"
     local prov_bin="$prefix/bin/$bin"
     if [ -x "$prov_bin" ] && [ -f "$pinfile" ] \
@@ -328,14 +433,17 @@ check_pinned_or_ambient() {  # id, prefix, pinfile-name, pin, expect, url, bin, 
         case "$out" in
             *"$expect"*)
                 note "$id pinned $pin [$prov_bin] $out"
-                mark2_ok
+                row "$id" "pinned" "$out" "$prov_bin" "-"
+                mark_ok_for "$counter"
                 return 0
                 ;;
         esac
         note "$id UNRUNNABLE ($prov_bin banner '$out' lacks '$expect')"
         remedy "$id" "provisioned build fails its banner" \
             "rebuild via scripts/provision_toolchain.sh --install" "$url"
-        mark2_missing "$id"
+        row "$id" "unrunnable" "$out" "$prov_bin" \
+            "rebuild via scripts/provision_toolchain.sh --install"
+        mark_missing_for "$counter" "$id"
         return 0
     fi
     local ambient
@@ -344,7 +452,9 @@ check_pinned_or_ambient() {  # id, prefix, pinfile-name, pin, expect, url, bin, 
         note "$id absent [$prov_bin]"
         remedy "$id" "no provisioned build, none ambient" \
             "run scripts/provision_toolchain.sh --install" "$url"
-        mark2_missing "$id"
+        row "$id" "absent" "-" "$prov_bin" \
+            "run scripts/provision_toolchain.sh --install"
+        mark_missing_for "$counter" "$id"
         return 0
     fi
     local out
@@ -352,33 +462,36 @@ check_pinned_or_ambient() {  # id, prefix, pinfile-name, pin, expect, url, bin, 
     case "$out" in
         *"$expect"*)
             note "$id ambient $out [$ambient]"
-            mark2_ok
+            row "$id" "ambient" "$out" "$ambient" "-"
+            mark_ok_for "$counter"
             ;;
         *)
             note "$id MISMATCH got '$out' want '*$expect*'"
             remedy "$id" "ambient '$out' outside family '$expect'" \
                 "run scripts/provision_toolchain.sh --install" "$url"
-            mark2_missing "$id"
+            row "$id" "mismatch" "$out" "$ambient" \
+                "run scripts/provision_toolchain.sh --install"
+            mark_missing_for "$counter" "$id"
             ;;
     esac
 }
 
 check_magic() {
     check_pinned_or_ambient magic "$MAGIC_PREFIX" MAGIC_REF \
-        "$MAGIC_REF" "$MAGIC_EXPECT" "$MAGIC_REPO" magic \
+        "$MAGIC_REF" "$MAGIC_EXPECT" "$MAGIC_REPO" magic mvp \
         -dnull -noconsole --version
 }
 
 check_netgen() {
     check_pinned_or_ambient netgen "$NETGEN_PREFIX" NETGEN_REF \
-        "$NETGEN_REF" "$NETGEN_EXPECT" "$NETGEN_REPO" netgen \
+        "$NETGEN_REF" "$NETGEN_EXPECT" "$NETGEN_REPO" netgen mvp \
         -batch -h
 }
 
 check_klayout() {
     check_pinned_or_ambient klayout "$KLAYOUT_PREFIX" KLAYOUT_PIN \
         "$KLAYOUT_PIN" "$KLAYOUT_EXPECT" \
-        "https://www.klayout.de/build.html" klayout -v
+        "https://www.klayout.de/build.html" klayout mvp -v
 }
 
 check_ngspice() {
@@ -389,6 +502,7 @@ check_ngspice() {
         && [ "$(head -n 1 "$pinfile")" = "$NGSPICE_PIN" ]
     then
         note "ngspice pinned $NGSPICE_PIN [$prov_bin]"
+        row "ngspice" "pinned" "$NGSPICE_PIN" "$prov_bin" "-"
         mark2_ok
         return 0
     fi
@@ -399,6 +513,8 @@ check_ngspice() {
         remedy "ngspice" "no provisioned build, none ambient" \
             "run scripts/provision_toolchain.sh --install" \
             "https://ngspice.sourceforge.io/download.html"
+        row "ngspice" "absent" "-" "$prov_bin" \
+            "run scripts/provision_toolchain.sh --install"
         mark2_missing "ngspice"
         return 0
     fi
@@ -407,6 +523,7 @@ check_ngspice() {
     case "$out" in
         "$NGSPICE_EXPECT"*)
             note "ngspice ambient $out [$ambient]"
+            row "ngspice" "ambient" "$out" "$ambient" "-"
             mark2_ok
             ;;
         *)
@@ -414,6 +531,8 @@ check_ngspice() {
             remedy "ngspice" "ambient '$out' outside family" \
                 "run scripts/provision_toolchain.sh --install" \
                 "https://ngspice.sourceforge.io/download.html"
+            row "ngspice" "mismatch" "$out" "$ambient" \
+                "run scripts/provision_toolchain.sh --install"
             mark2_missing "ngspice"
             ;;
     esac
@@ -421,7 +540,7 @@ check_ngspice() {
 
 check_xyce() {
     check_pinned_or_ambient xyce "$XYCE_PREFIX" XYCE_REF \
-        "$XYCE_REF" "$XYCE_EXPECT" "$XYCE_REPO" Xyce -version
+        "$XYCE_REF" "$XYCE_EXPECT" "$XYCE_REPO" Xyce mvp -version
 }
 
 check_xschem() {
@@ -440,6 +559,8 @@ check_xschem() {
         note "xschem absent [$prov_bin]"
         remedy "xschem" "no provisioned build, none ambient" \
             "run scripts/provision_toolchain.sh --install" "$XSCHEM_REPO"
+        row "xschem" "absent" "-" "$prov_bin" \
+            "run scripts/provision_toolchain.sh --install"
         mark2_missing "xschem"
         return 0
     fi
@@ -449,8 +570,10 @@ check_xschem() {
         "$XSCHEM_EXPECT"*)
             if [ "$pinned" = "yes" ]; then
                 note "xschem pinned $XSCHEM_REF [$bin] $out"
+                row "xschem" "pinned" "$out" "$bin" "-"
             else
                 note "xschem ambient $out [$bin]"
+                row "xschem" "ambient" "$out" "$bin" "-"
             fi
             mark2_ok
             ;;
@@ -458,35 +581,42 @@ check_xschem() {
             note "xschem MISMATCH got '$out' want '$XSCHEM_EXPECT*'"
             remedy "xschem" "banner outside family" \
                 "run scripts/provision_toolchain.sh --install" "$XSCHEM_REPO"
+            row "xschem" "mismatch" "$out" "$bin" \
+                "run scripts/provision_toolchain.sh --install"
             mark2_missing "xschem"
             ;;
     esac
 }
 
-check_pypkg() {  # id, pin, url — importable in the engine venv
-    local id="$1" pin="$2" url="$3"
+check_pypkg() {  # id, pin, url, counter — importable in the engine venv
+    local id="$1" pin="$2" url="$3" counter="$4"
     local py="${PROV_PYTHON:-$ROOT_DIR/.venv/bin/python}"
     [ -x "$py" ] || py="python3"
     local got
     got="$("$py" -c "import importlib.metadata as m; print(m.version('$id'))" 2>/dev/null || true)"
     if [ "$got" = "$pin" ]; then
         note "$id pinned $pin [engine venv]"
-        mark2_ok
+        row "$id" "pinned" "$pin" "$py" "-"
+        mark_ok_for "$counter"
     elif [ -n "$got" ]; then
         note "$id MISMATCH got '$got' want '$pin'"
         remedy "$id" "venv has $got, pin is $pin" \
             "run scripts/provision_toolchain.sh --install" "$url"
-        mark2_missing "$id"
+        row "$id" "mismatch" "$got" "$py" \
+            "run scripts/provision_toolchain.sh --install"
+        mark_missing_for "$counter" "$id"
     else
         note "$id absent [engine venv]"
         remedy "$id" "$id==$pin not installed" \
             "run scripts/provision_toolchain.sh --install" "$url"
-        mark2_missing "$id"
+        row "$id" "absent" "-" "$py" \
+            "run scripts/provision_toolchain.sh --install"
+        mark_missing_for "$counter" "$id"
     fi
 }
 
-check_cace() { check_pypkg cace "$CACE_PIN" "https://github.com/efabless/cace"; }
-check_devsim() { check_pypkg devsim "$DEVSIM_PIN" "https://pypi.org/project/devsim/"; }
+check_cace() { check_pypkg cace "$CACE_PIN" "https://github.com/efabless/cace" mvp; }
+check_devsim() { check_pypkg devsim "$DEVSIM_PIN" "https://pypi.org/project/devsim/" deferred; }
 
 check_pymeep() {
     if [ -x "$PYMEEP_PY" ]; then
@@ -496,26 +626,31 @@ check_pymeep() {
         got="$("$PYMEEP_PY" -c "import meep; print(meep.__version__)" 2>/dev/null | head -n 1 || true)"
         if [ "$got" = "$PYMEEP_PIN" ]; then
             note "pymeep pinned $got [$PYMEEP_PY]"
-            mark2_ok
+            row "pymeep" "pinned" "$got" "$PYMEEP_PY" "-"
+            markd_ok
             return 0
         fi
         note "pymeep MISMATCH got '$got' want '$PYMEEP_PIN'"
         remedy "pymeep" "conda env version drift" \
             "run scripts/provision_toolchain.sh --install" \
             "https://meep.readthedocs.io/en/latest/Installation/"
-        mark2_missing "pymeep"
+        row "pymeep" "mismatch" "$got" "$PYMEEP_PY" \
+            "run scripts/provision_toolchain.sh --install"
+        markd_missing "pymeep"
         return 0
     fi
     note "pymeep absent [$PYMEEP_PY]"
     remedy "pymeep" "conda-forge pymeep==$PYMEEP_PIN not installed" \
         "run scripts/provision_toolchain.sh --install" \
         "https://meep.readthedocs.io/en/latest/Installation/"
-    mark2_missing "pymeep"
+    row "pymeep" "absent" "-" "$PYMEEP_PY" \
+        "run scripts/provision_toolchain.sh --install"
+    markd_missing "pymeep"
 }
 
 check_openems() {
     check_pinned_or_ambient openems "$OPENEMS_PREFIX" OPENEMS_REF \
-        "$OPENEMS_REF" "$OPENEMS_EXPECT" "$OPENEMS_REPO" openEMS --version
+        "$OPENEMS_REF" "$OPENEMS_EXPECT" "$OPENEMS_REPO" openEMS deferred --version
 }
 
 check_elmer() {
@@ -526,7 +661,9 @@ check_elmer() {
         remedy "elmer" "ElmerSolver not installed" \
             "run scripts/provision_toolchain.sh --install (needs sudo for $ELMER_PPA)" \
             "https://www.csc.fi/web/elmer"
-        mark2_missing "elmer"
+        row "elmer" "absent" "-" "ElmerSolver" \
+            "run scripts/provision_toolchain.sh --install (needs sudo)"
+        markd_missing "elmer"
         return 0
     fi
     local out
@@ -534,20 +671,25 @@ check_elmer() {
     case "$out" in
         *"$ELMER_EXPECT"*|*[Ee]lmer*|*ELMER*)
             note "elmer ambient $out [$bin]"
-            mark2_ok
+            row "elmer" "ambient" "$out" "$bin" "-"
+            markd_ok
             ;;
         *)
             note "elmer MISMATCH got '$out'"
             remedy "elmer" "banner unrecognized" \
                 "run scripts/provision_toolchain.sh --install" \
                 "https://www.csc.fi/web/elmer"
-            mark2_missing "elmer"
+            row "elmer" "mismatch" "$out" "$bin" \
+                "run scripts/provision_toolchain.sh --install"
+            markd_missing "elmer"
             ;;
     esac
 }
 
 check_palace() {
     note "palace UNSOURCED (docs/provision-sources.md 12) — no pin until install docs are read"
+    row "palace" "unsourced" "-" "-" \
+        "read awslabs palace install docs into docs/provision-sources.md section 12 first"
 }
 
 run_checks() {
@@ -568,6 +710,8 @@ run_checks() {
     check_xyce
     check_xschem
     check_cace
+    OKD_COUNT=0
+    MISSINGD=""
     check_pymeep
     check_openems
     check_elmer
@@ -581,14 +725,76 @@ verdict() {
     else
         printf '%s\n' "${C_ERR}PROV-PHASE1: DEGRADED (missing:$MISSING)${C_OFF}"
     fi
-    if [ "$OK2_COUNT" -eq 11 ]; then
-        printf '%s\n' "${C_OK}PROV-PHASE2: OK (11/11 provisioned-or-ambient-recorded)${C_OFF}"
+    if [ "$OK2_COUNT" -eq 7 ]; then
+        printf '%s\n' "${C_OK}PROV-PHASE2: OK (7/7 MVP provisioned-or-ambient-recorded)${C_OFF}"
     else
-        printf '%s\n' "${C_ERR}PROV-PHASE2: DEGRADED (missing:$MISSING2)${C_OFF}"
+        printf '%s\n' "${C_ERR}PROV-PHASE2: DEGRADED (MVP missing:$MISSING2)${C_OFF}"
     fi
-    if [ "$OK_COUNT" -eq 4 ] && [ "$OK2_COUNT" -eq 11 ]; then
+    if [ "$OKD_COUNT" -eq 4 ]; then
+        printf '%s\n' "${C_OK}PROV-DEFERRED: OK (4/4 deferred provisioned-or-ambient-recorded)${C_OFF}"
+    else
+        printf '%s\n' "${C_ERR}PROV-DEFERRED: DEGRADED (deferred missing:$MISSINGD — never gates the MVP claim)${C_OFF}"
+    fi
+    if [ "$OK_COUNT" -eq 4 ] && [ "$OK2_COUNT" -eq 7 ]; then
         return 0
     fi
+    return 1
+}
+
+run_only_checks() {  # id — scoped assert for --only (BUILD-LOCAL stage 3)
+    OK_COUNT=0
+    MISSING=""
+    OK2_COUNT=0
+    MISSING2=""
+    OKD_COUNT=0
+    MISSINGD=""
+    case "$1" in
+        oss-cad-suite)
+            check_bundle
+            check_binary yosys "$YOSYS_EXPECT" yosys -V
+            check_binary sby "$SBY_EXPECT" sby --version
+            ;;
+        librelane) check_librelane ;;
+        opensta) check_opensta ;;
+        magic) check_magic ;;
+        netgen) check_netgen ;;
+        klayout) check_klayout ;;
+        ngspice) check_ngspice ;;
+        xyce) check_xyce ;;
+        xschem) check_xschem ;;
+        cace) check_cace ;;
+        pymeep) check_pymeep ;;
+        openems) check_openems ;;
+        elmer) check_elmer ;;
+        devsim) check_devsim ;;
+    esac
+}
+
+install_one() {  # id — scoped install for --only (BUILD-LOCAL stage 3)
+    case "$1" in
+        oss-cad-suite) install_bundle ;;
+        librelane) install_librelane ;;
+        opensta) install_opensta ;;
+        magic) install_magic ;;
+        netgen) install_netgen ;;
+        klayout) install_klayout ;;
+        ngspice) install_ngspice ;;
+        xyce) install_xyce ;;
+        xschem) install_xschem ;;
+        cace) install_cace ;;
+        pymeep) install_pymeep ;;
+        openems) install_openems ;;
+        elmer) install_elmer ;;
+        devsim) install_devsim ;;
+    esac
+}
+
+scoped_verdict() {  # id — scoped verdict for --only (BUILD-LOCAL stage 3)
+    if [ -z "$MISSING" ] && [ -z "$MISSING2" ] && [ -z "$MISSINGD" ]; then
+        printf '%s\n' "${C_OK}PROV-ONLY $1: OK${C_OFF}"
+        return 0
+    fi
+    printf '%s\n' "${C_ERR}PROV-ONLY $1: DEGRADED (missing:$MISSING$MISSING2$MISSINGD)${C_OFF}"
     return 1
 }
 
@@ -1211,7 +1417,7 @@ if [ "$MODE" = "--print-path" ]; then
     exit $?
 fi
 
-if [ "$MODE" = "--check-only" ]; then
+if [ -z "$ONLY" ] && [ "$MODE" = "--check-only" ]; then
     run_checks
     verdict
     exit $?
@@ -1224,8 +1430,23 @@ net_ok() {
     curl -sS -o /dev/null --max-time 8 "$OSS_URL" 2>/dev/null
 }
 
+if [ -n "$ONLY" ]; then
+    if [ "$OFFLINE" != "1" ] && [ "$MODE" = "--install" ] && ! net_ok; then
+        note "network unreachable (preflight to $OSS_URL failed): offline remedies follow."
+        OFFLINE=1
+    fi
+    run_only_checks "$ONLY"
+    if [ "$MODE" = "--install" ] \
+        && { [ -n "$MISSING" ] || [ -n "$MISSING2" ] || [ -n "$MISSINGD" ]; }; then
+        install_one "$ONLY" || true
+        run_only_checks "$ONLY"
+    fi
+    scoped_verdict "$ONLY"
+    exit $?
+fi
+
 run_checks
-if [ "$OK_COUNT" -eq 4 ] && [ "$OK2_COUNT" -eq 11 ]; then
+if [ "$OK_COUNT" -eq 4 ] && [ "$OK2_COUNT" -eq 7 ]; then
     mkdir -p "$TOOLS_DIR" 2>/dev/null && write_env
     verdict
     exit $?
