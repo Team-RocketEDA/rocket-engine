@@ -183,15 +183,7 @@ def _publish(comp, bound, artifacts, fallback):
     )
 
 
-def _activate(doc, cspdk_path):
-    import gdsfactory as gf
-
-    if doc is None:
-        return gf, "", None
-    pdk = doc.get("pdk", "generic")
-    if pdk == "generic":
-        gf.gpdk.PDK.activate()
-        return gf, "generic", None
+def _activate_cspdk(gf, cspdk_path):
     if cspdk_path is not None:
         root = str(Path(cspdk_path).expanduser())
         if root not in sys.path:
@@ -205,7 +197,28 @@ def _activate(doc, cspdk_path):
     from gdsfactory.pdk import get_active_pdk
 
     active = get_active_pdk()
-    return gf, active.name, getattr(cspdk, "__version__", "unknown")
+    return active.name, getattr(cspdk, "__version__", "unknown")
+
+
+def _activate(doc, cspdk_path):
+    import gdsfactory as gf
+
+    if doc is None:
+        # Import path carries no view spec, but gf.import_gds still
+        # needs an active PDK. The project tree wins where the
+        # adapter carried it; otherwise the generic PDK keeps the
+        # read independent of build/export PDK selection.
+        if cspdk_path is not None:
+            name, version = _activate_cspdk(gf, cspdk_path)
+            return gf, name, version
+        gf.gpdk.PDK.activate()
+        return gf, "generic", None
+    pdk = doc.get("pdk", "generic")
+    if pdk == "generic":
+        gf.gpdk.PDK.activate()
+        return gf, "generic", None
+    name, version = _activate_cspdk(gf, cspdk_path)
+    return gf, name, version
 
 
 class _MissingCspdk(Exception):

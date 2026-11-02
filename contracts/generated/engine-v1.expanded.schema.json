@@ -981,7 +981,7 @@
           "required": [
             "language"
           ],
-          "description": "One authored HDL dialect per canvas. Generated backend Verilog and qualified imported macro model views are separate from authored HDL; Amaranth requires qualified frontend/profile."
+          "description": "One authored HDL dialect per canvas; omit the key when the canvas has no authored digital content (photonic-only). Generated backend Verilog and qualified imported macro model views are separate from authored HDL; Amaranth requires qualified frontend/profile. An empty block never means photonic: language stays required whenever hdl is present."
         },
         "technology": {
           "$ref": "#/$defs/Ref"
@@ -1043,12 +1043,11 @@
       },
       "required": [
         "schema",
-        "hdl",
         "pdks",
         "targets",
         "tools"
       ],
-      "description": "Parsed TOML canvas.toml. Geometry/source data stay in referenced project files. Reject conflicting legacy canvas.cst and canvas.toml; explicit migration is an attributed revisioned edit."
+      "description": "Parsed TOML canvas.toml. Geometry/source data stay in referenced project files. An absent hdl key means no authored digital content (photonic-only): digital-only tasks stay UNSUPPORTED with a clear reason, never implied. Reject conflicting legacy canvas.cst and canvas.toml; explicit migration is an attributed revisioned edit."
     },
     "ToolSettings_librelane": {
       "type": "object",
@@ -18868,6 +18867,50 @@
           "descendants": []
         }
       }
+    },
+    {
+      "name": "Photonic-only canvas.toml (no authored HDL)",
+      "schema": "#/$defs/CanvasConfig",
+      "value": {
+        "schema": "rocketeda/canvas/v1",
+        "technology": {
+          "scope": "pdk",
+          "id": "cornerstone_si340",
+          "revision": "r1"
+        },
+        "pdks": [
+          {
+            "scope": "pdk",
+            "id": "cornerstone_si340",
+            "revision": "r1"
+          }
+        ],
+        "targets": [
+          {
+            "metric": "optical.wavelength",
+            "operator": "eq",
+            "limit": {
+              "value": 1550,
+              "unit": "nm"
+            },
+            "required": true
+          }
+        ],
+        "tools": {
+          "ngspice": {
+            "profile": {
+              "scope": "engine",
+              "id": "analog-profile",
+              "revision": "r1"
+            },
+            "temperature": {
+              "value": 27,
+              "unit": "degC"
+            },
+            "reltol": 0.001
+          }
+        }
+      }
     }
   ],
   "x-rejections": [
@@ -19424,6 +19467,51 @@
           },
           "task": "workflow.asic",
           "options": {}
+        }
+      }
+    },
+    {
+      "name": "Canvas hdl block without a language is not photonic (omit the key)",
+      "schema": "#/$defs/CanvasConfig",
+      "value": {
+        "schema": "rocketeda/canvas/v1",
+        "hdl": {},
+        "technology": {
+          "scope": "pdk",
+          "id": "sky130A",
+          "revision": "r1"
+        },
+        "pdks": [
+          {
+            "scope": "pdk",
+            "id": "sky130A",
+            "revision": "r1"
+          }
+        ],
+        "targets": [
+          {
+            "metric": "clock.frequency",
+            "operator": "ge",
+            "limit": {
+              "value": 100,
+              "unit": "MHz"
+            },
+            "required": true
+          }
+        ],
+        "tools": {
+          "ngspice": {
+            "profile": {
+              "scope": "engine",
+              "id": "analog-profile",
+              "revision": "r1"
+            },
+            "temperature": {
+              "value": 27,
+              "unit": "degC"
+            },
+            "reltol": 0.001
+          }
         }
       }
     }

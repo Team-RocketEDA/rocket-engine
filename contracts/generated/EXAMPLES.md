@@ -2245,3 +2245,50 @@ Schema: `#/$defs/TestbenchData`
   }
 }
 ```
+
+## Photonic-only canvas.toml (no authored HDL)
+
+Schema: `#/$defs/CanvasConfig`
+
+```json
+{
+  "schema": "rocketeda/canvas/v1",
+  "technology": {
+    "scope": "pdk",
+    "id": "cornerstone_si340",
+    "revision": "r1"
+  },
+  "pdks": [
+    {
+      "scope": "pdk",
+      "id": "cornerstone_si340",
+      "revision": "r1"
+    }
+  ],
+  "targets": [
+    {
+      "metric": "optical.wavelength",
+      "operator": "eq",
+      "limit": {
+        "value": 1550,
+        "unit": "nm"
+      },
+      "required": true
+    }
+  ],
+  "tools": {
+    "ngspice": {
+      "profile": {
+        "scope": "engine",
+        "id": "analog-profile",
+        "revision": "r1"
+      },
+      "temperature": {
+        "value": 27,
+        "unit": "degC"
+      },
+      "reltol": 0.001
+    }
+  }
+}
+```

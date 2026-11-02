@@ -203,7 +203,7 @@ class CanvasConfig(ContractModel):
     """Schema-derived boundary value; see canonical descriptions."""
     __schema_pointer__: ClassVar[str] = '#/$defs/CanvasConfig'
     schema_: Literal['rocketeda/canvas/v1'] = Field(alias='schema')
-    hdl: CanvasConfig_hdl = Field(description='One authored HDL dialect per canvas. Generated backend Verilog and qualified imported macro model views are separate from authored HDL; Amaranth requires qualified frontend/profile.')
+    hdl: Optional[CanvasConfig_hdl] = Field(default=None, description='One authored HDL dialect per canvas; omit the key when the canvas has no authored digital content (photonic-only). Generated backend Verilog and qualified imported macro model views are separate from authored HDL; Amaranth requires qualified frontend/profile. An empty block never means photonic: language stays required whenever hdl is present.')
     technology: Optional[Ref] = Field(default=None)
     pdks: list[Ref]
     targets: list[MetricConstraint]

@@ -554,5 +554,50 @@
         "options": {}
       }
     }
+  },
+  {
+    "name": "Canvas hdl block without a language is not photonic (omit the key)",
+    "schema": "#/$defs/CanvasConfig",
+    "value": {
+      "schema": "rocketeda/canvas/v1",
+      "hdl": {},
+      "technology": {
+        "scope": "pdk",
+        "id": "sky130A",
+        "revision": "r1"
+      },
+      "pdks": [
+        {
+          "scope": "pdk",
+          "id": "sky130A",
+          "revision": "r1"
+        }
+      ],
+      "targets": [
+        {
+          "metric": "clock.frequency",
+          "operator": "ge",
+          "limit": {
+            "value": 100,
+            "unit": "MHz"
+          },
+          "required": true
+        }
+      ],
+      "tools": {
+        "ngspice": {
+          "profile": {
+            "scope": "engine",
+            "id": "analog-profile",
+            "revision": "r1"
+          },
+          "temperature": {
+            "value": 27,
+            "unit": "degC"
+          },
+          "reltol": 0.001
+        }
+      }
+    }
   }
 ]

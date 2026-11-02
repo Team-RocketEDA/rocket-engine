@@ -20,3 +20,18 @@ first, lest modifiability arrive before stability.
 
 - Custom template loads, validates, migrates; invalid custom
   template fails loudly naming the violation.
+
+## Verdict (2026-11-03, landed)
+
+Done: new `src/project/templates/` package (`__init__.py` public
+API plus `errors.py`; small modules, Google docstrings per the
+docstring gate). RED: `tests/project/test_templates.py` failed 9/9
+on the missing module; GREEN after implementation (9 passed).
+`load_template`/`loads_template` migrate (registered one-step links,
+mirroring `settings_store`: `future_format` when newer than known,
+`missing_migration` naming the unlinked step) then validate against
+the base shape — extensions only where allowed (fixed top-level key
+set, name-plus-label area entries, scalar config with the `engine.`
+namespace reserved). Every rejection names its violation (key, area
+index, or config entry). Service/CRUD wiring is deliberately out of
+scope: loading + validation + versioning only, per the ticket.

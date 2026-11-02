@@ -86,7 +86,7 @@
           "required": [
             "language"
           ],
-          "description": "One authored HDL dialect per canvas. Generated backend Verilog and qualified imported macro model views are separate from authored HDL; Amaranth requires qualified frontend/profile."
+          "description": "One authored HDL dialect per canvas; omit the key when the canvas has no authored digital content (photonic-only). Generated backend Verilog and qualified imported macro model views are separate from authored HDL; Amaranth requires qualified frontend/profile. An empty block never means photonic: language stays required whenever hdl is present."
         },
         "technology": {
           "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
@@ -148,12 +148,11 @@
       },
       "required": [
         "schema",
-        "hdl",
         "pdks",
         "targets",
         "tools"
       ],
-      "description": "Parsed TOML canvas.toml. Geometry/source data stay in referenced project files. Reject conflicting legacy canvas.cst and canvas.toml; explicit migration is an attributed revisioned edit."
+      "description": "Parsed TOML canvas.toml. Geometry/source data stay in referenced project files. An absent hdl key means no authored digital content (photonic-only): digital-only tasks stay UNSUPPORTED with a clear reason, never implied. Reject conflicting legacy canvas.cst and canvas.toml; explicit migration is an attributed revisioned edit."
     },
     "ToolSettings_librelane": {
       "type": "object",

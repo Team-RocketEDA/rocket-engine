@@ -33,3 +33,27 @@ adapters later. Small paper cut today, real trust hazard if it ships.
   bundle and the engine admits it without inventing a language.
 - A digital canvas missing `hdl` still fails loudly (no silent default).
 - Contract checker + affected suite green; generated artifacts fresh.
+
+## Verdict (2026-11-03, landed)
+
+Done as specified (omit-the-key, never a marker): `hdl` left
+`CanvasConfig.required` in `contracts/v1/schemas/canvas.schema.json`,
+with the photonic-omission semantics written into the
+`CanvasConfig`/`hdl` descriptions (absent hdl = no authored digital
+content; digital-only tasks stay UNSUPPORTED, never implied; an
+empty `hdl: {}` still fails on the required `language` — no silent
+default). RED: new photonic accepted fixture failed the checker
+with `'hdl' is a required property`; GREEN after the schema edit.
+Added `contracts/v1/examples/accepted.json` "Photonic-only
+canvas.toml (no authored HDL)" alongside the existing coverage, plus
+`contracts/v1/examples/rejected.json` "Canvas hdl block without a
+language is not photonic (omit the key)" pinning the loud failure.
+Regenerated via `scripts/check_v1_contract.py --write` (76
+accepted / 24 rejected; expanded schema, client types with optional
+`hdl?`, help, examples, python models fresh) and re-verified clean;
+`tsc --noEmit` on the regenerated `client-types.d.ts` passes and
+`scripts/contract.py --check`, `scripts/api_spec.py --check` plus
+the contract test files stay green. No engine code invents a
+language for hdl-less canvases (nothing in `src/` reads canvas
+`hdl`); digital-task gating rides the existing task dispatch, which
+fails loudly without a canvas language.
