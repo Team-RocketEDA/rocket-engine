@@ -89,6 +89,13 @@ MODES = ("lines", "path")
 #: Pending approvals lapse after this long without a UI decision.
 DEFAULT_APPROVAL_TTL_S = 900
 
+#: Live index bound: denied/expired approvals past this count evict
+#: oldest-first. Pending and approved approvals are live
+#: references (runs and status reads resolve through them) and
+#: never reap; the `approvals/*.yaml` audit trail keeps every
+#: record on disk regardless of eviction.
+MAX_TERMINAL_APPROVALS = 100
+
 
 MCP_INPUT_SCHEMA = {
     "type": "object",
@@ -274,6 +281,31 @@ class PythonExecService(_ApprovalMixin):
                 record["state"] = "expired"
                 record["reason"] = "Approval TTL elapsed without a UI decision."
                 self._persist_approval(record)
+        self._reap_terminal()
+
+    def _reap_terminal(self):
+        """Evict oldest terminal approvals past the live index bound.
+
+        Denied and expired approvals are dead references: no run or
+        status path can proceed through them. Past the bound the
+        oldest evict first (by creation, then id); pending and
+        approved approvals are live and never reap. The YAML audit
+        trail on disk is untouched — this bounds the live index,
+        not history.
+        """
+        terminal = [
+            record for record in self._approvals.values()
+            if record["state"] in ("denied", "expired")
+        ]
+        excess = len(terminal) - MAX_TERMINAL_APPROVALS
+        if excess <= 0:
+            return
+        # Stable sort: ties keep admission order, so the earliest
+        # admitted terminal approval evicts first even when the
+        # clock never advanced between admissions.
+        terminal.sort(key=lambda record: record.get("created_at", 0))
+        for record in terminal[:excess]:
+            del self._approvals[record["approval_id"]]
 
 
     def _persist_execution(self, record):
@@ -458,6 +490,7 @@ class PythonExecService(_ApprovalMixin):
             "code_sha256": code_sha256,
         }
         self._persist_approval(record)
+        self._reap_terminal()
         return self._handle_for(execution_id, request_id)
 
     def _handle_for(self, execution_id, request_id):
@@ -860,4 +893,5 @@ class PythonExecService(_ApprovalMixin):
                         self._execution.cancel(run_id)
                     except ExecutionError:
                         pass
+        self._reap_terminal()
         return {"generation": self._generation}

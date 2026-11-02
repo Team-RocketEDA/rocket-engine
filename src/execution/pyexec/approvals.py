@@ -103,6 +103,7 @@ class _ApprovalMixin:
             record["reason"] = "Denied on the human UI route."
             record["resolved_by"] = actor or self._actor
             self._persist_approval(record)
+            self._reap_terminal()
             return {
                 "approval_id": approval_id,
                 "approval_state": "denied",

@@ -25,7 +25,6 @@ class ExecutionService:
     def __init__(self, project_id):
         self._project_id = project_id
         self._runs = {}
-        self._approvals = {}
         self._source_changed = False
         self._yaml = YAML(typ="safe")
 
@@ -269,52 +268,3 @@ class ExecutionService:
             "truncated": remaining > 0,
         }
 
-    def request_approval(self, kind, closure_hash, expected_revision):
-        """Bind a pending approval to one closure plus revision.
-
-        Args:
-            kind: Approval kind (effect class requested).
-            closure_hash: Hash of the closure the approval pins.
-            expected_revision: Revision the approval pins.
-
-        Returns:
-            Approval record with approval_id and pending state.
-        """
-        approval_id = uuid.uuid4().hex
-        self._approvals[approval_id] = {
-            "approval_id": approval_id,
-            "kind": kind,
-            "closure_hash": closure_hash,
-            "expected_revision": expected_revision,
-            "state": "pending_approval",
-        }
-        return {"approval_id": approval_id, "state": "pending_approval"}
-
-    def admit(self, approval_id, closure_hash, expected_revision):
-        """Admit an approval whose binding still matches.
-
-        Args:
-            approval_id: Approval bound by request_approval.
-            closure_hash: Closure hash to re-check.
-            expected_revision: Revision to re-check.
-
-        Returns:
-            Approval record with approval_id and approved state.
-
-        Raises:
-            ExecutionError: approval_invalid for an unknown approval
-                or any binding drift.
-        """
-        try:
-            record = self._approvals[approval_id]
-        except KeyError:
-            raise ExecutionError("approval_invalid", "Unknown approval.") from None
-        if (
-            record["closure_hash"] != closure_hash
-            or record["expected_revision"] != expected_revision
-        ):
-            raise ExecutionError(
-                "approval_invalid", "Approval no longer matches its binding."
-            )
-        record["state"] = "approved"
-        return {"approval_id": approval_id, "state": "approved"}

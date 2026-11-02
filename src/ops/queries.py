@@ -4,6 +4,65 @@ from ..execution.apig.pool import stored_completion_from_events
 from ..execution.errors import ExecutionError
 from ..project.errors import ProjectError
 
+#: Severity order for ledger-backed findings pages, mirroring the
+#: execution record's errors-first paging.
+_SEVERITY_RANK = {"error": 0, "warning": 1}
+
+
+def completion_event_for(events, run_id):
+    """Latest run event naming one run, or None.
+
+    Args:
+        events: Ledger events in seq order.
+        run_id: Run to find.
+
+    Returns:
+        The latest run_completed/run_failed event data for the
+            run, or None when the run never finished.
+    """
+    found = None
+    for event in events or ():
+        if event.get("event") not in ("run_completed", "run_failed"):
+            continue
+        if (event.get("data") or {}).get("run_id") == run_id:
+            found = event.get("data") or {}
+    return found
+
+
+def findings_page_for(data, limit=50, cursor=None):
+    """Page ledger-stored findings like the execution record does.
+
+    Args:
+        data: Completion event data with findings,
+            findings_truncated, and a verdict carrying the full
+            finding_counts.
+        limit: Maximum findings in this page.
+        cursor: Opaque position from a previous page, if any.
+
+    Returns:
+        Finding page with total counts, findings, next cursor,
+            and truncation flag.
+    """
+    stored = list(data.get("findings") or [])
+    ordered = sorted(
+        stored,
+        key=lambda f: _SEVERITY_RANK.get(f.get("severity"), 2),
+    )
+    counts = dict((data.get("verdict") or {}).get("finding_counts") or {})
+    if not counts:
+        for finding in ordered:
+            severity = finding.get("severity", "unknown")
+            counts[severity] = counts.get(severity, 0) + 1
+    start = int(cursor) if cursor else 0
+    page = ordered[start : start + limit]
+    remaining = len(ordered) - (start + len(page))
+    return {
+        "total_counts": counts,
+        "findings": page,
+        "next_cursor": str(start + len(page)) if remaining > 0 else None,
+        "truncated": bool(data.get("findings_truncated")) or remaining > 0,
+    }
+
 
 class _QueryMixin:
     """Wired query handlers (events, apig, jobs, layers, logs)."""
@@ -120,10 +179,93 @@ class _QueryMixin:
             )
         raise ProjectError("unsupported_operation", f"Operation not wired yet: {name}.")
 
+    def _ledger_findings(self, run_id, limit=50, cursor=None):
+        """Findings page from the ledger, after a reboot.
+
+        In-memory verdicts answer first; across a reboot the
+        completion event answers instead. Runs that never
+        finished (or never ran) answer unknown_run.
+
+        Args:
+            run_id: Run whose findings to read.
+            limit: Maximum findings in this page.
+            cursor: Opaque position from a previous page, if any.
+
+        Returns:
+            Finding page for the run.
+
+        Raises:
+            ExecutionError: unknown_run for an id with no
+                completion event.
+        """
+        data = completion_event_for(self._project.events_since(0), run_id)
+        if data is None:
+            raise ExecutionError("unknown_run", f"Unknown run: {run_id}.")
+        return findings_page_for(data, limit=limit, cursor=cursor)
+
+    def _ledger_logs_page(self, arguments):
+        """Log page from the ledger excerpt, after a reboot.
+
+        Serves the stored tail with true trailing line numbers;
+        the unrecoverable head reads as an excerpt, flagged so.
+
+        Args:
+            arguments: run_logs arguments with run_id, query,
+                offset, and limit.
+
+        Returns:
+            Page mapping with numbered lines, totals, a more
+                flag, and excerpt True.
+
+        Raises:
+            ExecutionError: unknown_run for an id with no
+                completion event.
+        """
+        from ..composition import _LOG_PAGE_MAX  # deferred: breaks the ops<->composition cycle
+        run_id = arguments.get("run_id")
+        data = completion_event_for(self._project.events_since(0), run_id)
+        if data is None:
+            raise ExecutionError("unknown_run", f"Unknown run: {run_id}.")
+        excerpt = (data.get("log_excerpt") or "").splitlines()
+        total = data.get("log_lines") or len(excerpt)
+        base = total - len(excerpt)
+        numbered = [
+            (base + index + 1, line) for index, line in enumerate(excerpt)
+        ]
+        query = arguments.get("query")
+        if query:
+            numbered = [(n, line) for n, line in numbered if query.lower() in line.lower()]
+        try:
+            offset = max(0, int(arguments.get("offset", 0)))
+        except (TypeError, ValueError):
+            raise ProjectError(
+                "invalid_command",
+                f"get_logs offset must be an int, got {arguments.get('offset')!r}.",
+            ) from None
+        try:
+            limit = max(1, min(int(arguments.get("limit", 40)), _LOG_PAGE_MAX))
+        except (TypeError, ValueError):
+            raise ProjectError(
+                "invalid_command", f"get_logs limit must be an int, got {arguments.get('limit')!r}."
+            ) from None
+        page = numbered[offset : offset + limit]
+        return {
+            "run_id": run_id,
+            "total_lines": total,
+            "matched": len(numbered),
+            "offset": offset,
+            "lines": [f"{n}: {line}" for n, line in page],
+            "more": offset + limit < len(numbered),
+            "excerpt": True,
+        }
+
     def _logs_page(self, arguments):
         from ..composition import _LOG_PAGE_MAX  # deferred: breaks the ops<->composition cycle
         run_id = arguments.get("run_id")
-        self._execution.status(run_id)  # unknown runs raise unknown_run
+        try:
+            self._execution.status(run_id)  # unknown runs raise unknown_run
+        except ExecutionError:
+            return self._ledger_logs_page(arguments)
         lines = self._logs.get(run_id, "").splitlines()
         numbered = [(index + 1, line) for index, line in enumerate(lines)]
         query = arguments.get("query")

@@ -63,6 +63,11 @@ USER_MESSAGES = {
         "This run is paused for safety after repeated interruptions. "
         "Please review it before retrying."
     ),
+    "stale_revision": (
+        "The project changed since this run was admitted, so it "
+        "cannot resume on the old inputs. Review the change, then "
+        "retry with force if the old inputs are still right."
+    ),
     "ambiguous_requires_explicit_resume": (
         "This run stopped partway through, so it needs your individual "
         "review before resuming."
@@ -416,13 +421,17 @@ class ReplaySafe:
         Quarantined (POISON) runs resume only with force; every other
         survivor resumes on the explicit call. A `run_started` mark is
         appended first, so a kill mid-resume classifies AMBIGUOUS (or
-        POISON) at the next boot instead of vanishing.
+        POISON) at the next boot instead of vanishing. A head that
+        moved past the admission revision refuses as stale — the
+        stored inputs no longer describe the project — and only
+        force resumes them.
 
         Args:
             run_id: Survivor to resume.
-            force: Required for quarantined runs; refused loudly
-                without it. Force bypasses quarantine only — the
-                run still executes for real.
+            force: Required for quarantined runs and for runs
+                whose admission revision drifted; refused loudly
+                without it. Force bypasses quarantine and drift
+                only — the run still executes for real.
 
         Returns:
             Executor completion for the run.
@@ -432,7 +441,9 @@ class ReplaySafe:
                 session, already_completed for a run that finished
                 since the report, unknown_survivor for an id with
                 no unfinished run, poison_quarantined for a
-                quarantined run resumed without force.
+                quarantined run resumed without force,
+                stale_revision for a run admitted before the
+                project head moved on.
 
         Caution: This executes the run — the one replay surface
             that does, and only on this explicit call.
@@ -464,6 +475,16 @@ class ReplaySafe:
                 f"request_id={survivor['request_id']} "
                 f"resolve_failed={type(exc).__name__}: {exc}",
             )
+        admitted = (ack or {}).get("current_revision")
+        if admitted is not None and not force:
+            head = self._project.snapshot()["current_revision"]
+            if head != admitted:
+                refuse(
+                    "stale_revision",
+                    f"run_id={run_id} "
+                    f"admitted_revision={admitted} "
+                    f"current_revision={head} force=False",
+                )
         self._project.append_replay_event(
             RUN_STARTED,
             survivor["request_id"],

@@ -4,12 +4,29 @@ from ..errors import ProjectError
 
 from .shared import _REPLAY_EVENTS, _RUN_OUTCOMES
 
+#: Verdict detail kept on the completion event: the ledger answers
+#: findings() and run_logs() after a reboot, when the in-memory
+#: execution record is gone. Lists cap here; the verdict keeps
+#: the full counts and the event keeps the truncated remainder.
+_DURABLE_FINDINGS_MAX = 100
+
+#: Native-log tail kept on the completion event: triage reads the
+#: tail, and the ledger never carries bulk vectors.
+_DURABLE_LOG_CHARS = 4096
+
+
 class _RunMixin:
     """Run admission helpers for ProjectService."""
 
     def append_run_event(self, outcome, run_id, operation, verdict,
-                         request_id=None):
+                         request_id=None, findings=(), log=""):
         """Append a run completion event with its verdict link.
+
+        Findings and the native-log tail ride the event so the
+        ledger answers findings() and run_logs() after a reboot.
+        Both cap: the first findings plus the truncated remainder
+        count, and the last log characters plus the full line
+        count.
 
         Args:
             outcome: run_completed for a judged run (PASS or FAIL),
@@ -20,6 +37,10 @@ class _RunMixin:
             verdict: Full verdict mapping stored on the event.
             request_id: Queued request this run discharges, if any
                 (run_job); direct runs carry None.
+            findings: Finding mappings stored first-N with the
+                truncated remainder count.
+            log: Native log text; the tail is stored with the
+                full line count.
 
         Returns:
             The appended event record with its seq.
@@ -35,12 +56,23 @@ class _RunMixin:
             raise ProjectError(
                 "invalid_command", f"Unknown run outcome: {outcome}."
             )
+        kept = list(findings)[:_DURABLE_FINDINGS_MAX]
+        dropped = max(0, len(list(findings)) - len(kept))
+        excerpt = log[-_DURABLE_LOG_CHARS:] if log else ""
         with self._ledger_lock:
             self._refresh_durable()
             record = self._append_event(
                 outcome,
                 request_id,
-                {"run_id": run_id, "operation": operation, "verdict": verdict},
+                {
+                    "run_id": run_id,
+                    "operation": operation,
+                    "verdict": verdict,
+                    "findings": kept,
+                    "findings_truncated": dropped,
+                    "log_excerpt": excerpt,
+                    "log_lines": len(log.splitlines()) if log else 0,
+                },
             )
             self._persist_after_mutation()
         return record
