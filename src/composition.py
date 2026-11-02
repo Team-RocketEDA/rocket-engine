@@ -107,7 +107,7 @@ from .workflows.completion import design_completion_report, plan_checks_report
 from .ops.submit import _SubmitMixin
 from .ops.queries import _QueryMixin
 from .ops.runs import _RunMixin
-from .ops.gates import _GateMixin
+from .ops.gates import _GateMixin, check_submit_gates
 
 _WIRED_QUERIES = frozenset(
     {
@@ -613,6 +613,10 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
             )
+        check_submit_gates(
+            name, arguments, self._project,
+            force=command.get("force") is True,
+        )
         scope_request = self._admit_block_scope(name, arguments)
         command_text = dump_yaml_text(
             {"operation": name, "arguments": arguments}

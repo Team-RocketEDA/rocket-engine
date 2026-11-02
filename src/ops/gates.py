@@ -150,3 +150,113 @@ class _GateMixin:
         except BlockScopeError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
         return {"block_id": parsed["id"], "closure": closure}
+
+
+#: (operation, deck tool) -> prerequisite operations that must each
+#: hold at least one PASS verdict in this project. Declared by engine
+#: maintainers here — never by caller arguments. Hard deps are
+#: structural (LVS after extraction) and never forceable.
+HARD_DEPS = {
+    ("run_lvs", "netgen"): ("run_extraction",),
+    ("run_post_layout", "ngspice"): ("run_spice",),
+    ("run_timing", "opensta"): ("run_synth",),
+    ("run_digital_flow", "librelane"): ("run_syntax",),
+    ("run_formal", "sby"): ("run_synth",),
+}
+
+#: operation -> gate operations whose latest verdict must be PASS.
+#: `force=True` on the command bypasses these (and only these).
+VERDICT_GATES = {
+    "run_post_layout": ("run_spice",),
+    "run_timing": ("run_synth",),
+    "run_formal": ("run_synth",),
+}
+
+_PASS = "PASS"
+
+_COMPLETION_EVENTS = ("run_completed", "run_failed")
+
+
+def hard_dependencies(operation, deck_tool=None, caller_depends_on=None):
+    """Prerequisite operations for one solver lane.
+
+    Args:
+        operation: Solver operation about to be admitted.
+        deck_tool: Deck tool qualifier, or None for any deck.
+        caller_depends_on: Accepted and ignored — callers never
+            shape the gate table.
+
+    Returns:
+        Prerequisite operation names (possibly empty).
+    """
+    return HARD_DEPS.get((operation, deck_tool), ()) or HARD_DEPS.get(
+        (operation, None), ()
+    )
+
+
+def _completions(project):
+    """(seq, operation, status) triples from the durable ledger."""
+    try:
+        events = project.events_since(0)
+    except Exception:
+        return []
+    out = []
+    for event in events or []:
+        if event.get("event") not in _COMPLETION_EVENTS:
+            continue
+        data = event.get("data") or {}
+        operation = data.get("operation")
+        verdict = data.get("verdict") or {}
+        if operation is None:
+            continue
+        out.append((event.get("seq", 0), operation, verdict.get("status")))
+    return out
+
+
+def check_submit_gates(operation, arguments, project, force=False):
+    """Refuse an illegal solver sequence before admission.
+
+    Args:
+        operation: Solver operation about to be admitted.
+        arguments: Submit arguments (deck tool read from
+            `deck.tool` when it is a mapping).
+        project: Project port with `events_since(cursor)`.
+        force: Bypass verdict gates only; hard deps still refuse.
+
+    Returns:
+        None when every gate holds.
+
+    Raises:
+        ProjectError: unmet_dependency naming the unmet gate —
+            for an unmet hard dep (never forceable) or a
+            non-PASS latest verdict (forceable).
+    """
+    deck = (arguments or {}).get("deck")
+    deck_tool = deck.get("tool") if isinstance(deck, dict) else None
+    completions = _completions(project)
+
+    for prereq in hard_dependencies(operation, deck_tool):
+        if any(op == prereq and status == _PASS for _, op, status in completions):
+            continue
+        raise ProjectError(
+            "unmet_dependency",
+            f"{operation} needs {prereq} PASS before dispatch "
+            f"(gate: {prereq}).",
+            fields=[{"gate": prereq}],
+        )
+
+    if force:
+        return None
+    latest = {}
+    for seq, op, status in completions:
+        if seq >= latest.get(op, (-1, None))[0]:
+            latest[op] = (seq, status)
+    for gate in VERDICT_GATES.get(operation, ()):
+        if latest.get(gate, (None, None))[1] != _PASS:
+            raise ProjectError(
+                "unmet_dependency",
+                f"{operation} needs latest {gate} PASS before dispatch "
+                f"(gate: {gate}); resubmit with force to bypass.",
+                fields=[{"gate": gate}],
+            )
+    return None

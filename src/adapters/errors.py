@@ -38,6 +38,7 @@ _CODE_TABLE = {
     "approval_pending": ("invalid_run_state", 409),
     # Conflicts.
     "request_conflict": ("request_conflict", 409),
+    "unmet_dependency": (None, 409),
     "resync_required": ("read_set_incomplete", 409),
     "revision_conflict": ("revision_conflict", 409),
     "console_busy": ("request_conflict", 409),
