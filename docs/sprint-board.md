@@ -23,6 +23,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PROV-DEFERRED] Provision + qualify post/off-MVP packs
 - [API-V1-TOOLS-DEFERRED] Bind deferred FPGA/physics tasks (post-MVP)
 - [APISPEC-DISCOVERY] api_spec misses submit-branch ops (cancel/resume/discard render unwired)
+- [CANVAS-PHOTONIC-NO-HDL] Canvas v1 requires hdl even for photonic-only projects
 ## Ready
 
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
