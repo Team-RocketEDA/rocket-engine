@@ -22,6 +22,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [REVIEW-TAILS] Doc + surface cleanups from E2E-REREVIEW
 - [PROV-DEFERRED] Provision + qualify post/off-MVP packs
 - [API-V1-TOOLS-DEFERRED] Bind deferred FPGA/physics tasks (post-MVP)
+- [APISPEC-DISCOVERY] api_spec misses submit-branch ops (cancel/resume/discard render unwired)
 ## Ready
 
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
