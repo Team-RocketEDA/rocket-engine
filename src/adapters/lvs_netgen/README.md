@@ -14,5 +14,7 @@ Netgen exits 0 on match and mismatch alike, so the verdict comes
 from parsed output, never the exit code.
 
 Status: EXTRACT-SKY130 GREEN. See `docs/probe-extract-lvs.md`.
+Status: LVS-ESCAPE GREEN (net-name inventory tripwire). See
+`docs/tickets/LVS-ESCAPE.md`.
 There is deliberately no KLayout LVS solver: `sky130.lvs` fails on
 the same known-good cell (case bug, evidence in the probe note).

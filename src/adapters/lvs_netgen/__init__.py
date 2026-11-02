@@ -8,6 +8,10 @@ dropped; a library file needs `cell` to select its block). Netgen
 exits 0 on match and mismatch alike, so the verdict always comes
 from parsed output, never the exit code. Batch runs with DISPLAY
 scrubbed: netgen's Tk init fails against an unreachable display.
+Because netgen matches by topology, a rename of a singly-connected
+net escapes it (LVS-ESCAPE): the flattened net-name inventories are
+compared too, and name-only-on-one-side nets fail as
+`lvs_net_mismatch`.
 """
 
 import os
@@ -137,6 +141,73 @@ def flatten_spice(text, cell=None):
         for line in text.splitlines()
         if not _SUBCKT_RE.match(line) and not _ENDS_RE.match(line)
     ) + "\n"
+
+
+def inventory_nets(text):
+    """Net names of the flattened netlist's X device lines.
+
+    Netgen's one-shot `lvs` matches by topology, so a rename of a
+    singly-connected net escapes it (LVS-ESCAPE). This inventory
+    keeps the dropped name evidence: comment, subckt/ends, empty,
+    and non-X lines never contribute; params (`k=v`) never count
+    as nets; the class token is the last bare token before the
+    params start.
+
+    Args:
+        text: Flattened netlist text to inventory.
+
+    Returns:
+        Set of net names on X device lines.
+    """
+    nets = set()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("*") or stripped.startswith("."):
+            continue
+        tokens = stripped.split()
+        if not tokens or not tokens[0].upper().startswith("X"):
+            continue
+        body = tokens[1:]
+        params_at = next(
+            (i for i, token in enumerate(body) if "=" in token), len(body)
+        )
+        bare = body[:params_at]
+        if params_at < len(body):
+            bare = bare[:-1] if bare else []
+        nets.update(bare)
+    return nets
+
+
+def _inventory_violations(layout_nets, schematic_nets):
+    """Name-only-on-one-side nets as `lvs_net_mismatch` violations.
+
+    Args:
+        layout_nets: Net names on the layout side.
+        schematic_nets: Net names on the schematic side.
+
+    Returns:
+        Violations naming each asymmetric net with its side.
+    """
+    violations = []
+    for net in sorted(set(layout_nets) - set(schematic_nets)):
+        violations.append(
+            {
+                "rule": "lvs_net_mismatch",
+                "message": f"Net: {net} (only in layout)",
+                "net": net,
+                "severity": "error",
+            }
+        )
+    for net in sorted(set(schematic_nets) - set(layout_nets)):
+        violations.append(
+            {
+                "rule": "lvs_net_mismatch",
+                "message": f"Net: {net} (only in schematic)",
+                "net": net,
+                "severity": "error",
+            }
+        )
+    return violations
 
 
 def netgen_env():
@@ -377,6 +448,7 @@ class NetgenLvsAdapter(ToolAdapter):
             )
         cell = checked.get("cell")
         staged = {}
+        flats = {}
         for key, name in (
             ("layout_spice", "layout_flat.spice"),
             ("schematic_spice", "schematic_flat.spice"),
@@ -386,6 +458,7 @@ class NetgenLvsAdapter(ToolAdapter):
             )
             staged[key] = Path(workdir) / name
             staged[key].write_text(flat, encoding="utf-8")
+            flats[key] = flat
         report_file = Path(workdir) / "lvs_report.out"
         proc = self._run(
             [
@@ -413,18 +486,26 @@ class NetgenLvsAdapter(ToolAdapter):
             "report_text": report_file.read_text(encoding="utf-8"),
             "layout_spice": checked["layout_spice"],
             "schematic_spice": checked["schematic_spice"],
+            "layout_nets": sorted(inventory_nets(flats["layout_spice"])),
+            "schematic_nets": sorted(inventory_nets(flats["schematic_spice"])),
         }
 
     def parse(self, native_output):
         """Parse the match line or the net/device mismatches.
 
-        A match returns zero violations; mismatches parse per net
-        and instance; anything without a verdict raises instead of
-        guessing.
+        A match returns zero violations — unless the flattened net
+        inventories disagree (a rename of a singly-connected net
+        is topologically invisible to netgen, LVS-ESCAPE), in which
+        case the name-only-on-one-side nets fail as
+        lvs_net_mismatch. Mismatches parse per net and instance
+        plus any inventory extras; anything without a verdict
+        raises instead of guessing.
 
         Args:
             native_output: Native output with the report text/file
-                or stdout fallback.
+                or stdout fallback, plus optional layout_nets /
+                schematic_nets inventories from execute (absent in
+                legacy outputs, which parse exactly as before).
 
         Returns:
             {match, total, violations[]} with lvs_net_mismatch and
@@ -441,10 +522,22 @@ class NetgenLvsAdapter(ToolAdapter):
                 report = Path(report_file).read_text(encoding="utf-8")
             else:
                 report = native_output.get("stdout", "")
+        layout_nets = native_output.get("layout_nets")
+        schematic_nets = native_output.get("schematic_nets")
+        extra = []
+        if layout_nets is not None and schematic_nets is not None:
+            extra = _inventory_violations(layout_nets, schematic_nets)
         if _MATCH_RE.search(report):
+            if extra:
+                return {"match": False, "total": len(extra), "violations": extra}
             return {"match": True, "total": 0, "violations": []}
         if any(rx.search(report) for rx in _MISMATCH_RES):
             violations = _parse_mismatches(report)
+            seen = {violation["message"] for violation in violations}
+            for violation in extra:
+                if violation["message"] not in seen:
+                    violations.append(violation)
+                    seen.add(violation["message"])
             return {
                 "match": False,
                 "total": len(violations),

@@ -12,3 +12,4 @@ w/l). Magic exits 0 even on failure, so the verdict comes from
 parsed output, never the exit code.
 
 Status: EXTRACT-SKY130 GREEN. See `docs/probe-extract-lvs.md`.
+Status: EXTRACT-GDS GREEN. See `docs/probe-extract-gds.md`.

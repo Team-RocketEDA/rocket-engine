@@ -1,4 +1,4 @@
-"""Magic extraction solver adapter (EXTRACT-SKY130): .mag to .ext/.spice.
+"""Magic extraction solver adapter (EXTRACT-SKY130, EXTRACT-GDS): layout to .spice.
 
 Protocol, verified against magic 8.3.685 + sky130A tech 1.0.588:
 Tcl over stdin (`load`, `select top cell`, `extract all`,
@@ -63,6 +63,50 @@ _SCRIPT = (
     "ext2spice lvs\next2spice\nquit\n"
 )
 
+_GDS_SCRIPT = (
+    "gds read {{{gds}}}\nload {cell}\nselect top cell\nextract all\n"
+    "ext2spice lvs\next2spice\nquit\n"
+)
+
+
+def _source_or_raise(job):
+    """Layout source: exactly one of cell_file (.mag) or gds_file (GDSII).
+
+    Args:
+        job: Solver job with operation run_extraction plus cell and a
+            layout source.
+
+    Returns:
+        (source, path) where source is "mag" or "gds".
+
+    Raises:
+        AdapterError: invalid_command when both sources are given
+            (ambiguous) or the GDS path has Tcl-active characters
+            (it is embedded in the `gds read` script under braces);
+            invalid_reference when the chosen source file is missing.
+    """
+    cell_file = job.get("cell_file")
+    gds_file = job.get("gds_file")
+    if gds_file is not None and cell_file is not None:
+        raise AdapterError(
+            "invalid_command", "Extraction needs one source: cell_file or gds_file."
+        )
+    if gds_file is not None:
+        if not gds_file or _CELL_BAD_RE.search(str(gds_file)):
+            raise AdapterError(
+                "invalid_command", f"Bad GDS file (Tcl-unsafe characters): {gds_file!r}."
+            )
+        if not Path(gds_file).is_file():
+            raise AdapterError(
+                "invalid_reference", f"GDS file not found: {gds_file}."
+            )
+        return "gds", str(gds_file)
+    if not cell_file or not Path(cell_file).is_file():
+        raise AdapterError(
+            "invalid_reference", f"Cell file not found: {cell_file}."
+        )
+    return "mag", str(cell_file)
+
 
 def _tech_arg_or_raise(job):
     deck = job.get("deck") if isinstance(job.get("deck"), dict) else {}
@@ -98,7 +142,10 @@ class MagicExtractAdapter(ToolAdapter):
 
     Job keys:
         cell (required): Cell name loaded and extracted.
-        cell_file (required): Path to the .mag cell file.
+        cell_file: Path to the .mag cell file — one source is
+            required (cell_file or gds_file, never both).
+        gds_file: Path to a GDSII layout file; the adapter runs
+            `gds read` before `load`, then extracts as usual.
         tech (required): Magic tech name — one tech form is
             required (tech, tech_file, or deck.path/tech_file/file).
         tech_file: Magic tech file path (a hash-checked store deck
@@ -140,15 +187,17 @@ class MagicExtractAdapter(ToolAdapter):
                 cell, cell_file, and tech inputs.
 
         Returns:
-            Checked mapping with tech_arg, cell, and cell_file.
+            Checked mapping with tech_arg, cell, source, and
+                source_file (plus cell_file or gds_file).
 
         Raises:
             AdapterError: unsupported_operation for another
                 operation, invalid_command for a missing cell, a
-                Tcl-unsafe cell name, or no tech form,
-                missing_dependency for a missing magic binary or
-                unloadable tech, invalid_reference for a missing
-                cell or tech file.
+                Tcl-unsafe cell name, no tech form, both sources,
+                or a Tcl-unsafe GDS path, missing_dependency for a
+                missing magic binary or unloadable tech,
+                invalid_reference for a missing cell, GDS, or tech
+                file.
         """
         # Cheap deterministic checks first (operation, cell, tech),
         # machine-dependent ones last (binary, tech probe).
@@ -181,28 +230,36 @@ class MagicExtractAdapter(ToolAdapter):
             raise AdapterError(
                 "missing_dependency", f"Cannot load magic tech: {tech_arg}."
             )
-        cell_file = job.get("cell_file")
-        if not cell_file or not Path(cell_file).is_file():
-            raise AdapterError(
-                "invalid_reference", f"Cell file not found: {cell_file}."
-            )
-        return {
+        source, source_file = _source_or_raise(job)
+        checked = {
             "tech_arg": tech_arg,
             "cell": cell,
-            "cell_file": cell_file,
+            "source": source,
+            "source_file": source_file,
             "timeout_s": timeout,
         }
+        if source == "gds":
+            checked["gds_file"] = source_file
+        else:
+            checked["cell_file"] = source_file
+        return checked
 
     def execute(self, job):
-        """Stage the cell, extract all, and convert with ext2spice.
+        """Stage the source, extract all, and convert with ext2spice.
+
+        A GDS source is read with `gds read` before `load`; a .mag
+        source loads directly. Both converge on the same extract +
+        ext2spice tail.
 
         Args:
             job: Solver job with operation run_extraction plus
-                cell, cell_file, and tech inputs.
+                cell, one source (cell_file or gds_file), and tech
+                inputs.
 
         Returns:
             Native output with exit_code, stdout/stderr, tech,
-                cell, and the .ext/.spice artifact paths and text.
+                cell, source, and the .ext/.spice artifact paths
+                and text.
 
         Raises:
             AdapterError: invalid_reference for a missing workdir,
@@ -217,13 +274,19 @@ class MagicExtractAdapter(ToolAdapter):
             raise AdapterError(
                 "invalid_reference", f"Workdir not found: {workdir}."
             )
-        staged = Path(workdir) / Path(checked["cell_file"]).name
-        if Path(checked["cell_file"]).resolve() != staged.resolve():
-            shutil.copy(checked["cell_file"], staged)
-        proc = self._run(
-            checked["tech_arg"], _SCRIPT.format(cell=checked["cell"]), workdir,
-            timeout=checked["timeout_s"],
-        )
+        staged = Path(workdir) / Path(checked["source_file"]).name
+        if Path(checked["source_file"]).resolve() != staged.resolve():
+            shutil.copy(checked["source_file"], staged)
+        if checked["source"] == "gds":
+            proc = self._run_gds(
+                checked["tech_arg"], str(staged), checked["cell"], workdir,
+                timeout=checked["timeout_s"],
+            )
+        else:
+            proc = self._run(
+                checked["tech_arg"], _SCRIPT.format(cell=checked["cell"]), workdir,
+                timeout=checked["timeout_s"],
+            )
         if "Failed to load technology" in proc.stdout:
             raise AdapterError(
                 "missing_dependency",
@@ -245,6 +308,7 @@ class MagicExtractAdapter(ToolAdapter):
             "stderr": proc.stderr,
             "tech": checked["tech_arg"],
             "cell": checked["cell"],
+            "source": checked["source"],
             "ext_file": str(ext_file),
             "spice_file": str(spice_file),
             "spice_text": spice_file.read_text(encoding="utf-8"),
@@ -309,6 +373,27 @@ class MagicExtractAdapter(ToolAdapter):
             "devices": devices,
             "violations": [],
         }
+
+    def _run_gds(self, tech, gds_path, cell, workdir, timeout=_TIMEOUT_S):
+        """Run magic on a GDSII source: `gds read`, then the usual script.
+
+        Args:
+            tech: Magic tech name or tech file path.
+            gds_path: GDSII file staged for the run (already
+                Tcl-safety checked by preflight).
+            cell: Cell name loaded after the GDS read.
+            workdir: Run directory.
+            timeout: Budget seconds for the run.
+
+        Returns:
+            Completed process with magic stdout/stderr.
+        """
+        return self._run(
+            tech,
+            _GDS_SCRIPT.format(gds=gds_path, cell=cell),
+            workdir,
+            timeout=timeout,
+        )
 
     def _run(self, tech, script, workdir, timeout=_TIMEOUT_S):
         argv = ["magic", "-dnull", "-noconsole", "-T", tech]
