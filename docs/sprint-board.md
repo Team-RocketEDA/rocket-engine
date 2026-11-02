@@ -16,7 +16,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [NOTEBOOK-SURFACE] Notebooks as editing surface (OFF MVP TRACK)
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
-- [PDK-VTT] VTT 3um SOI support (verify upstream first)
 - [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 - [REVIEW-TAILS] Doc + surface cleanups from E2E-REREVIEW
@@ -27,12 +26,10 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [VIEWS-IMPORT-NO-PDK] generate_views import_gds never activates a PDK
 ## Ready
 
-- [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 
 - [PROV] B10 full-bundle provisioning via install.sh (phase 1+2 encoded; live --install pending on networked host)
 - [BUILD-LOCAL] Repo-local toolchain default + super-repo build plan
-- [MCP-CONTRACT] Conform to fuel Contract 1 + expose cancel_job
 - [DECK-XSCHEM] Schematic to netlist to sim execution deck
 - [WORKFLOW-COVERAGE] Stage tables as the tool coverage map
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
@@ -71,7 +68,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [ESCAPE-HARDEN] Structured escapes + shape conformance batch
 - [DUMP-PROOFS-WAVE1] Per-tool output notes + determinism tests
 - [HDL-PROVIDERS] MVP provider coverage batch
-- [CORE-EXEC-HARDEN] Core timeout/cancel/confinement/durability batch
 - [DECOMP-CORE] Decompose composition/service, stores behind ports
 - [I29-OWNER] Own verbatim PDK serving end-to-end
 - [FRONTEND-13] Frontend section-13 touchpoints batch
@@ -91,10 +87,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 - [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
 - [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
-- [API-V1-RESULTS] Freeze typed result/renderer contracts and task io classification
-- [REFACTOR-SERVICE] Split src/project/service.py (3809 lines, over limit)
-- [REFACTOR-COMPOSITION] Split src/composition.py before it hits the limit
-- [REFACTOR-EXEC] Split execution mega modules
 ## Done
 
 - [S1] Slice 1 GREEN (interfaces I01-I02, project I05-I07)
@@ -195,3 +187,11 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [BATCH-PARALLEL] Concurrent batch dispatch + per-item cancel
 - [ENTITY-CAS] Per-entity revisions + compare-and-swap
 - [OP-GATES] Engine-side depends_on + gate-on-verdict guardrails
+- [API-V1-RESULTS] Freeze typed result/renderer contracts and task io classification
+- [PDK-VTT] VTT 3um SOI support (verify upstream first)
+- [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
+- [CORE-EXEC-HARDEN] Core timeout/cancel/confinement/durability batch
+- [MCP-CONTRACT] Conform to fuel Contract 1 + expose cancel_job
+- [REFACTOR-SERVICE] Split src/project/service.py (3809 lines, over limit)
+- [REFACTOR-COMPOSITION] Split src/composition.py before it hits the limit
+- [REFACTOR-EXEC] Split execution mega modules
