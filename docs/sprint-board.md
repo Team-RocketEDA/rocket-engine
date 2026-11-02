@@ -9,7 +9,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 ## Backlog
 
-- [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [MAGIC-EXIT] Track: #531 + klayout-pex 2.5D triggers for Magic phase-out (DEFERRED until post-MVP/hackathon)
 
 - [REMOTE-EXEC] HTTP/remote execution adapter (OFF MVP TRACK)
@@ -18,25 +17,16 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
-- [REVIEW-TAILS] Doc + surface cleanups from E2E-REREVIEW
 - [PROV-DEFERRED] Provision + qualify post/off-MVP packs
 - [API-V1-TOOLS-DEFERRED] Bind deferred FPGA/physics tasks (post-MVP)
-- [APISPEC-DISCOVERY] api_spec misses submit-branch ops (cancel/resume/discard render unwired)
-- [CANVAS-PHOTONIC-NO-HDL] Canvas v1 requires hdl even for photonic-only projects
-- [VIEWS-IMPORT-NO-PDK] generate_views import_gds never activates a PDK
 ## Ready
 
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 
-- [PROV] B10 full-bundle provisioning via install.sh (phase 1+2 encoded; live --install pending on networked host)
-- [BUILD-LOCAL] Repo-local toolchain default + super-repo build plan
 - [DECK-XSCHEM] Schematic to netlist to sim execution deck
-- [WORKFLOW-COVERAGE] Stage tables as the tool coverage map
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
-- [LVS-ESCAPE] Bulk-rename mutant escapes LVS 3/3 seeds
-- [EXTRACT-GDS] run_extraction must accept GDS, not .mag-only
 - [MIXED-TOP-TRIAGE] m4.5ab DRC, deck-mode cell arg, xschem top-LVS
 
 - [LAYER-CATALOG] Technology-resolved editable layer catalog
@@ -58,7 +48,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MIGRATE-STDIO-FILE] Migrate top-5 stdio parses to file channels
 - [ASYNC-SUBMIT] Async submit: prompt ack + deferred handle + lifecycle events
 - [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
-- [TRANSPORT-PARITY] One admission path + parity test across transports
 - [IP-LIFECYCLE] IP lifecycle ops with per-PDK invariant
 - [CONSOLE-LIFECYCLE] Console lifecycle + envelope convergence
 - [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
@@ -66,17 +55,13 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [ANTENNA-KLAYOUT] Staff check.antenna via KLayout-DB path
 - [DIGITAL-FLOW-URANIUM] Rewrite digital_flow on machine files
 - [ESCAPE-HARDEN] Structured escapes + shape conformance batch
-- [DUMP-PROOFS-WAVE1] Per-tool output notes + determinism tests
 - [HDL-PROVIDERS] MVP provider coverage batch
 - [DECOMP-CORE] Decompose composition/service, stores behind ports
 - [I29-OWNER] Own verbatim PDK serving end-to-end
 - [FRONTEND-13] Frontend section-13 touchpoints batch
-- [PROV-UPSTREAM-RECIPE] Provision recipes verbatim from upstream READMEs
-- [BWRAP-STUDY] Comparative console sandbox study
 - [CANVAS-CST-CORE] Canvas TOML core
 - [CANVAS-CST-COMPILE] Canvas compiler
 - [I29-SERVING] Own verbatim PDK serving end to end with PRD-name aliases
-- [COVERAGE-MAP] D/A/P/M coverage-map decks committed
 ## Doing
 
 
@@ -195,3 +180,18 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [REFACTOR-SERVICE] Split src/project/service.py (3809 lines, over limit)
 - [REFACTOR-COMPOSITION] Split src/composition.py before it hits the limit
 - [REFACTOR-EXEC] Split execution mega modules
+- [PROV] B10 full-bundle provisioning via install.sh (phase 1+2 encoded; live --install pending on networked host)
+- [PROV-UPSTREAM-RECIPE] Provision recipes verbatim from upstream READMEs
+- [BUILD-LOCAL] Repo-local toolchain default + super-repo build plan
+- [EXTRACT-GDS] run_extraction must accept GDS, not .mag-only
+- [LVS-ESCAPE] Bulk-rename mutant escapes LVS 3/3 seeds
+- [WORKFLOW-COVERAGE] Stage tables as the tool coverage map
+- [COVERAGE-MAP] D/A/P/M coverage-map decks committed
+- [DUMP-PROOFS-WAVE1] Per-tool output notes + determinism tests
+- [APISPEC-DISCOVERY] api_spec misses submit-branch ops (cancel/resume/discard render unwired)
+- [TRANSPORT-PARITY] One admission path + parity test across transports
+- [REVIEW-TAILS] Doc + surface cleanups from E2E-REREVIEW
+- [CANVAS-PHOTONIC-NO-HDL] Canvas v1 requires hdl even for photonic-only projects
+- [VIEWS-IMPORT-NO-PDK] generate_views import_gds never activates a PDK
+- [BWRAP-STUDY] Comparative console sandbox study
+- [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
