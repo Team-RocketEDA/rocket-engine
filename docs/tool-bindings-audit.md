@@ -10,14 +10,17 @@ READING results, never for running tools in-process.
 | Verdict | Count | Meaning for MVP |
 |---|---|---|
 | KEEP-BINDINGS | 31 | Read via native Python API / queryable DB; dump-first |
-| KEEP-STRUCTURED | 10 | Read via machine grammar (JSON/XML/VCD/SQLite/SPEF/probe files) |
+| KEEP-STRUCTURED | 9 | Read via machine grammar (JSON/XML/VCD/SQLite/SPEF/probe files) |
 | KEEP-PARSE-ONLY | 4 | Pinned text scrape allowed ONLY on the determinism case below |
 | DEFER | 26 | Not in MVP; reason in deferred list |
+| DEAD | 1 | Struck; not a tool, never staffed (openrcx) |
 
 Researchers said 46/13/5/7. Synthesis moved 19 to DEFER (directive +
 post_mvp/off_mvp delivery flags), ngspice BINDINGS→PARSE-ONLY
-(dump-first: raw ASCII, shared-lib binding is post-MVP), and icarus
-PARSE-ONLY→STRUCTURED (VCD is IEEE-grammar-stable).
+(dump-first: raw ASCII, shared-lib binding is post-MVP), icarus
+PARSE-ONLY→STRUCTURED (VCD is IEEE-grammar-stable), and struck
+openrcx as DEAD (standalone repo dead since 2020, absorbed into
+OpenROAD `src/rcx`). Final: 31/9/4/26 + 1 dead = 71.
 
 ## Per-tool table
 
@@ -53,10 +56,10 @@ PARSE-ONLY→STRUCTURED (VCD is IEEE-grammar-stable).
 
 | tool | pin | adapter | bindings + evidence | structured escapes | MVP verdict |
 |---|---|---|---|---|---|
-| openroad | 2.x via LibreLane nix-eda 6.11.0 closure | — (flow-internal) | OFFICIAL: Python API is now a Bazel-built wheel — `openroad -python` NO LONGER EXISTS upstream (dissection correction; re-verify inside LibreLane 3.0.17 closure). WARNING: PyPI `openroad` 0.0.1 is UNOFFICIAL squat (ethanmoon) — never use | .odb checkpoints, LEF/DEF, SPEF, SDC, `-metrics file.json` | KEEP-BINDINGS |
+| openroad | 2.x via LibreLane nix-eda 6.11.0 closure | — (INTERNAL flow engine; results surface via librelane, see frontends review) | OFFICIAL: Python API is now a Bazel-built wheel — `openroad -python` NO LONGER EXISTS upstream (dissection correction; re-verify inside LibreLane 3.0.17 closure). WARNING: PyPI `openroad` 0.0.1 is UNOFFICIAL squat (ethanmoon) — never use | .odb checkpoints, LEF/DEF, SPEF, SDC, `-metrics file.json` | KEEP-BINDINGS |
 | opendb | via openroad closure | — | OFFICIAL: `import odb` inside `openroad -python` (same repo src/odb) | queryable .odb; LEF/DEF round-trip | KEEP-BINDINGS |
 | opensta | 857316f | timing_sta (deferred) | NONE standalone (Tcl interpreter only; `sta` python module exists solely inside OpenROAD) | none (report text) | DEFER (directive; STA-text grammar kept as residue) |
-| openrcx | via openroad/LibreLane closure | — | NONE of its own (Tcl cmds inside openroad) | SPEF output (IEEE 1481) + queryable .odb | KEEP-STRUCTURED |
+| ~~openrcx~~ | — (DEAD) | — | standalone repo dead since 2020, absorbed into OpenROAD `src/rcx` | SPEF grammar lives with openroad/librelane | DEAD (struck 2026-11-02; no provision, no staffing) |
 | magic | 707d67e (expect 8.3) | drc, extract_magic | NONE (Tcl/Tk over stdin) | .ext/.spice/.sim extraction files | KEEP-PARSE-ONLY |
 | netgen | e310f30 (expect 1.5) | lvs_netgen | NONE (Tcl batch; PyPI/apt `netgen` may be mesh-generator collision — banner-probe) | none (report text) | KEEP-PARSE-ONLY |
 | klayout | 0.30.12 locked | drc_kl | NATIVE official: PyPI `klayout` 0.30.12 (owner matthias67) + `pya`/`klayout.db` | .lyrdb report-DB XML; GDS/OASIS I/O | KEEP-BINDINGS |
@@ -191,9 +194,9 @@ Coherent dumps over forced v1 shapes. The MVP bar per adapter is a
 coherent deterministic dump: bindings/structured reads preferred,
 golden good+bad fixtures, documented shape — NOT strict ResultBundle
 normalization (that moves to post-MVP under API-V1-CONFORMANCE).
-Concretely: 41 kept tools read via bindings or machine grammars, 4 via
-the pinned determinism cases above, and zero adapters ship on unpinned
-text scraping (uranium-grade rule). The demo path runs
+Concretely: 40 kept tools read via bindings or machine grammars, 4 via
+the pinned determinism cases above, 1 struck dead, and zero adapters
+ship on unpinned text scraping (uranium-grade rule). The demo path runs
 digital/analog/photonic/mixed fixtures end to end on dumps the audience
 can inspect, while deferred groups A/B stay out of staffing until
 scope opens and groups C/D wait only on adapters + proof (see
