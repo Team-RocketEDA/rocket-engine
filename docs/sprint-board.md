@@ -24,6 +24,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-TOOLS-DEFERRED] Bind deferred FPGA/physics tasks (post-MVP)
 - [APISPEC-DISCOVERY] api_spec misses submit-branch ops (cancel/resume/discard render unwired)
 - [CANVAS-PHOTONIC-NO-HDL] Canvas v1 requires hdl even for photonic-only projects
+- [VIEWS-IMPORT-NO-PDK] generate_views import_gds never activates a PDK
 ## Ready
 
 - [DIGITAL-FLOW] run_digital_flow via LibreLane (one click RTL to GDS)
@@ -76,6 +77,10 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [FRONTEND-13] Frontend section-13 touchpoints batch
 - [PROV-UPSTREAM-RECIPE] Provision recipes verbatim from upstream READMEs
 - [BWRAP-STUDY] Comparative console sandbox study
+- [CANVAS-CST-CORE] Canvas TOML core
+- [CANVAS-CST-COMPILE] Canvas compiler
+- [I29-SERVING] Own verbatim PDK serving end to end with PRD-name aliases
+- [COVERAGE-MAP] D/A/P/M coverage-map decks committed
 ## Doing
 
 
@@ -95,7 +100,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [S1] Slice 1 GREEN (interfaces I01-I02, project I05-I07)
 - [S2] Slice 2 GREEN (execution I08-I11, I22)
 - [S3] Slice 3 GREEN (library I03, I04, I13)
-- [S4] Slice 4 GREEN code (workflows/transports) — commit pending
+- [S4] Slice 4 GREEN code (workflows/transports) — code committed
 - [MOCK-HARNESS] Scenario harness CLI (mock UI track)
 - [CONSOLE-RED] B8 console RED (I15-I18, I23-I24)
 - [CONSOLE-GREEN] Console GREEN (workers, approvals, help)
@@ -106,8 +111,8 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [STORAGE-REV] Amend ADR-001: co-located runs, shared pdks, kicad-style policy
 - [FIXTURE-FETCH] Slice: vendor 4 fixtures + documented mutations
 - [SAX-ADAPTER] Photonic sim solver via SAX
-- [CORPUS-D] Digital corpus (good/bad) — blocked: user review of suggestions
-- [CORPUS-A] Analog corpus (good/bad) — blocked: user review of suggestions
+- [CORPUS-D] Digital corpus (good/bad)
+- [CORPUS-A] Analog corpus (good/bad)
 - [CORPUS-M] Mixed corpus scope — blocked: user picks an option
 - [LAYOUT-SCHEMA] Folder schema YAML in source (versioned base template + parser)
 - [PATH-GUARD] Path safety module, RED-first (unix-only, charset, traversal, containment)
