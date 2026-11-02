@@ -32,11 +32,8 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PROV] B10 full-bundle provisioning via install.sh (phase 1+2 encoded; live --install pending on networked host)
 - [BUILD-LOCAL] Repo-local toolchain default + super-repo build plan
 - [MCP-CONTRACT] Conform to fuel Contract 1 + expose cancel_job
-- [ENTITY-CAS] Per-entity revisions + compare-and-swap
-- [BATCH-PARALLEL] Concurrent batch dispatch + per-item cancel
 - [DECK-XSCHEM] Schematic to netlist to sim execution deck
 - [WORKFLOW-COVERAGE] Stage tables as the tool coverage map
-- [OP-GATES] Engine-side depends_on + gate-on-verdict guardrails
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
@@ -190,3 +187,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [ERROR-FIDELITY] Serialize fields, status map, v0-v1 code mapping
 - [HTTP-HARDEN] Delete auth.py, harden HTTP handler
 - [DECOMP-SLICE-1] DECOMP slice-1 GREEN (stores/drc/apig/console moves, envelope map)
+- [BATCH-PARALLEL] Concurrent batch dispatch + per-item cancel
+- [ENTITY-CAS] Per-entity revisions + compare-and-swap
+- [OP-GATES] Engine-side depends_on + gate-on-verdict guardrails
