@@ -63,8 +63,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [ASYNC-SUBMIT] Async submit: prompt ack + deferred handle + lifecycle events
 - [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
 - [TRANSPORT-PARITY] One admission path + parity test across transports
-- [ERROR-FIDELITY] Serialize fields, status map, v0-v1 code mapping
-- [HTTP-HARDEN] Delete auth.py, harden HTTP handler
 - [IP-LIFECYCLE] IP lifecycle ops with per-PDK invariant
 - [CONSOLE-LIFECYCLE] Console lifecycle + envelope convergence
 - [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
@@ -188,3 +186,5 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MCP-SCHEMA] Real input schemas on every MCP tool
 - [I22-AMEND] Approvals at client edge (needs I22 ruling)
 - [CANCEL-WIREUP] Wire cancel_job to vocabulary + submit + transports
+- [ERROR-FIDELITY] Serialize fields, status map, v0-v1 code mapping
+- [HTTP-HARDEN] Delete auth.py, harden HTTP handler
