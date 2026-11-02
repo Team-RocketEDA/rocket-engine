@@ -35,7 +35,7 @@ def _run_cli(argv, engine, stdin_text=""):
 
 
 class FakeEngine:
-    """Deterministic stand-in: PASS for runs, queued for submits."""
+    """Deterministic stand-in: submit-immediate completed PASS acks."""
 
     def __init__(self):
         self.commands = []
@@ -48,11 +48,13 @@ class FakeEngine:
 
     def submit(self, command):
         self.commands.append(("submit", command))
-        return {"state": "queued", "run_id": "run_fake_q"}
+        return {"run_id": "run_fake_q", "state": "completed",
+                "verdict": {"status": "PASS"},
+                "operation": command["operation"]}
 
 
 class FailingEngine(FakeEngine):
-    def run(self, command):
+    def submit(self, command):
         from rocket_engine.adapters.errors import AdapterError
 
         raise AdapterError("runner_unavailable", "fake tool exploded")
@@ -79,7 +81,7 @@ def test_run_single_op_good_exits_zero():
     assert code == 0
     assert "PASS" in out
     kind, command = engine.commands[0]
-    assert kind == "run"
+    assert kind == "submit"
     assert command["operation"] == "run_em"
     assert command["arguments"] == {"x": 1}
 
@@ -96,6 +98,23 @@ def test_run_respects_project_flag():
     code, _, _ = _run_cli(["--project", "p1", "run", "run_em"], engine)
     assert code == 0
     assert engine.commands[0][1]["project_id"] == "p1"
+
+
+def test_run_single_accepts_caller_request_id():
+    engine = FakeEngine()
+    code, _, _ = _run_cli(
+        ["--request-id", "caller-1", "run", "run_em"], engine)
+    assert code == 0
+    kind, command = engine.commands[0]
+    assert kind == "submit"
+    assert command["request_id"] == "caller-1"
+
+
+def test_run_single_mints_request_id_when_flag_absent():
+    engine = FakeEngine()
+    code, _, _ = _run_cli(["run", "run_em"], engine)
+    assert code == 0
+    assert engine.commands[0][1]["request_id"]
 
 
 def test_run_unknown_op_is_usage_error():

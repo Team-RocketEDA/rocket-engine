@@ -55,6 +55,17 @@
       "type": "object",
       "wired": true
     },
+    "cancel_job": {
+      "description": "Declared operation `cancel_job`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "cancel_job",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
     "connect_endpoint": {
       "description": "Point one wire endpoint at a new terminus: gate, run, log.",
       "handlers": [

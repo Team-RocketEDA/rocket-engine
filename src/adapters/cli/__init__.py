@@ -27,16 +27,18 @@ EXIT_OK = 0
 EXIT_ENGINE_ERROR = 1
 EXIT_USAGE = 2
 
-USAGE = """usage: rocket-engine [--project ID] [--actor NAME] [--json] [--batch FILE|-] [run <op> [key=value ...]]
+USAGE = """usage: rocket-engine [--project ID] [--actor NAME] [--request-id ID] [--json] [--batch FILE|-] [run <op> [key=value ...]]
 
 No args drops into the interactive REPL (one op call per line,
 blank lines and `#` comments skipped, `quit` to leave). `run`
 executes one op call; `--batch` executes every op-call line of a
 file (`-` reads stdin). `--json` prints stable machine envelopes.
+`--request-id` stamps a caller id on a single `run` (batch and
+REPL lines always mint their own, so repeats stay distinct).
 Op calls are `<operation> [key=value ...]` with YAML-scalar values
 (`benches=[ac,tran]`, `deck={tool: klayout}`); quote values with
-spaces. Queries (get_project_snapshot, ...) read via submit,
-operations execute via run.
+spaces. Every call — queries and operations alike — goes through
+submit, the one admission path.
 
 Exits: 0 execution-ok (even when the verdict is FAIL — read the
 payload); 1 engine error; 2 usage error (unknown op/args).
@@ -52,7 +54,7 @@ def _split_flag(token, name):
 
 def _parse_argv(argv):
     options = {"json": False, "batch": None, "project": "default",
-               "actor": "cli", "help": False}
+               "actor": "cli", "request_id": None, "help": False}
     rest = []
     i = 0
     while i < len(argv):
@@ -77,12 +79,20 @@ def _parse_argv(argv):
             if i >= len(argv):
                 raise UsageError("invalid_command", "`--actor` needs a NAME.")
             options["actor"] = argv[i]
+        elif token == "--request-id":
+            i += 1
+            if i >= len(argv):
+                raise UsageError(
+                    "invalid_command", "`--request-id` needs an ID.")
+            options["request_id"] = argv[i]
         elif _split_flag(token, "batch") is not None:
             options["batch"] = _split_flag(token, "batch")
         elif _split_flag(token, "project") is not None:
             options["project"] = _split_flag(token, "project")
         elif _split_flag(token, "actor") is not None:
             options["actor"] = _split_flag(token, "actor")
+        elif _split_flag(token, "request-id") is not None:
+            options["request_id"] = _split_flag(token, "request-id")
         elif token == "--":
             rest.extend(argv[i + 1:])
             break
@@ -150,7 +160,8 @@ def _run_single(dispatch, options, op_tokens, stdout, stderr):
         _emit_error(op_tokens[0], exc, options["json"], stdout, stderr)
         return EXIT_USAGE
     try:
-        result = dispatch.execute(operation, arguments)
+        result = dispatch.execute(operation, arguments,
+                                  request_id=options["request_id"])
     except Exception as exc:  # engine errors stay data, never tracebacks
         _emit_error(operation, exc, options["json"], stdout, stderr)
         return _classify(exc)

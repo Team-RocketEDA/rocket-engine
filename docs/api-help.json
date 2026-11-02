@@ -35,6 +35,12 @@
     "text": "Attach one new component (refuses overwrites).\n\nHandler: `rocket_engine.project.service.ProjectService.attach_component`.\n\nLike set_component, but a component already living on the\nentity fails instead of overwriting \u2014 attach means add.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to attach.\n- `data` (required): JSON payload to store.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, and request id.\n\nRaises:\n\nProjectError: component_exists when the component already lives on the entity; otherwise like set_component.\n\nCaution: Every accepted attach advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
     "wired": true
   },
+  "cancel_job": {
+    "kind": "operation",
+    "summary": "Declared operation `cancel_job`; no handler wired yet.",
+    "text": "Declared operation `cancel_job`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
+    "wired": false
+  },
   "components_of": {
     "kind": "query",
     "summary": "List the component names one entity carries.",

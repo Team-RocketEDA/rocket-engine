@@ -27,6 +27,7 @@ text, identical to the section bodies below.
 |---|---|---|---|
 | `apply_mutations` | yes | — | Apply a batch atomically under one new revision (I31). |
 | `attach_component` | yes | — | Attach one new component (refuses overwrites). |
+| `cancel_job` | no | — | Declared operation `cancel_job`; no handler wired yet. |
 | `connect_endpoint` | yes | — | Point one wire endpoint at a new terminus: gate, run, log. |
 | `create_entity` | yes | — | Create one entity with an engine-minted id. |
 | `create_project` | yes | — | Create one managed project at revision p12. |
@@ -165,6 +166,12 @@ Raises:
 ProjectError: component_exists when the component already lives on the entity; otherwise like set_component.
 
 Caution: Every accepted attach advances the revision — a second writer at the old head fails instead of merging.
+
+### cancel_job
+
+Declared operation `cancel_job`; no handler wired yet.
+
+`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
 
 ### connect_endpoint
 

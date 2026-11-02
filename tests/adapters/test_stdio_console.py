@@ -318,7 +318,7 @@ def test_cell_ops_replay_through_shared_dispatch(tmp_path):
             "run_em", "get_project_snapshot"]
         assert all(r["ok"] for r in record["op_results"])
         assert record["ops_ok"] is True
-        assert engine.commands[0][0] == "run"
+        assert engine.commands[0][0] == "submit"
         assert engine.commands[0][1]["operation"] == "run_em"
         assert engine.commands[0][1]["arguments"] == {"x": 1}
         assert engine.commands[1][0] == "submit"

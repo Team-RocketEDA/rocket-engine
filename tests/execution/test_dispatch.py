@@ -7,9 +7,9 @@ import fails: the dispatch port does not exist yet.
 
 The dispatch is use-case-layer code: it turns op-call text into
 validated (operation, arguments) against the one catalog
-(`interfaces.vocabulary`, shared with MCP/console) and routes calls
-to the engine — operations to `run`, read queries to `submit`.
-No adapter is imported here; adapters face this port.
+(`interfaces.vocabulary`, shared with MCP/console) and routes every
+call — operations and read queries alike — to `submit`, the one
+admission path. No adapter is imported here; adapters face this port.
 """
 
 import pytest
@@ -89,14 +89,14 @@ class FakeEngine:
         return {"state": "queued", "run_id": "run_fake_q"}
 
 
-def test_dispatcher_routes_operations_to_run_with_envelope():
+def test_dispatcher_routes_operations_to_submit_with_envelope():
     dispatcher = _dispatch().OpDispatcher(FakeEngine(), project_id="p1",
                                           actor="cli")
     out = dispatcher.execute("run_em", {"x": 1}, request_id="r1")
-    assert out["verdict"]["status"] == "PASS"
+    assert out["state"] == "queued"
     engine = dispatcher._engine
-    assert len(engine.runs) == 1 and not engine.submits
-    command = engine.runs[0]
+    assert len(engine.submits) == 1 and not engine.runs
+    command = engine.submits[0]
     assert command["project_id"] == "p1"
     assert command["operation"] == "run_em"
     assert command["arguments"] == {"x": 1}
@@ -116,9 +116,9 @@ def test_dispatcher_mints_request_id_when_missing():
     engine = FakeEngine()
     dispatcher = _dispatch().OpDispatcher(engine)
     dispatcher.execute("run_em", {})
-    first = engine.runs[0]["request_id"]
+    first = engine.submits[0]["request_id"]
     dispatcher.execute("run_em", {})
-    assert first and engine.runs[1]["request_id"] and first != engine.runs[1]["request_id"]
+    assert first and engine.submits[1]["request_id"] and first != engine.submits[1]["request_id"]
 
 
 def test_dispatcher_rejects_unknown_names_directly():
@@ -129,10 +129,45 @@ def test_dispatcher_rejects_unknown_names_directly():
     assert excinfo.value.code == "unsupported_operation"
 
 
-def test_execute_line_parses_and_runs():
+def test_execute_line_parses_and_submits():
     engine = FakeEngine()
     dispatcher = _dispatch().OpDispatcher(engine, project_id="p9")
     op, out = dispatcher.execute_line("run_em x=2")
     assert op == "run_em"
-    assert out["operation"] == "run_em"
-    assert engine.runs[0]["arguments"] == {"x": 2}
+    assert out["state"] == "queued"
+    assert engine.submits[0]["arguments"] == {"x": 2}
+    assert not engine.runs
+
+
+class HeadEngine(FakeEngine):
+    def snapshot(self):
+        return {"current_revision": "p12"}
+
+
+def test_dispatcher_fills_expected_revision_from_bound_head():
+    engine = HeadEngine()
+    dispatcher = _dispatch().OpDispatcher(engine, project_id="p1")
+    dispatcher.execute("run_em", {"x": 1})
+    assert engine.submits[0]["arguments"] == {"x": 1,
+                                              "expected_revision": "p12"}
+
+
+def test_dispatcher_explicit_revision_wins_over_head():
+    engine = HeadEngine()
+    dispatcher = _dispatch().OpDispatcher(engine, project_id="p1")
+    dispatcher.execute("run_em", {"expected_revision": "p9"})
+    assert engine.submits[0]["arguments"] == {"expected_revision": "p9"}
+
+
+def test_dispatcher_leaves_call_unstamped_without_snapshot():
+    engine = FakeEngine()
+    dispatcher = _dispatch().OpDispatcher(engine, project_id="p1")
+    dispatcher.execute("run_em", {"x": 1})
+    assert engine.submits[0]["arguments"] == {"x": 1}
+
+
+def test_dispatcher_leaves_queries_untouched_with_head():
+    engine = HeadEngine()
+    dispatcher = _dispatch().OpDispatcher(engine, project_id="p1")
+    dispatcher.execute("get_project_snapshot", {})
+    assert engine.submits[0]["arguments"] == {}

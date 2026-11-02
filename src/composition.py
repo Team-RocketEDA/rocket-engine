@@ -598,6 +598,11 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             return self.discard_survivor(arguments["run_id"])
         if name == "resume_all_retryable":
             return self.resume_all_retryable()
+        if name == "cancel_job":
+            # Job control, not admission: cancel rides submit so every
+            # transport reaches it, but it never enters the solver lane
+            # (no ledger admit, no revision gate — it names a live run).
+            return self.cancel_job(arguments.get("run_id"))
         if name in _CRUD_OPERATIONS:
             return self._submit_crud(name, arguments, command)
         if name == "place_cell":

@@ -146,6 +146,97 @@ def test_cancel_job_marks_cancelled(engine):
     assert engine.cancel_job(ack["run_id"])["state"] == "cancelled"
 
 
+def test_cancel_job_via_submit_marks_cancelled(engine):
+    from rocket_engine.composition import OPERATIONS
+
+    assert "cancel_job" in OPERATIONS
+    ack = engine.submit({
+        "project_id": "wiring-live",
+        "operation": "python_execute",
+        "arguments": {
+            "mode": "lines",
+            "lines": "print('cancel-via-submit')\n",
+            "expected_revision": engine.snapshot()["current_revision"],
+        },
+        "request_id": "wire-cancel-submit",
+    })
+    engine.resolve_python_approval(ack["approval_id"], "approved")
+    out = engine.submit({
+        "project_id": "wiring-live",
+        "operation": "cancel_job",
+        "arguments": {"run_id": ack["run_id"]},
+        "request_id": "wire-cancel-submit-2",
+    })
+    assert out["state"] == "cancelled"
+    assert out["run_id"] == ack["run_id"]
+    assert engine.job_status(ack["run_id"])["state"] == "cancelled"
+
+
+def test_cancel_job_via_submit_unknown_run(engine):
+    from rocket_engine.execution import ExecutionError
+
+    with pytest.raises(ExecutionError) as excinfo:
+        engine.submit({
+            "project_id": "wiring-live",
+            "operation": "cancel_job",
+            "arguments": {"run_id": "run_never_admitted"},
+            "request_id": "wire-cancel-unknown",
+        })
+    assert excinfo.value.code == "unknown_run"
+
+
+def test_cancel_job_via_submit_mid_run_kills_tree(engine):
+    import threading
+    import time
+
+    from rocket_engine.execution.worker import CellRunner
+
+    if not CellRunner().admission["admitted"]:
+        pytest.skip("no provable worker isolation")
+    ack = engine.submit({
+        "project_id": "wiring-live",
+        "operation": "python_execute",
+        "arguments": {
+            "mode": "lines",
+            "lines": "import time\ntime.sleep(30)\n",
+            "expected_revision": engine.snapshot()["current_revision"],
+        },
+        "request_id": "wire-cancel-midrun",
+    })
+    engine.resolve_python_approval(ack["approval_id"], "approved")
+    run_id = ack["run_id"]
+    outcome = {}
+
+    def _drain():
+        try:
+            outcome["result"] = engine.submit({
+                "project_id": "wiring-live",
+                "operation": "run_job",
+                "arguments": {"run_id": run_id},
+                "request_id": "wire-cancel-midrun-drain",
+            })
+        except Exception as exc:  # record, never lose the thread
+            outcome["error"] = exc
+
+    worker = threading.Thread(target=_drain, daemon=True)
+    worker.start()
+    deadline = time.time() + 15
+    while engine.job_status(run_id)["state"] != "running":
+        assert time.time() < deadline, "run never reached running"
+        time.sleep(0.05)
+    out = engine.submit({
+        "project_id": "wiring-live",
+        "operation": "cancel_job",
+        "arguments": {"run_id": run_id},
+        "request_id": "wire-cancel-midrun-cancel",
+    })
+    assert out["state"] == "cancelled"
+    worker.join(timeout=30)
+    assert not worker.is_alive(), "drain thread stuck after cancel"
+    assert "error" not in outcome, outcome.get("error")
+    assert engine.job_status(run_id)["state"] == "cancelled"
+
+
 def test_console_query_reads_generation_and_cells(engine):
     engine.submit({
         "project_id": "wiring-live",

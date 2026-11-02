@@ -134,9 +134,15 @@ class OpDispatcher:
     def execute(self, operation, arguments, request_id=None):
         """Route one validated op call to the engine port.
 
-        Queries read via `engine.submit`; operations execute via
-        `engine.run`. Engine failures propagate untouched so callers
-        report them honestly.
+        Every call — operations and queries alike — goes through
+        `engine.submit`, the one admission path (ledger, revision
+        gate, idempotency). Like the MCP server's project binding,
+        an operation missing expected_revision is filled from the
+        bound engine's current head, so interactive callers admit
+        against what they see; an explicit revision always wins,
+        and read queries pass through untouched (tier-1 reads never
+        carry admission data). Engine failures propagate untouched
+        so callers report them honestly.
 
         Args:
             operation: Cataloged operation or query name.
@@ -151,15 +157,35 @@ class OpDispatcher:
             UsageError: unsupported_operation for an unknown name.
         """
         _check_name(operation)
+        stamped = dict(arguments)
+        if operation not in QUERIES and "expected_revision" not in stamped:
+            head = self._current_head()
+            if head is not None:
+                stamped["expected_revision"] = head
         command = {
             "project_id": self._project_id,
             "operation": operation,
-            "arguments": dict(arguments),
+            "arguments": stamped,
             "request_id": request_id or uuid.uuid4().hex,
         }
-        if operation in QUERIES:
-            return self._engine.submit(command)
-        return self._engine.run(command)
+        return self._engine.submit(command)
+
+    def _current_head(self):
+        """Bound engine's head revision, or None when unknowable.
+
+        Duck-typed engines without a snapshot read simply leave
+        the call unstamped — the engine then enforces its own gate.
+
+        Returns:
+            Current revision string, or None.
+        """
+        snapshot = getattr(self._engine, "snapshot", None)
+        if not callable(snapshot):
+            return None
+        try:
+            return snapshot().get("current_revision")
+        except Exception:
+            return None
 
     def execute_line(self, line, request_id=None):
         """Parse one op-call line and route it to the engine port.

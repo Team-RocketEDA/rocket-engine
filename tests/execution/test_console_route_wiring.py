@@ -82,7 +82,7 @@ class _StubEngine:
 
     def submit(self, command):
         self.commands.append(("submit", command))
-        return {"state": "queued"}
+        return {"state": "queued", **self._run_payload}
 
 
 def _open_console(engine, tmp_path, ops):

@@ -124,6 +124,17 @@
       "type": "object",
       "wired": true
     },
+    "cancel_job": {
+      "description": "Declared operation `cancel_job`; no handler wired yet.",
+      "handlers": [],
+      "kind": "operation",
+      "name": "cancel_job",
+      "properties": {},
+      "required": [],
+      "returns": "",
+      "type": "object",
+      "wired": false
+    },
     "connect_endpoint": {
       "description": "Point one wire endpoint at a new terminus: gate, run, log.",
       "handlers": [
@@ -4326,7 +4337,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "914a2652743ea19d12563e511ba16d932ad5ee512ed161f7c453524a293f540c",
+  "schema_sha256": "7be79f28a0f4b6a3da395aaebff4155487ccf1d4e428d05ff90b55228563b29a",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",
