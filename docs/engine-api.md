@@ -1040,10 +1040,11 @@ Arguments:
 - `run_id`: Admitted run to execute or fetch.
 - `request_id`: Envelope id admitted by an earlier submit (resolves to its run when run_id is absent).
 - `run_ids`: Batch form — admitted runs to pump oldest listed first.
+- `force`: Batch form only — bypass drain-time verdict gates (hard deps still refuse).
 
 Returns:
 
-Completion mapping with run_id, state, verdict, and operation for a single id (stored, never re-executed, when the run already finished); batch mapping with run_ids, completions, and refused for the batch form (every listed id lands in exactly one of the two lists).
+Completion mapping with run_id, state, verdict, and operation for a single id (stored, never re-executed, when the run already finished); batch mapping with run_ids, completions, refused, per-item states, and worst-state-wins summary for the batch form (every listed id lands in exactly one of completions/refused).
 
 Raises:
 
