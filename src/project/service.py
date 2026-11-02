@@ -36,9 +36,9 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
-from ..interfaces import engine_ecs_store
-from ..interfaces import settings_store
-from ..interfaces import wireplace
+from ..stores import ecs
+from ..stores import settings as settings_store
+from ..stores import wireplace
 from ..interfaces.paths import join_contained
 
 from .errors import ProjectError
@@ -608,12 +608,12 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 for stored settings that do not parse.
         """
         self._refresh_durable()
-        settings = {}
+        by_kind = {}
         for kind in settings_store.CURRENT_VERSIONS:
             read = self.read_settings(kind)
-            settings[read["kind"]] = read["settings"]
+            by_kind[read["kind"]] = read["settings"]
         snapshot = settings_store.snapshot_settings(
-            settings, session_id=session_id, run_id=run_id
+            by_kind, session_id=session_id, run_id=run_id
         )
         snapshot["project_id"] = self._project_id
         snapshot["current_revision"] = self._current_revision
@@ -645,11 +645,11 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         """
         self._refresh_durable()
         try:
-            engine_ecs_store.validate_entity_id(entity)
-            engine_ecs_store.validate_component_name(component)
-        except engine_ecs_store.EcsError as exc:
+            ecs.validate_entity_id(entity)
+            ecs.validate_component_name(component)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
-        if engine_ecs_store.is_backfill_id(entity):
+        if ecs.is_backfill_id(entity):
             return self._read_backfill_component(entity, component)
         path, decoded = self._read_entity_record(entity)
         if component not in decoded["components"]:
@@ -658,7 +658,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 f"No component {component!r} on {entity}.",
             )
         return {
-            "address": engine_ecs_store.format_address(entity, component),
+            "address": ecs.format_address(entity, component),
             "component": component,
             "current_revision": self._current_revision,
             "data": decoded["components"][component],
@@ -685,17 +685,17 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         """
         self._refresh_durable()
         try:
-            engine_ecs_store.validate_entity_id(entity)
-        except engine_ecs_store.EcsError as exc:
+            ecs.validate_entity_id(entity)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
-        if engine_ecs_store.is_backfill_id(entity):
+        if ecs.is_backfill_id(entity):
             record = self._find_backfill(entity)
             return {
                 "components": sorted(record["components"]),
                 "current_revision": self._current_revision,
                 "entity": entity,
                 "path": record["components"][
-                    engine_ecs_store.BACKFILL_COMPONENT
+                    ecs.BACKFILL_COMPONENT
                 ]["path"],
                 "project_id": self._project_id,
             }
@@ -733,14 +733,14 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         """
         self._refresh_durable()
         try:
-            engine_ecs_store.validate_component_name(component)
-            engine_ecs_store.validate_predicate(predicate)
-        except engine_ecs_store.EcsError as exc:
+            ecs.validate_component_name(component)
+            ecs.validate_predicate(predicate)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
         records = self._entity_records()
-        if component == engine_ecs_store.BACKFILL_COMPONENT:
+        if component == ecs.BACKFILL_COMPONENT:
             records.extend(self._backfill_records())
-        holders = engine_ecs_store.filter_entities(
+        holders = ecs.filter_entities(
             records, component, predicate
         )
         return {
@@ -783,7 +783,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         records = self._entity_records()
         if include_backfill:
             records.extend(self._backfill_records())
-        return engine_ecs_store.build_world_snapshot(
+        return ecs.build_world_snapshot(
             self._project_id, self._current_revision, records
         )
 
@@ -1062,30 +1062,30 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         if replay is not None:
             return replay
         try:
-            engine_ecs_store.validate_kind(kind)
+            ecs.validate_kind(kind)
             if components is not None and not isinstance(
                 components, dict
             ):
-                raise engine_ecs_store.EcsError(
+                raise ecs.EcsError(
                     "invalid_data",
                     "Initial components must be a mapping.",
                 )
             initial = dict(components or {})
             for name, data in initial.items():
-                engine_ecs_store.validate_component_name(name)
-                engine_ecs_store.validate_component_data(data)
-        except engine_ecs_store.EcsError as exc:
+                ecs.validate_component_name(name)
+                ecs.validate_component_data(data)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
         self._gate_revision(expected_revision)
         previous = self._current_revision
         self._ensure_snapshot(previous)
         taken = set()
         for rel, _size in self._iter_doc_files():
-            found = engine_ecs_store.entity_from_doc_path(rel)
+            found = ecs.entity_from_doc_path(rel)
             if found is not None:
                 taken.add(found)
-        entity = engine_ecs_store.mint_entity_id(existing=taken)
-        path = engine_ecs_store.entity_doc_path(entity)
+        entity = ecs.mint_entity_id(existing=taken)
+        path = ecs.entity_doc_path(entity)
         self._store_entity_record(path, entity, kind, initial)
         advanced = _advance_revision(previous)
         try:
@@ -1166,12 +1166,12 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         if replay is not None:
             return replay
         try:
-            engine_ecs_store.validate_entity_id(entity)
-            engine_ecs_store.validate_component_name(component)
-            engine_ecs_store.validate_component_data(data)
-        except engine_ecs_store.EcsError as exc:
+            ecs.validate_entity_id(entity)
+            ecs.validate_component_name(component)
+            ecs.validate_component_data(data)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
-        if engine_ecs_store.is_backfill_id(entity):
+        if ecs.is_backfill_id(entity):
             raise ProjectError(
                 "backfill_readonly",
                 f"Backfilled entity is read-only: {entity}.",
@@ -1196,12 +1196,12 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             raise
         self._current_revision = advanced
         verb = "updated" if existed else "set"
-        address = engine_ecs_store.format_address(entity, component)
+        address = ecs.format_address(entity, component)
         diff = f"{verb} {address} ({path})"
         record = self._append_event(
             "component_changed",
             request_id,
-            engine_ecs_store.component_changed_data(
+            ecs.component_changed_data(
                 entity, component, self._current_revision
             ),
         )
@@ -1258,12 +1258,12 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         if replay is not None:
             return replay
         try:
-            engine_ecs_store.validate_entity_id(entity)
-            engine_ecs_store.validate_component_name(component)
-            engine_ecs_store.validate_component_data(data)
-        except engine_ecs_store.EcsError as exc:
+            ecs.validate_entity_id(entity)
+            ecs.validate_component_name(component)
+            ecs.validate_component_data(data)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
-        if engine_ecs_store.is_backfill_id(entity):
+        if ecs.is_backfill_id(entity):
             raise ProjectError(
                 "backfill_readonly",
                 f"Backfilled entity is read-only: {entity}.",
@@ -1273,7 +1273,7 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             raise ProjectError(
                 "component_exists",
                 "Component already attached: "
-                f"{engine_ecs_store.format_address(entity, component)}.",
+                f"{ecs.format_address(entity, component)}.",
             )
         self._gate_revision(expected_revision)
         previous = self._current_revision
@@ -1292,12 +1292,12 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 pass
             raise
         self._current_revision = advanced
-        address = engine_ecs_store.format_address(entity, component)
+        address = ecs.format_address(entity, component)
         diff = f"attached {address} ({path})"
         record = self._append_event(
             "component_changed",
             request_id,
-            engine_ecs_store.component_changed_data(
+            ecs.component_changed_data(
                 entity, component, self._current_revision
             ),
         )
@@ -1354,11 +1354,11 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         if replay is not None:
             return replay
         try:
-            engine_ecs_store.validate_entity_id(entity)
-            engine_ecs_store.validate_component_name(component)
-        except engine_ecs_store.EcsError as exc:
+            ecs.validate_entity_id(entity)
+            ecs.validate_component_name(component)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
-        if engine_ecs_store.is_backfill_id(entity):
+        if ecs.is_backfill_id(entity):
             raise ProjectError(
                 "backfill_readonly",
                 f"Backfilled entity is read-only: {entity}.",
@@ -1386,12 +1386,12 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
                 pass
             raise
         self._current_revision = advanced
-        address = engine_ecs_store.format_address(entity, component)
+        address = ecs.format_address(entity, component)
         diff = f"detached {address} ({path})"
         record = self._append_event(
             "component_changed",
             request_id,
-            engine_ecs_store.component_changed_data(
+            ecs.component_changed_data(
                 entity, component, self._current_revision,
                 detached=True,
             ),
@@ -1450,10 +1450,10 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         if replay is not None:
             return replay
         try:
-            engine_ecs_store.validate_entity_id(entity)
-        except engine_ecs_store.EcsError as exc:
+            ecs.validate_entity_id(entity)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
-        if engine_ecs_store.is_backfill_id(entity):
+        if ecs.is_backfill_id(entity):
             raise ProjectError(
                 "backfill_readonly",
                 f"Backfilled entity is read-only: {entity}.",

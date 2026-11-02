@@ -1,12 +1,12 @@
 """Admission, queue, dispatch, isolated workers, cancel, evidence, evaluation. Owns execution."""
 
-from .apig_pool import (
+from .apig.pool import (
     ApigPool,
     pending_from_events,
     request_for_run,
     stored_completion_from_events,
 )
-from .apig_submit import SubmitImmediate, merge_ack_completion
+from .apig.submit import SubmitImmediate, merge_ack_completion
 from .block_runs_scope import (
     BLOCK_RUN_OPERATIONS,
     BLOCK_SCOPE,
@@ -29,8 +29,8 @@ from .coalesce import (
     deck_hash,
     normalize_arguments,
 )
-from .console import ConsoleSession, get_help
-from .console_route import (
+from .console.session import ConsoleSession, get_help
+from .console.route import (
     CONSOLE_TOOL_VERBS,
     TIER_2_OPERATIONS,
     ConsoleNamespace,

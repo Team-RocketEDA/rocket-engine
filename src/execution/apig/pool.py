@@ -20,7 +20,7 @@ request exactly once after reboot.
 from ruamel.yaml import YAML
 
 try:
-    from .errors import ExecutionError
+    from ..errors import ExecutionError
 except ImportError:  # standalone verification before install
     from rocket_engine.execution.errors import ExecutionError
 

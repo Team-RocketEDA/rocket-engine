@@ -1,6 +1,6 @@
 """Engine ops mixin: Wired query handlers (events, apig, jobs, layers, logs)."""
 
-from ..execution.apig_pool import stored_completion_from_events
+from ..execution.apig.pool import stored_completion_from_events
 from ..execution.errors import ExecutionError
 from ..project.errors import ProjectError
 

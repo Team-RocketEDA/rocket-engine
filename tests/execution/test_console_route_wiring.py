@@ -205,7 +205,7 @@ def test_rewind_covers_console_session(engine, tmp_path):
 def test_ecs_verb_live_when_peer_wired(tmp_path):
     if not _patched():
         pytest.skip("wiring patch not applied: console replay unstamped")
-    from rocket_engine.execution.console_route import ConsoleNamespace
+    from rocket_engine.execution.console.route import ConsoleNamespace
     from rocket_engine.project.errors import ProjectError
     from rocket_engine.project.service import ProjectService
 
@@ -224,7 +224,7 @@ def test_ecs_verb_live_when_peer_wired(tmp_path):
 def test_wire_verb_admits_or_refuses_cleanly(tmp_path):
     if not _patched():
         pytest.skip("wiring patch not applied: console replay unstamped")
-    from rocket_engine.execution.console_route import ConsoleNamespace
+    from rocket_engine.execution.console.route import ConsoleNamespace
     from rocket_engine.project.errors import ProjectError
     from rocket_engine.project.service import ProjectService
 

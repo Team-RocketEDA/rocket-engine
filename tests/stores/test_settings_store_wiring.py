@@ -19,7 +19,7 @@ import importlib.util
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    importlib.util.find_spec("rocket_engine.interfaces.settings_store")
+    importlib.util.find_spec("rocket_engine.stores.settings")
     is None,
     reason="SETTINGS-STORE wiring not applied yet",
 )
@@ -66,10 +66,10 @@ def test_vocabulary_contains_settings_names():
 
 def test_write_and_read_settings_round_trip():
     from rocket_engine.composition import Engine
-    from rocket_engine.interfaces import settings_store
+    from rocket_engine.stores import settings
 
     engine = Engine(PROJECT, actor="human")
-    manifest = settings_store.default_settings("chip.manifest")
+    manifest = settings.default_settings("chip.manifest")
     manifest["name"] = "wired"
     manifest["pdk"] = {"ref": "sky130A", "version": "v1.0"}
     written = _write(engine, "chip.manifest", manifest, "req-ss-001")
@@ -94,7 +94,7 @@ def test_read_settings_serves_defaults_for_absent_files():
 
 def test_write_settings_rejects_unknown_kind_and_shape():
     from rocket_engine.composition import Engine
-    from rocket_engine.interfaces import settings_store
+    from rocket_engine.stores import settings
 
     engine = Engine(PROJECT, actor="human")
     with pytest.raises(Exception) as excinfo:
@@ -105,7 +105,7 @@ def test_write_settings_rejects_unknown_kind_and_shape():
             "req-ss-020",
         )
     assert _code(excinfo) == "invalid_command"
-    bad = settings_store.default_settings("text.vars")
+    bad = settings.default_settings("text.vars")
     bad["vars"] = {"NOPE": [1]}
     with pytest.raises(Exception) as excinfo:
         _submit(
@@ -137,13 +137,13 @@ def test_text_vars_deletes_propagate_through_engine():
 
 def test_unknown_keys_survive_engine_round_trip():
     from rocket_engine.composition import Engine
-    from rocket_engine.interfaces import settings_store
+    from rocket_engine.stores import settings
 
     engine = Engine(PROJECT, actor="human")
-    rules = settings_store.default_settings("design.rules")
+    rules = settings.default_settings("design.rules")
     rules["foreign_key"] = {"nested": True}
     _write(engine, "design.rules", rules, "req-ss-040")
-    trimmed = settings_store.default_settings("design.rules")
+    trimmed = settings.default_settings("design.rules")
     trimmed["erc"]["default"] = False
     _write(engine, "design.rules", trimmed, "req-ss-041")
     read = _submit(engine, "read_settings", {"kind": "design.rules"}, "req-ss-042")
@@ -153,16 +153,16 @@ def test_unknown_keys_survive_engine_round_trip():
 
 def test_future_file_refuses_engine_write():
     from rocket_engine.composition import Engine
-    from rocket_engine.interfaces import settings_store
+    from rocket_engine.stores import settings
 
     engine = Engine(PROJECT, actor="human")
-    future = settings_store.default_settings("net.classes")
+    future = settings.default_settings("net.classes")
     future["meta"] = {"version": 99}
     _submit(
         engine, "write_doc",
         {
             "path": "settings/net.classes.yaml",
-            "content": settings_store.dump_settings_text(future),
+            "content": settings.dump_settings_text(future),
             "expected_revision": _head(engine),
         },
         "req-ss-050",
@@ -170,7 +170,7 @@ def test_future_file_refuses_engine_write():
     with pytest.raises(Exception) as excinfo:
         _write(
             engine, "net.classes",
-            settings_store.default_settings("net.classes"),
+            settings.default_settings("net.classes"),
             "req-ss-051",
         )
     assert _code(excinfo) == "future_format"
@@ -178,15 +178,15 @@ def test_future_file_refuses_engine_write():
 
 def test_write_settings_advances_revision_and_gates_stale():
     from rocket_engine.composition import Engine
-    from rocket_engine.interfaces import settings_store
+    from rocket_engine.stores import settings
 
     engine = Engine(PROJECT, actor="human")
     first = _write(
         engine, "chip.manifest",
-        settings_store.default_settings("chip.manifest"),
+        settings.default_settings("chip.manifest"),
         "req-ss-060",
     )
-    renamed = settings_store.default_settings("chip.manifest")
+    renamed = settings.default_settings("chip.manifest")
     renamed["name"] = "rev-two"
     second = _submit(
         engine, "write_settings",
@@ -199,7 +199,7 @@ def test_write_settings_advances_revision_and_gates_stale():
         _submit(
             engine, "write_settings",
             {"kind": "chip.manifest",
-             "settings": settings_store.default_settings("chip.manifest"),
+             "settings": settings.default_settings("chip.manifest"),
              "expected_revision": first["current_revision"]},
             "req-ss-062",
         )
@@ -208,18 +208,18 @@ def test_write_settings_advances_revision_and_gates_stale():
 
 def test_unchanged_write_skips_revision_bump():
     from rocket_engine.composition import Engine
-    from rocket_engine.interfaces import settings_store
+    from rocket_engine.stores import settings
 
     engine = Engine(PROJECT, actor="human")
     first = _write(
         engine, "chip.manifest",
-        settings_store.default_settings("chip.manifest"),
+        settings.default_settings("chip.manifest"),
         "req-ss-070",
     )
     assert first["written"] is True
     again = _write(
         engine, "chip.manifest",
-        settings_store.default_settings("chip.manifest"),
+        settings.default_settings("chip.manifest"),
         "req-ss-071",
     )
     assert again["written"] is False

@@ -26,9 +26,9 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .errors import ContractError
-from .paths import join_contained, slugify
-from .pdks import PdkError, list_pdks, resolve_deck
+from ..interfaces.errors import ContractError
+from ..interfaces.paths import join_contained, slugify
+from ..interfaces.pdks import PdkError, list_pdks, resolve_deck
 
 STACKUP_VERSION = 1
 PRESET_VERSION = 1

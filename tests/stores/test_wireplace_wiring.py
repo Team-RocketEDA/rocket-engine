@@ -12,7 +12,7 @@ import pytest
 
 def test_top_level_interfaces_export():
     try:
-        from rocket_engine.interfaces import (  # noqa: F401
+        from rocket_engine.stores.wireplace import (  # noqa: F401
             collect_wire_erc,
             connect_endpoint,
             delete_junction,

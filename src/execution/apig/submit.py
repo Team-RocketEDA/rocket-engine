@@ -11,11 +11,10 @@ second call is made). Replay and fetch paths execute at most once per
 run id: the ack's run id keys a completion cache, and `fetch` reads
 back through it.
 """
-
 import uuid
 
 try:
-    from .errors import ExecutionError  # noqa: F401 — re-exported for callers
+    from ..errors import ExecutionError  # noqa: F401 — re-exported for callers
 except ImportError:  # standalone verification before install
     from rocket_engine.execution.errors import ExecutionError  # noqa: F401
 

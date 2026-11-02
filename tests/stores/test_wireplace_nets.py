@@ -8,7 +8,7 @@ ticket acceptance loop: place -> wire -> net -> SPICE names -> ERC
 
 import pytest
 
-from rocket_engine.interfaces.wireplace import (
+from rocket_engine.stores.wireplace import (
     RULE_DANGLING_ENDPOINT,
     collect_wire_erc,
     connect_endpoint,
@@ -19,7 +19,7 @@ from rocket_engine.interfaces.wireplace import (
     split_wire,
     world_schematic,
 )
-from tests.interfaces.test_wireplace import FakeEntityStore
+from tests.stores.test_wireplace import FakeEntityStore
 
 
 @pytest.fixture()
@@ -267,7 +267,7 @@ def test_junction_dot_marks_an_explicit_tap(store):
 
 
 def test_move_wire_reshapes_nets_on_next_materialize(store):
-    from rocket_engine.interfaces.wireplace import move_wire
+    from rocket_engine.stores.wireplace import move_wire
 
     first = _pin(store, "X1", "A", [0, 0])
     second = _pin(store, "X2", "A", [10, 0])

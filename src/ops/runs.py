@@ -1,8 +1,8 @@
 """Engine ops mixin: Run pumping, batching, replay and solver execution."""
 
 from ..adapters.errors import AdapterError
-from ..execution.apig_pool import request_for_run
-from ..execution.apig_submit import merge_ack_completion
+from ..execution.apig.pool import request_for_run
+from ..execution.apig.submit import merge_ack_completion
 from ..execution.block_runs_scope import (build_scope_record, narrow_job_for_block, stamp_verdict)
 from ..execution.errors import ExecutionError
 from ..execution.replay_safe import content_key_for

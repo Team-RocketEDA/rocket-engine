@@ -5,7 +5,7 @@ import uuid
 
 from ruamel.yaml import YAML
 
-from ...interfaces import engine_ecs_store
+from ...stores import ecs
 from ..errors import ExecutionError
 
 
@@ -324,7 +324,7 @@ def entity_doc_path(entity):
         EcsError: invalid_entity for a malformed id (propagated
             unchanged from the shared substrate).
     """
-    return engine_ecs_store.entity_doc_path(entity)
+    return ecs.entity_doc_path(entity)
 
 
 def parse_address(address):
@@ -342,7 +342,7 @@ def parse_address(address):
         EcsError: invalid_address for a malformed address
             (propagated unchanged from the shared substrate).
     """
-    return engine_ecs_store.parse_address(address)
+    return ecs.parse_address(address)
 
 
 def format_address(entity, component):
@@ -361,4 +361,4 @@ def format_address(entity, component):
         EcsError: invalid_entity or invalid_component for
             malformed parts (propagated unchanged).
     """
-    return engine_ecs_store.format_address(entity, component)
+    return ecs.format_address(entity, component)

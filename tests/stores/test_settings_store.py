@@ -1,6 +1,6 @@
 """SETTINGS-STORE unit tests — engine-owned design-truth settings store.
 
-Tests assume `src/interfaces/settings_store.py` with:
+Tests assume `src/stores/settings.py` with:
   CURRENT_VERSIONS, SettingsError, register_migration, migrate,
   default_settings, fresh_project_settings, validate_settings,
   apply_update, merge_writer_maps, load_settings_file,
@@ -29,8 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _load_store():
-    # RED: src/interfaces/settings_store.py does not exist yet.
-    location = ROOT / "src" / "interfaces" / "settings_store.py"
+    location = ROOT / "src" / "stores" / "settings.py"
     spec = importlib.util.spec_from_file_location(
         "settings_store_under_test", location
     )

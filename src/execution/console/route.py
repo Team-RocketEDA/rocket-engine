@@ -24,7 +24,7 @@ packs the shared effects shape, and report_completions reads stored
 completions back by id without running anything.
 """
 
-from .routing.calls import (
+from ..routing.calls import (
     CELL_VERBS,
     CONSOLE_TOOL_VERBS,
     DOC_VERBS,
@@ -44,8 +44,8 @@ from .routing.calls import (
     tier_for,
     tool_call,
 )
-from .routing.namespace import ConsoleNamespace
-from .routing.tools import ConsoleTools
+from ..routing.namespace import ConsoleNamespace
+from ..routing.tools import ConsoleTools
 
 
 __all__ = [

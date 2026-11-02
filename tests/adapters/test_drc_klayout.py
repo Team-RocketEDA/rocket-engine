@@ -1,9 +1,9 @@
-"""DRC-KL RED — KlayoutDrcAdapter behind the ToolAdapter port (I14).
+"""DRC-KLayout — KlayoutDrcAdapter behind the ToolAdapter port (I14).
 
-Valid RED = `rocket_engine.adapters.drc_kl` does not exist yet, so
-every test fails on ImportError. Fixtures are verified against real
-KLayout 0.28.16: good→0, bad_space→1 space, bad_width→1 width.
-Tests skip (never fake-green) where klayout is absent.
+Lives at `rocket_engine.adapters.drc.klayout` (one word per
+module level). Fixtures are verified against real KLayout:
+good→0, bad_space→1 space, bad_width→1 width. Tests skip (never
+fake-green) where klayout is absent.
 """
 
 import shutil
@@ -37,14 +37,14 @@ def _job(cell, tmp_path, **over):
 
 def test_drc_kl_adapter_implements_tool_port():
     from rocket_engine.adapters import ToolAdapter  # live surface
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     assert issubclass(KlayoutDrcAdapter, ToolAdapter)
 
 
 @needs_klayout
 def test_drc_kl_capabilities_advertise_run_drc():
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     caps = KlayoutDrcAdapter().capabilities({"cell": "TOP"})
     assert "run_drc" in caps["operations"]
@@ -53,7 +53,7 @@ def test_drc_kl_capabilities_advertise_run_drc():
 
 @needs_klayout
 def test_drc_kl_preflight_refuses_missing_gds(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     job = _job("good", tmp_path)
     job["gds_file"] = str(tmp_path / "work" / "ghost.gds")
@@ -67,7 +67,7 @@ def test_drc_kl_preflight_refuses_missing_gds(tmp_path):
 
 @needs_klayout
 def test_drc_kl_preflight_refuses_insane_rules(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     job = _job("good", tmp_path)
     job["rules"]["width_um"] = -1.0
@@ -81,7 +81,7 @@ def test_drc_kl_preflight_refuses_insane_rules(tmp_path):
 
 @needs_klayout
 def test_drc_kl_good_cell_reports_zero(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     adapter = KlayoutDrcAdapter()
     native = adapter.execute(_job("good", tmp_path))
@@ -93,7 +93,7 @@ def test_drc_kl_good_cell_reports_zero(tmp_path):
 
 @needs_klayout
 def test_drc_kl_bad_cells_report_named_violations(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     adapter = KlayoutDrcAdapter()
     for cell, keyword in (("bad_space", "space"), ("bad_width", "width")):
@@ -108,9 +108,7 @@ def test_drc_kl_bad_cells_report_named_violations(tmp_path):
 def test_drc_kl_proves_fixture_labels_against_real_klayout(tmp_path):
     # Oracle check: the labels above are verified against klayout
     # itself, not against the adapter under test.
-    from rocket_engine.adapters.drc_kl import (  # RED: missing adapter  # noqa: F401
-        KlayoutDrcAdapter,
-    )
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     script = tmp_path / "oracle.py"
     script.write_text(
@@ -143,7 +141,7 @@ def test_drc_kl_proves_fixture_labels_against_real_klayout(tmp_path):
 def test_klayout_uses_injected_runner(tmp_path):
     import subprocess
 
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     seen = {}
 
@@ -153,7 +151,7 @@ def test_klayout_uses_injected_runner(tmp_path):
             seen["workdir"] = workdir
             return subprocess.CompletedProcess(command, 0, "", "")
 
-    adapter = KlayoutDrcAdapter(runner=FakeRunner())  # RED: no runner slot
+    adapter = KlayoutDrcAdapter(runner=FakeRunner())
     proc = adapter._run(["klayout", "-b"], str(tmp_path))
     assert seen["command"][:2] == ["klayout", "-b"]
     assert seen["workdir"] == str(tmp_path)
@@ -161,7 +159,7 @@ def test_klayout_uses_injected_runner(tmp_path):
 
 
 def test_klayout_converts_runner_errors(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
     from rocket_engine.execution.errors import ExecutionError
 
     class BoomRunner:

@@ -340,7 +340,7 @@ def test_mzi_design_staging_pairs_circuit_and_layout(tmp_path):
 
 
 def test_layout_good_matches_reference(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     _require_cspdk()
     # RED: staging rejects "mzi" before any tool check runs.
@@ -693,7 +693,7 @@ def test_optical_canned_determinism_3x():
 
 
 def test_layout_failure_artifacts_kept(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     _require_cspdk()
     # RED: staging rejects "mzi" before any tool check runs.

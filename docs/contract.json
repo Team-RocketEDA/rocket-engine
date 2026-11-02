@@ -1221,8 +1221,8 @@
     "run_drc": {
       "description": "run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.",
       "handlers": [
-        "rocket_engine.adapters.drc.MagicDrcAdapter",
-        "rocket_engine.adapters.drc_kl.KlayoutDrcAdapter"
+        "rocket_engine.adapters.drc.magic.MagicDrcAdapter",
+        "rocket_engine.adapters.drc.klayout.KlayoutDrcAdapter"
       ],
       "kind": "operation",
       "name": "run_drc",
@@ -1291,7 +1291,7 @@
       "returns": "{total, violations[]} with rule plus lambda-unit bbox areas.",
       "tools": {
         "klayout": {
-          "adapter": "rocket_engine.adapters.drc_kl.KlayoutDrcAdapter",
+          "adapter": "rocket_engine.adapters.drc.klayout.KlayoutDrcAdapter",
           "properties": {
             "deck": {
               "description": "Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode."
@@ -1355,7 +1355,7 @@
           ]
         },
         "magic": {
-          "adapter": "rocket_engine.adapters.drc.MagicDrcAdapter",
+          "adapter": "rocket_engine.adapters.drc.magic.MagicDrcAdapter",
           "properties": {
             "cell": {
               "description": "Cell name loaded inside magic."
@@ -4337,7 +4337,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "7be79f28a0f4b6a3da395aaebff4155487ccf1d4e428d05ff90b55228563b29a",
+  "schema_sha256": "a4f4e5fa03a436d36c738cb6067db60af8ec23f5d06667e8cf3b2d22486dcca6",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

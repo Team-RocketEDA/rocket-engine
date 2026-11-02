@@ -41,7 +41,7 @@ def _rules():
 
 
 def _run_drc(gds_file, rules, workdir):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     adapter = KlayoutDrcAdapter()
     native = adapter.execute(

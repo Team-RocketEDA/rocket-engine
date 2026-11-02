@@ -125,7 +125,7 @@ def test_help_summary_comes_from_handler_docstring():
     api_spec = _load_spec()
     help_texts = api_spec.build_help()
     assert help_texts["run_drc"]["summary"] == _handler_summary(
-        "rocket_engine.adapters.drc", "MagicDrcAdapter"
+        "rocket_engine.adapters.drc.magic", "MagicDrcAdapter"
     )
     assert help_texts["read_doc"]["summary"] == _handler_summary(
         "rocket_engine.project.service", "ProjectService.read_doc"

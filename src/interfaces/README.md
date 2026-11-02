@@ -4,11 +4,12 @@
 
 ## What lives here
 
-- `vocabulary.py`, `ports.py`, and `errors.py`: operation/query names, the `ToolAdapter` and other boundary types, and contract errors.
+- `vocabulary.py`, `ports.py`, `errors.py`, and `envelopes.py`: operation/query names, the `ToolAdapter` and other boundary types, contract errors, and the typed v0 envelopes plus the v0→v1 field map.
 - `documents.py`, `references.py`, `paths.py`, and `runparams.py`: document validation, reference resolution, path containment, and run-parameter validation.
-- `engine_ecs_store.py`, `wireplace.py`, `celllink.py`, and `layout.py`: entity/component, schematic connectivity, cell-link, and layout data operations.
-- `settings_store.py`, `layout_schema.yaml`, and `yaml_dump.py`: project settings and persisted design-data formats.
+- `celllink.py` and `layout.py`: cell-link and layout data operations.
+- `layout_schema.yaml` and `yaml_dump.py`: persisted design-data formats.
 - `pdks.py`, `setup.py`, `setup_catalogue.yaml`, and `setup_probes.py`: PDK registration/verification and tool readiness support. The PDK registry performs bounded filesystem I/O; this module is no longer entirely I/O-free.
+- Project stores live in [`stores/`](../stores/README.md): `settings.py`, `ecs.py`, `wireplace.py`, `layers.py`.
 
 The module does not invoke EDA solvers. Some low-level stores and registries are colocated here; project revisions and event ordering belong to [`project/`](../project/README.md), while user-facing engine operations are dispatched by [`composition.py`](../composition.py).
 

@@ -285,7 +285,7 @@ def _native_text(job, operation):
             return ("=== stdout ===\n" + (native.get("stdout") or "")
                     + "\n=== stderr ===\n" + (native.get("stderr") or ""))
         if operation == "run_drc":
-            from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+            from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
             native = KlayoutDrcAdapter().execute(job)
             return ("=== stdout ===\n" + (native.get("stdout") or "")

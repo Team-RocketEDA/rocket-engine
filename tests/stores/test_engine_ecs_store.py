@@ -29,12 +29,11 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _load_store():
-    # RED: src/interfaces/engine_ecs_store.py does not exist yet.
-    location = ROOT / "src" / "interfaces" / "engine_ecs_store.py"
+    location = ROOT / "src" / "stores" / "ecs.py"
     spec = importlib.util.spec_from_file_location(
         "engine_ecs_store_under_test", location
     )

@@ -137,17 +137,20 @@ where possible.
 
 ## Module-size rule
 
-Keep every engine source module below 3,000 lines. Split a
-module by cohesive responsibility before it reaches the limit;
-do not grow an existing oversized module. Current decomposition
-debt in `src/project/service.py` must be reduced, and
-`src/composition.py` should be split before it approaches the
-limit. This is an architecture constraint, not a test-only
-style preference.
+One word per module level; no two sibling modules may share a
+first underscore-segment — shared prefixes nest instead
+(`drc/magic.py` + `drc/klayout.py`, never `drc.py` + `drc_kl.py`).
+A reasonably sized module is ~500 lines. 1,000 lines is highly
+discouraged unless the bulk is documentation, and 3,000 lines is
+a hard ceiling — never a target. There are no monster files:
+split by cohesive responsibility, never sideways mega files.
+This is an architecture constraint, not a test-only style
+preference. The 4 project stores live in `src/stores/`, never in
+`interfaces/` (contracts only: no I/O, no logic).
 
 Split into nested cohesive subpackages, never sideways mega
-files: short names of normally no more than two words per path
-segment, one responsibility per module, inward hexagonal
+files: one word per path segment, one responsibility per module,
+inward hexagonal
 dependencies (adapters → interfaces + project + execution,
 execution → interfaces ports only). Feature-local helpers live
 with their feature; only genuinely shared pure helpers go in

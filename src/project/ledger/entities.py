@@ -1,6 +1,6 @@
 """Entity-record projection and backfill reads."""
 
-from ...interfaces import engine_ecs_store
+from ...stores import ecs
 from ..errors import ProjectError
 
 from .shared import _MAX_DOC_BYTES
@@ -12,7 +12,7 @@ class _EntityMixin:
         """Decode every entity record into world-snapshot entries."""
         records = []
         for rel, _size in self._iter_doc_files():
-            entity = engine_ecs_store.entity_from_doc_path(rel)
+            entity = ecs.entity_from_doc_path(rel)
             if entity is None:
                 continue
             text = self._read_doc_text(rel, rel)
@@ -22,8 +22,8 @@ class _EntityMixin:
                     f"Entity record vanished mid-read: {rel}.",
                 )
             try:
-                decoded = engine_ecs_store.decode_entity_doc(text, rel)
-            except engine_ecs_store.EcsError as exc:
+                decoded = ecs.decode_entity_doc(text, rel)
+            except ecs.EcsError as exc:
                 raise ProjectError(exc.code, str(exc)) from exc
             records.append(
                 {
@@ -40,7 +40,7 @@ class _EntityMixin:
             {"bytes": size, "path": rel}
             for rel, size in self._iter_doc_files()
         ]
-        return engine_ecs_store.backfill_entities(entries)
+        return ecs.backfill_entities(entries)
 
     def _find_backfill(self, entity):
         """Return the virtual record for one backfilled id."""
@@ -52,14 +52,14 @@ class _EntityMixin:
     def _read_backfill_component(self, entity, component):
         """Serve one projected doc component for a backfilled id."""
         record = self._find_backfill(entity)
-        if component != engine_ecs_store.BACKFILL_COMPONENT:
+        if component != ecs.BACKFILL_COMPONENT:
             raise ProjectError(
                 "unknown_component",
                 f"No component {component!r} on {entity}.",
             )
-        data = record["components"][engine_ecs_store.BACKFILL_COMPONENT]
+        data = record["components"][ecs.BACKFILL_COMPONENT]
         return {
-            "address": engine_ecs_store.format_address(entity, component),
+            "address": ecs.format_address(entity, component),
             "component": component,
             "current_revision": self._current_revision,
             "data": dict(data),
@@ -70,15 +70,15 @@ class _EntityMixin:
 
     def _read_entity_record(self, entity):
         """Return (path, decoded) for one live entity id."""
-        path = engine_ecs_store.entity_doc_path(entity)
+        path = ecs.entity_doc_path(entity)
         text = self._read_doc_text(path, path)
         if text is None:
             raise ProjectError(
                 "unknown_entity", f"No such entity: {entity}."
             )
         try:
-            decoded = engine_ecs_store.decode_entity_doc(text, path)
-        except engine_ecs_store.EcsError as exc:
+            decoded = ecs.decode_entity_doc(text, path)
+        except ecs.EcsError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
         if decoded["entity"] != entity:
             raise ProjectError(
@@ -89,7 +89,7 @@ class _EntityMixin:
 
     def _store_entity_record(self, path, entity, kind, components):
         """Encode and persist one entity record under its path."""
-        text = engine_ecs_store.encode_entity_doc(entity, kind, components)
+        text = ecs.encode_entity_doc(entity, kind, components)
         if len(text.encode("utf-8")) > _MAX_DOC_BYTES:
             raise ProjectError(
                 "invalid_command",

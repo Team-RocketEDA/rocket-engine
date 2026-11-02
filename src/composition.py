@@ -43,8 +43,8 @@ from .adapters.circulax.adapter import CirculaxAdapter
 from .adapters.connectivity import ConnectivityAdapter
 from .adapters.cosim import CosimAdapter
 from .adapters.digital_flow import LibrelaneFlowAdapter
-from .adapters.drc import MagicDrcAdapter
-from .adapters.drc_kl import KlayoutDrcAdapter
+from .adapters.drc.magic import MagicDrcAdapter
+from .adapters.drc.klayout import KlayoutDrcAdapter
 from .adapters.errors import AdapterError
 from .adapters.extract_magic import MagicExtractAdapter
 from .adapters.formal_sby import FormalSbyAdapter
@@ -59,12 +59,12 @@ from .adapters.syntax import SyntaxAdapter
 from .adapters.synth_yosys import YosysSynthAdapter
 from .adapters.timing_sta import OpenStaTimingAdapter
 from .adapters.view_sync import ViewSyncAdapter
-from .execution.apig_pool import (
+from .execution.apig.pool import (
     ApigPool,
     request_for_run,
     stored_completion_from_events,
 )
-from .execution.apig_submit import merge_ack_completion
+from .execution.apig.submit import merge_ack_completion
 from .execution.block_runs_scope import (
     BlockScopeError,
     build_scope_record,
@@ -84,7 +84,7 @@ from .execution.service import ExecutionService
 from .interfaces import apig_assets
 from .interfaces.celllink import resolve_run as resolve_celllink_run
 from .interfaces.errors import ContractError
-from .interfaces.layer_serving_stackup import (
+from .stores.layers import (
     PresetStore,
     get_stackup,
     viewer_rows,

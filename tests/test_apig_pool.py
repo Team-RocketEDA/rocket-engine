@@ -19,7 +19,7 @@ _yaml = YAML(typ="safe")
 
 def _load_pool():
     spec = importlib.util.spec_from_file_location(
-        "apig_pool", ROOT / "src" / "execution" / "apig_pool.py"
+        "apig_pool", ROOT / "src" / "execution" / "apig" / "pool.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

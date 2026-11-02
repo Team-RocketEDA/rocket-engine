@@ -36,14 +36,14 @@ def _job(cell, tmp_path, **over):
 
 def test_drc_adapter_implements_tool_port():
     from rocket_engine.adapters import ToolAdapter  # live surface
-    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
 
     assert issubclass(MagicDrcAdapter, ToolAdapter)
 
 
 @needs_magic
 def test_drc_capabilities_advertise_run_drc():
-    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
 
     caps = MagicDrcAdapter().capabilities({"cell": "good"})
     assert "run_drc" in caps["operations"]
@@ -52,7 +52,7 @@ def test_drc_capabilities_advertise_run_drc():
 
 @needs_magic
 def test_drc_preflight_refuses_unknown_tech(tmp_path):
-    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
 
     try:
         MagicDrcAdapter().preflight(_job("good", tmp_path, tech="no_such_tech"))
@@ -64,7 +64,7 @@ def test_drc_preflight_refuses_unknown_tech(tmp_path):
 
 @needs_magic
 def test_drc_preflight_refuses_missing_cell(tmp_path):
-    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
 
     job = _job("good", tmp_path)
     job["cell_file"] = str(tmp_path / "work" / "ghost.mag")
@@ -78,7 +78,7 @@ def test_drc_preflight_refuses_missing_cell(tmp_path):
 
 @needs_magic
 def test_drc_preflight_refuses_foreign_operation(tmp_path):
-    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
 
     try:
         MagicDrcAdapter().preflight(_job("good", tmp_path, operation="run_spice"))
@@ -90,7 +90,7 @@ def test_drc_preflight_refuses_foreign_operation(tmp_path):
 
 @needs_magic
 def test_drc_good_cell_reports_zero(tmp_path):
-    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
 
     adapter = MagicDrcAdapter()
     native = adapter.execute(_job("good", tmp_path))
@@ -102,7 +102,7 @@ def test_drc_good_cell_reports_zero(tmp_path):
 
 @needs_magic
 def test_drc_bad_cells_report_named_violations(tmp_path):
-    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
 
     adapter = MagicDrcAdapter()
     for cell, keyword in (("bad_spacing", "spacing"), ("bad_width", "width")):
@@ -117,7 +117,7 @@ def test_drc_bad_cells_report_named_violations(tmp_path):
 def test_drc_proves_fixture_labels_against_real_magic(tmp_path):
     # Oracle check: the labels above are verified against magic itself,
     # not against the adapter under test.
-    from rocket_engine.adapters.drc import MagicDrcAdapter  # RED: missing adapter  # noqa: F401
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter  # RED: missing adapter  # noqa: F401
 
     script = (
         "load {cell}\nbox values -5 -5 15 10\n"
@@ -143,7 +143,7 @@ def test_drc_proves_fixture_labels_against_real_magic(tmp_path):
 def test_drc_uses_injected_runner(tmp_path):
     import subprocess
 
-    from rocket_engine.adapters.drc import MagicDrcAdapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
 
     seen = {}
 
@@ -163,7 +163,7 @@ def test_drc_uses_injected_runner(tmp_path):
 
 
 def test_drc_converts_runner_errors(tmp_path):
-    from rocket_engine.adapters.drc import MagicDrcAdapter
+    from rocket_engine.adapters.drc.magic import MagicDrcAdapter
     from rocket_engine.execution.errors import ExecutionError
 
     class BoomRunner:

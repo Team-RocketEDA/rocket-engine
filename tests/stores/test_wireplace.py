@@ -1,6 +1,6 @@
 """WIRE-PLACE ops: schemas, wire/junction verbs, ERC. RED-first.
 
-Exercises rocket_engine.interfaces.wireplace through FakeEntityStore,
+Exercises rocket_engine.stores.wireplace through FakeEntityStore,
 an in-memory stand-in for the ENGINE-ECS entity store seam (exact
 interface request lives in docs/work/WIRE-PLACE/report.md). The fake
 adds only rewind(), which the real ledger owns — it exists here to
@@ -12,7 +12,7 @@ import copy
 import pytest
 
 from rocket_engine.interfaces.errors import ContractError
-from rocket_engine.interfaces.wireplace import (
+from rocket_engine.stores.wireplace import (
     DEFAULT_WIRE_POLICY,
     RULE_DANGLING_ENDPOINT,
     RULE_ORPHAN_JUNCTION,

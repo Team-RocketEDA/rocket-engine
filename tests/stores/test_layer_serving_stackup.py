@@ -1,6 +1,6 @@
 """LAYER-SERVING RED — layer stackup + preset serving for viewer + 3D.
 
-Tests assume `rocket_engine.interfaces.layer_serving_stackup` with:
+Tests assume `rocket_engine.stores.layers` with:
   LayerServingError, STACKUP_VERSION, PRESET_VERSION, BUILTIN_PRESETS,
   parse_lyp, parse_lyt, parse_xsect, build_stackup,
   get_stackup_from_dir, get_stackup, builtin_preset, PresetStore,
@@ -236,7 +236,7 @@ def _code(excinfo):
 
 
 def _tiny_stackup(**overrides):
-    from rocket_engine.interfaces.layer_serving_stackup import build_stackup
+    from rocket_engine.stores.layers import build_stackup
 
     kwargs = {
         "pdk_id": "tiny130A",
@@ -250,7 +250,7 @@ def _tiny_stackup(**overrides):
 
 
 def _full_stackup():
-    from rocket_engine.interfaces.layer_serving_stackup import build_stackup
+    from rocket_engine.stores.layers import build_stackup
 
     return build_stackup(
         pdk_id="tiny130A",
@@ -264,7 +264,7 @@ def _full_stackup():
 # --- .lyp parsing: order, colors, flags, purposes ---
 
 def test_parse_lyp_orders_colors_and_flags():
-    from rocket_engine.interfaces.layer_serving_stackup import parse_lyp  # RED: missing
+    from rocket_engine.stores.layers import parse_lyp  # RED: missing
 
     entries = parse_lyp(TINY_LYP)["entries"]
     assert [e["name"] for e in entries] == [
@@ -283,7 +283,7 @@ def test_parse_lyp_orders_colors_and_flags():
 
 
 def test_parse_lyp_rejects_malformed():
-    from rocket_engine.interfaces.layer_serving_stackup import parse_lyp  # RED: missing
+    from rocket_engine.stores.layers import parse_lyp  # RED: missing
 
     with pytest.raises(Exception) as excinfo:
         parse_lyp("this is not xml <")
@@ -301,7 +301,7 @@ def test_parse_lyp_rejects_malformed():
 # --- .lyt parsing: tech + dbu ---
 
 def test_parse_lyt_reads_tech_and_dbu():
-    from rocket_engine.interfaces.layer_serving_stackup import parse_lyt  # RED: missing
+    from rocket_engine.stores.layers import parse_lyt  # RED: missing
 
     assert parse_lyt(TINY_LYT) == {
         "tech": "sky130",
@@ -316,7 +316,7 @@ def test_parse_lyt_reads_tech_and_dbu():
 # --- .xs parsing: inputs, arithmetic, spans ---
 
 def test_parse_xsect_evaluates_arithmetic():
-    from rocket_engine.interfaces.layer_serving_stackup import parse_xsect  # RED: missing
+    from rocket_engine.stores.layers import parse_xsect  # RED: missing
 
     parsed = parse_xsect(TINY_XS)
     assert parsed["inputs"][(66, 20)] == "poly"
@@ -326,7 +326,7 @@ def test_parse_xsect_evaluates_arithmetic():
 
 
 def test_parse_xsect_ignores_process_calls_and_outputs():
-    from rocket_engine.interfaces.layer_serving_stackup import parse_xsect  # RED: missing
+    from rocket_engine.stores.layers import parse_xsect  # RED: missing
 
     parsed = parse_xsect(TINY_XS)
     assert "m_poly" not in parsed["values"]  # mask()/grow() line skipped
@@ -334,7 +334,7 @@ def test_parse_xsect_ignores_process_calls_and_outputs():
 
 
 def test_parse_xsect_unknown_variable_is_loud():
-    from rocket_engine.interfaces.layer_serving_stackup import parse_xsect  # RED: missing
+    from rocket_engine.stores.layers import parse_xsect  # RED: missing
 
     with pytest.raises(Exception) as excinfo:
         parse_xsect('poly = layer("66/20")\nfoo_bottom = bar_bottom + 1.0\n')
@@ -343,7 +343,7 @@ def test_parse_xsect_unknown_variable_is_loud():
 
 
 def test_parse_xsect_spans_follow_recipe():
-    from rocket_engine.interfaces.layer_serving_stackup import parse_xsect  # RED: missing
+    from rocket_engine.stores.layers import parse_xsect  # RED: missing
 
     spans = parse_xsect(FULL_XS)["spans"]
     assert spans["poly"]["z_base_um"] == pytest.approx(0.004)
@@ -433,7 +433,7 @@ def test_build_stackup_is_read_only():
 
 
 def test_build_stackup_rejects_duplicate_names():
-    from rocket_engine.interfaces.layer_serving_stackup import build_stackup  # RED
+    from rocket_engine.stores.layers import build_stackup  # RED
 
     doubled = TINY_LYP.replace("</layer-properties>", """
  <properties>
@@ -470,7 +470,7 @@ def _write_tree(root):
 
 
 def test_stackup_from_dir_reads_pdk_tree(tmp_path):
-    from rocket_engine.interfaces.layer_serving_stackup import (  # RED: missing
+    from rocket_engine.stores.layers import (  # RED: missing
         get_stackup_from_dir,
     )
 
@@ -483,7 +483,7 @@ def test_stackup_from_dir_reads_pdk_tree(tmp_path):
 
 
 def test_stackup_from_dir_missing_lyp_is_loud(tmp_path):
-    from rocket_engine.interfaces.layer_serving_stackup import (  # RED: missing
+    from rocket_engine.stores.layers import (  # RED: missing
         get_stackup_from_dir,
     )
 
@@ -496,7 +496,7 @@ def test_stackup_from_dir_missing_lyp_is_loud(tmp_path):
 
 
 def test_get_stackup_prefers_newest_revision_and_echoes_it(tmp_path):
-    from rocket_engine.interfaces.layer_serving_stackup import get_stackup  # RED: missing
+    from rocket_engine.stores.layers import get_stackup  # RED: missing
     from rocket_engine.interfaces.pdks import register_pdk
 
     engine_root = tmp_path / "root"
@@ -513,7 +513,7 @@ def test_get_stackup_prefers_newest_revision_and_echoes_it(tmp_path):
 
 
 def test_get_stackup_unknown_pdk_raises_unknown_pdk(tmp_path):
-    from rocket_engine.interfaces.layer_serving_stackup import get_stackup  # RED: missing
+    from rocket_engine.stores.layers import get_stackup  # RED: missing
     from rocket_engine.interfaces.pdks import ensure_engine_root
 
     engine_root = ensure_engine_root(tmp_path / "root")
@@ -523,7 +523,7 @@ def test_get_stackup_unknown_pdk_raises_unknown_pdk(tmp_path):
 
 
 def test_get_stackup_unmapped_pdk_raises_unknown_stackup(tmp_path):
-    from rocket_engine.interfaces.layer_serving_stackup import get_stackup  # RED: missing
+    from rocket_engine.stores.layers import get_stackup  # RED: missing
     from rocket_engine.interfaces.pdks import register_pdk
 
     engine_root = tmp_path / "root"
@@ -539,13 +539,13 @@ def test_get_stackup_unmapped_pdk_raises_unknown_stackup(tmp_path):
 # --- built-in presets ---
 
 def test_builtin_names_are_pinned():
-    from rocket_engine.interfaces.layer_serving_stackup import BUILTIN_PRESETS  # RED
+    from rocket_engine.stores.layers import BUILTIN_PRESETS  # RED
 
     assert tuple(BUILTIN_PRESETS) == ("All", "None", "All-metal", "Top", "Bottom")
 
 
 def test_builtin_all_none_metal_round_trip():
-    from rocket_engine.interfaces.layer_serving_stackup import builtin_preset  # RED
+    from rocket_engine.stores.layers import builtin_preset  # RED
 
     stackup = _tiny_stackup()
     all_preset = builtin_preset(stackup, "All")
@@ -565,7 +565,7 @@ def test_builtin_all_none_metal_round_trip():
 
 
 def test_builtin_top_bottom_carry_flip_and_active():
-    from rocket_engine.interfaces.layer_serving_stackup import builtin_preset  # RED
+    from rocket_engine.stores.layers import builtin_preset  # RED
 
     stackup = _full_stackup()
     top = builtin_preset(stackup, "Top")
@@ -583,7 +583,7 @@ def test_builtin_top_bottom_carry_flip_and_active():
 
 
 def test_builtin_without_heights_carries_no_active():
-    from rocket_engine.interfaces.layer_serving_stackup import builtin_preset  # RED
+    from rocket_engine.stores.layers import builtin_preset  # RED
 
     stackup = _tiny_stackup(xsect_text=None)
     assert builtin_preset(stackup, "Top")["active"] is None
@@ -591,7 +591,7 @@ def test_builtin_without_heights_carries_no_active():
 
 
 def test_builtin_unknown_name_lists_builtins():
-    from rocket_engine.interfaces.layer_serving_stackup import builtin_preset  # RED
+    from rocket_engine.stores.layers import builtin_preset  # RED
 
     with pytest.raises(Exception) as excinfo:
         builtin_preset(_tiny_stackup(), "Front")
@@ -602,7 +602,7 @@ def test_builtin_unknown_name_lists_builtins():
 # --- user presets: save/overwrite/delete + explicit apply ---
 
 def test_preset_save_round_trip_and_overwrite():
-    from rocket_engine.interfaces.layer_serving_stackup import PresetStore  # RED
+    from rocket_engine.stores.layers import PresetStore  # RED
 
     store = PresetStore()
     stackup = _tiny_stackup()
@@ -621,7 +621,7 @@ def test_preset_save_round_trip_and_overwrite():
 
 
 def test_preset_save_rejects_builtin_names():
-    from rocket_engine.interfaces.layer_serving_stackup import PresetStore  # RED
+    from rocket_engine.stores.layers import PresetStore  # RED
 
     store = PresetStore()
     stackup = _tiny_stackup()
@@ -632,7 +632,7 @@ def test_preset_save_rejects_builtin_names():
 
 
 def test_preset_save_validates_names_and_shapes():
-    from rocket_engine.interfaces.layer_serving_stackup import PresetStore  # RED
+    from rocket_engine.stores.layers import PresetStore  # RED
 
     store = PresetStore()
     stackup = _tiny_stackup()
@@ -655,7 +655,7 @@ def test_preset_save_validates_names_and_shapes():
 
 
 def test_preset_delete_removes_only_user():
-    from rocket_engine.interfaces.layer_serving_stackup import PresetStore  # RED
+    from rocket_engine.stores.layers import PresetStore  # RED
 
     store = PresetStore()
     stackup = _tiny_stackup()
@@ -670,7 +670,7 @@ def test_preset_delete_removes_only_user():
 
 
 def test_preset_apply_validates_against_current_stackup():
-    from rocket_engine.interfaces.layer_serving_stackup import (  # RED: missing
+    from rocket_engine.stores.layers import (  # RED: missing
         PresetStore,
         build_stackup,
     )
@@ -696,7 +696,7 @@ def test_preset_apply_validates_against_current_stackup():
 
 
 def test_preset_list_orders_builtins_first():
-    from rocket_engine.interfaces.layer_serving_stackup import PresetStore  # RED
+    from rocket_engine.stores.layers import PresetStore  # RED
 
     store = PresetStore()
     store.save(_tiny_stackup(), "mine", {})
@@ -713,7 +713,7 @@ def test_preset_list_orders_builtins_first():
 # --- viewer rows ---
 
 def test_viewer_rows_default_to_lyp_visibility():
-    from rocket_engine.interfaces.layer_serving_stackup import viewer_rows  # RED
+    from rocket_engine.stores.layers import viewer_rows  # RED
 
     page = viewer_rows(_tiny_stackup())
     assert [row["name"] for row in page["rows"]] == [
@@ -733,7 +733,7 @@ def test_viewer_rows_default_to_lyp_visibility():
 
 
 def test_viewer_rows_overrides_and_active():
-    from rocket_engine.interfaces.layer_serving_stackup import viewer_rows  # RED
+    from rocket_engine.stores.layers import viewer_rows  # RED
 
     page = viewer_rows(_tiny_stackup(),
                        visibility={"li1.drawing": True}, active="li1.drawing")
@@ -750,7 +750,7 @@ def test_viewer_rows_overrides_and_active():
 
 
 def test_viewer_rows_for_preset_applies_explicitly():
-    from rocket_engine.interfaces.layer_serving_stackup import (  # RED: missing
+    from rocket_engine.stores.layers import (  # RED: missing
         PresetStore,
         viewer_rows_for_preset,
     )
@@ -809,7 +809,7 @@ CANONICAL_DRAWING = [
 
 
 def test_sky130a_stackup_complete_from_user_tree():
-    from rocket_engine.interfaces.layer_serving_stackup import (  # RED: missing
+    from rocket_engine.stores.layers import (  # RED: missing
         PresetStore,
         build_stackup,
         viewer_rows_for_preset,
@@ -845,7 +845,7 @@ def test_sky130a_stackup_complete_from_user_tree():
 
 
 def test_sky130a_stackup_from_registered_store():
-    from rocket_engine.interfaces.layer_serving_stackup import get_stackup  # RED
+    from rocket_engine.stores.layers import get_stackup  # RED
 
     revision = _registered_sky130a_revision()
     if revision is None:
@@ -857,7 +857,7 @@ def test_sky130a_stackup_from_registered_store():
 
 
 def test_layer_serving_error_carries_stable_codes():
-    from rocket_engine.interfaces.layer_serving_stackup import (  # RED: missing
+    from rocket_engine.stores.layers import (  # RED: missing
         LayerServingError,
     )
 

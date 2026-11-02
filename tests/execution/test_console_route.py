@@ -1,9 +1,8 @@
 """CONSOLE-ROUTE — console tier-2 mutations route through admission.
 
-RED-first: this suite imports `rocket_engine.execution.console_route`,
-which does not exist yet. Valid RED = collection error on that
-import; valid GREEN = every test below passes with the module in
-place and zero edits to any tracked file.
+This suite imports `rocket_engine.execution.console.route` (one
+word per module level). Valid GREEN = every test below passes with
+the module in place.
 
 The contract under test: console tier-2 effectful mutations (cell
 add/place, wire ops, doc writes, plus the sibling project
@@ -22,7 +21,7 @@ from pathlib import Path
 import pytest
 from ruamel.yaml import YAML
 
-from rocket_engine.execution.console_route import (
+from rocket_engine.execution.console.route import (
     CELL_VERBS,
     CONSOLE_TOOL_VERBS,
     DOC_VERBS,
@@ -45,7 +44,7 @@ from rocket_engine.execution.console_route import (
     tool_call,
 )
 from rocket_engine.execution.errors import ExecutionError
-from rocket_engine.interfaces import engine_ecs_store
+from rocket_engine.stores import ecs
 from rocket_engine.library.apig_catalog import ApigCatalog, static_provider
 from rocket_engine.library.errors import LibraryError
 from rocket_engine.project.errors import ProjectError
@@ -370,7 +369,7 @@ def test_rewind_covers_console_writes():
 
 
 def test_write_settings_routes_and_skips_unchanged():
-    from rocket_engine.interfaces.settings_store import default_settings
+    from rocket_engine.stores.settings import default_settings
 
     project = _project()
     namespace = _namespace(project)
@@ -437,10 +436,10 @@ def test_place_cell_without_catalog_refuses():
 
 
 def test_tier2_module_names_no_private_doc_store_writers():
-    import rocket_engine.execution.console_route as module
+    import rocket_engine.execution.console.route as module
 
     files = [Path(module.__file__)] + sorted(
-        (Path(module.__file__).parent / "routing").glob("*.py")
+        (Path(module.__file__).parent.parent / "routing").glob("*.py")
     )
     source = "\n".join(
         path.read_text(encoding="utf-8") for path in files
@@ -657,16 +656,16 @@ def test_unwired_ecs_wire_verbs_refuse_without_side_effects(verb):
 
 def test_addressing_delegates_to_shared_substrate():
     assert entity_doc_path("ent-abc") == (
-        engine_ecs_store.entity_doc_path("ent-abc")
+        ecs.entity_doc_path("ent-abc")
     )
     assert parse_address("ent-abc.C") == (
-        engine_ecs_store.parse_address("ent-abc.C")
+        ecs.parse_address("ent-abc.C")
     )
     assert format_address("ent-abc", "C") == (
-        engine_ecs_store.format_address("ent-abc", "C")
+        ecs.format_address("ent-abc", "C")
     )
     try:
-        engine_ecs_store.validate_entity_id("not an id!")
+        ecs.validate_entity_id("not an id!")
     except Exception as exc:  # noqa: BLE001 - parity probe
         want = getattr(exc, "code", None)
     with pytest.raises(Exception) as excinfo:  # noqa: BLE001 - parity

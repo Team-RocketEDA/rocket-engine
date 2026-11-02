@@ -79,7 +79,7 @@ def test_deck_file_present():
 
 @needs_klayout
 def test_preflight_accepts_deck_without_rules(tmp_path, fixture_dir):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     workdir = tmp_path / "work"
     workdir.mkdir()
@@ -92,7 +92,7 @@ def test_preflight_accepts_deck_without_rules(tmp_path, fixture_dir):
 @needs_klayout
 @pytest.mark.parametrize("breaker_id", _breaker_ids())
 def test_breaker_trips_exactly_its_rule(tmp_path, fixture_dir, breaker_id):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     spec = _read_spec()
     entries = {entry["id"]: entry for entry in spec["breakers"]}
@@ -114,7 +114,7 @@ def test_breaker_trips_exactly_its_rule(tmp_path, fixture_dir, breaker_id):
 @needs_klayout
 @pytest.mark.parametrize("clean_id", ["clean_all", "empty"])
 def test_clean_refs_marker_free(tmp_path, fixture_dir, clean_id):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     workdir = tmp_path / "work"
     workdir.mkdir()
@@ -128,7 +128,7 @@ def test_clean_refs_marker_free(tmp_path, fixture_dir, clean_id):
 
 @needs_klayout
 def test_invx1_cell_marker_free(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     if not INVX1.is_file():
         pytest.skip("invx1 fixture not present")

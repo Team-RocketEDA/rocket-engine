@@ -743,7 +743,7 @@ run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.
 
 Tools: `magic` (default), `klayout` — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
 
-Handlers: `rocket_engine.adapters.drc.MagicDrcAdapter`, `rocket_engine.adapters.drc_kl.KlayoutDrcAdapter`.
+Handlers: `rocket_engine.adapters.drc.magic.MagicDrcAdapter`, `rocket_engine.adapters.drc.klayout.KlayoutDrcAdapter`.
 
 #### Tool `magic`
 

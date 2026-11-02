@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def _load_submit():
     spec = importlib.util.spec_from_file_location(
-        "apig_submit", ROOT / "src" / "execution" / "apig_submit.py"
+        "apig_submit", ROOT / "src" / "execution" / "apig" / "submit.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

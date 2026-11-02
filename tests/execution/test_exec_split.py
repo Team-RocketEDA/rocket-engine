@@ -1,14 +1,16 @@
 """Split lock for execution mega modules (REFACTOR-EXEC).
 
-python_exec.py (1827 lines) and console_route.py (1512 lines) decompose
-into thin surfaces plus cohesive subpackages, with the public API,
-__all__ re-exports, and the api_spec docstring seam byte-identical.
+python_exec.py decomposes into a thin surface plus the pyexec
+subpackage, and the console surface lives at console/session.py +
+console/route.py with the routing subpackage — one word per module
+level. The public API, __all__ re-exports, and the api_spec
+docstring seam stay byte-identical.
 """
 
 from pathlib import Path
 
 import rocket_engine.execution as E
-import rocket_engine.execution.console_route as cr
+import rocket_engine.execution.console.route as cr
 import rocket_engine.execution.python_exec as pe
 
 SRC = Path(__file__).resolve().parents[2] / "src"
@@ -19,8 +21,8 @@ def _lines(path):
 
 
 def test_surfaces_under_limit():
-    """Both surfaces stay under 1000 lines."""
-    for name in ("python_exec.py", "console_route.py"):
+    """Surfaces stay under 1000 lines."""
+    for name in ("python_exec.py",):
         n = _lines(SRC / "execution" / name)
         assert n < 1000, f"{name} has {n} lines"
 
@@ -31,6 +33,7 @@ def test_subpackages_exist_and_small():
         "pyexec/__init__.py", "pyexec/support.py", "pyexec/runner.py",
         "pyexec/approvals.py", "routing/__init__.py", "routing/calls.py",
         "routing/namespace.py", "routing/tools.py",
+        "console/__init__.py", "console/session.py", "console/route.py",
     ):
         path = SRC / "execution" / rel
         assert path.exists(), f"missing {path}"

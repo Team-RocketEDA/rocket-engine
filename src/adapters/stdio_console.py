@@ -48,8 +48,8 @@ from pathlib import Path
 from ruamel.yaml import YAML
 
 from ..composition import Engine
-from ..execution.console import ConsoleSession
-from ..execution.console_route import (
+from ..execution.console.session import ConsoleSession
+from ..execution.console.route import (
     collect_run_ids,
     is_tier2,
     stamp_tier2_call,

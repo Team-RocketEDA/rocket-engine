@@ -37,7 +37,7 @@ def _wiring_present():
         return False
     if (
         importlib.util.find_spec(
-            "rocket_engine.interfaces.engine_ecs_store"
+            "rocket_engine.stores.ecs"
         )
         is None
     ):
@@ -283,7 +283,7 @@ def test_backfill_world_snapshot_without_revision_bump():
 
 
 def test_backfill_mutations_are_refused_through_engine():
-    from rocket_engine.interfaces import engine_ecs_store as ecs
+    from rocket_engine.stores import ecs
 
     engine = _engine()
     _mutate(

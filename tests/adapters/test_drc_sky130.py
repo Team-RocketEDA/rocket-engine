@@ -121,7 +121,7 @@ def _job(cell, tmp_path, deck_file):
 
 @needs_klayout
 def test_drc_sky130_preflight_accepts_deck_without_rules(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: no deck mode
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter  # RED: no deck mode
 
     _require_fixtures()
     deck = _find_sky130_deck()
@@ -133,7 +133,7 @@ def test_drc_sky130_preflight_accepts_deck_without_rules(tmp_path):
 
 @needs_klayout
 def test_drc_sky130_good_cell_reports_zero(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: no deck mode
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter  # RED: no deck mode
 
     _require_fixtures()
     deck = _find_sky130_deck()
@@ -147,7 +147,7 @@ def test_drc_sky130_good_cell_reports_zero(tmp_path):
 
 @needs_klayout
 def test_drc_sky130_bad_cell_reports_m1_1(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: no deck mode
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter  # RED: no deck mode
 
     _require_fixtures()
     deck = _find_sky130_deck()
@@ -163,7 +163,7 @@ def test_drc_sky130_bad_cell_reports_m1_1(tmp_path):
 
 @needs_klayout
 def test_drc_sky130_unknown_deck_raises_no_substitute(tmp_path):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: ignores deck_file
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter  # RED: ignores deck_file
 
     _require_fixtures()
     workdir = tmp_path / "work"
@@ -217,7 +217,7 @@ def test_drc_sky130_unknown_tool_raises():
 
 
 def test_drc_sky130_parse_clean_report():
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: no lyrdb parse
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter  # RED: no lyrdb parse
 
     result = KlayoutDrcAdapter().parse({"report_xml": CLEAN_LYRDB})
     assert result["total"] == 0
@@ -225,7 +225,7 @@ def test_drc_sky130_parse_clean_report():
 
 
 def test_drc_sky130_parse_violation_report():
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # RED: no lyrdb parse
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter  # RED: no lyrdb parse
 
     result = KlayoutDrcAdapter().parse({"report_xml": VIOL_LYRDB})
     assert result["total"] == 1
@@ -241,7 +241,7 @@ def test_drc_sky130_parse_violation_report():
 def test_drc_sky130_proves_fixture_labels_against_real_deck(tmp_path):
     # Oracle check: labels verified against klayout + real deck,
     # not against the adapter under test.
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter  # noqa: F401  # RED marker
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter  # noqa: F401  # RED marker
 
     _require_fixtures()
     deck = _find_sky130_deck()

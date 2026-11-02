@@ -75,7 +75,7 @@ def _deck_harness(tmp_path):
 
 
 def _run_deck(gds_file, deck_file, workdir):
-    from rocket_engine.adapters.drc_kl import KlayoutDrcAdapter
+    from rocket_engine.adapters.drc.klayout import KlayoutDrcAdapter
 
     adapter = KlayoutDrcAdapter()
     return adapter.parse(

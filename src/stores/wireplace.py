@@ -35,7 +35,7 @@ into one Net entity: a name is global, so a net-ref tap and a
 repeated label both join every group carrying the name.
 """
 
-from .errors import ContractError
+from ..interfaces.errors import ContractError
 
 __all__ = [
     "DEFAULT_WIRE_POLICY",

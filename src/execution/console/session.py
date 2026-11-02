@@ -10,7 +10,7 @@ worker (I23/I24).
 
 import uuid
 
-from .errors import ExecutionError
+from ..errors import ExecutionError
 
 CONTRACT_VERSION = "rocketeda/tooling/v0.1"
 
