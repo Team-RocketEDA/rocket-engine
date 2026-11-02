@@ -196,6 +196,26 @@ G-8. API-surface researcher left unverified: ProjectService internals beyond cit
 G-9. Prior result 3's summary inline copy arrived truncated (full text read completely instead) — no evidence lost; synthesis cites the text part. Resolved, no action. High (that nothing is missing).
 G-10. Cross-cutting: no researcher ran the test suite; all verdicts are static inspection. A green-suite confirmation + the parity/conformance tests proposed in T-04/T-14 are the empirical close-out. Med.
 
+## (g) USER RULINGS (accumulated; latest ruling wins on its item)
+
+RULING-01 (2026-11-02, user): IP blocks are hierarchical schematic
+blocks that are prebuilt — the KiCad-catalogue model: ready components
+(buck converters, digital chips, …), each shipping its schematic symbol
+AND its footprint/cell linked together. IP-lifecycle ops (MC-04/T-07:
+ip_search/get/register/instantiate/promote) are scoped by this
+definition: "instantiate" = place a hierarchical block with its
+symbol+footprint linkage intact. Distinguish from PDK library cells
+(flat, PDK-owned) and from user-authored hierarchy (built bottom-up in
+the editors).
+
+RULING-02 (2026-11-02, user-proposed, PENDING CONFIRMATION below):
+latest contract wins over older ones. Proposed authority stack:
+(1) rocket-engine/contracts/engine-v1.schema.json + contracts/v1 bundle
+(frozen design authority); (2) PRD tools-research + blueprint;
+(3) board tickets; (4) PRD harness docs (known stale-prone);
+(5) running v0 behavior always loses (migrate-to-v1; code never
+overrules the frozen contract).
+
 ## Counts
 
 - Missing capabilities: 46 (High 20: MC-01..MC-20; Medium 20: MC-21..MC-40; Low 6: MC-41..MC-46).
