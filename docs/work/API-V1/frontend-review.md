@@ -118,7 +118,7 @@ stable stage I/O references. The frontend consumer ticket should prove:
 ## Suggested code-organization rules for the engine
 
 Use feature packages with domain/use-case/port/adapter boundaries and explicit
-composition wiring. Names normally use one or two words per segment; nest the
+composition wiring. Names use one word per segment; nest the
 responsibility rather than create ever-longer module names. Keep reusable pure
 primitives in small `src/common/paths.py`, `units.py`, `hashes.py`-style modules
 only when shared semantics justify them. `common` imports no feature/adapters;

@@ -188,3 +188,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CANCEL-WIREUP] Wire cancel_job to vocabulary + submit + transports
 - [ERROR-FIDELITY] Serialize fields, status map, v0-v1 code mapping
 - [HTTP-HARDEN] Delete auth.py, harden HTTP handler
+- [DECOMP-SLICE-1] DECOMP slice-1 GREEN (stores/drc/apig/console moves, envelope map)

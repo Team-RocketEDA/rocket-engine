@@ -30,7 +30,7 @@ Human-authorized local Python, GDSFactory and native scripting are ordinary powe
 
 ## Code organization
 
-Use cohesive nested packages with short names, normally one or two words per module/package segment. Split responsibilities before adding more underscores. Put truly shared low-level code in small named modules under `src/common/` (for example `paths`, `units`, `hashes`), not a catch-all utils.py. Feature-specific helpers stay with their feature. Common code cannot import feature services or adapters. Extract repeated logic when shared semantics are real. Keep source files below 3,000 lines, split much earlier in ordinary work, and use Google-style module/class/public-callable docstrings. Record this rule in AGENTS.md and enforce it in the refactor tickets.
+Use cohesive nested packages with one word per module/package segment; never two sibling modules sharing a first underscore-segment. Split responsibilities before adding more underscores. Put truly shared low-level code in small named modules under `src/common/` (for example `paths`, `units`, `hashes`), not a catch-all utils.py. Feature-specific helpers stay with their feature. Common code cannot import feature services or adapters. Extract repeated logic when shared semantics are real. No monster files: ~500 lines is reasonable, 1,000 is discouraged, 3,000 is a hard ceiling — never a target. Use Google-style module/class/public-callable docstrings. Record this rule in AGENTS.md and enforce it in the refactor tickets.
 
 ## Required follow-through
 

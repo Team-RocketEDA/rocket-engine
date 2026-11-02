@@ -282,7 +282,12 @@ class _Serving:
 
     @property
     def server_address(self):
-        """(host, port): the live port once bound, else configured."""
+        """(host, port): the live port once bound, else configured.
+
+        Returns:
+            Host plus the bound port, or the configured port before
+            the listener comes up.
+        """
         servers = getattr(self._server, "servers", None) or []
         sockets = getattr(servers[0], "sockets", None) if servers else None
         if sockets:
