@@ -57,6 +57,9 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
 - [API-V1-ADAPTERS] Migrate every solver adapter to emit v1 ResultBundles
 - [TOOL-OUTPUTS] Research pinned tool output shapes for v1 normalization
+- [SHAPE-HARDEN] Harden the 7 weak + 2 missing tool output shapes
+- [ADAPT-GROUPC] Staff group-C adapters: meow proof, devsim, meep, elmer
+- [MIGRATE-STDIO-FILE] Migrate top-5 stdio parses to file channels
 ## Doing
 
 
