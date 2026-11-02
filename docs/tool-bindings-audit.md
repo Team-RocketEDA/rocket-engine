@@ -2,6 +2,11 @@
 
 *Date: 2026-11-01 · Branch: GREEN-the-tests · Sources: 5 researcher reports (71 tools) cross-checked against `contracts/v1/catalog/tasks.json` delivery flags and the directive: heavy physics, opensta, xyce, openems stay deferred.*
 
+*Repo definition: TOOL == FRONTEND (`docs/tool-frontends-review.md`).
+Only the 34 frontends are tools; every other row is an internal, a
+dead row, or a library, listed only to record how its results are
+read or why it is out of scope.*
+
 Rule (from TOOL-OUTPUTS): execution stays subprocess; bindings are for
 READING results, never for running tools in-process.
 

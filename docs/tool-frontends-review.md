@@ -4,10 +4,12 @@
 
 ## Rule
 
-- **FRONTEND**: a tool an agent or user invokes directly to do a design
-  task. Own CLI/API entry point, own results, appears in the task
-  catalog as a provider. This is the list we staff, provision, and
-  count coverage against.
+- **TOOL == FRONTEND (repo definition).** In this repository the word
+  "tool" means exactly a frontend: something an agent or user invokes
+  directly to do a design task. Own CLI/API entry point, own results,
+  appears in the task catalog as a provider. This is the list we
+  staff, provision, and count coverage against. Anything else is an
+  internal, a dead row, or a library — never called a tool.
 - **INTERNAL**: only ever touched *through* another tool. Solver
   engines, sub-passes, plugins, arch backends, chip DBs, bundled
   libraries, build-only deps, bootstrap, the bundle itself, plumbing
