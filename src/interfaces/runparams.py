@@ -5,8 +5,9 @@ run needs travels IN the run request, frozen into the run snapshot
 like everything else. xschem keeps netlist knobs as live TCL vars;
 the web split cannot do that without per-event round-trips, so they
 become explicit `request` parameters: netlist type, flat/split
-shape, the LVS-netlist flag, top-is-subckt, and deck opts
-passthrough. Without this schema run reproducibility has a hole:
+shape, the LVS-netlist flag, top-is-subckt, deck opts
+passthrough, and the solver budget (null keeps the adapter
+default). Without this schema run reproducibility has a hole:
 two identical-looking runs could differ by a knob nobody recorded.
 
 Validated at submit (`Engine.submit` and `Engine.run` normalize
@@ -26,6 +27,14 @@ from ruamel.yaml import YAML
 # netlists in. Canonical order is display order (error text, schema).
 NETLIST_TYPES = ("spice", "spectre", "verilog", "vhdl")
 
+# Solver-lane budget bounds, mirroring the python lane so one
+# hanging tool cannot pin a drain worker forever. None means
+# "adapter default" (a spice sim keeps 120s, a LibreLane flow
+# keeps its hour); the engine stamps the job only when set.
+MIN_TIMEOUT_S = 1
+MAX_TIMEOUT_S = 1800
+DEFAULT_TIMEOUT_S = None
+
 # Canonical knob order: validation output, frozen text, and the
 # schema all follow this order so replays compare byte-identically.
 RUN_REQUEST_FIELDS = (
@@ -34,6 +43,7 @@ RUN_REQUEST_FIELDS = (
     "lvs_netlist",
     "top_is_subckt",
     "deck_opts",
+    "timeout_s",
 )
 
 RUN_REQUEST_DEFAULTS = {
@@ -42,6 +52,7 @@ RUN_REQUEST_DEFAULTS = {
     "lvs_netlist": False,
     "top_is_subckt": False,
     "deck_opts": {},
+    "timeout_s": DEFAULT_TIMEOUT_S,
 }
 
 _BOOL_FLAGS = ("flat_netlist", "lvs_netlist", "top_is_subckt")
@@ -90,6 +101,14 @@ RUN_REQUEST_SCHEMA = {
             "type": "object",
             "default": {},
             "description": "Solver deck options, flat scalar passthrough.",
+        },
+        "timeout_s": {
+            "type": ["number", "null"],
+            "default": None,
+            "description": (
+                "Solver budget in seconds; null keeps the adapter "
+                "default."
+            ),
         },
     },
     "additionalProperties": False,
@@ -197,7 +216,40 @@ def validate_run_request(params):
     normalized["deck_opts"] = _check_deck_opts(
         params.get("deck_opts", RUN_REQUEST_DEFAULTS["deck_opts"])
     )
+    normalized["timeout_s"] = _check_timeout(
+        params.get("timeout_s", RUN_REQUEST_DEFAULTS["timeout_s"])
+    )
     return normalized
+
+
+def _check_timeout(value):
+    """Validate the solver budget: a positive number in bounds, or None.
+
+    Args:
+        value: Caller-supplied `timeout_s`, or None for the
+            adapter default.
+
+    Returns:
+        The validated budget, unchanged.
+
+    Raises:
+        RunParamsError: invalid_run_param for a boolean,
+            non-number, or out-of-bounds budget.
+    """
+    if value is None:
+        return None
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not MIN_TIMEOUT_S <= value <= MAX_TIMEOUT_S
+    ):
+        raise RunParamsError(
+            "invalid_run_param",
+            f"timeout_s must be {MIN_TIMEOUT_S}..{MAX_TIMEOUT_S} seconds "
+            f"or null, got {value!r}.",
+            fields=["timeout_s"],
+        )
+    return value
 
 
 def freeze_run_request(validated):

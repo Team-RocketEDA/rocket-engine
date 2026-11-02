@@ -16,10 +16,36 @@ from pathlib import Path
 
 from ...execution.errors import ExecutionError
 from ...interfaces import ToolAdapter
+from ...interfaces.runparams import MAX_TIMEOUT_S, MIN_TIMEOUT_S
 from ..errors import AdapterError
 
 OPERATION = "run_extraction"
 _TIMEOUT_S = 120
+
+
+def _budget_or_raise(job):
+    """Job solver budget: validated, or the adapter default.
+
+    Args:
+        job: Solver job, maybe with a `timeout_s`.
+
+    Returns:
+        Budget seconds for every `_run` call.
+
+    Raises:
+        AdapterError: invalid_command for a boolean,
+            non-number, or out-of-bounds budget.
+    """
+    timeout = job.get("timeout_s", _TIMEOUT_S)
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not MIN_TIMEOUT_S <= timeout <= MAX_TIMEOUT_S
+    ):
+        raise AdapterError(
+            "invalid_command", f"Bad timeout_s: {timeout!r}."
+        )
+    return timeout
 _MARKER = "exttospice finished"
 _SUBCKT_RE = re.compile(r"^\s*\.subckt\b", re.IGNORECASE | re.MULTILINE)
 _DEVICE_RE = re.compile(
@@ -134,6 +160,7 @@ class MagicExtractAdapter(ToolAdapter):
         cell = job.get("cell")
         if not cell or not isinstance(cell, str):
             raise AdapterError("invalid_command", "Extraction needs a cell name.")
+        timeout = _budget_or_raise(job)
         if _CELL_BAD_RE.search(cell):
             raise AdapterError(
                 "invalid_command",
@@ -142,7 +169,9 @@ class MagicExtractAdapter(ToolAdapter):
         tech_arg = _tech_arg_or_raise(job)
         if shutil.which("magic") is None:
             raise AdapterError("missing_dependency", "magic binary not found.")
-        probe = self._run(tech_arg, "quit\n", job.get("workdir", "."))
+        probe = self._run(
+            tech_arg, "quit\n", job.get("workdir", "."), timeout=timeout
+        )
         if Path(tech_arg).is_file():
             if 'Using technology "' not in probe.stdout:
                 raise AdapterError(
@@ -157,7 +186,12 @@ class MagicExtractAdapter(ToolAdapter):
             raise AdapterError(
                 "invalid_reference", f"Cell file not found: {cell_file}."
             )
-        return {"tech_arg": tech_arg, "cell": cell, "cell_file": cell_file}
+        return {
+            "tech_arg": tech_arg,
+            "cell": cell,
+            "cell_file": cell_file,
+            "timeout_s": timeout,
+        }
 
     def execute(self, job):
         """Stage the cell, extract all, and convert with ext2spice.
@@ -187,7 +221,8 @@ class MagicExtractAdapter(ToolAdapter):
         if Path(checked["cell_file"]).resolve() != staged.resolve():
             shutil.copy(checked["cell_file"], staged)
         proc = self._run(
-            checked["tech_arg"], _SCRIPT.format(cell=checked["cell"]), workdir
+            checked["tech_arg"], _SCRIPT.format(cell=checked["cell"]), workdir,
+            timeout=checked["timeout_s"],
         )
         if "Failed to load technology" in proc.stdout:
             raise AdapterError(
@@ -275,11 +310,13 @@ class MagicExtractAdapter(ToolAdapter):
             "violations": [],
         }
 
-    def _run(self, tech, script, workdir):
+    def _run(self, tech, script, workdir, timeout=_TIMEOUT_S):
         argv = ["magic", "-dnull", "-noconsole", "-T", tech]
         if self._runner is not None:
             try:
-                return self._runner.run(argv, workdir, _TIMEOUT_S, (), input_text=script)
+                return self._runner.run(
+                    argv, workdir, timeout, (), input_text=script
+                )
             except ExecutionError as exc:
                 raise AdapterError(exc.code, str(exc)) from exc
         if not Path(workdir).is_dir():
@@ -292,10 +329,10 @@ class MagicExtractAdapter(ToolAdapter):
                 input=script,
                 capture_output=True,
                 text=True,
-                timeout=_TIMEOUT_S,
+                timeout=timeout,
                 cwd=workdir,
             )
         except subprocess.TimeoutExpired as exc:
             raise AdapterError(
-                "runner_unavailable", f"magic timed out after {_TIMEOUT_S}s."
+                "runner_unavailable", f"magic timed out after {timeout}s."
             ) from exc

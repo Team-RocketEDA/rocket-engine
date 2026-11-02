@@ -16,6 +16,7 @@ from pathlib import Path
 
 from ...execution.errors import ExecutionError
 from ...interfaces import ToolAdapter
+from ...interfaces.runparams import MAX_TIMEOUT_S, MIN_TIMEOUT_S
 from ..errors import AdapterError
 
 OPERATION = "run_drc"
@@ -25,6 +26,31 @@ _DEFAULT_BOX = (-5, -5, 15, 10)
 
 _TOTAL_RE = re.compile(r"Total DRC errors found: (\d+)")
 _AREA_RE = re.compile(r"Error area #(\d+):\n([^\n]+)\n(-?\d+) (-?\d+) (-?\d+) (-?\d+)")
+
+
+def _budget_or_raise(job):
+    """Job solver budget: validated, or the adapter default.
+
+    Args:
+        job: Solver job, maybe with a `timeout_s`.
+
+    Returns:
+        Budget seconds for every `_run` call.
+
+    Raises:
+        AdapterError: invalid_command for a boolean,
+            non-number, or out-of-bounds budget.
+    """
+    timeout = job.get("timeout_s", _TIMEOUT_S)
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not MIN_TIMEOUT_S <= timeout <= MAX_TIMEOUT_S
+    ):
+        raise AdapterError(
+            "invalid_command", f"Bad timeout_s: {timeout!r}."
+        )
+    return timeout
 
 
 def _box_for(cell_file):
@@ -64,13 +90,14 @@ class MagicDrcAdapter(ToolAdapter):
         deck: Optional mapping; deck.tool selects the solver
             (magic here, klayout for the KLayout path).
         workdir: Run directory (default ".").
+        timeout_s: Sim budget in seconds (default 120).
 
     Args:
         runner: Optional isolated runner; direct subprocess when None.
 
     Caution: Magic exits 0 even for broken cells and unknown techs —
         the verdict always comes from parsed output, never the exit
-        code. Timeout is fixed at 120 s.
+        code. Timeout rides the job budget.
     """
 
     def __init__(self, runner=None):
@@ -109,10 +136,13 @@ class MagicDrcAdapter(ToolAdapter):
                 "unsupported_operation",
                 f"Magic DRC handles {OPERATION}, got {job.get('operation')}.",
             )
+        timeout = _budget_or_raise(job)
         if shutil.which("magic") is None:
             raise AdapterError("missing_dependency", "magic binary not found.")
         tech = job.get("tech", "scmos")
-        probe = self._run(tech, "quit\n", job.get("workdir", "."))
+        probe = self._run(
+            tech, "quit\n", job.get("workdir", "."), timeout=timeout
+        )
         if f'Using technology "{tech}"' not in probe.stdout:
             raise AdapterError(
                 "missing_dependency", f"Cannot load magic tech: {tech}."
@@ -122,7 +152,12 @@ class MagicDrcAdapter(ToolAdapter):
             raise AdapterError(
                 "invalid_reference", f"Cell file not found: {cell_file}."
             )
-        return {"tech": tech, "cell": job.get("cell"), "cell_file": cell_file}
+        return {
+            "tech": tech,
+            "cell": job.get("cell"),
+            "cell_file": cell_file,
+            "timeout_s": timeout,
+        }
 
     def execute(self, job):
         """Run magic DRC: a count pass, then per-area detail.
@@ -148,7 +183,10 @@ class MagicDrcAdapter(ToolAdapter):
             "load {cell}\nbox values {x0} {y0} {x1} {y1}\n"
             "drc check\ndrc catchup\ndrc count total\nquit\n"
         ).format(cell=checked["cell"], x0=box[0], y0=box[1], x1=box[2], y1=box[3])
-        first = self._run(checked["tech"], count_script, workdir)
+        first = self._run(
+            checked["tech"], count_script, workdir,
+            timeout=checked["timeout_s"],
+        )
         if "Failed to load technology" in first.stdout:
             raise AdapterError(
                 "missing_dependency", f"Cannot load magic tech: {checked['tech']}."
@@ -176,7 +214,13 @@ class MagicDrcAdapter(ToolAdapter):
             y1=box[3],
             finds=finds,
         )
-        second = self._run(checked["tech"], detail_script, workdir) if total else None
+        if total:
+            second = self._run(
+                checked["tech"], detail_script, workdir,
+                timeout=checked["timeout_s"],
+            )
+        else:
+            second = None
         return {
             "exit_code": first.returncode,
             "stdout": first.stdout + (second.stdout if second else ""),
@@ -215,11 +259,13 @@ class MagicDrcAdapter(ToolAdapter):
         ]
         return {"total": int(match.group(1)), "violations": violations}
 
-    def _run(self, tech, script, workdir):
+    def _run(self, tech, script, workdir, timeout=_TIMEOUT_S):
         argv = ["magic", "-dnull", "-noconsole", "-T", tech]
         if self._runner is not None:
             try:
-                return self._runner.run(argv, workdir, _TIMEOUT_S, (), input_text=script)
+                return self._runner.run(
+                    argv, workdir, timeout, (), input_text=script
+                )
             except ExecutionError as exc:
                 raise AdapterError(exc.code, str(exc)) from exc
         if not Path(workdir).is_dir():
@@ -232,10 +278,10 @@ class MagicDrcAdapter(ToolAdapter):
                 input=script,
                 capture_output=True,
                 text=True,
-                timeout=_TIMEOUT_S,
+                timeout=timeout,
                 cwd=workdir,
             )
         except subprocess.TimeoutExpired as exc:
             raise AdapterError(
-                "runner_unavailable", f"magic timed out after {_TIMEOUT_S}s."
+                "runner_unavailable", f"magic timed out after {timeout}s."
             ) from exc

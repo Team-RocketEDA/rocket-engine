@@ -110,7 +110,7 @@ from .project.service import ProjectService
 from .workflows.completion import design_completion_report, plan_checks_report
 from .ops.submit import _SubmitMixin
 from .ops.queries import _QueryMixin
-from .ops.runs import _RunMixin
+from .ops.runs import _RunMixin, refuse_smuggled_budget
 from .ops.gates import _GateMixin, check_submit_gates
 
 _WIRED_QUERIES = frozenset(
@@ -618,6 +618,7 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
             )
+        refuse_smuggled_budget(arguments)
         check_submit_gates(
             name, arguments, self._project,
             force=command.get("force") is True,
@@ -1373,6 +1374,9 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
     def findings(self, run_id, limit=50, cursor=None):
         """Read a page of findings for a completed run.
 
+        In-memory verdicts answer first; across a reboot the
+        completion event answers instead.
+
         Args:
             run_id: Run whose findings to read.
             limit: Maximum findings in this page.
@@ -1380,8 +1384,15 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
 
         Returns:
             Finding page for the run.
+
+        Raises:
+            ExecutionError: unknown_run for an id with no
+                completion event.
         """
-        return self._execution.findings(run_id, limit=limit, cursor=cursor)
+        try:
+            return self._execution.findings(run_id, limit=limit, cursor=cursor)
+        except ExecutionError:
+            return self._ledger_findings(run_id, limit=limit, cursor=cursor)
 
     def resolve_celllinks(self, blocks, known_cells, variant=None):
         """Resolve run/export cell-link records for block instances.

@@ -18,11 +18,37 @@ from pathlib import Path
 
 from ...execution.errors import ExecutionError
 from ...interfaces import ToolAdapter
+from ...interfaces.runparams import MAX_TIMEOUT_S, MIN_TIMEOUT_S
 from ..errors import AdapterError
 
 OPERATION = "run_lvs"
 _TIMEOUT_S = 120
 _IDENTIFY_TIMEOUT_S = 10
+
+
+def _budget_or_raise(job):
+    """Job solver budget: validated, or the adapter default.
+
+    Args:
+        job: Solver job, maybe with a `timeout_s`.
+
+    Returns:
+        Budget seconds for every `_run` call.
+
+    Raises:
+        AdapterError: invalid_command for a boolean,
+            non-number, or out-of-bounds budget.
+    """
+    timeout = job.get("timeout_s", _TIMEOUT_S)
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not MIN_TIMEOUT_S <= timeout <= MAX_TIMEOUT_S
+    ):
+        raise AdapterError(
+            "invalid_command", f"Bad timeout_s: {timeout!r}."
+        )
+    return timeout
 
 # Observed impostor markers (Oct 2026): the `netgen` apt package is
 # the Schoeberl mesh generator — same name, different tool. Denylist
@@ -302,6 +328,7 @@ class NetgenLvsAdapter(ToolAdapter):
                 "unsupported_operation",
                 f"Netgen LVS handles {OPERATION}, got {job.get('operation')}.",
             )
+        timeout = _budget_or_raise(job)
         found = shutil.which("netgen")
         if found is None:
             raise AdapterError("missing_dependency", "netgen binary not found.")
@@ -318,6 +345,7 @@ class NetgenLvsAdapter(ToolAdapter):
             checked[key] = path
         if job.get("cell") is not None:
             checked["cell"] = str(job["cell"])
+        checked["timeout_s"] = timeout
         return checked
 
     def execute(self, job):
@@ -370,6 +398,7 @@ class NetgenLvsAdapter(ToolAdapter):
                 str(report_file),
             ],
             workdir,
+            timeout=checked["timeout_s"],
         )
         if not report_file.is_file():
             raise AdapterError(
@@ -425,10 +454,10 @@ class NetgenLvsAdapter(ToolAdapter):
             "runner_unavailable", "netgen output has no LVS verdict."
         )
 
-    def _run(self, argv, workdir):
+    def _run(self, argv, workdir, timeout=_TIMEOUT_S):
         if self._runner is not None:
             try:
-                return self._runner.run(argv, workdir, _TIMEOUT_S)
+                return self._runner.run(argv, workdir, timeout)
             except ExecutionError as exc:
                 raise AdapterError(exc.code, str(exc)) from exc
         if not Path(workdir).is_dir():
@@ -440,11 +469,11 @@ class NetgenLvsAdapter(ToolAdapter):
                 argv,
                 capture_output=True,
                 text=True,
-                timeout=_TIMEOUT_S,
+                timeout=timeout,
                 cwd=workdir,
                 env=netgen_env(),
             )
         except subprocess.TimeoutExpired as exc:
             raise AdapterError(
-                "runner_unavailable", f"netgen timed out after {_TIMEOUT_S}s."
+                "runner_unavailable", f"netgen timed out after {timeout}s."
             ) from exc

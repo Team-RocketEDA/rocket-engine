@@ -21,10 +21,37 @@ from pathlib import Path
 
 from ...execution.errors import ExecutionError
 from ...interfaces import ToolAdapter
+from ...interfaces.runparams import MAX_TIMEOUT_S, MIN_TIMEOUT_S
 from ..errors import AdapterError
 
 OPERATION = "run_drc"
 _TIMEOUT_S = 120
+
+
+def _budget_or_raise(job):
+    """Job solver budget: validated, or the adapter default.
+
+    Args:
+        job: Solver job, maybe with a `timeout_s`.
+
+    Returns:
+        Budget seconds for every `_run` call.
+
+    Raises:
+        AdapterError: invalid_command for a boolean,
+            non-number, or out-of-bounds budget.
+    """
+    timeout = job.get("timeout_s", _TIMEOUT_S)
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not MIN_TIMEOUT_S <= timeout <= MAX_TIMEOUT_S
+    ):
+        raise AdapterError(
+            "invalid_command", f"Bad timeout_s: {timeout!r}."
+        )
+    return timeout
+
 
 _TOTAL_RE = re.compile(r"^TOTAL (\d+)$", re.M)
 _VIOL_RE = re.compile(
@@ -222,6 +249,7 @@ class KlayoutDrcAdapter(ToolAdapter):
                 "unsupported_operation",
                 f"KLayout DRC handles {OPERATION}, got {job.get('operation')}.",
             )
+        timeout = _budget_or_raise(job)
         if shutil.which("klayout") is None:
             raise AdapterError("missing_dependency", "klayout binary not found.")
         gds_file = job.get("gds_file")
@@ -231,8 +259,16 @@ class KlayoutDrcAdapter(ToolAdapter):
             )
         deck_file = _deck_file_or_raise(job)
         if deck_file is not None:
-            return {"gds_file": gds_file, "deck_file": deck_file}
-        return {"gds_file": gds_file, "rules": _rules_or_raise(job.get("rules"))}
+            return {
+                "gds_file": gds_file,
+                "deck_file": deck_file,
+                "timeout_s": timeout,
+            }
+        return {
+            "gds_file": gds_file,
+            "rules": _rules_or_raise(job.get("rules")),
+            "timeout_s": timeout,
+        }
 
     def execute(self, job):
         """Run the deck batch or render and run the check script.
@@ -270,6 +306,7 @@ class KlayoutDrcAdapter(ToolAdapter):
                     checked["deck_file"],
                 ],
                 workdir,
+                timeout=checked["timeout_s"],
             )
             if not report_file.is_file():
                 raise AdapterError(
@@ -291,7 +328,11 @@ class KlayoutDrcAdapter(ToolAdapter):
         script = _CHECK_SCRIPT.replace("{spec!r}", repr(spec))
         script_file = Path(workdir) / "kl_drc_check.py"
         script_file.write_text(script)
-        proc = self._run(["klayout", "-b", "-r", str(script_file)], workdir)
+        proc = self._run(
+            ["klayout", "-b", "-r", str(script_file)],
+            workdir,
+            timeout=checked["timeout_s"],
+        )
         return {
             "exit_code": proc.returncode,
             "stdout": proc.stdout,
@@ -338,10 +379,10 @@ class KlayoutDrcAdapter(ToolAdapter):
         ]
         return {"total": int(match.group(1)), "violations": violations}
 
-    def _run(self, argv, workdir):
+    def _run(self, argv, workdir, timeout=_TIMEOUT_S):
         if self._runner is not None:
             try:
-                return self._runner.run(argv, workdir, _TIMEOUT_S)
+                return self._runner.run(argv, workdir, timeout)
             except ExecutionError as exc:
                 raise AdapterError(exc.code, str(exc)) from exc
         try:
@@ -349,10 +390,10 @@ class KlayoutDrcAdapter(ToolAdapter):
                 argv,
                 capture_output=True,
                 text=True,
-                timeout=_TIMEOUT_S,
+                timeout=timeout,
                 cwd=workdir,
             )
         except subprocess.TimeoutExpired as exc:
             raise AdapterError(
-                "runner_unavailable", f"klayout timed out after {_TIMEOUT_S}s."
+                "runner_unavailable", f"klayout timed out after {timeout}s."
             ) from exc

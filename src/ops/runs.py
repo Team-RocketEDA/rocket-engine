@@ -16,6 +16,57 @@ from .gates import check_submit_gates
 _STATE_RANK = {"failed": 3, "cancelled": 2, "refused": 1, "completed": 0}
 
 
+def refuse_smuggled_budget(arguments):
+    """Refuse a root-level budget smuggled past the frozen request.
+
+    The budget travels in the frozen `run.request` only, the way
+    caller min/max targets never ride the call. Admission
+    refuses it fail-fast; execution stamps the frozen value
+    itself, so the stored command never carries a root budget.
+
+    Args:
+        arguments: Solver arguments to inspect.
+
+    Raises:
+        ProjectError: invalid_command for a root-level
+            `timeout_s`.
+    """
+    if "timeout_s" in arguments:
+        raise ProjectError(
+            "invalid_command",
+            "Budget comes from the frozen run.request timeout_s, "
+            "not the job root: remove timeout_s.",
+        )
+
+
+def stamp_solver_budget(arguments):
+    """Refuse a smuggled root budget; stamp the frozen one.
+
+    The budget travels in the frozen `run.request` (None means
+    "adapter default": a spice sim keeps 120s, a LibreLane flow
+    keeps its hour). Called at execution: admission already
+    refused smuggling, so the stored command carries none and
+    the stamp lands exactly once.
+
+    Args:
+        arguments: Solver arguments with a normalized `request`.
+
+    Returns:
+        Arguments with the frozen budget stamped as the job
+            `timeout_s`, or untouched when the request keeps
+            the adapter default.
+
+    Raises:
+        ProjectError: invalid_command for a root-level
+            `timeout_s`.
+    """
+    refuse_smuggled_budget(arguments)
+    budget = (arguments.get("request") or {}).get("timeout_s")
+    if budget is None:
+        return arguments
+    return {**arguments, "timeout_s": budget}
+
+
 def _item_state(completion):
     """Batch state for one completion: verdict FAIL reads failed."""
     verdict = (completion or {}).get("verdict") or {}
@@ -360,7 +411,7 @@ class _RunMixin:
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
             )
-        arguments = dict(arguments)
+        arguments = stamp_solver_budget(dict(arguments))
         try:
             adapter = self._select_solver(name, arguments)
         except ProjectError as exc:
@@ -488,7 +539,10 @@ class _RunMixin:
             outcome = "run_failed"
         else:
             outcome = "run_completed"
-        self._project.append_run_event(outcome, run_id, name, verdict, request_id)
+        self._project.append_run_event(
+            outcome, run_id, name, verdict, request_id,
+            findings=findings, log=self._logs.get(run_id, ""),
+        )
         return {
             "run_id": run_id,
             "state": "completed",
