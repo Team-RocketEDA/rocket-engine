@@ -23,10 +23,16 @@ dev = [
 # Optional solver profiles (see README "Tool & dependency decisions").
 # Base `uv sync` stays lean; add per profile, e.g. `uv sync --group photonic`.
 hdl = [
+  "amaranth>=0.5.10",
   "cocotb>=1.9",
+  "pyslang>=12.1.0",
+  "pywellen>=0.25.7",
+  "vlsirtools>=7.0.0",
 ]
 analog = [
   "PySpice>=1.5",
+  "cace==2.13.0",
+  "devsim==2.11.2",
   "matplotlib>=3.8",
   "scikit-rf>=1.0",
 ]
