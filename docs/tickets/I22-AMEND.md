@@ -1,6 +1,6 @@
 # I22-AMEND: approvals enforced at the client edge
 
-*Status: Ready · Depends: user I22 ruling · Size: S ·
+*Status: Done · Depends: user I22 ruling · Size: S ·
 Roadmap: caller-blind API (MVP track)*
 
 ## Why
@@ -40,3 +40,5 @@ reinterpretation.
 - Ledger records the attestation source per execution.
 - No transport-discriminating code paths remain in the
   approval flow.
+
+*RULING-04 (2026-11-02): I22 RULED — trusted-local deployment, NO cloud hosting ever. All clients user-controlled; permission stays user-side (incl. MCP); NO auth in-engine (prune auth.py per HTTP-HARDEN). Supersedes UI-only, attestation, and two-tier positions for the engine. Sandbox choice delegated to BWRAP-STUDY.*
