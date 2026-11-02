@@ -59,7 +59,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SHAPE-HARDEN] Harden the 7 weak + 2 missing tool output shapes
 - [ADAPT-GROUPC] Staff group-C adapters: meow proof, devsim, meep, elmer
 - [MIGRATE-STDIO-FILE] Migrate top-5 stdio parses to file channels
-- [CANCEL-WIREUP] Wire cancel_job to vocabulary + submit + transports
 - [ASYNC-SUBMIT] Async submit: prompt ack + deferred handle + lifecycle events
 - [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
 - [TRANSPORT-PARITY] One admission path + parity test across transports
@@ -187,3 +186,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-PYTHON] Finish and lock Pydantic boundary generation
 - [MCP-SCHEMA] Real input schemas on every MCP tool
 - [I22-AMEND] Approvals at client edge (needs I22 ruling)
+- [CANCEL-WIREUP] Wire cancel_job to vocabulary + submit + transports
