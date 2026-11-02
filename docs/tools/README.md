@@ -93,6 +93,15 @@ Derived by keyword scan over the full dissector texts; counts are mention-based,
 - nextpnr: 4. STDIO-ONLY RESIDUE (never written to a file channel)
 - yosys_slang: | C3 | Raw-stdout AST JSON (dev/debug) | `read_slang --dump-ast ...` (option slang_frontend.cc:127; emit driver.cc:584-590; test-expr path driver.cc:846-851) | real stdout via `std::cout` (NOT yosys l
 
+## Addendum (root, 2026-11-02): LibreLane
+
+LibreLane is the physical-design frontend; OpenROAD was demoted to
+its internal engine (`docs/tool-frontends-review.md`).
+
+| Tool | Clone | Verdict |
+|---|---|---|
+| [librelane](./librelane.md) | 64ef8080 / 2026-10-26 (== pin 3.0.17) | Structured files (primary): latest `state_out.json` per step dir (views paths + metrics dict) + `metrics.csv`; do not hardcode metrics keys. |
+
 ## Evidence refs
 
 Handoff index: /home/alrida-ismail/.local/share/muse/sessions/2026/10/28/01a1810f-c750-7420-b6df-aabebe100b2a/tool-outputs/workflow-results/handoff-e0fe429174068eade6486406e134e250e3b501568f1d91149fc4fed0f094fbb5-61a947f6378a6cceb2420ca9b682c9dfd23bda0e684d7bfe7dcb49a709a7342b.txt
