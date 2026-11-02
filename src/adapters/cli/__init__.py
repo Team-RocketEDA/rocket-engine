@@ -19,7 +19,7 @@ import sys
 from ...composition import Engine
 from ...execution.dispatch import OpDispatcher, parse_op_call, parse_op_tokens
 from ...execution.errors import UsageError
-from ..errors import AdapterError
+from ..errors import AdapterError, error_payload
 
 __all__ = ["EXIT_ENGINE_ERROR", "EXIT_OK", "EXIT_USAGE", "USAGE", "main"]
 
@@ -131,14 +131,14 @@ def _emit_result(operation, result, as_json, stdout):
 
 
 def _emit_error(operation, exc, as_json, stdout, stderr):
-    code = getattr(exc, "code", None) or "internal_error"
-    message = str(exc) or code
+    payload = error_payload(exc)
     if as_json:
-        stdout.write(
-            _envelope(operation, False, {"code": code, "message": message}) + "\n"
-        )
+        stdout.write(_envelope(operation, False, payload) + "\n")
     else:
-        stderr.write(f"error [{code}]: {message}\n")
+        line = f"error [{payload['code']}]: {payload['message']}"
+        if payload.get("fields"):
+            line += f" (fields: {', '.join(payload['fields'])})"
+        stderr.write(line + "\n")
         if isinstance(exc, UsageError):
             stderr.write(USAGE)
 

@@ -7,6 +7,7 @@ Only cataloged operations and read queries are exposed. Anything else
 import uuid
 
 from ...interfaces.vocabulary import OPERATIONS, QUERIES
+from .. import api
 from ..base import enforce_scope, parse_json
 from ..errors import AdapterError
 
@@ -61,11 +62,10 @@ class McpTransport:
         if arguments.get("project_id") is None:
             raise AdapterError("invalid_command", "Missing project_id in arguments.")
         enforce_scope(arguments.get("project_id"), self._project_id)
-        return self._engine.submit(
-            {
-                "project_id": arguments.pop("project_id"),
-                "operation": name,
-                "arguments": arguments,
-                "request_id": str(message.get("id", uuid.uuid4().hex)),
-            }
+        return api.submit(
+            self._engine,
+            arguments.pop("project_id"),
+            name,
+            arguments,
+            request_id=str(message.get("id", uuid.uuid4().hex)),
         )

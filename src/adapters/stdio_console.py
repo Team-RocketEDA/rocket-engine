@@ -56,6 +56,7 @@ from ..execution.console_route import (
 )
 from ..execution.dispatch import OpDispatcher
 from ..execution.errors import ExecutionError, UsageError
+from .errors import error_payload
 from ..execution.worker import CellRunner
 
 __all__ = [
@@ -891,16 +892,17 @@ def _emit_result(command, result, as_json, stdout):
 
 
 def _emit_error(command, exc, as_json, stdout, stderr):
-    code = getattr(exc, "code", None) or "internal_error"
-    message = str(exc) or code
+    payload = error_payload(exc)
     if as_json:
         stdout.write(json.dumps(
-            {"command": command, "ok": False,
-             "error": {"code": code, "message": message}},
+            {"command": command, "ok": False, "error": payload},
             sort_keys=True, default=str,
         ) + "\n")
     else:
-        stderr.write("error [%s]: %s\n" % (code, message))
+        line = "error [%s]: %s" % (payload["code"], payload["message"])
+        if payload.get("fields"):
+            line += " (fields: %s)" % ", ".join(payload["fields"])
+        stderr.write(line + "\n")
 
 
 def _do_submit(console, options, code, stdout, stderr):

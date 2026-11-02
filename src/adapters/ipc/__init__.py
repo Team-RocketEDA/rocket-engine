@@ -6,6 +6,7 @@ slice speaks bare JSON envelopes with the same command shape.
 
 import uuid
 
+from .. import api
 from ..base import enforce_scope, parse_json
 from ..errors import AdapterError
 
@@ -42,11 +43,10 @@ class IpcTransport:
         if frame.get("project_id") is None:
             raise AdapterError("invalid_command", "Missing project_id in frame.")
         enforce_scope(frame.get("project_id"), self._project_id)
-        return self._engine.submit(
-            {
-                "project_id": frame["project_id"],
-                "operation": frame["operation"],
-                "arguments": frame.get("arguments", {}),
-                "request_id": str(frame.get("request_id") or uuid.uuid4().hex),
-            }
+        return api.submit(
+            self._engine,
+            frame["project_id"],
+            frame["operation"],
+            frame.get("arguments", {}),
+            request_id=str(frame.get("request_id") or uuid.uuid4().hex),
         )

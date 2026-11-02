@@ -244,11 +244,14 @@ def tool_definitions():
     return tools
 
 
-def _error(code, message):
+def _error(code, message, fields=None):
+    payload = {"ok": False, "code": code, "message": message}
+    if fields:
+        payload["fields"] = list(fields)
     return CallToolResult(
         content=[TextContent(
             type="text",
-            text=json.dumps({"ok": False, "code": code, "message": message}),
+            text=json.dumps(payload),
         )],
         isError=True,
     )
@@ -398,7 +401,8 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
                     submitted_arguments.pop(result["run_id"], {}),
                 )
         except _ENGINE_ERRORS as exc:
-            return _error(exc.code, str(exc))
+            return _error(exc.code, str(exc),
+                           getattr(exc, "fields", None))
         return CallToolResult(content=[TextContent(
             type="text", text=json.dumps(result))])
 

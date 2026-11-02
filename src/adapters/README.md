@@ -8,7 +8,7 @@ This package contains the client transports and wrappers around existing EDA too
 |---|---|
 | cli/ | Interactive command loop, one-operation mode, sequential --batch, and JSON output; entry point is python -m rocket_engine. |
 | mcp/ | Project-scoped MCP stdio server with one tool per catalog operation/query; descriptions come from handler docstrings. Most input schemas remain generic. |
-| http/ | HttpTransport.handle routes one JSON command/query envelope; serve_http adds a stdlib POST listener on loopback only (no auth, ADR-006). SSE is not implemented here. |
+| http/ | HttpTransport.handle routes one JSON command/query envelope; serve_http adds a FastAPI/uvicorn POST listener on loopback only (no auth, ADR-006). SSE is not implemented here. |
 | ipc/ | IpcTransport.handle routes one JSON command/query envelope. Length-prefix framing and Electron child-process lifecycle are not implemented here. |
 
 Events are read through the engine event-query surface; HTTP SSE and pushed IPC events are not currently provided by these transport classes.
@@ -28,8 +28,27 @@ Events are read through the engine event-query surface; HTTP SSE and pushed IPC 
 
 The exact registration order and default tool are in [composition.py](../composition.py). A registered adapter can still be blocked by a missing executable, incompatible PDK/deck, or an unqualified flow. Use get_capabilities for machine-specific readiness; see the [DIGITAL-FLOW report](../../docs/work/DIGITAL-FLOW/report.md) for the current live-flow limitation.
 
+## Gateway rule: api contract + port adapter
+
+`api.py` is the one inbound port: it builds the single submit
+envelope (project_id, operation, arguments, minted-or-caller
+request_id) and calls the engine. Every gateway is that contract
+plus one framing adapter, composed — never inherited:
+
+- http/mcp/ipc `handle`: parse the wire frame, enforce scope, call
+  `api.submit`, serialize the result or error envelope.
+- cli/console `OpDispatcher.execute`: parse op-call text, stamp the
+  head revision on operations, call `api.submit`.
+
+Gateways own only I/O framing and wire-appropriate errors
+(UsageError on text wires, AdapterError on framed wires); the
+envelope shape, error payloads (`errors.error_payload`), and status
+mapping (`errors.status_for_code`) exist exactly once and are
+shared. A new transport adds one framing module over `api.submit`
+— never a second envelope builder, never a transport subclass.
+
 ## Boundaries
 
-Transport adapters validate the envelope and project scope, then call Engine.submit. Solver adapters implement the ToolAdapter port and own tool invocation and output parsing. The intended module boundary forbids solver adapters from importing one another. Current exception: CosimAdapter calls HdlSimAdapter directly for its digital half; treat this as existing boundary debt, not a pattern to extend.
+Transport adapters validate the envelope and project scope, then call the api contract (`api.submit` → Engine.submit). Solver adapters implement the ToolAdapter port and own tool invocation and output parsing. The intended module boundary forbids solver adapters from importing one another. Current exception: CosimAdapter calls HdlSimAdapter directly for its digital half; treat this as existing boundary debt, not a pattern to extend.
 
 For endpoint documentation rules, see [AGENTS.md](../../AGENTS.md). For operation names, see [interfaces](../interfaces/README.md) and the [generated API reference](../../docs/engine-api.md).

@@ -15,10 +15,10 @@ arrives as a duck-typed port (`run`/`submit`).
 """
 
 import shlex
-import uuid
 
 from ruamel.yaml import YAML
 
+from ..adapters import api
 from ..interfaces.vocabulary import OPERATIONS, QUERIES
 from .errors import UsageError
 
@@ -135,8 +135,9 @@ class OpDispatcher:
         """Route one validated op call to the engine port.
 
         Every call — operations and queries alike — goes through
-        `engine.submit`, the one admission path (ledger, revision
-        gate, idempotency). Like the MCP server's project binding,
+        the api contract (`adapters.api.submit`), the one admission
+        path (ledger, revision gate, idempotency). Like the MCP
+        server's project binding,
         an operation missing expected_revision is filled from the
         bound engine's current head, so interactive callers admit
         against what they see; an explicit revision always wins,
@@ -162,13 +163,10 @@ class OpDispatcher:
             head = self._current_head()
             if head is not None:
                 stamped["expected_revision"] = head
-        command = {
-            "project_id": self._project_id,
-            "operation": operation,
-            "arguments": stamped,
-            "request_id": request_id or uuid.uuid4().hex,
-        }
-        return self._engine.submit(command)
+        return api.submit(
+            self._engine, self._project_id, operation, stamped,
+            request_id=request_id,
+        )
 
     def _current_head(self):
         """Bound engine's head revision, or None when unknowable.

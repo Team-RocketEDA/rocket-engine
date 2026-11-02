@@ -1,6 +1,10 @@
 # HTTP JSON command transport
 
-HttpTransport.handle parses one JSON object containing project_id, operation, optional arguments, and optional request_id. It enforces an optional bound project and delegates to Engine.submit. `serve_http` wraps the same transport in a stdlib listener: POST a JSON envelope to `/` for an admission ack or query result, GET `/health` for a liveness probe. SSE event streams are not implemented; clients query get_events_since through the shared operation surface.
+HttpTransport.handle parses one JSON object containing project_id, operation, optional arguments, and optional request_id. It enforces an optional bound project and delegates to Engine.submit. `serve_http` wraps the same transport in a FastAPI app on uvicorn: POST a JSON envelope to `/` for an admission ack or query result, GET `/health` for a liveness probe. SSE event streams are not implemented; clients query get_events_since through the shared operation surface.
+
+## Listener hardening
+
+POST `/` requires `Content-Type: application/json` (415 otherwise), refuses bodies over 1 MiB (413), accepts a missing Origin or a loopback one only (403 for foreign origins — the browser-CSRF class), and bounds concurrency at 32 in-flight requests (503 + Retry-After on overflow). Engine errors serialize with their v0 code, message, and fields at the status from the shared code table (`adapters/errors.py`, pinned to the v1 errors catalog); uncoded crashes become a generic 500 with the traceback server-side only. Every request writes one audit line (`METHOD /path -> status`) to the `rocket_engine.http` logger.
 
 ## Trust boundary (ADR-006)
 

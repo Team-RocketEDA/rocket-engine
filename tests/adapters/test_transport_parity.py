@@ -196,3 +196,81 @@ def test_cancel_job_via_cli_marks_cancelled(tmp_path):
     assert envelope["ok"] is True
     assert envelope["result"]["state"] == "cancelled"
     assert envelope["result"]["run_id"] == run_id
+
+
+class FieldedEngine:
+    """Stand-in whose submit fails with code + message + fields."""
+
+    def __init__(self):
+        from rocket_engine.project.errors import ProjectError
+
+        self.exc = ProjectError("invalid_run_param", "bad deck",
+                                fields=["deck_opts"])
+
+    def submit(self, command):
+        raise self.exc
+
+
+def test_error_fields_shape_per_transport():
+    import json as jsonlib
+
+    from rocket_engine.adapters.cli import main as cli_main
+    from rocket_engine.adapters.mcp.server import _error as mcp_error
+    from rocket_engine.adapters.stdio_console import (
+        _emit_error as console_emit,
+    )
+
+    engine = FieldedEngine()
+    # CLI JSON envelope carries code + message + fields.
+    stdout, stderr = io.StringIO(), io.StringIO()
+    code = cli_main(["--json", "run", "run_em"], engine=engine,
+                    stdin=io.StringIO(""), stdout=stdout, stderr=stderr)
+    assert code == 1
+    envelope = jsonlib.loads(stdout.getvalue())
+    assert envelope["error"] == {"code": "invalid_run_param",
+                                 "message": "bad deck",
+                                 "fields": ["deck_opts"]}
+    # MCP wire error carries the same triple.
+    wire = jsonlib.loads(mcp_error("invalid_run_param", "bad deck",
+                                   ["deck_opts"]).content[0].text)
+    assert wire == {"ok": False, "code": "invalid_run_param",
+                    "message": "bad deck", "fields": ["deck_opts"]}
+    # Console JSON error carries the same triple.
+    stdout, stderr = io.StringIO(), io.StringIO()
+    console_emit("run_em", engine.exc, True, stdout, stderr)
+    assert jsonlib.loads(stdout.getvalue())["error"] == {
+        "code": "invalid_run_param", "message": "bad deck",
+        "fields": ["deck_opts"]}
+    # MCP/IPC/HTTP transports propagate the coded error untouched.
+    for transport in (McpTransport(engine), HttpTransport(engine),
+                      IpcTransport(engine)):
+        frame = {"project_id": "p1", "operation": "run_em",
+                 "arguments": {"x": 1}, "request_id": "r-fields"}
+        if isinstance(transport, McpTransport):
+            text = jsonlib.dumps(
+                {"method": "tools/call",
+                 "params": {"name": "run_em",
+                            "arguments": {"project_id": "p1", "x": 1}},
+                 "id": "r-fields"})
+        else:
+            text = jsonlib.dumps(frame)
+        with pytest.raises(ProjectError) as excinfo:
+            transport.handle(text)
+        assert excinfo.value.code == "invalid_run_param"
+        assert excinfo.value.fields == ["deck_opts"]
+
+
+def test_v1_status_parity_with_errors_catalog():
+    import json as jsonlib
+    from pathlib import Path
+
+    from rocket_engine.adapters.errors import V0_TO_V1, status_for_code
+
+    catalog = jsonlib.loads(
+        (Path(__file__).resolve().parent.parent.parent
+         / "contracts" / "v1" / "catalog" / "errors.json").read_text())
+    assert V0_TO_V1
+    for v0, v1 in V0_TO_V1.items():
+        if v1 is None:
+            continue
+        assert status_for_code(v0) == catalog[v1], v0
