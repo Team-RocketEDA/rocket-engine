@@ -18,7 +18,9 @@ from a stored run record closes the loop: the recipe proves itself
 by re-executing. Parked because the recipe format must stabilize
 (PDK-STORE) before replay automates it.
 
-## What (when scheduled)
+*T-27: section below is dead — REPLAY closed 2026-11-01, superseded by REPLAY-SAFE no-auto-run. Kept for history, not scheduled.*
+
+## What (when scheduled — DEAD)
 
 - `replay(run_id)` → re-issues the recorded envelope against the
   pinned revision + PDK; reports verdict-vs-recorded comparison.

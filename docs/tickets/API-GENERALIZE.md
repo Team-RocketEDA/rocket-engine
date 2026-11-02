@@ -1,6 +1,6 @@
 # API-GENERALIZE: Frontend protocol — queue, microcommits, catalogue, symbols
 
-*Status: Backlog · Depends: none · Size: L (phased) · Roadmap: orch-build-mvp*
+*Status: Done · Depends: none · Size: L (phased) · Roadmap: orch-build-mvp*
 
 ## Why
 
@@ -177,3 +177,7 @@ client-side orchestration to get wrong.
   execute fresh). Completed results serve via idempotent
   fetch, not coalescing — coalescing covers overlapping
   lifetime (queued/running) only.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*
+
+*T-24: §1 boot-replay SUPERSEDED — contradicts closed REPLAY (2026-11-01) + REPLAY-SAFE no-auto-run rule. Read the shipped pool/catalogue/place_cell remainder only.*

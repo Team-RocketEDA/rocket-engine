@@ -1,6 +1,6 @@
 # PHOTONIC-WIRE: Wire proven photonic solvers to engine ops
 
-*Status: Ready · Depends: none · Size: M ·
+*Status: Done · Depends: none · Size: M ·
 Roadmap: to-GDS lane (MVP track, serves P06/P09)*
 
 ## Why
@@ -31,3 +31,7 @@ dark PRD stages green.
 - P06 + P09 dispatchable as engine ops with structured
   results; sax path untouched and green.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*
+
+*RULING-03 (T-22): meow ON-TRACK — MVP-track wiring stands; dump-first proofs proceed under ADAPT-GROUPC. simulate.em task binding stays post_mvp per RULING-02 until ruled otherwise (proofs are not bindings).*

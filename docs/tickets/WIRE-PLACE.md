@@ -1,6 +1,6 @@
 # WIRE-PLACE: Wire/junction entities + connect ops + stable net IDs
 
-*Status: Ready · Depends: ENGINE-ECS, CONNECT-GRAPH · Size: L ·
+*Status: Done · Depends: ENGINE-ECS, CONNECT-GRAPH · Size: L ·
 Roadmap: convergence (MVP track, agent-drawn connectivity)*
 
 ## Why
@@ -42,3 +42,5 @@ just made." This is the load-bearing half of placement.
 - Full place→wire→simulate→verdict loop green through
   the duplex channel, no console needed.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

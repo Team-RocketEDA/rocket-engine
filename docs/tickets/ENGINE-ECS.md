@@ -1,6 +1,6 @@
 # ENGINE-ECS: Entity store + component CRUD + addressing + events
 
-*Status: Ready · Depends: none · Size: L ·
+*Status: Done · Depends: none · Size: L ·
 Roadmap: convergence (MVP track, agent-drawn connectivity)*
 
 ## Why
@@ -49,3 +49,5 @@ endpoints.
 - No path/entity drift: addressing tests prove one
   identity across CRUD, events, and queries.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

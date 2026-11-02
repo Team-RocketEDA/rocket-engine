@@ -1,6 +1,6 @@
 # CRUD-API: Uniform document CRUD over the project tree
 
-*Status: Backlog · Depends: LEDGER-DURABLE · Size: M · Roadmap: management-plane*
+*Status: Done · Depends: LEDGER-DURABLE · Size: M · Roadmap: management-plane*
 
 ## Why
 
@@ -87,3 +87,5 @@ multi-file edits land atomically instead of half-failing.
   `NgspiceAdapter`) this slice executes the identical path (CRUD
   branches only divert CRUD names), so the slowness is
   ngspice-perf territory (VALIDATE-M), not a CRUD regression.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

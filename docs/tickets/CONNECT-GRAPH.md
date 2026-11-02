@@ -1,6 +1,6 @@
 # CONNECT-GRAPH: Shared connectivity extraction + raw-IR emitters
 
-*Status: Ready · Size: L · Roadmap: convergence (MVP track)*
+*Status: Done · Size: L · Roadmap: convergence (MVP track)*
 
 ## Why
 
@@ -38,3 +38,5 @@ authority the schematic editor, emitters, and ERC all read.
   net identity; unlabeled nets get stable names; `lvs_ignore`
   respected; golden netlists byte-stable across runs.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

@@ -1,6 +1,6 @@
 # CONSOLE-ROUTE: Console mutations route to golden recipe via admission
 
-*Status: Ready · Depends: none · Size: M ·
+*Status: Done · Depends: none · Size: M ·
 Roadmap: convergence (MVP track, I28 ingredients)*
 
 ## Why
@@ -35,3 +35,5 @@ agent's ability to trust what it reads back.
   bumps, ledger shows actor + events, rewind covers it,
   fresh checkout regenerates identically.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

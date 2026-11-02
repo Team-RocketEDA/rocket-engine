@@ -1,6 +1,6 @@
 # COALESCE-I33: Request coalescing per I33 (revision-pinned, force bypass)
 
-*Status: Ready · Depends: none · Size: M ·
+*Status: Done · Depends: none · Size: M ·
 Roadmap: convergence (MVP track, spam-click safety)*
 
 ## Why
@@ -35,3 +35,5 @@ serve as fresh.
   mapped request_ids; mutation between submits → 2
   executions; forced duplicate → fresh execution.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

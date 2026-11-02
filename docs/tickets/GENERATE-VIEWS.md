@@ -1,6 +1,6 @@
 # GENERATE-VIEWS: Graduate gdsfactory smoke to a real generate_views op
 
-*Status: Ready · Depends: none · Size: M ·
+*Status: Done · Depends: none · Size: M ·
 Roadmap: to-GDS lane (MVP track, serves layout construction)*
 
 ## Why
@@ -34,3 +34,5 @@ registered-recipe button path doesn't exist.
   sources with identity mappings; GDS roundtrip is an
   artifact, not the test.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

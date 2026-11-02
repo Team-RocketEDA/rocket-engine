@@ -1,6 +1,6 @@
 # VIEW-SYNC: run_view_sync (intended vs extracted comparison)
 
-*Status: Ready · Depends: none · Size: S ·
+*Status: Done · Depends: none · Size: S ·
 Roadmap: to-GDS lane (MVP track, serves P14)*
 
 ## Why
@@ -29,3 +29,5 @@ for layout-aware photonic verification.
 - P14 dispatchable with a findings report; clean
   comparison passes with explicit coverage statement.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

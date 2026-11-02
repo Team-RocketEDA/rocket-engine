@@ -1,6 +1,6 @@
 # CELL-LINK: Symbol↔cell linkage contract (CellLink component + resolvePin)
 
-*Status: Ready · Size: M · Roadmap: convergence (MVP track)*
+*Status: Done · Size: M · Roadmap: convergence (MVP track)*
 
 ## Why
 
@@ -45,3 +45,5 @@ variants alter resolution, never storage.
 - Unknown cell fails the run with a named reason; editing
   stays free.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

@@ -3,7 +3,7 @@ Why: docs/tools/* dissected 21 frontends, but 7 shapes are not contract-grade ye
 Items (evidence in docs/tools/):
 1. openroad: SDC/SDF/STA writers uninspected (empty src/sta submodule). Fetch submodule at recorded rev, document write_sdc/write_sdf/report_* shapes.
 2. cace: evidence at 2.5.6 vs pin 2.13.0. Re-verify filenames/grammars at pin.
-3. openrcx: stale 2020 standalone clone; upstream moved into OpenROAD src/rcx. Re-verify SPEF/diff/rules writers there.
+3. openrcx: STRUCK (dead upstream, absorbed into OpenROAD src/rcx) — no standalone re-verify; SPEF grammar covered via the librelane run-dir study (docs/tools/librelane.md). Item closed by removal 2026-11-02.
 4. openvaf: --dump-json is a DEAD flag (driver bails). Prove OSDI-via-dlopen reader or record reader-unavailable.
 5. xschem: per-type netlist EBNF not extracted (needs real batch run); pin 7811010c not in clone history. Batch-run + re-pin before fixtures.
 6. yosys_slang: slang-submodule formats unresolved; diags stdio-only. Re-verify read_slang logging against bundle Yosys 0.70.

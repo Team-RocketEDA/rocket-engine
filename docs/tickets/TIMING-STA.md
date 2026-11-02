@@ -33,3 +33,5 @@ the vehicle.
   paths-and-margins report; unconstrained endpoints
   listed, never silent.
 - Contract + api_spec regen; full suite + gate green.
+
+*RULING-03 (T-20): PARKED pending PROV-UPSTREAM-RECIPE — parking ends when provisioning is solved (user building manually meanwhile), not by scope decision. Adapter exists but STA grammar stays residue-only until the tool lands.*

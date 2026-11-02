@@ -48,3 +48,5 @@ Legacy fuel payloads remain compatibility inputs until both consumers migrate.
 The new six-method boundary and generated help/types come from the canonical
 v1 contract bundle (ADR-014); no handwritten fuel/IDE copies. `run_job` is not a
 mandatory second start. Use run controls and watch/query for lifecycle evidence.
+
+*RULING-05 (T-25): harness-only ops (get_constraints, propose/apply_revision, propose_constraint_change) ruled FUEL-SIDE — no engine work. Closest engine surface is edit/query + canvas.toml. I22 closed by RULING-04 (trusted-local, no auth).*

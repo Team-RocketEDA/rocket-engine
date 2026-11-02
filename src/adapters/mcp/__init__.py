@@ -1,4 +1,4 @@
-"""MCP stdio bridge (duplex): tool calls in, bounded replies out.
+"""MCP stdio bridge (request/response + get_events_since polling, NOT push — see PUSH-EVENTS): tool calls in, bounded replies out.
 
 Only cataloged operations and read queries are exposed. Anything else
 — host shells first among them — is rejected, never routed.

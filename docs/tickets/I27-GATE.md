@@ -1,6 +1,6 @@
 # I27-GATE: Wire plan_checks/design-completion gate (I27)
 
-*Status: Ready · Depends: none · Size: M ·
+*Status: Done · Depends: none · Size: M ·
 Roadmap: hardening (E2E-REREVIEW FIND-01, HIGH)*
 
 ## Why
@@ -28,3 +28,5 @@ untestable without a claim surface.
 - Blocked stage → completion query names it and
   refuses; unblocked → claims with evidence refs.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

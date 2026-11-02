@@ -1,6 +1,6 @@
 # MCP-SCHEMA: real input schemas on every MCP tool
 
-*Status: Ready · Depends: none · Size: S ·
+*Status: Done · Depends: none · Size: S ·
 Roadmap: agent-driving surface (MVP track)*
 
 ## Why
@@ -39,3 +39,5 @@ reach the wire.
   for that op.
 - A new op with a documented docstring gains a wire
   schema with no MCP-server edit (test pins this).
+
+*T-23: verified code-DONE 2026-11-02 — wire schemas = api-schema.json verbatim + loud unwired fallback + python_execute override, tests/adapters/test_mcp_schema.py 5 passed.*

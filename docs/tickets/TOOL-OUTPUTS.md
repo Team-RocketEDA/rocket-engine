@@ -58,7 +58,8 @@ grammar is researched for that shape:
 2. Text grammars (TOOL-OUTPUTS proper) only for the parse-only residue:
    magic/netgen Tcl-driven reports, ngspice raw ASCII + meas listings,
    xschem batch netlist print, STA report text (residue recorded for
-   when opensta lands; the tool itself stays deferred).
+   when opensta lands; the tool itself is PARKED pending provision
+   per RULING-03).
 
 ## Deliverables
 
@@ -78,12 +79,17 @@ Wave 3 — implementation (kept only): librelane run-dir layout +
 per-step reports (synth stat, DRC/LVS reports, GDS/operate outputs —
 no STA rpt until the tool lands), yosys (stat JSON), gdsfactory
 export inventory, xschem batch netlist print.
-Wave 4 — deferred with the tools (do NOT staff): opensta reports
-(STA-text grammar residue lives in the audit), xyce, openems, meep,
-meow/EM, palace, thermal (elmer_fem), device (devsim), gmsh/meshwell,
-scikit_fem, csxcad, femwell, gplugins, FPGA toolchain
-(nextpnr/icestorm/trellis/oxide/apicula), openvaf, abc/yices/cvc4
-(engine-only), cudd/trilinos/miniforge (build/bootstrap).
+Wave 4 — parked/blocked/scope-out (do NOT staff until unblocked):
+opensta reports (STA-text grammar residue lives in the audit), xyce,
+openems — all three PARKED pending provision per RULING-03
+(PROV-UPSTREAM-RECIPE unparks; user building manually meanwhile).
+Still out: palace (unsourced), femwell, meshwell, scikit_fem,
+gplugins (pin-and-go group D), gmsh (internal mesh backend), csxcad,
+FPGA toolchain (nextpnr/icestorm/trellis/oxide/apicula, off_mvp),
+openvaf (unpinned + fork split), abc/yices/cvc4 (engine-only),
+cudd/trilinos/miniforge (build/bootstrap).
+ACTIVATED 2026-11-02 out of this wave: meep, meow/EM, elmer_fem,
+devsim (ON-TRACK via ADAPT-GROUPC per RULING-03).
 
 ## Acceptance
 

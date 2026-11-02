@@ -1,6 +1,6 @@
 # PYTHON-EXEC: Python execution API (inline lines + project script files)
 
-*Status: Ready · Size: M · Roadmap: convergence (MVP track)*
+*Status: Done · Size: M · Roadmap: convergence (MVP track)*
 
 ## Why
 
@@ -54,3 +54,5 @@ place AND program.
   expected_revision gating, ledger events, idempotency —
   the same verbs as CRUD/MCP. The console is a client,
   never a side-channel writer. See CONSOLE-ROUTE.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

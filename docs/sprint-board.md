@@ -90,7 +90,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PR-RED] RED-tests PR under user review (external)
 
 - [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
-- [MCP-SCHEMA] Real input schemas on every MCP tool
 - [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
 - [API-V1-RESULTS] Freeze typed result/renderer contracts and task io classification
 - [REFACTOR-SERVICE] Split src/project/service.py (3809 lines, over limit)
@@ -187,3 +186,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [I27-GATE] Wire plan_checks/design-completion gate (I27)
 - [API-V1-CONTRACT] Freeze canonical v1 API, entities, tasks and consumer artifacts
 - [API-V1-PYTHON] Finish and lock Pydantic boundary generation
+- [MCP-SCHEMA] Real input schemas on every MCP tool

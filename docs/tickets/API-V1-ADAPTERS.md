@@ -5,7 +5,8 @@
 Depends: API-V1-RESULTS (checker lock on task io/presentation/delivery),
 API-V1-TOOLS (task binding). Blocks API-V1-CONFORMANCE provider proof.
 Provider gaps (catalog tools with no adapter at all) are explicitly OUT
-of scope here; tool provisioning (opensta/xyce/openems) stays deferred
+of scope here; tool provisioning (opensta/xyce/openems) stays PARKED
+pending provision per RULING-03 (PROV-UPSTREAM-RECIPE unparks)
 per directive — this ticket migrates adapter code shape, not tools.
 
 Uranium-grade rule: no adapter ships on unpinned text scraping. MVP
@@ -70,11 +71,14 @@ hierarchy a dumped tree; GDS/netlist/SPEF/DRC-total/LVS-match become
 measurements + file refs:
 digital_flow (workflow.asic + implement.asic), synth_yosys (table),
 extract_magic (table), gdsfactory (views/export, table). timing_sta is
-OUT (opensta deferred per directive; STA-text grammar is residue only).
+OUT (opensta PARKED pending provision per RULING-03; STA-text
+grammar is residue only).
 
-Wave 4 — deferred kinds (do NOT staff until scope opens): meow
-(simulate.em field+matrix+traces+table, post_mvp), timing_sta (with the
-opensta tool, when it lands).
+Wave 4 — parked kinds (do NOT staff until unblocked): timing_sta
+(with the opensta tool, when PROV-UPSTREAM-RECIPE lands). meow
+removed from this wave 2026-11-02 (ON-TRACK via ADAPT-GROUPC per
+RULING-03; simulate.em binding stays post_mvp per RULING-02 until
+ruled otherwise).
 
 ## Acceptance
 
@@ -94,8 +98,11 @@ all MVP tasks and every bundle validates.
 
 ## Provider gaps (not this ticket, listed so nobody assumes coverage)
 
-Catalog providers with NO adapter today: xyce, openroad (standalone),
-eqy, mcy, openrcx, cace, meep, openems, palace, femwell, elmer_fem,
-devsim, kfactory, xschem, vlsir, amaranth, ghdl, verilator, openvaf,
-nextpnr, yosys_slang. These need adapter-build tickets (with tools)
-before any v1 migration applies to them.
+Catalog providers with NO adapter today (18, rewritten 2026-11-02
+per frontends review + RULING-07): eqy, mcy, verilator, ghdl, cocotb,
+nextpnr, amaranth, xyce, xschem, cace, openvaf, meep, openems, palace,
+femwell, elmer_fem, devsim, vlsirtools. Dropped from the old list:
+vlsir (schema), yosys_slang (plugin), openroad (LibreLane-internal —
+standalone ruled out, closure only), openrcx (dead), kfactory +
+gmsh (internal per RULING-07). These need adapter-build tickets
+(with tools) before any v1 migration applies to them.

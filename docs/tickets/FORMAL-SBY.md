@@ -1,6 +1,6 @@
 # FORMAL-SBY: run_formal via sby (bounded proof, honestly reported)
 
-*Status: Ready · Depends: PROV (oss-cad-suite tarball) · Size: M ·
+*Status: Done · Depends: PROV (oss-cad-suite tarball) · Size: M ·
 Roadmap: to-GDS lane (MVP track, PRD tech-stack formal row)*
 
 ## Why
@@ -31,3 +31,5 @@ release contents.
 - Formal check on a SERV property returns a scoped
   verdict with evidence; unknown/timeout paths green.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

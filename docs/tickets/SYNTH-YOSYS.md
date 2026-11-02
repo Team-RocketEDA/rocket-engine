@@ -1,6 +1,6 @@
 # SYNTH-YOSYS: run_synth via oss-cad-suite Yosys (RTL to mapped netlist)
 
-*Status: Ready · Depends: PROV (oss-cad-suite tarball) · Size: M ·
+*Status: Done · Depends: PROV (oss-cad-suite tarball) · Size: M ·
 Roadmap: to-GDS lane (MVP track, PRD tech-stack ASIC row)*
 
 ## Why
@@ -32,3 +32,5 @@ evidence out.
 - Click-equivalent API call synthesizes SERV to a mapped
   netlist with evidence; bad RTL fails loudly with cause.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

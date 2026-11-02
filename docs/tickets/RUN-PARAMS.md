@@ -1,6 +1,6 @@
 # RUN-PARAMS: Explicit run.request params schema
 
-*Status: Ready · Size: S · Roadmap: convergence (MVP track)*
+*Status: Done · Size: S · Roadmap: convergence (MVP track)*
 
 ## Why
 
@@ -32,3 +32,5 @@ load-bearing invariant.
   field fails submit with a named reason; snapshot shows
   every knob.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*

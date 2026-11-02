@@ -1,4 +1,4 @@
-"""Electron stdio transport (duplex): framed envelopes in, events out.
+"""Electron stdio transport (request/response + get_events_since polling, NOT push — see PUSH-EVENTS): envelopes in, replies out.
 
 Framing (length-prefix) arrives with the Electron integration; this
 slice speaks bare JSON envelopes with the same command shape.

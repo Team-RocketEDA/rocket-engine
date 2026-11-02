@@ -1,6 +1,6 @@
 # POSTLAYOUT: run_post_layout via ngspice on extracted netlists
 
-*Status: Ready · Depends: none · Size: M ·
+*Status: Done · Depends: none · Size: M ·
 Roadmap: to-GDS lane (MVP track, serves D28/A19/P18/M12/M13)*
 
 ## Why
@@ -33,3 +33,5 @@ ideal schematics.
 - One call replays an analog block post-layout with a
   pre/post delta table; stale provenance refused loudly.
 - Contract + api_spec regen; full suite + gate green.
+
+*Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*
