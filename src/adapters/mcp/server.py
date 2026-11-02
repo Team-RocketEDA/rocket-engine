@@ -99,12 +99,20 @@ def describe_tool(name):
     Returns:
         Tool description text for the name.
     """
-    from ...composition import QUERY_ENGINE_METHODS, QUERY_METHODS, Engine
+    from ...composition import (
+        ENGINE_OP_METHODS,
+        QUERY_ENGINE_METHODS,
+        QUERY_METHODS,
+        Engine,
+    )
     from ...project.service import ProjectService
 
     solvers = _help_engine().solvers_for(name)
     if solvers:
         return _summary_of(next(iter(solvers.values())))
+    op_method = ENGINE_OP_METHODS.get(name)
+    if op_method is not None:
+        return _summary_of(getattr(Engine, op_method))
     if name == "run_job":
         # run_job's contract doc lives on the phase-2 runner
         # (introspection only; never called for help).
@@ -257,23 +265,30 @@ def _error(code, message, fields=None):
     )
 
 
+#: Host-execution opt-in surface (I19): there is none yet.
+#:
+#: The MCP wire exposes cataloged engine operations and read
+#: queries only; host shells first among them are rejected, never
+#: routed (McpTransport.host_execution_enabled stays False). Any
+#: future host-execution tool MUST arrive behind an explicit,
+#: named opt-in surface (engine flag plus project scope) — never
+#: as a silent tool. Until that decision lands, this constant pins
+#: the default-deny posture against drift.
+HOST_EXECUTION_OPT_IN = None
+
+
 def _confine_files(arguments, project_dir):
-    """Resolve run_spice sources inside the project and fix the workdir."""
-    root = Path(project_dir).resolve()
-    sources = arguments.get("sources")
-    if isinstance(sources, list):
-        resolved = []
-        for source in sources:
-            path = (root / str(source)).resolve()
-            if not path.is_relative_to(root):
-                raise AdapterError("invalid_reference", f"Source outside the project: {source}.")
-            resolved.append(str(path))
-        arguments["sources"] = resolved
-    if "workdir" in arguments:
-        raise AdapterError("invalid_command", "workdir is chosen by the engine, not the caller.")
-    workdir = root / "results" / "engine-runs"
-    workdir.mkdir(parents=True, exist_ok=True)
-    arguments["workdir"] = str(workdir)
+    """Resolve run_spice sources inside the project and fix the workdir.
+
+    Thin delegate over the engine-side confinement every transport
+    shares (Engine.confine_spice_arguments): identical sources,
+    identical workdir, identical refusal shapes on every transport.
+    """
+    from ...composition import Engine
+
+    confined = Engine.confine_spice_arguments(arguments, project_dir)
+    arguments.clear()
+    arguments.update(confined)
 
 
 def _source_state(root):

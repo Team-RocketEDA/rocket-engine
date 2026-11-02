@@ -136,15 +136,24 @@
       "wired": true
     },
     "cancel_job": {
-      "description": "Declared operation `cancel_job`; no handler wired yet.",
-      "handlers": [],
+      "description": "Cancel a queued or running job through the job surface.",
+      "handlers": [
+        "rocket_engine.composition.Engine.cancel_job"
+      ],
       "kind": "operation",
       "name": "cancel_job",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "run_id": {
+          "description": "Admitted execution id to cancel."
+        }
+      },
+      "raises": "ProjectError: invalid_command without a run_id. ExecutionError: unknown_run for an id never admitted.",
+      "required": [
+        "run_id"
+      ],
+      "returns": "Mapping with run_id and state.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "connect_endpoint": {
       "description": "Point one wire endpoint at a new terminus: gate, run, log.",
@@ -347,15 +356,24 @@
       "wired": true
     },
     "discard_run": {
-      "description": "Declared operation `discard_run`; no handler wired yet.",
-      "handlers": [],
+      "description": "Explicitly discard one crash survivor, never executing it.",
+      "handlers": [
+        "rocket_engine.composition.Engine.discard_survivor"
+      ],
       "kind": "operation",
       "name": "discard_run",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "run_id": {
+          "description": "Survivor to discard."
+        }
+      },
+      "raises": "ExecutionError: unknown_survivor for an id with no unfinished run, already_completed for a finished run, already_decided for a run handled this session.",
+      "required": [
+        "run_id"
+      ],
+      "returns": "Discard record with run_id, discarded state, and the run's operation.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "generate_views": {
       "description": "generate_views via gdsfactory: registered layout recipes.",
@@ -703,26 +721,41 @@
       "wired": true
     },
     "resume_all_retryable": {
-      "description": "Declared operation `resume_all_retryable`; no handler wired yet.",
-      "handlers": [],
+      "description": "Resume every RETRYABLE survivor, oldest first (gated).",
+      "handlers": [
+        "rocket_engine.composition.Engine.resume_all_retryable"
+      ],
       "kind": "operation",
       "name": "resume_all_retryable",
       "properties": {},
+      "raises": "ExecutionError: Propagates the first executor failure unchanged \u2014 earlier resumes stand, later ones never fire.",
       "required": [],
-      "returns": "",
+      "returns": "Batch with resumed run ids, their completions, and skipped entries (each with run_id, typed code, and user-facing message).",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "resume_run": {
-      "description": "Declared operation `resume_run`; no handler wired yet.",
-      "handlers": [],
+      "description": "Explicitly resume one crash survivor through its solver.",
+      "handlers": [
+        "rocket_engine.composition.Engine.resume_survivor"
+      ],
       "kind": "operation",
       "name": "resume_run",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "force": {
+          "description": "Required for quarantined (poison) runs; force bypasses quarantine only \u2014 the run still executes for real."
+        },
+        "run_id": {
+          "description": "Survivor to resume."
+        }
+      },
+      "raises": "ExecutionError: unknown_survivor for an id with no unfinished run, already_completed for a finished run, already_decided for a run handled this session, poison_quarantined for a quarantined run resumed without force.",
+      "required": [
+        "run_id"
+      ],
+      "returns": "Executor completion for the run.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "rewind": {
       "description": "Restore managed bytes to a prior revision under a new head.",
@@ -1848,13 +1881,16 @@
           "description": "Cell name loaded and extracted."
         },
         "cell_file": {
-          "description": "Path to the .mag cell file."
+          "description": "Path to the .mag cell file \u2014 one source is required (cell_file or gds_file, never both)."
         },
         "deck": {
           "description": "Optional mapping naming the tech file (deck.path/tech_file/file)."
         },
         "expected_revision": {
           "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "gds_file": {
+          "description": "Path to a GDSII layout file; the adapter runs `gds read` before `load`, then extracts as usual."
         },
         "request": {
           "additionalProperties": false,
@@ -1914,7 +1950,6 @@
       },
       "required": [
         "cell",
-        "cell_file",
         "tech"
       ],
       "returns": "Result with cell, artifact paths, device_count, devices, and no violations.",
@@ -1926,13 +1961,16 @@
               "description": "Cell name loaded and extracted."
             },
             "cell_file": {
-              "description": "Path to the .mag cell file."
+              "description": "Path to the .mag cell file \u2014 one source is required (cell_file or gds_file, never both)."
             },
             "deck": {
               "description": "Optional mapping naming the tech file (deck.path/tech_file/file)."
             },
             "expected_revision": {
               "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "gds_file": {
+              "description": "Path to a GDSII layout file; the adapter runs `gds read` before `load`, then extracts as usual."
             },
             "request": {
               "additionalProperties": false,
@@ -1992,7 +2030,6 @@
           },
           "required": [
             "cell",
-            "cell_file",
             "tech"
           ]
         }
@@ -4004,37 +4041,60 @@
   },
   "queries": {
     "api_help": {
-      "description": "Declared query `api_help`; no handler wired yet.",
-      "handlers": [],
+      "description": "Explain one cataloged name, or outline the whole catalog.",
+      "handlers": [
+        "rocket_engine.composition.Engine.api_help"
+      ],
       "kind": "query",
       "name": "api_help",
-      "properties": {},
+      "properties": {
+        "name": {
+          "description": "Cataloged operation or query name; outlines every cataloged name when omitted."
+        }
+      },
+      "raises": "ProjectError: unsupported_operation for an uncataloged name.",
       "required": [],
-      "returns": "",
+      "returns": "Help mapping with name, kind, wired, summary, and a text block (handler plus where the full reference section lives).",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "api_info": {
-      "description": "Declared query `api_info`; no handler wired yet.",
-      "handlers": [],
+      "description": "Describe one cataloged operation or query.",
+      "handlers": [
+        "rocket_engine.composition.Engine.api_info"
+      ],
       "kind": "query",
       "name": "api_info",
-      "properties": {},
-      "required": [],
-      "returns": "",
+      "properties": {
+        "name": {
+          "description": "Cataloged operation or query name."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing name, unsupported_operation for an uncataloged name.",
+      "required": [
+        "name"
+      ],
+      "returns": "Record with name, kind, wired, summary, and handlers in generated-spec form.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "api_search": {
-      "description": "Declared query `api_search`; no handler wired yet.",
-      "handlers": [],
+      "description": "Search cataloged operations and queries by name or summary.",
+      "handlers": [
+        "rocket_engine.composition.Engine.api_search"
+      ],
       "kind": "query",
       "name": "api_search",
-      "properties": {},
+      "properties": {
+        "query": {
+          "description": "Substring matched against names and handler summaries (case-insensitive); every cataloged name when omitted."
+        }
+      },
+      "raises": "",
       "required": [],
-      "returns": "",
+      "returns": "Search mapping with the query and matches sorted by name (each with name, kind, wired, and summary).",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "apply_layer_preset": {
       "description": "Explicitly apply one layer preset to a Stackup.",
@@ -4670,7 +4730,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "212bf70ca2006a84b432431e4a412eceae81dc3d664b689ef9a0267d77deedb2",
+  "schema_sha256": "22381ab915e24857b5bf5d9235c9e5e62c1072c7822835372cb125653f587b45",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

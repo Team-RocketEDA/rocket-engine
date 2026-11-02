@@ -1,21 +1,21 @@
 {
   "api_help": {
     "kind": "query",
-    "summary": "Declared query `api_help`; no handler wired yet.",
-    "text": "Declared query `api_help`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Explain one cataloged name, or outline the whole catalog.",
+    "text": "Explain one cataloged name, or outline the whole catalog.\n\nHandler: `rocket_engine.composition.Engine.api_help`.\n\nArguments:\n\n- `name`: Cataloged operation or query name; outlines every cataloged name when omitted.\n\nReturns:\n\nHelp mapping with name, kind, wired, summary, and a text block (handler plus where the full reference section lives).\n\nRaises:\n\nProjectError: unsupported_operation for an uncataloged name.\n",
+    "wired": true
   },
   "api_info": {
     "kind": "query",
-    "summary": "Declared query `api_info`; no handler wired yet.",
-    "text": "Declared query `api_info`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Describe one cataloged operation or query.",
+    "text": "Describe one cataloged operation or query.\n\nHandler: `rocket_engine.composition.Engine.api_info`.\n\nArguments:\n\n- `name` (required): Cataloged operation or query name.\n\nReturns:\n\nRecord with name, kind, wired, summary, and handlers in generated-spec form.\n\nRaises:\n\nProjectError: invalid_command for a missing name, unsupported_operation for an uncataloged name.\n",
+    "wired": true
   },
   "api_search": {
     "kind": "query",
-    "summary": "Declared query `api_search`; no handler wired yet.",
-    "text": "Declared query `api_search`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Search cataloged operations and queries by name or summary.",
+    "text": "Search cataloged operations and queries by name or summary.\n\nHandler: `rocket_engine.composition.Engine.api_search`.\n\nThe discovery entrypoint: substring match over every\ncataloged name plus its handler summary, so callers find the\nverb without reading the whole reference.\n\nArguments:\n\n- `query`: Substring matched against names and handler summaries (case-insensitive); every cataloged name when omitted.\n\nReturns:\n\nSearch mapping with the query and matches sorted by name (each with name, kind, wired, and summary).\n",
+    "wired": true
   },
   "apply_layer_preset": {
     "kind": "query",
@@ -37,9 +37,9 @@
   },
   "cancel_job": {
     "kind": "operation",
-    "summary": "Declared operation `cancel_job`; no handler wired yet.",
-    "text": "Declared operation `cancel_job`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Cancel a queued or running job through the job surface.",
+    "text": "Cancel a queued or running job through the job surface.\n\nHandler: `rocket_engine.composition.Engine.cancel_job`.\n\npython_execute cells route to the cell runner (a live worker\ntree is killed promptly); solver-lane runs route to the\nexecution record plus the pool backlog, so a queued batch\nitem never executes after cancel. Finished runs keep their\nterminal state, truthfully.\n\nArguments:\n\n- `run_id` (required): Admitted execution id to cancel.\n\nReturns:\n\nMapping with run_id and state.\n\nRaises:\n\nProjectError: invalid_command without a run_id. ExecutionError: unknown_run for an id never admitted.\n",
+    "wired": true
   },
   "components_of": {
     "kind": "query",
@@ -103,9 +103,9 @@
   },
   "discard_run": {
     "kind": "operation",
-    "summary": "Declared operation `discard_run`; no handler wired yet.",
-    "text": "Declared operation `discard_run`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Explicitly discard one crash survivor, never executing it.",
+    "text": "Explicitly discard one crash survivor, never executing it.\n\nHandler: `rocket_engine.composition.Engine.discard_survivor`.\n\nArguments:\n\n- `run_id` (required): Survivor to discard.\n\nReturns:\n\nDiscard record with run_id, discarded state, and the run's operation.\n\nRaises:\n\nExecutionError: unknown_survivor for an id with no unfinished run, already_completed for a finished run, already_decided for a run handled this session.\n",
+    "wired": true
   },
   "entities_with": {
     "kind": "query",
@@ -301,15 +301,15 @@
   },
   "resume_all_retryable": {
     "kind": "operation",
-    "summary": "Declared operation `resume_all_retryable`; no handler wired yet.",
-    "text": "Declared operation `resume_all_retryable`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Resume every RETRYABLE survivor, oldest first (gated).",
+    "text": "Resume every RETRYABLE survivor, oldest first (gated).\n\nHandler: `rocket_engine.composition.Engine.resume_all_retryable`.\n\nAmbiguous runs need individual review and poison runs need\nper-run force, so both are skipped loudly \u2014 never swept up.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nBatch with resumed run ids, their completions, and skipped entries (each with run_id, typed code, and user-facing message).\n\nRaises:\n\nExecutionError: Propagates the first executor failure unchanged \u2014 earlier resumes stand, later ones never fire.\n\nCaution: This executes runs \u2014 only the RETRYABLE, non-quarantined survivors, and only on this call.\n",
+    "wired": true
   },
   "resume_run": {
     "kind": "operation",
-    "summary": "Declared operation `resume_run`; no handler wired yet.",
-    "text": "Declared operation `resume_run`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
-    "wired": false
+    "summary": "Explicitly resume one crash survivor through its solver.",
+    "text": "Explicitly resume one crash survivor through its solver.\n\nHandler: `rocket_engine.composition.Engine.resume_survivor`.\n\nArguments:\n\n- `run_id` (required): Survivor to resume.\n- `force`: Required for quarantined (poison) runs; force bypasses quarantine only \u2014 the run still executes for real.\n\nReturns:\n\nExecutor completion for the run.\n\nRaises:\n\nExecutionError: unknown_survivor for an id with no unfinished run, already_completed for a finished run, already_decided for a run handled this session, poison_quarantined for a quarantined run resumed without force.\n\nCaution: This executes the run \u2014 the one replay surface that does, and only on this explicit call.\n",
+    "wired": true
   },
   "rewind": {
     "kind": "operation",
@@ -356,7 +356,7 @@
   "run_extraction": {
     "kind": "operation",
     "summary": "run_extraction via Magic: .mag cells to .ext/.spice netlists.",
-    "text": "run_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nTools: `magic` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.extract_magic.MagicExtractAdapter`.\n\n#### Tool `magic`\n\nrun_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nServes the run_extraction operation with deck.tool `magic` (the\nonly tool). Loads the cell, extracts all, and converts with\next2spice; the result carries the netlist artifact paths plus\ndevice counts.\n\nArguments:\n\n- `cell` (required): Cell name loaded and extracted.\n- `cell_file` (required): Path to the .mag cell file.\n- `tech` (required): Magic tech name \u2014 one tech form is required (tech, tech_file, or deck.path/tech_file/file).\n- `tech_file`: Magic tech file path (a hash-checked store deck by the caller).\n- `deck`: Optional mapping naming the tech file (deck.path/tech_file/file).\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\nResult with cell, artifact paths, device_count, devices, and no violations.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a missing cell, a Tcl-unsafe cell name, or no tech form, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell or tech file.\n\n(execute) AdapterError: invalid_reference for a missing workdir, missing_dependency when the tech fails to load mid-run, runner_unavailable when the output has no ext2spice marker or no .ext/.spice pair, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no ext2spice marker, no spice text, or no subckt block.\n\nCaution: Magic exits 0 even for broken cells \u2014 the verdict always comes from parsed output, never the exit code.\n",
+    "text": "run_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nTools: `magic` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.extract_magic.MagicExtractAdapter`.\n\n#### Tool `magic`\n\nrun_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nServes the run_extraction operation with deck.tool `magic` (the\nonly tool). Loads the cell, extracts all, and converts with\next2spice; the result carries the netlist artifact paths plus\ndevice counts.\n\nArguments:\n\n- `cell` (required): Cell name loaded and extracted.\n- `cell_file`: Path to the .mag cell file \u2014 one source is required (cell_file or gds_file, never both).\n- `gds_file`: Path to a GDSII layout file; the adapter runs `gds read` before `load`, then extracts as usual.\n- `tech` (required): Magic tech name \u2014 one tech form is required (tech, tech_file, or deck.path/tech_file/file).\n- `tech_file`: Magic tech file path (a hash-checked store deck by the caller).\n- `deck`: Optional mapping naming the tech file (deck.path/tech_file/file).\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\nResult with cell, artifact paths, device_count, devices, and no violations.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a missing cell, a Tcl-unsafe cell name, no tech form, both sources, or a Tcl-unsafe GDS path, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell, GDS, or tech file.\n\n(execute) AdapterError: invalid_reference for a missing workdir, missing_dependency when the tech fails to load mid-run, runner_unavailable when the output has no ext2spice marker or no .ext/.spice pair, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no ext2spice marker, no spice text, or no subckt block.\n\nCaution: Magic exits 0 even for broken cells \u2014 the verdict always comes from parsed output, never the exit code.\n",
     "wired": true
   },
   "run_formal": {

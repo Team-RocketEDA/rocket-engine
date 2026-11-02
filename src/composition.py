@@ -37,7 +37,11 @@ Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
 """
 
+import json
+import subprocess
 import uuid
+from datetime import datetime, timezone
+from pathlib import Path
 
 from .adapters.circulax.adapter import CirculaxAdapter
 from .adapters.connectivity import ConnectivityAdapter
@@ -149,6 +153,10 @@ QUERY_METHODS = {
 # handler docstrings through this map.
 QUERY_ENGINE_METHODS = {
     "get_capabilities": "capabilities",
+    "get_python_console": "python_console",
+    "api_search": "api_search",
+    "api_info": "api_info",
+    "api_help": "api_help",
     "get_job_status": "job_status",
     "get_check_results": "check_results",
     "get_logs": "run_logs",
@@ -201,6 +209,17 @@ _COMPLETION_QUERIES = frozenset({"plan_checks", "get_design_completion"})
 
 # A get_logs page never dumps more than this many lines at once.
 _LOG_PAGE_MAX = 200
+
+# Engine-served operations: submit-branch job control with no solver.
+# The api_spec seam reads handler docstrings through this map, like
+# QUERY_ENGINE_METHODS for queries — a rewired op updates here, and
+# scripts/api_spec.py plus the MCP server follow with no edits.
+ENGINE_OP_METHODS = {
+    "resume_run": "resume_survivor",
+    "discard_run": "discard_survivor",
+    "resume_all_retryable": "resume_all_retryable",
+    "cancel_job": "cancel_job",
+}
 
 # CRUD mutations + rewind execute immediately inside submit()
 # (run_job precedent): revision gate + idempotency + event logging,
@@ -271,6 +290,11 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             admissions past it are refused, never queued.
         project_dir: Project folder python_execute path mode
             resolves inside; path mode refuses loudly without one.
+            The same folder also scopes run_spice source
+            confinement and the results/engine-runs evidence trail,
+            so every transport confines and records identically.
+            None keeps the engine in-memory (no confinement, no
+            evidence files).
     """
 
     def __init__(self, project_id, actor, catalog_root=".",
@@ -278,6 +302,7 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
                  blocks=None, pool_max_depth=64, project_dir=None):
         self._project_id = project_id
         self._actor = actor
+        self._project_dir = project_dir
         self._blocks = blocks if blocks is not None else {}
         self._project = ProjectService(
             project_id, actor, engine_root=engine_root,
@@ -420,7 +445,8 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             approval-UI fields) for CRUD/rewind/place_cell
             operations, the snapshot for the wired
             get_project_snapshot query, the capability mapping
-            for get_capabilities, the event page for
+            for get_capabilities, the discovery record for
+            api_search/api_info/api_help, the event page for
             get_events_since, the project/document listing for
             the CRUD queries, the status/checks/logs/kinds for
             the job-result queries, the stage plan or completion
@@ -503,6 +529,10 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
         arguments = dict(command.get("arguments") or {})
         arguments = self._apply_targets(name, arguments)
         arguments = self._apply_run_request(arguments)
+        if name == "run_spice":
+            arguments = self.confine_spice_arguments(
+                arguments, self._project_dir
+            )
         if name == "get_capabilities":
             return self.capabilities(
                 target=arguments.get("target"),
@@ -510,6 +540,16 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             )
         if name == "get_python_console":
             return self.python_console()
+        if name == "api_search":
+            return self.api_search(query=arguments.get("query"))
+        if name == "api_info":
+            if "name" not in arguments:
+                raise ProjectError(
+                    "invalid_command", "api_info needs a name argument."
+                )
+            return self.api_info(arguments["name"])
+        if name == "api_help":
+            return self.api_help(name=arguments.get("name"))
         if name == "get_events_since":
             return self._query_events_since(arguments)
         if name == "list_projects":
@@ -702,6 +742,7 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             raise
         if not force:
             self._coalescer.complete(ack["run_id"], completion)
+        self._maybe_record_evidence(name, completion, arguments)
         return merge_ack_completion(ack, completion)
 
 
@@ -952,6 +993,188 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             resolves anything.
         """
         return self._pyexec.console_view()
+
+    def _describe_op(self, name):
+        """Resolve one cataloged name to its live serving handler.
+
+        The live twin of the MCP server's describe_tool over engine
+        objects, so api_search/api_info/api_help report the same
+        summaries the generated docs and MCP descriptions serve.
+
+        Args:
+            name: Cataloged operation or query name.
+
+        Returns:
+            (kind, wired, summary, handlers) with the handler
+                refs in generated-spec form.
+        """
+        solvers = self._solvers.get(name) or {}
+        if solvers:
+            adapter = next(iter(solvers.values()))
+            cls = type(adapter)
+            doc = cls.__doc__ or ""
+            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
+            return (
+                "operation", True, summary,
+                [f"{cls.__module__}.{cls.__qualname__}"],
+            )
+        if name == "run_job":
+            return (
+                "operation", True,
+                (Engine._run_queued.__doc__ or "").splitlines()[0].strip(),
+                [
+                    "rocket_engine.composition.Engine.run",
+                    "rocket_engine.composition.Engine._run_queued",
+                ],
+            )
+        if name == "python_execute":
+            return (
+                "operation", True,
+                (PythonExecService.request_execution.__doc__ or ""
+                 ).splitlines()[0].strip(),
+                [
+                    "rocket_engine.composition.Engine.submit",
+                    "rocket_engine.execution.python_exec."
+                    "PythonExecService.request_execution",
+                ],
+            )
+        if name in _CRUD_OPERATIONS and hasattr(ProjectService, name):
+            target = getattr(ProjectService, name)
+            doc = target.__doc__ or ""
+            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
+            return (
+                "operation", True, summary,
+                [f"rocket_engine.project.service.ProjectService.{name}"],
+            )
+        method = QUERY_METHODS.get(name)
+        if method is not None:
+            target = getattr(ProjectService, method)
+            doc = target.__doc__ or ""
+            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
+            return (
+                "query", True, summary,
+                [f"rocket_engine.project.service.ProjectService.{method}"],
+            )
+        emethod = QUERY_ENGINE_METHODS.get(name)
+        if emethod is not None:
+            target = getattr(Engine, emethod)
+            doc = target.__doc__ or ""
+            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
+            return (
+                "query", True, summary,
+                [f"rocket_engine.composition.Engine.{emethod}"],
+            )
+        kind = "operation" if name in OPERATIONS else "query"
+        return (
+            kind, False,
+            f"Declared {kind} `{name}`; no handler wired yet.", [],
+        )
+
+    def api_search(self, query=None):
+        """Search cataloged operations and queries by name or summary.
+
+        The discovery entrypoint: substring match over every
+        cataloged name plus its handler summary, so callers find the
+        verb without reading the whole reference.
+
+        Args:
+            query: Substring matched against names and handler
+                summaries (case-insensitive); every cataloged name
+                when omitted.
+
+        Returns:
+            Search mapping with the query and matches sorted by
+                name (each with name, kind, wired, and summary).
+        """
+        needle = query.lower() if query else None
+        matches = []
+        for name in sorted(OPERATIONS | QUERIES):
+            kind, wired, summary, _handlers = self._describe_op(name)
+            if (
+                needle is not None
+                and needle not in name.lower()
+                and needle not in summary.lower()
+            ):
+                continue
+            matches.append({
+                "name": name, "kind": kind,
+                "wired": wired, "summary": summary,
+            })
+        return {"query": query, "matches": matches}
+
+    def api_info(self, name):
+        """Describe one cataloged operation or query.
+
+        Args:
+            name: Cataloged operation or query name.
+
+        Returns:
+            Record with name, kind, wired, summary, and handlers
+                in generated-spec form.
+
+        Raises:
+            ProjectError: invalid_command for a missing name,
+                unsupported_operation for an uncataloged name.
+        """
+        if name is None:
+            raise ProjectError(
+                "invalid_command", "api_info needs a name argument."
+            )
+        if name not in OPERATIONS and name not in QUERIES:
+            raise ProjectError(
+                "unsupported_operation",
+                f"Operation not wired yet: {name}.",
+            )
+        kind, wired, summary, handlers = self._describe_op(name)
+        return {
+            "name": name, "kind": kind, "wired": wired,
+            "summary": summary, "handlers": handlers,
+        }
+
+    def api_help(self, name=None):
+        """Explain one cataloged name, or outline the whole catalog.
+
+        Args:
+            name: Cataloged operation or query name; outlines
+                every cataloged name when omitted.
+
+        Returns:
+            Help mapping with name, kind, wired, summary, and a
+                text block (handler plus where the full reference
+                section lives).
+
+        Raises:
+            ProjectError: unsupported_operation for an uncataloged
+                name.
+        """
+        if name is None:
+            lines = [
+                "Cataloged operations and queries "
+                f"({len(OPERATIONS)} operations, {len(QUERIES)} queries).",
+                "Name one with api_info for its handler record.",
+                "",
+            ]
+            for entry in self.api_search()["matches"]:
+                lines.append(f"- `{entry['name']}`: {entry['summary']}")
+            text = "\n".join(lines) + "\n"
+            return {
+                "name": None, "kind": "query", "wired": True,
+                "summary": "Outline of every cataloged operation and query.",
+                "text": text,
+            }
+        record = self.api_info(name)
+        handlers = ", ".join(
+            f"`{handler}`" for handler in record["handlers"]
+        ) or "no handler wired yet"
+        text = (
+            f"{record['summary']}\n\nHandler: {handlers}.\n"
+            f"Full reference: docs/engine-api.md ### {name}."
+        )
+        return {
+            "name": name, "kind": record["kind"],
+            "wired": record["wired"], "summary": record["summary"],
+            "text": text,
+        }
 
     def cancel_job(self, run_id=None):
         """Cancel a queued or running job through the job surface.
@@ -1337,6 +1560,174 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
         """
         return self._logs.get(run_id, "")
 
+    @staticmethod
+    def confine_spice_arguments(arguments, project_dir):
+        """Resolve run_spice sources inside the project; fix the workdir.
+
+        The engine-side confinement every transport shares
+        (TRANSPORT-PARITY): sources resolve inside the project dir,
+        a caller workdir is refused, and the workdir is the
+        results/engine-runs folder the evidence trail records
+        into. Unbound engines (no project dir) pass arguments
+        through untouched.
+
+        Args:
+            arguments: Submitted run_spice arguments.
+            project_dir: Project folder sources resolve inside, or
+                None for an unbound engine.
+
+        Returns:
+            Arguments with absolute confined sources and the
+                engine-chosen workdir (unchanged when unbound).
+
+        Raises:
+            AdapterError: invalid_reference for a source outside
+                the project, invalid_command for a caller workdir.
+        """
+        if project_dir is None:
+            return arguments
+        root = Path(project_dir).resolve()
+        confined = dict(arguments)
+        workdir = root / "results" / "engine-runs"
+        sources = confined.get("sources")
+        if isinstance(sources, list):
+            resolved = []
+            for source in sources:
+                path = (root / str(source)).resolve()
+                if not path.is_relative_to(root):
+                    raise AdapterError(
+                        "invalid_reference",
+                        f"Source outside the project: {source}.",
+                    )
+                resolved.append(str(path))
+            confined["sources"] = resolved
+        if "workdir" in confined and confined["workdir"] != str(workdir):
+            raise AdapterError(
+                "invalid_command",
+                "workdir is chosen by the engine, not the caller.",
+            )
+        workdir.mkdir(parents=True, exist_ok=True)
+        confined["workdir"] = str(workdir)
+        return confined
+
+    def record_run_evidence(self, outcome, arguments, project_dir=None):
+        """Persist one finished run under results/engine-runs.
+
+        The same record shape the MCP server writes, recorded by
+        the engine itself so every transport leaves the identical
+        evidence file (TRANSPORT-PARITY): IDE buttons and agent
+        calls share one evidence trail whoever submitted.
+
+        Args:
+            outcome: Completion mapping with run_id, operation,
+                and verdict.
+            arguments: Submitted arguments (for the run's source
+                list).
+            project_dir: Project folder; the engine's own project
+                dir when omitted.
+
+        Returns:
+            Evidence file path string, or None when the engine is
+                unbound (no project dir anywhere).
+        """
+        root = project_dir if project_dir is not None else self._project_dir
+        if root is None:
+            return None
+        folder = Path(root).resolve() / "results" / "engine-runs"
+        folder.mkdir(parents=True, exist_ok=True)
+        commit, dirty = self._evidence_source_state(Path(root).resolve())
+        sources = []
+        for source in arguments.get("sources") or []:
+            path = Path(str(source))
+            if path.is_absolute():
+                try:
+                    sources.append(str(path.relative_to(
+                        Path(root).resolve())))
+                    continue
+                except ValueError:
+                    pass
+            sources.append(str(source))
+        record = {
+            "producer": "rocket-engine",
+            "run_id": outcome["run_id"],
+            "operation": outcome["operation"],
+            "verdict": outcome["verdict"],
+            "finished_at": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"),
+            "source_commit": commit,
+            "source_dirty": dirty,
+            "sources": sources,
+            "log": self.log_text(outcome["run_id"]),
+        }
+        path = folder / f"{outcome['run_id']}.json"
+        path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+        return str(path)
+
+    @staticmethod
+    def _evidence_source_state(root):
+        """Probe (short commit, dirty) of the project tree.
+
+        Twin of the MCP server's source probe (kept local so the
+        composition root never imports an adapter): git metadata
+        when readable, (None, None) otherwise.
+
+        Args:
+            root: Project folder to probe.
+
+        Returns:
+            (commit, dirty) pair, (None, None) outside git.
+        """
+        git = ["git", "-C", str(root)]
+        head = subprocess.run(
+            [*git, "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True,
+        )
+        if head.returncode != 0:
+            return None, None
+        status = subprocess.run(
+            [*git, "status", "--porcelain", "--",
+             "design", "tests", "constraints.yaml"],
+            capture_output=True, text=True,
+        )
+        return head.stdout.strip(), bool(status.stdout.strip())
+
+    def _maybe_record_evidence(self, operation, completion, arguments):
+        """Record one completion when the engine is project-bound.
+
+        No-op for unbound engines, non-completions, and
+        verdict-less payloads (acks, batch mappings, queries).
+        run_job fetches resolve sources from the admitted
+        arguments, never the fetch envelope.
+
+        Args:
+            operation: Operation hint when the completion omits it.
+            completion: Completion mapping, batch mapping, or ack.
+            arguments: Submitted arguments for the source list.
+
+        Returns:
+            Evidence file path string, or None when skipped.
+        """
+        if self._project_dir is None:
+            return None
+        if not isinstance(completion, dict):
+            return None
+        run_id = completion.get("run_id")
+        verdict = completion.get("verdict")
+        if run_id is None or verdict is None:
+            return None
+        pending = self._run_jobs.get(run_id, {})
+        sources = pending.get("arguments", arguments)
+        if not isinstance(sources, dict):
+            sources = arguments
+        return self.record_run_evidence(
+            {
+                "run_id": run_id,
+                "operation": completion.get("operation", operation),
+                "verdict": verdict,
+            },
+            sources,
+        )
+
     def register_solver(self, operation, adapter, tool=None):
         """Register a solver adapter under an operation name.
 
@@ -1545,7 +1936,9 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
 
         `deck.tool` selects the registered solver, defaulting to
         the first registered; solver violations nest into findings
-        and the verdict is evaluated from the native exit code.
+        and the verdict is judged from findings alone — exit zero
+        is not PASS. The native exit code is recorded on the run,
+        never the verdict.
         CRUD/rewind mutations delegate to submit's immediate path
         so the CLI `run` spelling shares the one implementation.
 
@@ -1598,7 +1991,10 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
         self._replay_once()
         name = command.get("operation")
         if name == "run_job":
-            return self._run_queued(command)
+            completion = self._run_queued(command)
+            self._maybe_record_evidence(name, completion,
+                                        dict(command.get("arguments") or {}))
+            return completion
         if name in _CRUD_OPERATIONS or name == "place_cell":
             return self.submit(command)
         if name == "python_execute":
@@ -1609,11 +2005,17 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             )
         arguments = self._apply_targets(name, dict(command.get("arguments") or {}))
         arguments = self._apply_run_request(arguments)
+        if name == "run_spice":
+            arguments = self.confine_spice_arguments(
+                arguments, self._project_dir
+            )
         block_scope = self._admit_block_scope(name, arguments)
-        return self._run_operation(
+        completion = self._run_operation(
             name,
             arguments,
             command.get("snapshot_id", ""),
             None,
             block_scope=block_scope,
         )
+        self._maybe_record_evidence(name, completion, arguments)
+        return completion

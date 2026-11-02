@@ -130,6 +130,31 @@ def query_engine_methods(root=None):
     return _str_dict(_module_assign(tree, "QUERY_ENGINE_METHODS"))
 
 
+def engine_op_methods(root=None):
+    """Engine-served op -> Engine method from ENGINE_OP_METHODS.
+
+    Submit-branch job control (resume/discard/resume_all/cancel)
+    carries complete handler docstrings already; this map is the
+    address that lets endpoint_spec/section_body/build_schemas
+    render them wired with docstring text flowing through.
+    """
+    root = Path(root) if root is not None else SRC
+    tree = ast.parse((root / "composition.py").read_text())
+    return _str_dict(_module_assign(tree, "ENGINE_OP_METHODS"))
+
+
+#: submit raises invalid_command without these args, so the schema
+#: pins the behavioral contract. resume_all_retryable takes none;
+#: cancel_job's signature defaults run_id to None, but the behavior
+#: already refuses without it.
+ENGINE_OP_REQUIRED = {
+    "resume_run": ["run_id"],
+    "discard_run": ["run_id"],
+    "resume_all_retryable": [],
+    "cancel_job": ["run_id"],
+}
+
+
 def solver_map(root=None):
     """{op: [(tool, adapter_class, module_rel)]} from Engine._solvers.
 
@@ -373,6 +398,7 @@ def endpoint_spec(name, root=None):
     crud = crud_operations(root)
     qmethods = query_methods(root)
     qengines = query_engine_methods(root)
+    engine_ops = engine_op_methods(root)
     spec = {"name": name, "kind": kind, "wired": False, "handlers": []}
     if name in solvers:
         spec["wired"] = True
@@ -433,6 +459,15 @@ def endpoint_spec(name, root=None):
             "composition.py", "Engine." + qengines[name],
             root=root,
         ))["summary"]
+    elif name in engine_ops:
+        spec["wired"] = True
+        spec["handlers"] = [
+            "rocket_engine.composition.Engine." + engine_ops[name]
+        ]
+        spec["summary"] = parse_docstring(doc_of(
+            "composition.py", "Engine." + engine_ops[name],
+            root=root,
+        ))["summary"]
     else:
         spec["summary"] = _UNWIRED_TEMPLATE.format(kind=kind, name=name)
     return spec
@@ -466,8 +501,13 @@ def section_body(name, root=None):
     crud = crud_operations(root)
     qmethods = query_methods(root)
     qengines = query_engine_methods(root)
+    engine_ops = engine_op_methods(root)
     if name in solvers:
         return _solver_section(name, solvers[name], root)
+    if name in engine_ops:
+        return _method_section(
+            name, engine_ops[name], root, rel="composition.py", cls="Engine"
+        )
     if name in crud or name in qmethods or name in qengines:
         if name in qengines:
             return _method_section(
@@ -570,6 +610,9 @@ def _method_section(name, method, root, rel="project/service.py",
     parsed = parse_docstring(doc_of(rel, cls + "." + method, root=root))
     required = set(signature_required(rel, cls + "." + method, root=root))
     required -= _QUERY_DEFAULTS.get(name, set())
+    # Engine-op behavioral pins (cancel_job refuses without run_id
+    # although the signature defaults it): docs and schema agree.
+    required |= set(ENGINE_OP_REQUIRED.get(name, ()))
     args = [
         (n, n in required, d) for n, _r, d in parsed["args"]
         if n not in _PLUMBING
@@ -616,20 +659,21 @@ def build_schemas(root=None):
         "operations": {},
         "queries": {},
     }
+    engine_ops = engine_op_methods(root)
     for name in sorted(operations):
         schemas["operations"][name] = _schema_for(
             name, "operation", solvers, crud, qmethods, qengines,
-            revision_text, root,
+            engine_ops, revision_text, root,
         )
     for name in sorted(queries):
         schemas["queries"][name] = _schema_for(
             name, "query", solvers, crud, qmethods, qengines,
-            revision_text, root,
+            engine_ops, revision_text, root,
         )
     return schemas
 
 
-def _schema_for(name, kind, solvers, crud, qmethods, qengines,
+def _schema_for(name, kind, solvers, crud, qmethods, qengines, engine_ops,
                 revision_text, root):
     spec = endpoint_spec(name, root=root)
     schema = {
@@ -669,8 +713,10 @@ def _schema_for(name, kind, solvers, crud, qmethods, qengines,
         ))
         schema["returns"] = parse["returns"]
         return schema
-    if name in crud or name in qmethods or name in qengines:
-        if name in qengines:
+    if name in crud or name in qmethods or name in qengines or name in engine_ops:
+        if name in engine_ops:
+            rel, cls, method = "composition.py", "Engine", engine_ops[name]
+        elif name in qengines:
             rel, cls, method = "composition.py", "Engine", qengines[name]
         else:
             rel, cls = "project/service.py", "ProjectService"
@@ -680,6 +726,7 @@ def _schema_for(name, kind, solvers, crud, qmethods, qengines,
             rel, cls + "." + method, root=root
         ))
         required -= _QUERY_DEFAULTS.get(name, set())
+        required |= set(ENGINE_OP_REQUIRED.get(name, ()))
         schema["properties"] = {
             n: {"description": d} for n, _r, d in parsed["args"]
             if n not in _PLUMBING

@@ -78,7 +78,8 @@ class ExecutionService:
 
         Returns:
             Run state mapping with run_id, operation, state,
-            snapshot_id, and verdict.
+            snapshot_id, verdict, and the recorded native exit
+            code (None until the run is judged).
 
         Raises:
             ExecutionError: unknown_run for an untracked id.
@@ -86,7 +87,8 @@ class ExecutionService:
         record = self._require(run_id)
         return {
             key: record.get(key)
-            for key in ("run_id", "operation", "state", "snapshot_id", "verdict")
+            for key in ("run_id", "operation", "state", "snapshot_id",
+                        "verdict", "exit_code")
         }
 
     def mark_running(self, run_id):
@@ -176,7 +178,7 @@ class ExecutionService:
             "freshness": "stale" if self._source_changed else "current",
         }
 
-    def _store_verdict(self, run_id, verdict, findings=()):
+    def _store_verdict(self, run_id, verdict, findings=(), exit_code=None):
         record = self._runs.setdefault(
             run_id,
             {"run_id": run_id, "state": "completed", "verdict": None, "findings": []},
@@ -184,21 +186,26 @@ class ExecutionService:
         record["state"] = "completed"
         record["verdict"] = verdict
         record["findings"] = list(findings)
+        if exit_code is not None:
+            record["exit_code"] = exit_code
         return verdict
 
     def evaluate(self, run_id, exit_code, findings_fixture):
         """Judge findings: FAIL on any error, else PASS.
 
         Unparsable output judges NOT_RUN with reason rather than
-        guessing; the exit code is recorded, never the verdict.
+        guessing. The native exit code is recorded on the run
+        (surfaced by status), never in the verdict: verdicts stay
+        exit-independent so a replay reproduces them byte-identically
+        even when native output bytes differ.
 
         Args:
             run_id: Run to judge.
-            exit_code: Native exit code, recorded only.
+            exit_code: Native exit code, recorded on the run only.
             findings_fixture: YAML text with a findings list.
 
         Returns:
-            Verdict with status and finding counts.
+            Verdict with status and finding counts (no exit code).
 
         Raises:
             ValueError: No findings list (raised and caught inside
@@ -211,7 +218,8 @@ class ExecutionService:
             findings = data["findings"]
         except Exception:
             return self._store_verdict(
-                run_id, {"status": "NOT_RUN", "reason": "unparsable output"}
+                run_id, {"status": "NOT_RUN", "reason": "unparsable output"},
+                exit_code=exit_code,
             )
         counts = {}
         for finding in findings:
@@ -219,7 +227,8 @@ class ExecutionService:
             counts[severity] = counts.get(severity, 0) + 1
         status = "FAIL" if counts.get("error", 0) else "PASS"
         return self._store_verdict(
-            run_id, {"status": status, "finding_counts": counts}, findings
+            run_id, {"status": status, "finding_counts": counts}, findings,
+            exit_code=exit_code,
         )
 
     def record_not_run(self, run_id, reason):

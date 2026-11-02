@@ -27,7 +27,7 @@ text, identical to the section bodies below.
 |---|---|---|---|
 | `apply_mutations` | yes | — | Apply a batch atomically under one new revision (I31). |
 | `attach_component` | yes | — | Attach one new component (refuses overwrites). |
-| `cancel_job` | no | — | Declared operation `cancel_job`; no handler wired yet. |
+| `cancel_job` | yes | — | Cancel a queued or running job through the job surface. |
 | `connect_endpoint` | yes | — | Point one wire endpoint at a new terminus: gate, run, log. |
 | `create_entity` | yes | — | Create one entity with an engine-minted id. |
 | `create_project` | yes | — | Create one managed project at revision p12. |
@@ -36,7 +36,7 @@ text, identical to the section bodies below.
 | `delete_junction` | yes | — | Delete one unreferenced junction: gate, remove, log. |
 | `delete_wire` | yes | — | Delete one wire: gate, remove, advance, log. |
 | `detach_component` | yes | — | Detach one component from its entity. |
-| `discard_run` | no | — | Declared operation `discard_run`; no handler wired yet. |
+| `discard_run` | yes | — | Explicitly discard one crash survivor, never executing it. |
 | `generate_views` | yes | `gdsfactory` (default) | generate_views via gdsfactory: registered layout recipes. |
 | `materialize_nets` | yes | — | Extract connectivity, upsert Net entities: gate, run, log. |
 | `move_wire` | yes | — | Translate one wire: gate, transact, advance, log. |
@@ -44,8 +44,8 @@ text, identical to the section bodies below.
 | `place_junction` | yes | — | Place one junction dot: gate, transact, advance, log. |
 | `place_wire` | yes | — | Place one wire: gate, transact, advance, log. |
 | `python_execute` | yes | — | Request one execution: persist the cell, open an approval. |
-| `resume_all_retryable` | no | — | Declared operation `resume_all_retryable`; no handler wired yet. |
-| `resume_run` | no | — | Declared operation `resume_run`; no handler wired yet. |
+| `resume_all_retryable` | yes | — | Resume every RETRYABLE survivor, oldest first (gated). |
+| `resume_run` | yes | — | Explicitly resume one crash survivor through its solver. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
 | `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_cosim` | yes | `cosim` (default) | run_cosim via ngspice plus icarus: coupled mixed-signal verdicts. |
@@ -75,9 +75,9 @@ text, identical to the section bodies below.
 
 | Query | Wired | Handler | Summary |
 |---|---|---|---|
-| `api_help` | no | — | Declared query `api_help`; no handler wired yet. |
-| `api_info` | no | — | Declared query `api_info`; no handler wired yet. |
-| `api_search` | no | — | Declared query `api_search`; no handler wired yet. |
+| `api_help` | yes | `rocket_engine.composition.Engine.api_help` | Explain one cataloged name, or outline the whole catalog. |
+| `api_info` | yes | `rocket_engine.composition.Engine.api_info` | Describe one cataloged operation or query. |
+| `api_search` | yes | `rocket_engine.composition.Engine.api_search` | Search cataloged operations and queries by name or summary. |
 | `apply_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_apply` | Explicitly apply one layer preset to a Stackup. |
 | `components_of` | yes | `rocket_engine.project.service.ProjectService.components_of` | List the component names one entity carries. |
 | `delete_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_delete` | Delete one user layer preset (built-ins are undeletable). |
@@ -170,9 +170,27 @@ Caution: Every accepted attach advances the revision — a second writer at the 
 
 ### cancel_job
 
-Declared operation `cancel_job`; no handler wired yet.
+Cancel a queued or running job through the job surface.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.cancel_job`.
+
+python_execute cells route to the cell runner (a live worker
+tree is killed promptly); solver-lane runs route to the
+execution record plus the pool backlog, so a queued batch
+item never executes after cancel. Finished runs keep their
+terminal state, truthfully.
+
+Arguments:
+
+- `run_id` (required): Admitted execution id to cancel.
+
+Returns:
+
+Mapping with run_id and state.
+
+Raises:
+
+ProjectError: invalid_command without a run_id. ExecutionError: unknown_run for an id never admitted.
 
 ### connect_endpoint
 
@@ -378,9 +396,21 @@ Caution: Every accepted detach advances the revision — a second writer at the 
 
 ### discard_run
 
-Declared operation `discard_run`; no handler wired yet.
+Explicitly discard one crash survivor, never executing it.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.discard_survivor`.
+
+Arguments:
+
+- `run_id` (required): Survivor to discard.
+
+Returns:
+
+Discard record with run_id, discarded state, and the run's operation.
+
+Raises:
+
+ExecutionError: unknown_survivor for an id with no unfinished run, already_completed for a finished run, already_decided for a run handled this session.
 
 ### generate_views
 
@@ -561,15 +591,47 @@ ExecutionError: invalid_command for a bad mode, a mode/field mismatch, oversize 
 
 ### resume_all_retryable
 
-Declared operation `resume_all_retryable`; no handler wired yet.
+Resume every RETRYABLE survivor, oldest first (gated).
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.resume_all_retryable`.
+
+Ambiguous runs need individual review and poison runs need
+per-run force, so both are skipped loudly — never swept up.
+
+Arguments:
+
+- _(none)_
+
+Returns:
+
+Batch with resumed run ids, their completions, and skipped entries (each with run_id, typed code, and user-facing message).
+
+Raises:
+
+ExecutionError: Propagates the first executor failure unchanged — earlier resumes stand, later ones never fire.
+
+Caution: This executes runs — only the RETRYABLE, non-quarantined survivors, and only on this call.
 
 ### resume_run
 
-Declared operation `resume_run`; no handler wired yet.
+Explicitly resume one crash survivor through its solver.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.resume_survivor`.
+
+Arguments:
+
+- `run_id` (required): Survivor to resume.
+- `force`: Required for quarantined (poison) runs; force bypasses quarantine only — the run still executes for real.
+
+Returns:
+
+Executor completion for the run.
+
+Raises:
+
+ExecutionError: unknown_survivor for an id with no unfinished run, already_completed for a finished run, already_decided for a run handled this session, poison_quarantined for a quarantined run resumed without force.
+
+Caution: This executes the run — the one replay surface that does, and only on this explicit call.
 
 ### rewind
 
@@ -917,7 +979,8 @@ device counts.
 Arguments:
 
 - `cell` (required): Cell name loaded and extracted.
-- `cell_file` (required): Path to the .mag cell file.
+- `cell_file`: Path to the .mag cell file — one source is required (cell_file or gds_file, never both).
+- `gds_file`: Path to a GDSII layout file; the adapter runs `gds read` before `load`, then extracts as usual.
 - `tech` (required): Magic tech name — one tech form is required (tech, tech_file, or deck.path/tech_file/file).
 - `tech_file`: Magic tech file path (a hash-checked store deck by the caller).
 - `deck`: Optional mapping naming the tech file (deck.path/tech_file/file).
@@ -931,7 +994,7 @@ Result with cell, artifact paths, device_count, devices, and no violations.
 
 Raises:
 
-(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a missing cell, a Tcl-unsafe cell name, or no tech form, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell or tech file.
+(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a missing cell, a Tcl-unsafe cell name, no tech form, both sources, or a Tcl-unsafe GDS path, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell, GDS, or tech file.
 
 (execute) AdapterError: invalid_reference for a missing workdir, missing_dependency when the tech fails to load mid-run, runner_unavailable when the output has no ext2spice marker or no .ext/.spice pair, plus the preflight codes (execute re-checks first).
 
@@ -1576,21 +1639,57 @@ Caution: Every accepted write advances the revision — a second writer at the o
 
 ### api_help
 
-Declared query `api_help`; no handler wired yet.
+Explain one cataloged name, or outline the whole catalog.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.api_help`.
+
+Arguments:
+
+- `name`: Cataloged operation or query name; outlines every cataloged name when omitted.
+
+Returns:
+
+Help mapping with name, kind, wired, summary, and a text block (handler plus where the full reference section lives).
+
+Raises:
+
+ProjectError: unsupported_operation for an uncataloged name.
 
 ### api_info
 
-Declared query `api_info`; no handler wired yet.
+Describe one cataloged operation or query.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.api_info`.
+
+Arguments:
+
+- `name` (required): Cataloged operation or query name.
+
+Returns:
+
+Record with name, kind, wired, summary, and handlers in generated-spec form.
+
+Raises:
+
+ProjectError: invalid_command for a missing name, unsupported_operation for an uncataloged name.
 
 ### api_search
 
-Declared query `api_search`; no handler wired yet.
+Search cataloged operations and queries by name or summary.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.api_search`.
+
+The discovery entrypoint: substring match over every
+cataloged name plus its handler summary, so callers find the
+verb without reading the whole reference.
+
+Arguments:
+
+- `query`: Substring matched against names and handler summaries (case-insensitive); every cataloged name when omitted.
+
+Returns:
+
+Search mapping with the query and matches sorted by name (each with name, kind, wired, and summary).
 
 ### apply_layer_preset
 
