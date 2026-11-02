@@ -60,6 +60,27 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [SHAPE-HARDEN] Harden the 7 weak + 2 missing tool output shapes
 - [ADAPT-GROUPC] Staff group-C adapters: meow proof, devsim, meep, elmer
 - [MIGRATE-STDIO-FILE] Migrate top-5 stdio parses to file channels
+- [CANCEL-WIREUP] Wire cancel_job to vocabulary + submit + transports
+- [ASYNC-SUBMIT] Async submit: prompt ack + deferred handle + lifecycle events
+- [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
+- [TRANSPORT-PARITY] One admission path + parity test across transports
+- [ERROR-FIDELITY] Serialize fields, status map, v0-v1 code mapping
+- [HTTP-HARDEN] Delete auth.py, harden HTTP handler
+- [IP-LIFECYCLE] IP lifecycle ops with per-PDK invariant
+- [CONSOLE-LIFECYCLE] Console lifecycle + envelope convergence
+- [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
+- [EQY-MCY-ADAPTERS] Staff check.equivalence + check.mutation adapters
+- [ANTENNA-KLAYOUT] Staff check.antenna via KLayout-DB path
+- [DIGITAL-FLOW-URANIUM] Rewrite digital_flow on machine files
+- [ESCAPE-HARDEN] Structured escapes + shape conformance batch
+- [DUMP-PROOFS-WAVE1] Per-tool output notes + determinism tests
+- [HDL-PROVIDERS] MVP provider coverage batch
+- [CORE-EXEC-HARDEN] Core timeout/cancel/confinement/durability batch
+- [DECOMP-CORE] Decompose composition/service, stores behind ports
+- [I29-OWNER] Own verbatim PDK serving end-to-end
+- [FRONTEND-13] Frontend section-13 touchpoints batch
+- [PROV-UPSTREAM-RECIPE] Provision recipes verbatim from upstream READMEs
+- [BWRAP-STUDY] Comparative console sandbox study
 ## Doing
 
 

@@ -1,0 +1,4 @@
+Problem: no ip_search/ip_get/ip_register/ip_instantiate/ip_promote anywhere in vocabulary, composition, or src. Only place_cell exists (ops/submit.py:253-272) — narrower, unversioned, no linkage.
+Expected-per: suggested-api.md:287-295 (§9 bootstrap), :301-307 (§10 table). Audit MC-04.
+Ruling: RULING-01 — IP blocks are prebuilt HIERARCHICAL schematic blocks, KiCad-catalogue model (buck converters, digital chips), each shipping schematic symbol AND footprint/cell LINKED. "Instantiate" = place with linkage intact. INVARIANT: prebuilt IP is PER-PDK (each PDK strictly owns its blocks; digital MAY generalize case-by-case, default per-PDK). Distinguish PDK library cells (flat) and user hierarchy (bottom-up).
+Fix: implement the five ops with per-PDK registries + symbol/footprint linkage; formalize the per-PDK invariant in behavior-invariants.yaml.

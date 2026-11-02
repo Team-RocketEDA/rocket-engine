@@ -1,0 +1,3 @@
+Problem: docs/tool-outputs/ missing entirely (required BEFORE any normalizer per TOOL-OUTPUTS:63-67,90-93); zero test_<name>_results.py determinism tests (required per API-V1-ADAPTERS:81-84); fixtures are inputs not recorded native outputs; no README documents a dump shape and 3 adapters lack READMEs (gdsfactory, connectivity, view_sync).
+Expected-per: TOOL-OUTPUTS.md; API-V1-ADAPTERS.md:31-34,81-84. Audit MC-15, MC-16, MC-46.
+Fix: per kept tool: docs/tool-outputs/<tool>-<version>.md + test_<name>_results.py (good/bad recorded native outputs) + README dump-shape section. Blocks ALL normalizers. Note docs/tools/ covers 21 mostly-gap tools — wave 1 covers the kept set (yosys/slang/sby/icarus/magic/netgen/klayout/ngspice/sax/circulax/gdsfactory/...).
