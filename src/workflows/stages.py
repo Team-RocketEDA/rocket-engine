@@ -118,6 +118,180 @@ STAGES = {
 }
 
 
+# Deck join (WORKFLOW-COVERAGE, ADR-007): curated op -> deck tools.
+#
+# Each entry cites the Engine solver registry (composition.py
+# Engine._solvers: operation -> {deck-tool: adapter}) plus the
+# provision need from interfaces/setup.py SOLVER_DEPS (binaries +
+# python probes flattened). Curated here so stage planning stays a
+# pure function of its inputs (no imports, no I/O); freshness is
+# pinned mechanically by tests/test_stages_decks.py against the live
+# registry and SOLVER_DEPS, so a new solver without a DECKS entry
+# fails loudly instead of rotting.
+DECKS = {
+    "run_syntax": [{"tool": "slang", "needs": ["slang"]}],
+    "run_synth": [{"tool": "yosys", "needs": ["yosys"]}],
+    "run_connectivity": [{"tool": "connectgraph", "needs": []}],
+    "run_erc": [{"tool": "connectgraph", "needs": []}],
+    "run_view_sync": [{"tool": "connectgraph", "needs": []}],
+    "run_drc": [
+        {"tool": "magic", "needs": ["magic"]},
+        {"tool": "klayout", "needs": ["klayout"]},
+    ],
+    "run_lvs": [{"tool": "netgen", "needs": ["netgen"]}],
+    "run_spice": [{"tool": "ngspice", "needs": ["ngspice"]}],
+    "run_post_layout": [{"tool": "ngspice", "needs": ["ngspice"]}],
+    "run_optical": [
+        {"tool": "sax", "needs": ["sax"]},
+        {"tool": "circulax", "needs": ["circulax"]},
+    ],
+    "run_digital_flow": [{"tool": "librelane", "needs": ["librelane"]}],
+    "run_timing": [{"tool": "opensta", "needs": ["sta"]}],
+    "run_extraction": [{"tool": "magic", "needs": ["magic"]}],
+    "run_em": [{"tool": "meow", "needs": ["meow"]}],
+    "run_formal": [{"tool": "sby", "needs": ["sby"]}],
+    "run_hdl_test": [{"tool": "icarus", "needs": ["iverilog", "vvp"]}],
+    "run_cosim": [{"tool": "cosim", "needs": ["ngspice", "iverilog", "vvp"]}],
+    "generate_views": [{"tool": "gdsfactory", "needs": ["gdsfactory"]}],
+}
+
+_UNCOVERED_REASONS = {
+    "run_thermal": "no solver registered: run_thermal.",
+}
+
+
+def covering_decks(entrypoint, solvers=None, operations=None):
+    """Cite the covering decks for one stage entrypoint.
+
+    A scripted entrypoint cites itself (no backend needed). A tool
+    entrypoint with registered solvers cites one deck per tool with
+    its provision need, plus live readiness when an operations
+    mapping (as from `report_capabilities`) is given. An entrypoint
+    with no registered solver is an explicit uncovered marker with
+    its reason — never a silent gap.
+
+    Args:
+        entrypoint: Stage entrypoint name to cover.
+        solvers: Operation -> deck-tool cites (tool plus needs).
+            Defaults to the curated DECKS table.
+        operations: Per-operation readiness mapping as reported by
+            `report_capabilities`; None means unprobed.
+
+    Returns:
+        List of deck cites (deck, scripted, or uncovered marker).
+    """
+    table = DECKS if solvers is None else solvers
+    if entrypoint in _SCRIPTED:
+        return [{"entrypoint": entrypoint, "kind": "scripted"}]
+    cites = table.get(entrypoint)
+    if not cites:
+        return [
+            {
+                "entrypoint": entrypoint,
+                "kind": "uncovered",
+                "reason": _UNCOVERED_REASONS.get(
+                    entrypoint, f"no solver registered: {entrypoint}."
+                ),
+            }
+        ]
+    return [_deck_cite(entrypoint, cite, operations) for cite in cites]
+
+
+def _deck_cite(entrypoint, cite, operations):
+    """One deck cite with live readiness when probed.
+
+    Args:
+        entrypoint: Stage entrypoint the deck serves.
+        cite: Deck cite with tool plus provision needs.
+        operations: Per-operation readiness mapping, or None.
+
+    Returns:
+        Deck cite with readiness (ready/blocked/unprobed).
+    """
+    deck = {
+        "entrypoint": entrypoint,
+        "kind": "deck",
+        "tool": cite["tool"],
+        "needs": list(cite["needs"]),
+    }
+    if operations is None:
+        return {**deck, "readiness": "unprobed"}
+    row = operations.get(entrypoint, {})
+    readiness = row.get("readiness", "unsupported")
+    deck["readiness"] = readiness
+    if readiness != "ready":
+        deck["reason"] = row.get(
+            "reason", f"no capability report: {entrypoint}."
+        )
+        deck["missing"] = list(row.get("missing") or [entrypoint])
+        if row.get("remedy"):
+            deck["remedy"] = row["remedy"]
+    return deck
+
+
+def flow_cover(flow, solvers=None, operations=None):
+    """Cover every stage of a flow with its decks or gap markers.
+
+    Args:
+        flow: Flow inventory to cover (digital/analog/photonic/mixed).
+        solvers: Operation -> deck-tool cites; the DECKS table when
+            omitted.
+        operations: Per-operation readiness mapping; None means
+            unprobed (deck cites without live readiness).
+
+    Returns:
+        Stage list with per-stage cover cites in stage order.
+
+    Raises:
+        ValueError: Unknown flow name.
+    """
+    try:
+        stages = STAGES[flow]
+    except KeyError:
+        raise ValueError(f"Unknown flow: {flow}.") from None
+    covered = []
+    for stage in stages:
+        cover = []
+        for entrypoint in stage["entrypoints"]:
+            cover.extend(covering_decks(entrypoint, solvers, operations))
+        covered.append({**stage, "cover": cover})
+    return covered
+
+
+def render_lane(flow, solvers=None, operations=None):
+    """Render one flow lane as stage -> deck cover lines.
+
+    Args:
+        flow: Flow inventory to render (digital/analog/photonic/mixed).
+        solvers: Operation -> deck-tool cites; the DECKS table when
+            omitted.
+        operations: Per-operation readiness mapping; None means
+            unprobed.
+
+    Returns:
+        Text lane render, one line per stage.
+
+    Raises:
+        ValueError: Unknown flow name.
+    """
+    lines = []
+    for stage in flow_cover(flow, solvers, operations):
+        parts = []
+        for cite in stage["cover"]:
+            if cite["kind"] == "deck":
+                needs = ",".join(cite["needs"]) if cite["needs"] else "builtin"
+                parts.append(
+                    f"{cite['entrypoint']}/{cite['tool']}"
+                    f"[{cite['readiness']}:{needs}]"
+                )
+            elif cite["kind"] == "scripted":
+                parts.append(f"{cite['entrypoint']}[scripted]")
+            else:
+                parts.append(f"{cite['entrypoint']}[uncovered: {cite['reason']}]")
+        lines.append(f"{stage['id']} {stage['step']} :: {' + '.join(parts)}")
+    return "\n".join(lines) + "\n"
+
+
 def applicable_stages(flow, available_backends):
     """Plan a flow against installed backends.
 

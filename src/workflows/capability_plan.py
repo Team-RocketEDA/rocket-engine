@@ -9,12 +9,30 @@ ready, and a blocked stage carries which entrypoints block it plus
 their reason, missing items, and remedy.
 """
 
-from .stages import _SCRIPTED, STAGES
+from .stages import _SCRIPTED, STAGES, covering_decks
 
 _FALLBACK_REMEDY = "Provision the missing tooling (see docs/provision-plan.md)."
 
 
-def plan_from_capabilities(flow, operations):
+def _stage_decks(stage, operations, solvers):
+    """Covering deck cites for one stage's tool entrypoints.
+
+    Args:
+        stage: Stage inventory entry with entrypoints.
+        operations: Per-operation readiness mapping.
+        solvers: Operation -> deck-tool cites; None means the
+            curated DECKS table.
+
+    Returns:
+        Deck cites across the stage's tool entrypoints.
+    """
+    cites = []
+    for entrypoint in stage["entrypoints"]:
+        cites.extend(covering_decks(entrypoint, solvers, operations))
+    return cites
+
+
+def plan_from_capabilities(flow, operations, solvers=None):
     """Plan a flow against a capabilities report's operations mapping.
 
     Scripted entrypoints need no backend. A stage whose tool
@@ -22,18 +40,23 @@ def plan_from_capabilities(flow, operations):
     stays required-but-blocked (never silently dropped) and names
     the blocking entrypoints with their report reason, missing
     items, and remedy. Entrypoints with no report row block loudly
-    with a no-report reason instead of a tool-blind ready.
+    with a no-report reason instead of a tool-blind ready. Every
+    stage also cites its covering decks (WORKFLOW-COVERAGE, ADR-007)
+    so blockers resolve to a deck, a probe-gated deck, or a named
+    gap — the completion report reads the same cites per blocker.
 
     Args:
         flow: Flow inventory to plan (digital/analog/photonic/mixed).
         operations: Per-operation readiness mapping as reported by
             `report_capabilities` (operation -> readiness plus
             reason/missing/remedy detail).
+        solvers: Operation -> deck-tool cites (tool plus needs).
+            Defaults to the curated DECKS table.
 
     Returns:
-        Stage list with per-stage readiness (ready/blocked);
-            blocked stages also carry blocked_by, reason, missing,
-            and remedy keys.
+        Stage list with per-stage readiness (ready/blocked) plus
+            deck cites; blocked stages also carry blocked_by,
+            reason, missing, and remedy keys.
 
     Raises:
         ValueError: Unknown flow name.
@@ -45,12 +68,13 @@ def plan_from_capabilities(flow, operations):
     planned = []
     for stage in stages:
         needed = [e for e in stage["entrypoints"] if e not in _SCRIPTED]
+        decks = _stage_decks(stage, operations, solvers)
         blocking = [
             e for e in needed
             if operations.get(e, {}).get("readiness") != "ready"
         ]
         if not blocking:
-            planned.append({**stage, "readiness": "ready"})
+            planned.append({**stage, "readiness": "ready", "decks": decks})
             continue
         reasons, missing, remedies = [], [], []
         for entry in blocking:
@@ -73,5 +97,6 @@ def plan_from_capabilities(flow, operations):
             "reason": "; ".join(reasons),
             "missing": sorted(set(missing)),
             "remedy": " ".join(remedies) if remedies else _FALLBACK_REMEDY,
+            "decks": decks,
         })
     return planned
