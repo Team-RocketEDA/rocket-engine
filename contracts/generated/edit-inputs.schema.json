@@ -1,0 +1,1374 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:derived:edit-inputs",
+  "$defs": {
+    "EditEntityData": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditComponentData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditInstanceData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditPortData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditSheetData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditSymbolData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditCellData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditPinData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditPinMapData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditNetData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditWireData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditJunctionData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditShapeData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditLayerData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditSourceData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditScriptData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditTestbenchData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditAnnotationData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditProjectData"
+        }
+      ],
+      "x-derived-from": "#/$defs/EntityData"
+    },
+    "EditComponentData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "component"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "component_type": {
+          "type": "string",
+          "enum": [
+            "assembly",
+            "primitive",
+            "spice_block",
+            "gdsf_component",
+            "hdl_component"
+          ]
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "analog",
+              "digital",
+              "photonic",
+              "thermal"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+          },
+          "uniqueItems": true
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Parameter"
+          }
+        },
+        "models": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditModels"
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditSourceView"
+          }
+        },
+        "symbol": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "schematic": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "layout": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "pdk": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "hdl_language": {
+          "type": "string",
+          "enum": [
+            "inherit"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "component_type",
+        "domains",
+        "ports",
+        "models",
+        "views"
+      ],
+      "description": "Creation presets share one component identity. Exactly one authoring owner per view; generator and manual layout are explicit variants, never competing writers.",
+      "x-derived-from": "#/$defs/ComponentData"
+    },
+    "EditModels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "spice": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditSpiceModel"
+        },
+        "other": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditSourceView"
+          }
+        }
+      },
+      "required": [
+        "spice"
+      ],
+      "description": "Every circuit component has the SPICE slot; availability is honest. Optical-only, abstract and unelaborated blocks need no invented electrical model.",
+      "x-derived-from": "#/$defs/Models"
+    },
+    "EditSpiceModel": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "provided"
+            },
+            "source": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+            },
+            "view": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dialect": {
+              "type": "string",
+              "enum": [
+                "spice",
+                "ngspice",
+                "xyce",
+                "cdl"
+              ]
+            },
+            "entry": {
+              "type": "string",
+              "minLength": 1
+            },
+            "terminal_order": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+              },
+              "uniqueItems": true
+            },
+            "port_map": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/EditPortMapEntry"
+              }
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+              }
+            },
+            "provenance": {
+              "type": "string",
+              "enum": [
+                "authored",
+                "pdk_reference",
+                "mapped_netlist",
+                "extracted"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "source",
+            "dialect",
+            "entry",
+            "terminal_order",
+            "port_map",
+            "provenance"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "derivable"
+            },
+            "task": {
+              "type": "string",
+              "minLength": 1
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+              }
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "state",
+            "task",
+            "inputs",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "unavailable",
+                "not_applicable"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "state",
+            "reason"
+          ]
+        }
+      ],
+      "x-derived-from": "#/$defs/SpiceModel"
+    },
+    "EditPortMapEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "native_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "native_index": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "port_id",
+        "native_name"
+      ],
+      "x-derived-from": "#/$defs/PortMapEntry"
+    },
+    "EditSourceView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "implementation",
+            "behavioral_model",
+            "layout_generator",
+            "schematic",
+            "layout",
+            "testbench",
+            "properties",
+            "timing",
+            "abstract",
+            "extracted",
+            "documentation"
+          ]
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+          },
+          "minItems": 1
+        },
+        "entry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "port_map": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditPortMapEntry"
+          }
+        },
+        "default_for": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "authored",
+            "generator",
+            "native_source",
+            "model_reference",
+            "derived"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "format",
+        "sources",
+        "authority"
+      ],
+      "description": "format must resolve a registered schema/capability. Multiple source files are one source set; output generated HDL does not change authoring language.",
+      "x-derived-from": "#/$defs/SourceView"
+    },
+    "EditInstanceData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "instance"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "definition": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Scalar"
+          }
+        },
+        "schematic_transform": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Transform"
+        },
+        "layout_transform": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Transform"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "parent",
+        "definition"
+      ],
+      "x-derived-from": "#/$defs/InstanceData"
+    },
+    "EditPortData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "port"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "electrical",
+            "optical",
+            "thermal"
+          ]
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "input",
+            "output",
+            "inout",
+            "passive"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "signal",
+            "power",
+            "ground",
+            "clock",
+            "thermal",
+            "optical"
+          ]
+        },
+        "width": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PortWidth"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "domain",
+        "direction",
+        "width"
+      ],
+      "description": "Declared stable interface port. Parameter/expression widths are resolved by a qualified elaborator, never arbitrary eval or query-time project execution.",
+      "x-derived-from": "#/$defs/PortData"
+    },
+    "EditSheetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "sheet"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "mm"
+          ]
+        },
+        "grid": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "unit",
+        "grid"
+      ],
+      "x-derived-from": "#/$defs/SheetData"
+    },
+    "EditSymbolData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "symbol"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "mm"
+          ]
+        },
+        "grid": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "unit",
+        "grid"
+      ],
+      "x-derived-from": "#/$defs/SymbolData"
+    },
+    "EditCellData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "cell"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "um",
+            "nm"
+          ]
+        },
+        "grid": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "technology": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+          }
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "generator",
+            "native_source"
+          ]
+        },
+        "source_view": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "unit",
+        "grid",
+        "technology",
+        "authority"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "authority": {
+                "enum": [
+                  "generator",
+                  "native_source"
+                ]
+              }
+            },
+            "required": [
+              "authority"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_view"
+            ]
+          }
+        }
+      ],
+      "x-derived-from": "#/$defs/CellData"
+    },
+    "EditPinData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "pin"
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "view": {
+          "type": "string",
+          "enum": [
+            "symbol",
+            "layout"
+          ]
+        },
+        "position": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+        },
+        "orientation_deg": {
+          "type": "number"
+        },
+        "layer": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "shape": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "port_id",
+        "view",
+        "position"
+      ],
+      "x-derived-from": "#/$defs/PinData"
+    },
+    "EditPinMapData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "pin_map"
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "symbol_pin": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "physical_pins": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+          },
+          "minItems": 1
+        },
+        "native_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "port_id",
+        "symbol_pin",
+        "physical_pins"
+      ],
+      "x-derived-from": "#/$defs/PinMapData"
+    },
+    "EditNetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "net"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "electrical",
+            "optical",
+            "thermal"
+          ]
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditEndpoint"
+          }
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "domain",
+        "endpoints",
+        "width"
+      ],
+      "x-derived-from": "#/$defs/NetData"
+    },
+    "EditEndpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instance_path": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+          }
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "instance_path",
+        "port_id"
+      ],
+      "description": "Instance path relative to owning net/sheet parent. Canonical port identity plus explicit bit selection; no geometric contact inference or implicit parent traversal.",
+      "x-derived-from": "#/$defs/Endpoint"
+    },
+    "EditWireData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "wire"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "net": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+          },
+          "minItems": 2
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "net",
+        "points"
+      ],
+      "x-derived-from": "#/$defs/WireData"
+    },
+    "EditJunctionData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "junction"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "net": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "point": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "net",
+        "point"
+      ],
+      "x-derived-from": "#/$defs/JunctionData"
+    },
+    "EditShapeData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "shape"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "layer": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "geometry": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ShapeGeometry"
+        },
+        "net": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "layer",
+        "geometry"
+      ],
+      "description": "Physical geometry belongs to a cell; it is not automatically a separate circuit component.",
+      "x-derived-from": "#/$defs/ShapeData"
+    },
+    "EditLayerData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "layer"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "technology": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "material",
+            "contact",
+            "routing",
+            "implant",
+            "well",
+            "annotation",
+            "derived"
+          ]
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "output_layer": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_datatype": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "technology",
+        "role"
+      ],
+      "x-derived-from": "#/$defs/LayerData"
+    },
+    "EditSourceData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "source"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "implementation",
+            "testbench",
+            "generator",
+            "model",
+            "properties",
+            "documentation",
+            "configuration"
+          ]
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "path",
+        "format",
+        "role"
+      ],
+      "description": "Project-contained source bytes are saved through write_source, never executed by reading/cataloging.",
+      "x-derived-from": "#/$defs/SourceData"
+    },
+    "EditScriptData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "script"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "entry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "source",
+        "profile"
+      ],
+      "x-derived-from": "#/$defs/ScriptData"
+    },
+    "EditTestbenchData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "testbench"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "bench_type": {
+          "type": "string",
+          "enum": [
+            "spice",
+            "hdl",
+            "cocotb"
+          ]
+        },
+        "target": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditBenchTarget"
+        },
+        "additional_targets": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditBenchTarget"
+          }
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "template": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "interface_digest": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "template_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "analysis": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/SpiceAnalysis"
+        },
+        "hdl_language": {
+          "const": "inherit"
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditBenchProbe"
+          }
+        },
+        "schematic_transform": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Transform"
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditHarnessBinding"
+          }
+        },
+        "binding_state": {
+          "type": "string",
+          "enum": [
+            "resolved",
+            "stale",
+            "missing"
+          ]
+        },
+        "generated_from": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "template": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+            },
+            "target_interface_hash": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+            },
+            "source_hash": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+            }
+          },
+          "required": [
+            "template",
+            "target_interface_hash",
+            "source_hash"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "parent",
+        "bench_type",
+        "target"
+      ],
+      "description": "Creating without source generates a persisted editable template from placement, target interface and bench_type. Regeneration is explicit into a new source asset. Benches are harness objects excluded from manufactured circuit. Template provenance is retained for generated sources; target/interface changes mark binding stale and block execution. Production targets cannot overlap; harness wiring is explicit.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "bench_type": {
+                "const": "spice"
+              }
+            },
+            "required": [
+              "bench_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "analysis"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "bench_type": {
+                "const": "hdl"
+              }
+            },
+            "required": [
+              "bench_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "hdl_language"
+            ]
+          }
+        }
+      ],
+      "x-derived-from": "#/$defs/TestbenchData"
+    },
+    "EditBenchTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sibling": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "descendants": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+          }
+        }
+      },
+      "required": [
+        "sibling",
+        "descendants"
+      ],
+      "description": "Resolved relative to bench parent occurrence. First ID is a sibling circuit instance; remaining IDs descend inside it. No self, parent, ancestor, unrelated scope or annotation.",
+      "x-derived-from": "#/$defs/BenchTarget"
+    },
+    "EditBenchProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "descendants": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+          }
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "target",
+        "descendants",
+        "port_id"
+      ],
+      "description": "Target index 0 is primary, 1..N are declared additional targets. Descendants resolve only within selected DUT subtree; probes never add duplicate DUT instances.",
+      "x-derived-from": "#/$defs/BenchProbe"
+    },
+    "EditHarnessBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "signal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "target",
+        "port_id",
+        "signal"
+      ],
+      "description": "Explicit generated/editable harness terminal or signal to canonical target port binding, including extra DUTs; excluded from production netlist.",
+      "x-derived-from": "#/$defs/HarnessBinding"
+    },
+    "EditAnnotationData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "annotation"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "annotation_type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "line",
+            "polyline",
+            "arrow",
+            "image",
+            "plot",
+            "measurement",
+            "rectangle",
+            "ellipse"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+          }
+        },
+        "text": {
+          "type": "string"
+        },
+        "artifact": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "type": "string",
+              "minLength": 1
+            },
+            "width": {
+              "type": "number"
+            },
+            "font_size": {
+              "type": "number"
+            },
+            "fill": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": []
+        },
+        "plot": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+            },
+            "signals": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "x_axis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "y_axis": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": []
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "annotation_type"
+      ],
+      "description": "Graphical-only: excluded from netlisting, ERC and fabricated circuit; plot links evidence without adding a device.",
+      "x-derived-from": "#/$defs/AnnotationData"
+    },
+    "EditProjectData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "project"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "top": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditId"
+        },
+        "config_path": {
+          "const": "canvas.toml"
+        },
+        "template": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EditRef"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "config_path"
+      ],
+      "description": "location is resolved by engine-managed/explicitly linked project policy; no path can escape its granted root.",
+      "x-derived-from": "#/$defs/ProjectData"
+    }
+  }
+}

@@ -1,0 +1,60 @@
+# PDK-SKY130A lane profile: SkyWater sky130 via the open_pdks tree.
+# Shape follows the PDK-PROFILE direction lock: {gdsfactory package
+# pin, KLayout tech, decks (PDK-supplied or user-supplied), models}.
+# This lane is the TREE distribution (open_pdks sky130A sources):
+# DRC/LVS/extract/sim authority lives here. The gdsfactory pip
+# repack is the separate sky130gf lane (layout-cells scope only);
+# runs pin the distribution so the two never mix (see the sky130gf
+# profile decision).
+schema: rocketeda/pdk-profile/v0.1
+id: sky130A
+label: SkyWater sky130A via the open_pdks tree
+upstream: https://github.com/efabless/volare (source builds) or
+  https://github.com/google/skywater-pdk (raw sources)
+license: Apache-2.0
+package: null
+pins:
+  open_pdks_demo: 5f09001e4b975ba5d27d99a10ecdf45054a9bd5
+variants:
+  sky130A:
+    module: null
+    pdk_name: sky130A
+    process: SkyWater 130nm CMOS (open_pdks sky130A tree)
+    status: proven
+    tech:
+      klayout_dir: libs.tech/klayout
+      drc_deck: libs.tech/klayout/drc/sky130A.lydrc
+      magic_tech: libs.tech/magic/sky130A.tech
+      netgen_setup: libs.tech/netgen/sky130A_setup.tcl
+      tech_name: sky130A
+    drc:
+      deck: libs.tech/klayout/drc/sky130A.lydrc
+      deck_status: proven
+    models:
+      path: libs.tech/combined/sky130.lib.spice
+      status: proven
+    libraries:
+      note: open_pdks sky130_fd_pr + sky130_fd_sc_hd primitives
+source_default: ~/.local/share/pdk/sky130A
+sim:
+  model_rel: libs.tech/combined/sky130.lib.spice
+  model_authority: >-
+    Verified against the .lib sections of
+    libs.tech/combined/sky130.lib.spice (see the vendored
+    sky130-bandgap sim/pdk.json process_corners note).
+  corners: [tt, ss, ff, sf, fs]
+  corners_note: >-
+    Device corners; ll/hh are resistor/capacitor-only skew corners
+    riding on the nominal tt MOS/BJT corner (same pdk.json note).
+  spiceinit_extra:
+    - "set skywaterpdk        ; skip some checks for faster lib loading"
+  spiceinit_authority: >-
+    Mirrors the vendored sky130-bandgap sim/spiceinit (derived from
+    the PDK's own libs.tech/ngspice/spinit); base lines live in
+    rocket_engine.adapters.profile.
+proofs:
+  sim:
+    note: ngspice adapter proofs (tests/adapters/test_ngspice.py)
+      stage the profile model_rel + spiceinit against a tiny
+      registered sky130a store entry; live PDK sims stay owned by
+      NGSPICE-LIVE (needs ngspice on PATH).

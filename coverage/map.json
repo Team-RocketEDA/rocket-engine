@@ -1,0 +1,400 @@
+{
+ "cells": [
+  {
+   "cell": "cov-d04-syntax",
+   "expect": {
+    "bad": {
+     "total": 1,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/adapters/fixtures/syntax/counter_broken.v"
+    ],
+    "good": [
+     "tests/adapters/fixtures/syntax/counter.v"
+    ]
+   },
+   "lane": "digital",
+   "mode": "slang --lint-only -Wextra",
+   "native": {
+    "bad": {
+     "exit_code": 1,
+     "stderr": "",
+     "stdout": "counter_broken.v:3:5: error: use of undeclared identifier 'foo' [-Wfoo]\nBuild failed: 1 error, 0 warnings\n"
+    },
+    "good": {
+     "exit_code": 0,
+     "stderr": "",
+     "stdout": "Build succeeded: 0 errors, 0 warnings\n"
+    }
+   },
+   "op": "run_syntax",
+   "pdk": "generic",
+   "stage": "D04",
+   "tool": "slang"
+  },
+  {
+   "cell": "cov-d08-formal",
+   "expect": {
+    "bad": {
+     "total": 1,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/adapters/fixtures/formal/counter_bad.v"
+    ],
+    "good": [
+     "tests/adapters/fixtures/formal/counter.v"
+    ]
+   },
+   "lane": "digital",
+   "mode": "sby bmc depth 20",
+   "native": {
+    "bad": {
+     "depth": 20,
+     "exit_code": 2,
+     "mode": "bmc",
+     "sources": [
+      "tests/adapters/fixtures/formal/counter_bad.v"
+     ],
+     "stderr": "",
+     "stdout": "summary: failed assertion assert_p at counter.v:12.3 step 5\nsummary: counterexample trace [cex_0]: formal/counter/engine_0/trace.vcd\nDONE (FAIL, rc=2)\n",
+     "timed_out": false,
+     "top": "counter"
+    },
+    "good": {
+     "depth": 20,
+     "exit_code": 0,
+     "mode": "bmc",
+     "sources": [
+      "tests/adapters/fixtures/formal/counter.v"
+     ],
+     "stderr": "",
+     "stdout": "SBY v0.70 (canned transcription; real run per docs/tool-outputs/sby-0.70.md).\nsummary: engine_0 (smtbmc boolector) returned pass for assert_p\nDONE (PASS, rc=0)\n",
+     "timed_out": false,
+     "top": "counter"
+    }
+   },
+   "op": "run_formal",
+   "pdk": "generic",
+   "stage": "D08",
+   "tool": "sby"
+  },
+  {
+   "cell": "cov-d25-drc-magic",
+   "expect": {
+    "bad": {
+     "total": 2,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/adapters/fixtures/drc/bad_spacing.mag"
+    ],
+    "good": [
+     "tests/adapters/fixtures/drc/good.mag"
+    ]
+   },
+   "lane": "digital",
+   "mode": "batch .mag cell, scmos tech",
+   "native": {
+    "bad": {
+     "exit_code": 0,
+     "stderr": "",
+     "stdout": "Total DRC errors found: 2\nError area #1:\nm1.1: minimum width 0.14um, width 0.10um\n-5 -5 15 10\nError area #2:\nm1.2: minimum spacing 0.14um\n0 0 3 4\n"
+    },
+    "good": {
+     "exit_code": 0,
+     "stderr": "",
+     "stdout": "Magic version 8.3.685 (canned transcription; real run per docs/tool-outputs/magic-8.3.685.md).\nUsing technology \"scmos\", version 8.2.8\nTotal DRC errors found: 0\n"
+    }
+   },
+   "op": "run_drc",
+   "pdk": "sky130A",
+   "stage": "D25",
+   "tool": "magic"
+  },
+  {
+   "cell": "cov-d25-drc-klayout",
+   "expect": {
+    "bad": {
+     "total": 2,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/adapters/fixtures/drc_kl/bad_space.gds"
+    ],
+    "good": [
+     "tests/adapters/fixtures/drc_kl/good.gds"
+    ]
+   },
+   "lane": "digital",
+   "mode": "synthetic width/space check",
+   "native": {
+    "bad": {
+     "exit_code": 0,
+     "stderr": "",
+     "stdout": "VIOL rule=L1_0_width bbox_um=0.0,0.0,0.5,0.1\nVIOL rule=L1_0_space bbox_um=1.0,0.0,1.2,0.1\nTOTAL 2\n"
+    },
+    "good": {
+     "exit_code": 0,
+     "stderr": "",
+     "stdout": "TOTAL 0\n"
+    }
+   },
+   "op": "run_drc",
+   "pdk": "sky130A",
+   "stage": "D25",
+   "tool": "klayout"
+  },
+  {
+   "cell": "cov-d26-lvs",
+   "expect": {
+    "bad": {
+     "total": 3,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/mutate/fixtures/lvs_inv/layout.spice",
+     "tests/mutate/fixtures/lvs_inv/schematic.spice"
+    ],
+    "good": [
+     "tests/mutate/fixtures/lvs_inv/layout.spice",
+     "tests/mutate/fixtures/lvs_inv/schematic.spice"
+    ]
+   },
+   "lane": "digital",
+   "mode": "batch lvs TOP-level compare",
+   "mutation": "net-swap of layout.spice (transcribed in native.bad)",
+   "native": {
+    "bad": {
+     "exit_code": 0,
+     "report_text": "Netlists do not match.\n*** MISMATCH ***\nNet: vdd\n(no matching net)\nDEVICE mismatches:\nInstance: X1\n",
+     "stdout": ""
+    },
+    "good": {
+     "exit_code": 0,
+     "report_text": "Netgen 1.5.316 LVS report (canned transcription; real run per docs/tool-outputs/netgen-1.5.316.md).\nCircuits match uniquely.\n",
+     "stdout": ""
+    }
+   },
+   "op": "run_lvs",
+   "pdk": "sky130A",
+   "stage": "D26",
+   "tool": "netgen"
+  },
+  {
+   "cell": "cov-a04-connectivity",
+   "expect": {
+    "bad": {
+     "total": 1,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/workflows/fixtures/connect_graph_demo.json"
+    ],
+    "good": [
+     "tests/workflows/fixtures/connect_graph_demo.json"
+    ]
+   },
+   "lane": "analog",
+   "mode": "graph extract plus netlist emit",
+   "mutation": "shorted-net variant of the demo schematic (transcribed in native.bad)",
+   "native": {
+    "bad": {
+     "exit_code": 0,
+     "findings": [
+      {
+       "message": "nets a and b are shorted",
+       "net": "a",
+       "net_id": 0,
+       "rule": "short",
+       "severity": "error"
+      }
+     ]
+    },
+    "good": {
+     "exit_code": 0,
+     "findings": []
+    }
+   },
+   "op": "run_connectivity",
+   "pdk": "generic",
+   "stage": "A04",
+   "tool": "connectgraph"
+  },
+  {
+   "cell": "cov-a04-erc",
+   "expect": {
+    "bad": {
+     "total": 1,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/workflows/fixtures/connect_graph_demo.json"
+    ],
+    "good": [
+     "tests/workflows/fixtures/connect_graph_demo.json"
+    ]
+   },
+   "lane": "analog",
+   "mode": "electrical-rule judging over the same graph",
+   "mutation": "unconnected-pin variant of the demo schematic (transcribed in native.bad)",
+   "native": {
+    "bad": {
+     "exit_code": 0,
+     "findings": [
+      {
+       "message": "pin U1:1 is unconnected",
+       "net": "U1:1",
+       "rule": "unconnected_pin",
+       "severity": "error"
+      }
+     ]
+    },
+    "good": {
+     "exit_code": 0,
+     "findings": []
+    }
+   },
+   "op": "run_erc",
+   "pdk": "generic",
+   "stage": "A04",
+   "tool": "connectgraph"
+  },
+  {
+   "cell": "cov-p14-drc-klayout",
+   "expect": {
+    "bad": {
+     "total": 2,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/adapters/fixtures/drc_kl/bad_width.gds"
+    ],
+    "good": [
+     "tests/adapters/fixtures/drc_kl/good.gds"
+    ]
+   },
+   "lane": "photonic",
+   "mode": "synthetic width/space over the waveguide layer",
+   "native": {
+    "bad": {
+     "exit_code": 0,
+     "stderr": "",
+     "stdout": "VIOL rule=WG_0_width bbox_um=0.0,0.0,0.5,0.1\nVIOL rule=WG_0_space bbox_um=1.0,0.0,1.2,0.1\nTOTAL 2\n"
+    },
+    "good": {
+     "exit_code": 0,
+     "stderr": "",
+     "stdout": "TOTAL 0\n"
+    }
+   },
+   "op": "run_drc",
+   "pdk": "generic",
+   "stage": "P14",
+   "tool": "klayout"
+  },
+  {
+   "cell": "cov-m09-erc",
+   "expect": {
+    "bad": {
+     "total": 1,
+     "verdict": "fail"
+    },
+    "good": {
+     "total": 0,
+     "verdict": "pass"
+    }
+   },
+   "fixtures": {
+    "bad": [
+     "tests/workflows/fixtures/connect_graph_demo.json"
+    ],
+    "good": [
+     "tests/workflows/fixtures/connect_graph_demo.json"
+    ]
+   },
+   "lane": "mixed",
+   "mode": "top-level electrical-rule judging",
+   "mutation": "unconnected-pin variant of the demo schematic (transcribed in native.bad)",
+   "native": {
+    "bad": {
+     "exit_code": 0,
+     "findings": [
+      {
+       "message": "pin U1:1 is unconnected",
+       "net": "U1:1",
+       "rule": "unconnected_pin",
+       "severity": "error"
+      }
+     ]
+    },
+    "good": {
+     "exit_code": 0,
+     "findings": []
+    }
+   },
+   "op": "run_erc",
+   "pdk": "generic",
+   "stage": "M09",
+   "tool": "connectgraph"
+  }
+ ],
+ "fingerprinted": [
+  "src/workflows/stages.py",
+  "src/workflows/capability_plan.py",
+  "contracts/v1/catalog/tasks.json",
+  "contracts/v1/catalog/tools.json"
+ ],
+ "fingerprint": "cda9258f8a3c9c346d6521c699184ec67cc64f14ce2c0b3645209b0a9fa8a482",
+ "scope": "wave-1 checks: magic, klayout, netgen, slang, connectgraph, sby. Deck lanes (librelane, xschem, ngspice, yosys, icarus, gdsfactory) land with their waves. PDK-scoped cells use provisioned decks; generic cells are PDK-independent (lint, proof, graph, synthetic checks).",
+ "version": 1
+}

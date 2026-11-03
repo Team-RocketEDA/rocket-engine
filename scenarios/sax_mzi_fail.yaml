@@ -1,0 +1,7 @@
+name: sax mzi fail on geometry mutant
+engine: {project_id: photonic_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-sax-2, operation: run_optical, target: mzi_balanced}
+  - run_live: {backend: sax_mzi, mutation: {operator: photonic_geometry_mistune, seed: 0}}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

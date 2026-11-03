@@ -1,9 +1,12 @@
 schema: rocketeda/v0.1
 kind: component
-base: &base
-  id: heater_arm
-id: merged_arm
-<<: *base
+id: &arm merged_arm
 revision: "r1"
 scope: project
-description: Fixture with anchors, aliases, and a merge key (must be rejected).
+description: *arm
+parameters:
+  defaults: &defaults
+    width: 1
+  variant:
+    <<: *defaults
+    extra: 2

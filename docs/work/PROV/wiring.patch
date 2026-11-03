@@ -1,0 +1,89 @@
+--- a/scripts/install.sh
++++ b/scripts/install.sh
+@@ -2,12 +2,14 @@
+ # DEMO-PATH slice: provision the engine's locked Python env + register the
+ # demo PDK + probe batch-tool capabilities.
+ #
+-# STATUS (2026-10-30): venv bootstrap, locked sync, sealed package
+-# install, engine import check, PDK register, and the tool-capability
+-# probe below are real and runnable (proven on the demo machine; see
+-# docs/demo-runbook.md). Pinned tool
+-# installs (oss-cad-suite tarball, apt pins, source builds) are NOT here
+-# yet: they stay B10-owned, with `tests/installed/` asserting pins.
++# STATUS (2026-10-31): venv bootstrap, locked sync, sealed package
++# install, engine import check, PDK register, the tool-capability
++# probe, and the PROV phase-1 toolchain provisioner below are real
++# and runnable (see docs/demo-runbook.md and docs/work/PROV/report.md).
++# The phase-1 slice (oss-cad-suite pin assert, LibreLane supported
++# distribution, OpenSTA build) lives in scripts/provision_toolchain.sh
++# with `tests/installed/` asserting pins; the rest of the matrix is
++# PROV phase 2 (out of scope here).
+ #
+ # Usage:
+ #   scripts/install.sh --check-only   # probe only: versions + matrix, no writes
+@@ -142,6 +144,16 @@
+ probe yosys yosys -V
+ probe ghdl ghdl --version
+ probe sby sby --version
++probe librelane librelane --version
++probe sta sta -version
+ probe ngspice ngspice --version
+ probe netgen netgen -batch
+-echo "pins: B10-owned (tests/installed asserts them when B10 lands)."
++echo "pins: PROV phase 1 (scripts/provision_toolchain.sh + tests/installed)."
++echo "==> toolchain provision (PROV phase 1; loud verdict, never blocks venv/PDK)"
++if [ "$MODE" = "--check-only" ]; then
++    bash "$ROOT/scripts/provision_toolchain.sh" --check-only || true
++else
++    bash "$ROOT/scripts/provision_toolchain.sh" --install || {
++        echo "next: toolchain degraded (see REMEDY lines above); venv + PDK still usable"
++    }
++fi
+--- a/src/interfaces/setup_catalogue.yaml
++++ b/src/interfaces/setup_catalogue.yaml
+@@ -4,6 +4,8 @@
+ # docs/provision-plan.md (PROV seed), scripts/install.sh modes
+ # (B10/DEMO-PATH), or the owning ticket — never a bare "install X".
+ # Load with rocket_engine.interfaces.setup.load_catalogue.
++# GTKWave is EXCLUDED from engine provisioning by the headless rule
++# (display-side, RocketIDE concern) — recorded, never installed.
+ catalogue_version: 1
+ entries:
+   - id: digital-bundle
+@@ -11,11 +13,31 @@
+     label: Digital bundle (oss-cad-suite)
+     binaries: [iverilog, vvp, verilator, slang, yosys, ghdl, sby]
+     remedy: >-
+-      Install the pinned oss-cad-suite bundle (iverilog, vvp,
+-      verilator, slang, yosys, ghdl, sby; see
+-      docs/provision-plan.md); the scenario gate needs dev-PATH
+-      with oss-cad-suite (see scenarios/README.md).
+-    recipe: "docs/provision-plan.md: pinned oss-cad-suite tarball (B10)."
++      Install the pinned oss-cad-suite bundle 20261025 (iverilog, vvp,
++      verilator, slang, yosys, ghdl, sby; run
++      scripts/provision_toolchain.sh --install); the scenario gate needs
++      dev-PATH with oss-cad-suite (see scenarios/README.md).
++    recipe: "scripts/provision_toolchain.sh: pinned tarball 20261025 + asserts (PROV phase 1)."
++  - id: librelane
++    kind: tool
++    label: LibreLane (RTL-to-GDS flow)
++    binaries: [librelane]
++    remedy: >-
++      Install the LibreLane 3.0.17 supported distribution (run
++      scripts/provision_toolchain.sh --install for the pinned AppImage
++      per the upstream install docs); inside a nix-shell env, `librelane
++      --version` must report 3.0.17.
++    recipe: "scripts/provision_toolchain.sh (PROV phase 1; upstream AppImage/Nix install docs)."
++  - id: opensta
++    kind: tool
++    label: OpenSTA (static timing)
++    binaries: [sta]
++    remedy: >-
++      Install the pinned OpenSTA build 857316f (run
++      scripts/provision_toolchain.sh --install for the CMake source
++      build per the upstream README); `sta` lands in
++      ~/tools/opensta-857316f/bin.
++    recipe: "scripts/provision_toolchain.sh (PROV phase 1; upstream OpenSTA README source build)."
+   - id: ngspice
+     kind: tool
+     label: ngspice (SPICE)

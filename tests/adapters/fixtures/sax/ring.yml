@@ -1,0 +1,16 @@
+# All-pass ring reference: one 50/50 ideal coupler, 100 um lossless loop.
+# Verified against sax 0.18.2: in0 -> through is 1.0 (0 dB) at 1550 nm
+# (lossless all-pass transmits unity; exercises sax feedback loops).
+circuit: ring-allpass
+instances:
+  c: {component: coupler_ideal, settings: {coupling: 0.5}}
+  loop: {component: straight, settings: {length: 100.0}}
+connections:
+  c,out1: loop,in0
+  loop,out0: c,in1
+ports:
+  in0: c,in0
+  through: c,out0
+sweep: {start_nm: 1540.0, stop_nm: 1560.0, points: 3}
+targets:
+  - {from: in0, to: through, at_nm: 1550.0, min_db: -0.01}

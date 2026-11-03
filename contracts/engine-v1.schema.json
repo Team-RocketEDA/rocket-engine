@@ -1,0 +1,960 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1",
+  "title": "RocketEDA Engine v1 design contract",
+  "description": "Canonical Engine v1 schema bundle entrypoint. Resolve only the explicit repository-local modules in x-schema-modules through the offline allowlisted registry. Generated expanded schema is consumer output, never a second source.",
+  "version": "1.0.0",
+  "x-status": "design-frozen-runtime-migration-pending",
+  "x-owner": "RocketEDA engine maintainer; user approves semantic freeze",
+  "x-consumers": [
+    "UIUX/RocketIDE",
+    "rocket-fuel/MCP",
+    "stdio/HTTP clients",
+    "managed project Python"
+  ],
+  "$ref": "#/$defs/Request",
+  "x-invariants": {
+    "runtime": "Exactly one EngineRuntime owns projects, admission, scheduling, coalescing, evidence and events; adapters never construct an alternate Engine.",
+    "idempotency": "Request ID binds canonical payload+trusted scope. Changed payload conflicts. Durable admitted/committed outcomes persist; retryable preadmission and awaiting_authorization are not terminal cached outcomes and can progress with the same ID. Trusted approval is associated to original scope/request/closure.",
+    "admission": "Durably freeze accepted input closure before RunReceipt; dispatch immediately with capacity/dependencies. FIFO is burst/recovery durability, not polling or mandatory run_job.",
+    "recovery": "No automatic solver/script reexecution after restart; report survivors; explicit resume/discard. Poisoned content key requires distinct quarantine override.",
+    "cas": "Per-entity CAS on all touched/read dependency entities; global project revision advances once per design transaction, identifies snapshots and event position.",
+    "I28": "Pin full consumed closure including canvas.toml, references, target, code, views, canonical ports/maps, bench target/interface/template inputs, layers/technology, PDK/models/decks, profiles/tools/versions, seeds and resolved config. Reproduce verdict/findings/measurements; native bytes may differ. Testbench interface staleness and exact authored/generator owner mappings are included.",
+    "bench_scope": "At parent occurrence P, target path must equal P+[circuit sibling]+descendants. Stable-ID paths, explicit targets, no self/ancestor/unrelated scope, no duplicate DUT subtrees.",
+    "spice": "Every circuit component has models.spice with explicit state/provenance; annotations/bench harnesses are not fabricated circuit components; missing or inapplicable models are never invented.",
+    "language": "canvas.toml hdl.language selects authored HDL; changing it requires explicit source migration. Generated backend HDL does not count as a second authored dialect.",
+    "scripting": "Full installed APIs in isolated workers; native scratch mutations publish through managed checkpoints. Explicit edits commit independently; exceptions do not undo earlier commits. Save/describe/query never execute code.",
+    "controls": "Discovery/reads/watch/cancel remain responsive under heavy-job saturation; short editor writer lane does not wait for a solver. Accepted jobs never silently drop.",
+    "qualification": "Declared task/tool registration is not installation, qualification or target readiness. Missing models/decks/language compilers produce typed reasons; process exit0 is not PASS.",
+    "references": "Editable project source/view links may follow WorkingRef identity; external library/PDK/package references pin revisions. Run resolution freezes all to PinnedRef. LocalRef is edit-only and resolved before durable commit.",
+    "coalescing": "Only in-flight tasks declared snapshot/artifacts-only coalesce. Hit attaches request identity without consuming a new job slot even at saturation. Shared-run cancel affects all attached callers. Edits and scripts never coalesce.",
+    "cancellation": "Cancellation request is attributed and durable before worker termination; parent workflow cancel propagates unfinished descendants, child cancel does not cancel independent siblings, dependents become skipped with gate reason. One truthful terminal state.",
+    "bench_template": "Creating a bench with no source creates a saved editable template plus explicit canonical port/harness bindings, resolved interface hash and template provenance. Regeneration creates a new source/diff; never overwrite edits. Placement selects scope, never infers DUT from x/y distance.",
+    "working_source": "write_source saves new source revision; WorkingRef consumers resolve the saved head on the next snapshot. Pinned source consumers deliberately stay fixed and are shown as pinned in UI.",
+    "empty_null": "Unknown optional field is absent; null appears only where schema permits, including unknown catalog port width and initial watch cursor. Empty collections are [], never null.",
+    "configuration": "canvas.toml inline registered tool options are allowed; same option in inline and delegated config is an error. Default -> project -> explicit run override resolution is recorded with source provenance; required missing defaults fail."
+  },
+  "x-compatibility": {
+    "current_api": "v0 generated docs and handlers remain current provider behavior until migration; v1 design frozen separately",
+    "breaking_changes": "Change version and migrate all consumers; no implicit field repurposing",
+    "canvas": "New file canvas.toml. Explicit atomic migration from canvas.cst; reject conflicting active copies, preserve old I28 snapshots unmodified.",
+    "authority": "This artifact owns v1 boundary shapes. Docstrings explain implementations and must conform; old ADR003 generation continues for v0 only."
+  },
+  "x-semantics": {
+    "edit_validation": [
+      "Resolve local aliases; reject unknown/duplicate aliases before mutation.",
+      "Validate every entity against its registered kind and all referenced kinds/ownership.",
+      "Compute mutable touched+read dependency set including relationship owners; require exactly one current CAS precondition per existing dependency. Never gate unrelated changes on global revision.",
+      "Validate target scope, graph topology, technology/grid, pin/link consistency, source ownership and containment on tentative post-edit state.",
+      "Commit all files/entities/source bytes and one attributed revision/event group atomically, or commit none.",
+      "Return generated IDs, every affected revision, any stale interface/bench diagnostics and event cursor."
+    ],
+    "preset_expansion": {
+      "spice_block": "Create saved .spice subcircuit stub, canonical declared terminals/ordered map, default symbol, provided-source SPICE binding; empty body is draft and not simulation-ready. Initialize only missing slots; preserve explicitly supplied linked sources, views and interface declarations without generating duplicate stubs.",
+      "gdsf_component": "Create saved .py factory stub + layout_generator view with entry/profile; create default symbol from declarations; execute qualified generator explicitly to materialize ports/layout, never during query/edit. Initialize only missing slots; preserve explicitly supplied linked sources, views and interface declarations without generating duplicate stubs.",
+      "hdl_component": "Create saved source-set/top stub in canvas selected authoring HDL; generate symbol from declared/elaborated interface; mark compilation/mapping pending until qualified run. Initialize only missing slots; preserve explicitly supplied linked sources, views and interface declarations without generating duplicate stubs.",
+      "testbench": "Create .spice/.sv/.v/.vhd/.py source based on bench type and canvas dialect using existing materialized interface metadata. Generation executes no user code. Save stimulus/probes/assertion skeletons and explicit target-port bindings. Unknown interface creates a diagnostic, never invented DUT pins. Initialize only missing slots; preserve explicitly supplied linked sources, views and interface declarations without generating duplicate stubs."
+    },
+    "source_edit": "Saving invalid text is allowed; retain last good interface and mark dependent views/benches stale. Do not silently remove canonical pins or wires. A source change never executes code.",
+    "bench_containment": "For B=P+[bench], primary/additional targets are P+[sibling]+descendants. Sibling is a direct circuit child of P; descendants are circuit instances. Reject self/ancestor/other scope/noncircuit targets. Selected DUT subtrees cannot overlap. Probe paths stay under an explicitly selected target.",
+    "bench_mutation": "Rename keeps ID binding. Target move/delete/interface or canvas-language change marks binding stale/missing; runs refuse invalid closure. Template regeneration emits new source preview; explicit relink adopts it. Graphical drag never changes hierarchy.",
+    "parameter_interfaces": "Canonical declaration port IDs remain stable. Qualified elaboration yields occurrence-specific widths/directions/bit maps. Queries only read materialized metadata and report unresolved until explicit generation.",
+    "working_and_pinned_refs": "WorkingRef follows stable project asset at captured snapshot; PinnedRef deliberately stays immutable. External catalogs always bind exact revision. LocalRef appears only inside edit entity inputs and is fully resolved before commit.",
+    "layout_publication": "Full GF objects are real worker-local objects. project.layout.edit(cell) / publish checkpoints materialize geometry+hierarchy+ports, CAS the declared owner, and commit through edit.publish_layout. Small project.layout drawing helpers issue immediate typed edits. Arbitrary native in-memory mutation is not magically durable.",
+    "run_selection": "Resolve task/adapter/profile/options and unique view defaults, validate units and pins/models/bench scope, union engine prerequisite gates, freeze I28 closure durably, then acknowledge and dispatch. Artifact-only tasks never mutate source implicitly.",
+    "workflow_completion": "Resolve required coverage plan from canvas/PDK/target; expand one button into attributed child task DAG. Independent stages may overlap. Missing/unsupported/skipped required checks block full completion even if GDS exists.",
+    "configuration": "Tool options accept known inline fields or a contained file validated by the same pinned tool schema. Duplicate fields across inline/delegated input fail. Effective settings include defaults, project config and explicit run overrides with provenance. canvas.toml, contained refs and resolved values are I28 ingredients.",
+    "amaranth_testbench": "In an Amaranth canvas, HDL testbench templates use qualified amaranth.sim Python source. Cocotb remains a separate bench type against qualified generated-Verilog simulator paths. No package availability is implied by the canvas enum.",
+    "tool_selection": "Task providers are selectable drivers; tools lists include subordinate dependencies. A caller cannot select an SMT solver or meshing helper as the task driver. A task with no providers is orchestrated by the engine and has no tool override; its pinned plan/coupling defines child tools.",
+    "bench_analysis": "Saved native SPICE stimulus/controls remain editable source. Resolve analysis knobs from qualified bench/canvas configuration and explicit typed run selection; diagnose conflicting source/config directives instead of guessing. Explicit run overrides generate a derived native deck without rewriting source. Unsupported native control semantics remain a managed script path, never a fabricated trusted result."
+  },
+  "x-validation-boundary": "JSON Schema validates observable shapes/conditional forms. Provider must also prove the relational, ownership, dimensional and scheduling semantics in x-semantics and docs/work/API-V1/execution-review.md; fixtures do not claim live provider conformance.",
+  "x-schema-modules": [
+    {
+      "path": "v1/schemas/arrays.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:arrays"
+    },
+    {
+      "path": "v1/schemas/bench.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:bench"
+    },
+    {
+      "path": "v1/schemas/canvas.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:canvas"
+    },
+    {
+      "path": "v1/schemas/components.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:components"
+    },
+    {
+      "path": "v1/schemas/core.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:core"
+    },
+    {
+      "path": "v1/schemas/datasets.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:datasets"
+    },
+    {
+      "path": "v1/schemas/edit.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:edit"
+    },
+    {
+      "path": "v1/schemas/entities.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:entities"
+    },
+    {
+      "path": "v1/schemas/errors.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:errors"
+    },
+    {
+      "path": "v1/schemas/events.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:events"
+    },
+    {
+      "path": "v1/schemas/evidence.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:evidence"
+    },
+    {
+      "path": "v1/schemas/execution.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:execution"
+    },
+    {
+      "path": "v1/schemas/ip-entry.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:ip-entry"
+    },
+    {
+      "path": "v1/schemas/layout.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:layout"
+    },
+    {
+      "path": "v1/schemas/protocol.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:protocol"
+    },
+    {
+      "path": "v1/schemas/queries.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:queries"
+    },
+    {
+      "path": "v1/schemas/results.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:results"
+    },
+    {
+      "path": "v1/schemas/schematic.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:schematic"
+    },
+    {
+      "path": "v1/schemas/stages.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:stages"
+    },
+    {
+      "path": "v1/schemas/task-implementation.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:task-implementation"
+    },
+    {
+      "path": "v1/schemas/task-simulations.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:task-simulations"
+    },
+    {
+      "path": "v1/schemas/task-workflows-checks.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:task-workflows-checks"
+    },
+    {
+      "path": "v1/schemas/views.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:views"
+    }
+  ],
+  "x-derived-schema": {
+    "id": "urn:rocketeda:engine:v1:derived:edit-inputs",
+    "path": "generated/edit-inputs.schema.json",
+    "algorithm": "edit_variants(EntityData): derived from authoritative stored entity definitions; never hand-edit"
+  },
+  "x-catalog-files": {
+    "x-methods": "v1/catalog/methods.json",
+    "x-tasks": "v1/catalog/tasks.json",
+    "x-tools": "v1/catalog/tools.json",
+    "x-workflows": "v1/catalog/workflows.json",
+    "x-component-types": "v1/catalog/component-types.json",
+    "x-errors": "v1/catalog/errors.json",
+    "x-examples": "v1/examples/accepted.json",
+    "x-rejections": "v1/examples/rejected.json"
+  },
+  "$defs": {
+    "BenchTarget": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:bench#/$defs/BenchTarget"
+    },
+    "TestbenchData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:bench#/$defs/TestbenchData"
+    },
+    "BenchProbe": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:bench#/$defs/BenchProbe"
+    },
+    "HarnessBinding": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:bench#/$defs/HarnessBinding"
+    },
+    "MetricConstraint": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:canvas#/$defs/MetricConstraint"
+    },
+    "ToolSetting": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:canvas#/$defs/ToolSetting"
+    },
+    "CanvasConfig": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:canvas#/$defs/CanvasConfig"
+    },
+    "ToolSettings_librelane": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:canvas#/$defs/ToolSettings_librelane"
+    },
+    "ToolSettings_ngspice": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:canvas#/$defs/ToolSettings_ngspice"
+    },
+    "ToolSettings_xyce": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:canvas#/$defs/ToolSettings_xyce"
+    },
+    "ToolSettings_yosys": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:canvas#/$defs/ToolSettings_yosys"
+    },
+    "ToolSettings_openroad": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:canvas#/$defs/ToolSettings_openroad"
+    },
+    "PortMapEntry": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:components#/$defs/PortMapEntry"
+    },
+    "SourceView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:components#/$defs/SourceView"
+    },
+    "SpiceModel": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:components#/$defs/SpiceModel"
+    },
+    "Models": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:components#/$defs/Models"
+    },
+    "ComponentData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:components#/$defs/ComponentData"
+    },
+    "InstanceData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:components#/$defs/InstanceData"
+    },
+    "SourceData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:components#/$defs/SourceData"
+    },
+    "ScriptData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:components#/$defs/ScriptData"
+    },
+    "OpaqueId": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/OpaqueId"
+    },
+    "Revision": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Revision"
+    },
+    "Hash": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Hash"
+    },
+    "Scalar": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Scalar"
+    },
+    "JsonValue": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/JsonValue"
+    },
+    "Quantity": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Quantity"
+    },
+    "Availability": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Availability"
+    },
+    "Capacity": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Capacity"
+    },
+    "Point": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Point"
+    },
+    "Transform": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Transform"
+    },
+    "Parameter": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Parameter"
+    },
+    "PinnedRef": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/PinnedRef"
+    },
+    "WorkingRef": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/WorkingRef"
+    },
+    "Ref": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/Ref"
+    },
+    "LocalRef": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/LocalRef"
+    },
+    "EditRef": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/EditRef"
+    },
+    "EditId": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/EditId"
+    },
+    "PortWidth": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/PortWidth"
+    },
+    "Precondition": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/Precondition"
+    },
+    "CreateChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/CreateChange"
+    },
+    "ReplaceChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/ReplaceChange"
+    },
+    "DeleteChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/DeleteChange"
+    },
+    "ConnectChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/ConnectChange"
+    },
+    "DisconnectChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/DisconnectChange"
+    },
+    "TransformChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/TransformChange"
+    },
+    "GeometryAction": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/GeometryAction"
+    },
+    "GeometryChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/GeometryChange"
+    },
+    "WriteSourceChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/WriteSourceChange"
+    },
+    "PublishLayoutChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/PublishLayoutChange"
+    },
+    "AdoptChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/AdoptChange"
+    },
+    "ProjectLifecycleChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/ProjectLifecycleChange"
+    },
+    "TemplateChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/TemplateChange"
+    },
+    "EditChange": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/EditChange"
+    },
+    "EditParams": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/EditParams"
+    },
+    "EditResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:edit#/$defs/EditResult"
+    },
+    "ProjectData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:entities#/$defs/ProjectData"
+    },
+    "EntityData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:entities#/$defs/EntityData"
+    },
+    "EntityRecord": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:entities#/$defs/EntityRecord"
+    },
+    "ErrorDetail": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:errors#/$defs/ErrorDetail"
+    },
+    "Error": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:errors#/$defs/Error"
+    },
+    "ErrorResponse": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:errors#/$defs/ErrorResponse"
+    },
+    "WatchParams": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/WatchParams"
+    },
+    "Event_project_changed": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_project_changed"
+    },
+    "Event_entity_changed": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_entity_changed"
+    },
+    "Event_run_state": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_run_state"
+    },
+    "Event_run_findings": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_run_findings"
+    },
+    "Event_run_artifact": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_run_artifact"
+    },
+    "Event_script_output": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_script_output"
+    },
+    "Event_capacity_changed": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_capacity_changed"
+    },
+    "Event_runtime_recovered": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_runtime_recovered"
+    },
+    "Event_testbench_stale": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_testbench_stale"
+    },
+    "Event": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event"
+    },
+    "WatchResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/WatchResult"
+    },
+    "Artifact": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/Artifact"
+    },
+    "Finding": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/Finding"
+    },
+    "Measurement": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/Measurement"
+    },
+    "Ingredient": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/Ingredient"
+    },
+    "ToolIngredient": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/ToolIngredient"
+    },
+    "InputLock": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/InputLock"
+    },
+    "RunRecord": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/RunRecord"
+    },
+    "SourceContent": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/SourceContent"
+    },
+    "RequestRecord": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:evidence#/$defs/RequestRecord"
+    },
+    "Target": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/Target"
+    },
+    "ViewSelection": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/ViewSelection"
+    },
+    "RunStart": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/RunStart"
+    },
+    "RunControl": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/RunControl"
+    },
+    "RunParams": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/RunParams"
+    },
+    "ScriptOpen": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/ScriptOpen"
+    },
+    "ScriptExecute": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/ScriptExecute"
+    },
+    "ScriptReset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/ScriptReset"
+    },
+    "ScriptParams": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/ScriptParams"
+    },
+    "RunReceipt": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/RunReceipt"
+    },
+    "RunControlResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/RunControlResult"
+    },
+    "AuthorizationPending": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/AuthorizationPending"
+    },
+    "RunResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/RunResult"
+    },
+    "Workspace": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/Workspace"
+    },
+    "ScriptResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/ScriptResult"
+    },
+    "ExecutionFailure": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/ExecutionFailure"
+    },
+    "CommittedEffect": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:execution#/$defs/CommittedEffect"
+    },
+    "CellData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:layout#/$defs/CellData"
+    },
+    "ShapeGeometry": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:layout#/$defs/ShapeGeometry"
+    },
+    "ShapeData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:layout#/$defs/ShapeData"
+    },
+    "LayerData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:layout#/$defs/LayerData"
+    },
+    "DescribeRequest": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/DescribeRequest"
+    },
+    "QueryRequest": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/QueryRequest"
+    },
+    "EditRequest": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/EditRequest"
+    },
+    "RunRequest": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/RunRequest"
+    },
+    "ScriptRequest": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/ScriptRequest"
+    },
+    "WatchRequest": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/WatchRequest"
+    },
+    "Request": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/Request"
+    },
+    "DescribeSuccess": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/DescribeSuccess"
+    },
+    "QuerySuccess": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/QuerySuccess"
+    },
+    "EditSuccess": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/EditSuccess"
+    },
+    "RunSuccess": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/RunSuccess"
+    },
+    "ScriptSuccess": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/ScriptSuccess"
+    },
+    "WatchSuccess": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/WatchSuccess"
+    },
+    "Response": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:protocol#/$defs/Response"
+    },
+    "Locator": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/Locator"
+    },
+    "Filter": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/Filter"
+    },
+    "QueryParams": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/QueryParams"
+    },
+    "DescribeParams": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/DescribeParams"
+    },
+    "CatalogItem": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/CatalogItem"
+    },
+    "Page": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/Page"
+    },
+    "QueryItem": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/QueryItem"
+    },
+    "QueryResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/QueryResult"
+    },
+    "MethodDescription": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/MethodDescription"
+    },
+    "DescribeResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/DescribeResult"
+    },
+    "CatalogPort": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:queries#/$defs/CatalogPort"
+    },
+    "PortData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/PortData"
+    },
+    "SheetData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/SheetData"
+    },
+    "SymbolData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/SymbolData"
+    },
+    "PinData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/PinData"
+    },
+    "PinMapData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/PinMapData"
+    },
+    "Endpoint": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/Endpoint"
+    },
+    "NetData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/NetData"
+    },
+    "WireData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/WireData"
+    },
+    "JunctionData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/JunctionData"
+    },
+    "AnnotationData": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:schematic#/$defs/AnnotationData"
+    },
+    "TaskSynthesizeHdl": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskSynthesizeHdl"
+    },
+    "TaskImplementAsic": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskImplementAsic"
+    },
+    "TaskImplementFpga": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskImplementFpga"
+    },
+    "TaskAnalyzeTiming": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskAnalyzeTiming"
+    },
+    "TaskAnalyzePower": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskAnalyzePower"
+    },
+    "TaskAnalyzeMeasurements": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskAnalyzeMeasurements"
+    },
+    "TaskExtractLayout": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskExtractLayout"
+    },
+    "TaskCharacterizeCircuit": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskCharacterizeCircuit"
+    },
+    "TaskGenerateViews": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskGenerateViews"
+    },
+    "TaskGenerateNetlist": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskGenerateNetlist"
+    },
+    "TaskExportDesign": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskExportDesign"
+    },
+    "TaskCompileModel": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-implementation#/$defs/TaskCompileModel"
+    },
+    "TaskSimulateSpice": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-simulations#/$defs/TaskSimulateSpice"
+    },
+    "TaskSimulateHdl": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-simulations#/$defs/TaskSimulateHdl"
+    },
+    "TaskSimulateCosim": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-simulations#/$defs/TaskSimulateCosim"
+    },
+    "TaskSimulateOptical": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-simulations#/$defs/TaskSimulateOptical"
+    },
+    "TaskSimulateEm": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-simulations#/$defs/TaskSimulateEm"
+    },
+    "TaskSimulateThermal": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-simulations#/$defs/TaskSimulateThermal"
+    },
+    "TaskSimulateDevice": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-simulations#/$defs/TaskSimulateDevice"
+    },
+    "TaskWorkflowAsic": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskWorkflowAsic"
+    },
+    "TaskWorkflowAnalog": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskWorkflowAnalog"
+    },
+    "TaskWorkflowPhotonic": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskWorkflowPhotonic"
+    },
+    "TaskCheckSyntax": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckSyntax"
+    },
+    "TaskCheckConnectivity": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckConnectivity"
+    },
+    "TaskCheckErc": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckErc"
+    },
+    "TaskCheckDrc": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckDrc"
+    },
+    "TaskCheckLvs": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckLvs"
+    },
+    "TaskCheckAntenna": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckAntenna"
+    },
+    "TaskCheckViewSync": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckViewSync"
+    },
+    "TaskCheckLayoutXor": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckLayoutXor"
+    },
+    "TaskCheckFormal": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckFormal"
+    },
+    "TaskCheckEquivalence": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckEquivalence"
+    },
+    "TaskCheckMutation": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:task-workflows-checks#/$defs/TaskCheckMutation"
+    },
+    "EditEntityData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditEntityData"
+    },
+    "EditComponentData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditComponentData"
+    },
+    "EditModels": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditModels"
+    },
+    "EditSpiceModel": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditSpiceModel"
+    },
+    "EditPortMapEntry": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditPortMapEntry"
+    },
+    "EditSourceView": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditSourceView"
+    },
+    "EditInstanceData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditInstanceData"
+    },
+    "EditPortData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditPortData"
+    },
+    "EditSheetData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditSheetData"
+    },
+    "EditSymbolData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditSymbolData"
+    },
+    "EditCellData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditCellData"
+    },
+    "EditPinData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditPinData"
+    },
+    "EditPinMapData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditPinMapData"
+    },
+    "EditNetData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditNetData"
+    },
+    "EditEndpoint": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditEndpoint"
+    },
+    "EditWireData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditWireData"
+    },
+    "EditJunctionData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditJunctionData"
+    },
+    "EditShapeData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditShapeData"
+    },
+    "EditLayerData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditLayerData"
+    },
+    "EditSourceData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditSourceData"
+    },
+    "EditScriptData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditScriptData"
+    },
+    "EditTestbenchData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditTestbenchData"
+    },
+    "EditBenchTarget": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditBenchTarget"
+    },
+    "EditBenchProbe": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditBenchProbe"
+    },
+    "EditHarnessBinding": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditHarnessBinding"
+    },
+    "EditAnnotationData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditAnnotationData"
+    },
+    "EditProjectData": {
+      "$ref": "urn:rocketeda:engine:v1:derived:edit-inputs#/$defs/EditProjectData"
+    },
+    "SpiceAnalysis": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:core#/$defs/SpiceAnalysis"
+    },
+    "BoolBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/BoolBuffer"
+    },
+    "BoolColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/BoolColumn"
+    },
+    "CanonicalSignal": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/CanonicalSignal"
+    },
+    "ChunkRef": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/ChunkRef"
+    },
+    "ChunkedBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/ChunkedBuffer"
+    },
+    "ComplexBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/ComplexBuffer"
+    },
+    "ComplexColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/ComplexColumn"
+    },
+    "ComplexValue": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/ComplexValue"
+    },
+    "DataAxis": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/DataAxis"
+    },
+    "DataBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/DataBuffer"
+    },
+    "DataCondition": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/DataCondition"
+    },
+    "DataMarker": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DataMarker"
+    },
+    "DataSignal": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/DataSignal"
+    },
+    "DataView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/DataView"
+    },
+    "Dataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/Dataset"
+    },
+    "DatasetRecord": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DatasetRecord"
+    },
+    "DigitalDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DigitalDataset"
+    },
+    "DigitalSignal": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DigitalSignal"
+    },
+    "DigitalTransition": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/DigitalTransition"
+    },
+    "DigitalView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/DigitalView"
+    },
+    "Event_run_log": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_run_log"
+    },
+    "Event_run_result_ready": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:events#/$defs/Event_run_result_ready"
+    },
+    "FieldDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/FieldDataset"
+    },
+    "FieldVariable": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/FieldVariable"
+    },
+    "FieldView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/FieldView"
+    },
+    "IntegerBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/IntegerBuffer"
+    },
+    "IntegerColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/IntegerColumn"
+    },
+    "LogDescriptor": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:results#/$defs/LogDescriptor"
+    },
+    "MarkerDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/MarkerDataset"
+    },
+    "MarkerGeometry": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/MarkerGeometry"
+    },
+    "MarkerView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/MarkerView"
+    },
+    "MatrixDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/MatrixDataset"
+    },
+    "MatrixView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/MatrixView"
+    },
+    "MeshDescriptor": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/MeshDescriptor"
+    },
+    "RealBuffer": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/RealBuffer"
+    },
+    "RealColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/RealColumn"
+    },
+    "ResultBundle": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:results#/$defs/ResultBundle"
+    },
+    "ResultGap": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:results#/$defs/ResultGap"
+    },
+    "ResultProvenance": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:results#/$defs/ResultProvenance"
+    },
+    "SampleQuality": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:arrays#/$defs/SampleQuality"
+    },
+    "SeriesDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/SeriesDataset"
+    },
+    "TableColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TableColumn"
+    },
+    "TableDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TableDataset"
+    },
+    "TableView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TableView"
+    },
+    "TaskContract": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskContract"
+    },
+    "TaskInput": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskInput"
+    },
+    "TaskInvocation": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskInvocation"
+    },
+    "TaskOutput": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskOutput"
+    },
+    "TaskPort": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskPort"
+    },
+    "TaskResult": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:stages#/$defs/TaskResult"
+    },
+    "TextColumn": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TextColumn"
+    },
+    "TraceBinding": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TraceBinding"
+    },
+    "TraceView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TraceView"
+    },
+    "TreeDataset": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TreeDataset"
+    },
+    "TreeNode": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TreeNode"
+    },
+    "TreeNodeValue": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:datasets#/$defs/TreeNodeValue"
+    },
+    "TreeView": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TreeView"
+    },
+    "IpEntry": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:ip-entry#/$defs/IpEntry"
+    },
+    "IpEntryPort": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:ip-entry#/$defs/IpEntryPort"
+    },
+    "IpEntryUpstream": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:ip-entry#/$defs/IpEntryUpstream"
+    }
+  }
+}

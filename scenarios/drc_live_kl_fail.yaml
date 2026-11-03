@@ -1,0 +1,7 @@
+name: drc live klayout fail on known-bad cell
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-kl-2, operation: run_drc, target: bad_space}
+  - run_live: {cell: bad_space, tech: synthetic-kl, backend: klayout}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

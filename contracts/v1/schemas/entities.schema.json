@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:entities",
+  "title": "Engine v1 entities schemas",
+  "$defs": {
+    "ProjectData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "project"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "top": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "config_path": {
+          "const": "canvas.toml"
+        },
+        "template": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "config_path"
+      ],
+      "description": "location is resolved by engine-managed/explicitly linked project policy; no path can escape its granted root."
+    },
+    "EntityData": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ComponentData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/InstanceData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PortData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/SheetData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/SymbolData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/CellData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinMapData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/NetData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/WireData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/JunctionData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ShapeData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/LayerData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/SourceData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ScriptData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TestbenchData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/AnnotationData"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ProjectData"
+        }
+      ]
+    },
+    "EntityRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "revision": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Revision"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "data": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/EntityData"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "data"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "properties": {
+                  "kind": {
+                    "const": "testbench"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "required": [
+                  "source",
+                  "binding_state",
+                  "bindings",
+                  "interface_digest"
+                ],
+                "allOf": [
+                  {
+                    "if": {
+                      "required": [
+                        "template"
+                      ]
+                    },
+                    "then": {
+                      "required": [
+                        "generated_from"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "data": {
+                "properties": {
+                  "kind": {
+                    "const": "source"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "required": [
+                  "sha256"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

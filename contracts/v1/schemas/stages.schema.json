@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:stages",
+  "title": "Engine v1 stages schemas",
+  "$defs": {
+    "TaskPort": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "source",
+            "artifact",
+            "dataset",
+            "model",
+            "config",
+            "result"
+          ]
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "many": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "schema",
+        "formats",
+        "required",
+        "many"
+      ],
+      "description": "A declared task boundary port. Native formats include their codec/profile; downstream input must match kind/schema/format and exact snapshot."
+    },
+    "TaskContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TaskPort"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TaskPort"
+          }
+        }
+      },
+      "required": [
+        "task",
+        "inputs",
+        "outputs"
+      ],
+      "description": "Data-bearing task-to-task contract. Logs are evidence, never normal stage inputs."
+    },
+    "TaskInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "source",
+            "artifact",
+            "dataset",
+            "model",
+            "config",
+            "result"
+          ]
+        },
+        "ref": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "producer_run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        }
+      },
+      "required": [
+        "port",
+        "kind",
+        "ref",
+        "schema",
+        "format"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "artifact",
+                  "dataset",
+                  "result"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "producer_run_id"
+            ]
+          }
+        }
+      ]
+    },
+    "TaskOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "artifact",
+            "dataset",
+            "result",
+            "model"
+          ]
+        },
+        "ref": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "producer_run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "producer_snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "port",
+        "kind",
+        "ref",
+        "schema",
+        "format",
+        "producer_run_id",
+        "producer_snapshot"
+      ],
+      "description": "Published immutable output matches the declared output port; adoption as source is a separate edit."
+    },
+    "TaskInvocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunStart"
+        },
+        "input_lock": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/InputLock"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TaskInput"
+          }
+        },
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "run_id",
+        "request",
+        "input_lock",
+        "inputs",
+        "profile"
+      ],
+      "description": "Application-owned outbound port DTO. Adapter maps this to native input; transport/framework objects never cross the boundary."
+    },
+    "TaskResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled",
+            "skipped"
+          ]
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TaskOutput"
+          }
+        },
+        "result": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ResultBundle"
+        },
+        "failure": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ExecutionFailure"
+        },
+        "skip_reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "run_id",
+        "task",
+        "state",
+        "outputs"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "failed"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "failure"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "skipped"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "skip_reason"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

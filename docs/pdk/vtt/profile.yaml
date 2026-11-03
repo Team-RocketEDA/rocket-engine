@@ -1,0 +1,80 @@
+# PDK-VTT lane profile: VTT 3um SOI photonics PDK (gdsfactory wrapper).
+# Shape follows the PDK-PROFILE direction lock: {gdsfactory package
+# pin, KLayout tech, decks, models} per variant. Relpaths resolve
+# against the gvtt package root. Single variant, currently BLOCKED:
+# gvtt 0.1.0's top-level import fails under every installable
+# gdsfactory (see `verdict` + report.md); inventory below is verified
+# against the pre-cloned source, behavior is not proven.
+schema: rocketeda/pdk-profile/v0.1
+id: vtt
+label: VTT 3um SOI photonics PDK (gdsfactory gvtt)
+upstream: https://github.com/gdsfactory/vtt.git
+upstream_commit: 001df503792a0297165c239d3c63de1322add10a
+license: MIT
+package: gvtt
+pins:
+  gvtt: "0.1.0"
+  gdsfactory_range: ">=9.0.1,<9.46.0"
+  uv_lock_gdsfactory: "9.0.1"
+  requires_python: ">=3.11"
+verified_against:
+  repo_layout_gdsfactory: ">=9.51,<10"
+  repo_layout_gdsfactory_locked: "9.51.0"
+  note: VTT ceiling (<9.46.0) excludes the repo layout floor (>=9.51);
+    the two cannot share one environment. Re-verify this lane if either moves.
+fixture:
+  path: tests/pdk_vtt/fixtures/layers.yaml
+  upstream_source: gvtt/layers.yaml
+  upstream_commit: 001df503792a0297165c239d3c63de1322add10a
+  license: MIT
+  sha256: 0735910f13c0f0d059bf609ddba9c2ae5896888036cd67c7f9e857c430e3b85e
+variants:
+  3umsoi:
+    module: gvtt
+    pdk_name: VTT-3umSOI
+    process: SOI 3um, rib + strip, edge couplers
+    status: blocked
+    cells: 12
+    tech:
+      klayout_dir: gvtt/klayout
+      lyt: gvtt/klayout/tech.lyt
+      lyp: gvtt/klayout/layers.lyp
+      layers_yaml: gvtt/layers.yaml
+      tech_name: VTT
+      layer_views: 67
+      helper_macro: gvtt/klayout/layer_boolean.lym
+      helper_note: boolean-merge helper macro (ADD/SUB/CPY to drawn), not a DRC deck
+    drc:
+      deck: null
+      deck_reason: no deck ships upstream (no .lydrc/.lyd25/.drc anywhere in the repo); only tech.lyt + layers.lyp + the boolean helper macro
+    lvs:
+      deck: null
+      deck_reason: n/a (photonic); no transistors to recognize and no deck ships
+    models:
+      path: null
+      registry: null
+      count: null
+      status: absent
+      reason: no models.py, no sparameters/ dir (config PATH.sparameters points at a path that does not exist), no .lib/.spice
+verdict:
+  status: blocked
+  reason: stale-constants-import
+  import_error: "ImportError: cannot import name 'constants' from 'gdsfactory.pdk'"
+  detail: gvtt/__init__.py does `from gdsfactory.pdk import Pdk, constants`;
+    the `constants` symbol no longer exists in gdsfactory.pdk (verified
+    absent on 9.40.2, 9.45.0, 9.51.0). Every sibling PDK imports only Pdk.
+  import_probe:
+    gvtt_unmodified: false
+    gf_versions_failed: ["9.40.2", "9.45.0", "9.51.0"]
+    locked_901_installable_offline: false
+    shimmed_cells_built: 12
+    shim: "diagnostic only: gdsfactory.pdk.constants = Constants(); all 12 cells
+      build under 9.45.0 and 9.51.0 with identical bboxes; XOR vs upstream
+      refs clean for bend_euler/straight/straight_rib/straight_sc, sub-nm
+      drift for mmi1x2. NOT a lane proof; the recipe ships no shim."
+  unblock:
+    - upstream drops `constants` from the gdsfactory.pdk import and from the
+      Pdk(...) kwargs (defaults apply), as cspdk/ubc/gf180/ihp already do
+    - upstream raises the gdsfactory upper bound to admit >=9.51
+    - lane then re-runs: import + cell builds + XOR goldens in repo layout env
+proofs: null

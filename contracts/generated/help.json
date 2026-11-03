@@ -1,0 +1,3342 @@
+{
+  "version": "1.0.0",
+  "status": "design-frozen-runtime-migration-pending",
+  "methods": {
+    "describe": {
+      "description": "Inspect methods, tasks, tools, entity schemas, templates and requirements.",
+      "request_schema": "#/$defs/DescribeRequest",
+      "result_schema": "#/$defs/DescribeResult",
+      "side_effects": "none",
+      "http": {
+        "method": "GET",
+        "path": "/api/v1/catalog"
+      },
+      "mcp_tool": "describe",
+      "stdio_method": "describe"
+    },
+    "query": {
+      "description": "Read any registered project, PDK, library, hierarchy, package or evidence catalog.",
+      "request_schema": "#/$defs/QueryRequest",
+      "result_schema": "#/$defs/QueryResult",
+      "side_effects": "none",
+      "http": {
+        "method": "POST",
+        "path": "/api/v1/queries",
+        "semantics": "read-only snapshot query; POST carries bounded structured predicates"
+      },
+      "mcp_tool": "query",
+      "stdio_method": "query"
+    },
+    "edit": {
+      "description": "Commit atomic editor/project changes with typed entities and per-entity CAS.",
+      "request_schema": "#/$defs/EditRequest",
+      "result_schema": "#/$defs/EditResult",
+      "side_effects": "design",
+      "http": {
+        "method": "POST",
+        "path": "/api/v1/edits"
+      },
+      "mcp_tool": "edit",
+      "stdio_method": "edit"
+    },
+    "run": {
+      "description": "Start workflows or individual tool tasks and control unfinished runs.",
+      "request_schema": "#/$defs/RunRequest",
+      "result_schema": "#/$defs/RunResult",
+      "side_effects": "execution",
+      "http": {
+        "method": "POST",
+        "path": "/api/v1/runs",
+        "controls": "POST /api/v1/runs/{id}/{cancel|resume|discard}"
+      },
+      "mcp_tool": "run",
+      "stdio_method": "run"
+    },
+    "script": {
+      "description": "Execute full prepared Python/library APIs with managed project publication.",
+      "request_schema": "#/$defs/ScriptRequest",
+      "result_schema": "#/$defs/ScriptResult",
+      "side_effects": "workspace",
+      "http": {
+        "method": "POST",
+        "path": "/api/v1/executions"
+      },
+      "mcp_tool": "script",
+      "stdio_method": "script"
+    },
+    "watch": {
+      "description": "Read or stream ordered events including edits, results and capacity transitions.",
+      "request_schema": "#/$defs/WatchRequest",
+      "result_schema": "#/$defs/WatchResult",
+      "side_effects": "none",
+      "http": {
+        "method": "GET",
+        "path": "/api/v1/events",
+        "stream": "SSE or bounded long-poll; same Event schema"
+      },
+      "mcp_tool": "watch",
+      "stdio_method": "watch"
+    }
+  },
+  "tasks": {
+    "workflow.asic": {
+      "description": "Run a pinned ASIC implementation and verification plan; completion requires every applicable configured check and complete evidence.",
+      "family": "workflow",
+      "input_schema": "#/$defs/TaskWorkflowAsic",
+      "tools": [
+        "librelane"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "layout",
+        "netlists",
+        "timing",
+        "findings",
+        "flow_report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "librelane"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "tree"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "flow_report",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "workflow.analog": {
+      "description": "Generate/netlist, simulate, characterize, verify physical views, and optionally compare extracted behavior according to the saved plan.",
+      "family": "workflow",
+      "input_schema": "#/$defs/TaskWorkflowAnalog",
+      "tools": [
+        "ngspice",
+        "xyce",
+        "cace",
+        "magic",
+        "netgen",
+        "klayout",
+        "xschem"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "measurements",
+        "waveforms",
+        "findings",
+        "comparison",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "workflow.photonic": {
+      "description": "Run a saved photonic construction, circuit response, geometry verification, and qualified device-solver plan.",
+      "family": "workflow",
+      "input_schema": "#/$defs/TaskWorkflowPhotonic",
+      "tools": [
+        "gdsfactory",
+        "kfactory",
+        "sax",
+        "circulax",
+        "klayout",
+        "meow",
+        "femwell",
+        "meep"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "layout",
+        "spectra",
+        "fields",
+        "findings",
+        "convergence",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "circuit",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": false,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.syntax": {
+      "description": "Parse and lint the selected source language and supported language subset.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckSyntax",
+      "tools": [
+        "slang",
+        "yosys_slang",
+        "verilator",
+        "ghdl",
+        "icarus"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "findings",
+        "coverage",
+        "markers",
+        "report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "slang",
+        "yosys_slang",
+        "verilator",
+        "ghdl",
+        "icarus"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.connectivity": {
+      "description": "Check canonical circuit connectivity and interface mappings.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckConnectivity",
+      "tools": [
+        "connectgraph"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "findings",
+        "coverage",
+        "markers",
+        "report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "connectgraph"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.erc": {
+      "description": "Apply electrical rules to circuit participants and declared electrical semantics.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckErc",
+      "tools": [
+        "connectgraph"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "findings",
+        "coverage",
+        "markers",
+        "report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "connectgraph"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.drc": {
+      "description": "Check physical geometry against the selected pinned technology rule deck.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckDrc",
+      "tools": [
+        "magic",
+        "klayout"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "findings",
+        "coverage",
+        "markers",
+        "report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "magic",
+        "klayout"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.lvs": {
+      "description": "Compare independently selected layout extraction and reference circuit netlists.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckLvs",
+      "tools": [
+        "netgen",
+        "klayout"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "findings",
+        "coverage",
+        "markers",
+        "report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "netgen",
+        "klayout"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.antenna": {
+      "description": "Check process antenna ratios and routing antenna properties.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckAntenna",
+      "tools": [
+        "openroad",
+        "opendb",
+        "klayout"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "findings",
+        "coverage",
+        "markers",
+        "report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "openroad",
+        "klayout"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.view_sync": {
+      "description": "Compare selected source/native/extracted views using canonical identity and pin mappings.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckViewSync",
+      "tools": [
+        "connectgraph",
+        "gdsfactory",
+        "kfactory"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "findings",
+        "coverage",
+        "markers",
+        "report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "connectgraph"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "intended",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python",
+              "xschem"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "extracted",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.layout_xor": {
+      "description": "Compare two layout stream-outs using geometric XOR.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckLayoutXor",
+      "tools": [
+        "klayout"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "findings",
+        "coverage",
+        "markers",
+        "report",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "klayout"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "markers"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout_a",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "layout_b",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "findings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "markers",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.formal": {
+      "description": "Prove, bound, or cover formal properties, preserving assumptions, bounds, solver status, and counterexamples.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckFormal",
+      "tools": [
+        "sby",
+        "yosys",
+        "abc",
+        "z3",
+        "boolector",
+        "bitwuzla",
+        "yices"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "property_results",
+        "counterexamples",
+        "assumptions",
+        "bounds",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "optional",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "sby"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "properties",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "systemverilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "property_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "counterexamples",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.equivalence": {
+      "description": "Compare golden and candidate implementations under explicit mapping and assumptions.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckEquivalence",
+      "tools": [
+        "eqy",
+        "yosys",
+        "abc"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "equivalence_results",
+        "counterexamples",
+        "mappings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "optional",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "eqy"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "reference",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "equivalence_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "counterexamples",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "check.mutation": {
+      "description": "Evaluate test/property effectiveness against controlled source mutations.",
+      "family": "check",
+      "input_schema": "#/$defs/TaskCheckMutation",
+      "tools": [
+        "mcy",
+        "yosys"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "mutation_results",
+        "coverage",
+        "survivors",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "optional",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "mcy"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "mutation_results",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "simulate.spice": {
+      "description": "Run the explicitly selected SPICE analysis with compatible circuit/model views; every mode is qualified separately per backend and device model.",
+      "family": "simulate",
+      "input_schema": "#/$defs/TaskSimulateSpice",
+      "tools": [
+        "ngspice",
+        "xyce"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "measurements",
+        "waveforms",
+        "findings",
+        "convergence",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "ngspice",
+        "xyce"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "bench",
+            "kind": "source",
+            "schema": "rocketeda/testbench/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "simulate.hdl": {
+      "description": "Compile/elaborate and simulate the canvas-selected HDL language using an HDL bench or qualified Python cocotb test source.",
+      "family": "simulate",
+      "input_schema": "#/$defs/TaskSimulateHdl",
+      "tools": [
+        "icarus",
+        "verilator",
+        "ghdl",
+        "cocotb",
+        "amaranth"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "assertions",
+        "measurements",
+        "waveforms",
+        "coverage",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "icarus",
+        "verilator",
+        "ghdl",
+        "amaranth"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "digital",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "testbench",
+            "kind": "source",
+            "schema": "rocketeda/testbench/v1",
+            "formats": [
+              "systemverilog",
+              "verilog",
+              "vhdl",
+              "python"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "assertions",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "simulate.cosim": {
+      "description": "Run the selected analog/digital coupling contract. A sampled one-way handoff and a live feedback solver are distinct qualified coupling capabilities.",
+      "family": "simulate",
+      "input_schema": "#/$defs/TaskSimulateCosim",
+      "tools": [
+        "ngspice",
+        "xyce",
+        "icarus",
+        "verilator",
+        "ghdl"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "measurements",
+        "waveforms",
+        "assertions",
+        "coupling_report",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "digital",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "waveforms",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "assertions",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "simulate.optical": {
+      "description": "Simulate a circuit using calibrated optical/mixed-domain compact models; advertise each model and analysis compatibility independently.",
+      "family": "simulate",
+      "input_schema": "#/$defs/TaskSimulateOptical",
+      "tools": [
+        "sax",
+        "circulax"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "spectra",
+        "traces",
+        "measurements",
+        "findings",
+        "convergence",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "sax",
+        "circulax"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "circuit",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "synthesize.hdl": {
+      "description": "Elaborate the canvas-selected HDL/frontend and synthesize a logic netlist, optionally mapping into a pinned standard-cell library.",
+      "family": "synthesize",
+      "input_schema": "#/$defs/TaskSynthesizeHdl",
+      "tools": [
+        "yosys",
+        "abc",
+        "slang",
+        "yosys_slang",
+        "ghdl",
+        "amaranth"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "mapped_netlist",
+        "cell_statistics",
+        "area",
+        "mappings",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "yosys",
+        "ghdl",
+        "amaranth"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "mapped_netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "cell_statistics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "implement.asic": {
+      "description": "Run a full qualified ASIC flow or a registered stage from a pinned compatible prior state.",
+      "family": "implement",
+      "input_schema": "#/$defs/TaskImplementAsic",
+      "tools": [
+        "librelane",
+        "yosys",
+        "abc",
+        "openroad",
+        "opendb",
+        "opensta",
+        "openrcx",
+        "magic",
+        "netgen",
+        "klayout"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "layout",
+        "netlists",
+        "timing",
+        "parasitics",
+        "flow_state",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "librelane",
+        "openroad"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table",
+        "tree"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "flow_state",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "implement.fpga": {
+      "description": "Perform synthesis/place-and-route and architecture-specific bitstream generation for an explicitly qualified FPGA device; programming is outside this task.",
+      "family": "implement",
+      "input_schema": "#/$defs/TaskImplementFpga",
+      "tools": [
+        "yosys",
+        "nextpnr",
+        "icestorm",
+        "trellis",
+        "oxide",
+        "apicula"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "routed_design",
+        "timing",
+        "utilization",
+        "bitstream",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "nextpnr"
+      ],
+      "delivery": "off_mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "rtl",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": true
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "bitstream",
+            "kind": "artifact",
+            "schema": "rocketeda/export/v1",
+            "formats": [
+              "bitstream"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "timing",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "utilization",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "analyze.timing": {
+      "description": "Perform static timing with explicit clocks, constraints, libraries, corners and optional extracted RC; report missing constraints and coverage.",
+      "family": "analyze",
+      "input_schema": "#/$defs/TaskAnalyzeTiming",
+      "tools": [
+        "opensta",
+        "openroad"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "critical_paths",
+        "measurements",
+        "coverage",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "opensta",
+        "openroad"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "critical_paths",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "analyze.power": {
+      "description": "Estimate characterized digital power or calculate a qualified physical IR-drop study from declared activity and supplies.",
+      "family": "analyze",
+      "input_schema": "#/$defs/TaskAnalyzePower",
+      "tools": [
+        "openroad",
+        "opensta"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "power",
+        "voltage_map",
+        "coverage",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "optional",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "openroad",
+        "opensta"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "power",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "analyze.measurements": {
+      "description": "Evaluate saved measurements, spectra/FFT, comparisons and plots against pinned result artifacts and measurement definitions.",
+      "family": "analyze",
+      "input_schema": "#/$defs/TaskAnalyzeMeasurements",
+      "tools": [
+        "numpy",
+        "scipy",
+        "pandas",
+        "matplotlib",
+        "scikit_rf"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "measurements",
+        "spectra",
+        "tables",
+        "plots",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "results",
+            "kind": "result",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "tables",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "spectra",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "extract.layout": {
+      "description": "Extract devices/circuit connectivity or parasitic RC from a selected physical view using a compatible technology/extraction deck.",
+      "family": "extract",
+      "input_schema": "#/$defs/TaskExtractLayout",
+      "tools": [
+        "magic",
+        "openrcx",
+        "klayout",
+        "kfactory",
+        "gdsfactory"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "extracted_netlist",
+        "parasitics",
+        "mappings",
+        "coverage",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "magic",
+        "openrcx",
+        "klayout"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "extracted_netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "parasitics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "characterize.circuit": {
+      "description": "Repeat supported simulations across explicit parameter/corner/statistical samples and evaluate a saved characterization specification.",
+      "family": "characterize",
+      "input_schema": "#/$defs/TaskCharacterizeCircuit",
+      "tools": [
+        "cace",
+        "ngspice",
+        "xyce",
+        "pyspice",
+        "numpy",
+        "scipy",
+        "pandas"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance",
+        "testbench"
+      ],
+      "outputs": [
+        "measurements",
+        "distributions",
+        "yield",
+        "specification_results",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "cace",
+        "ngspice",
+        "xyce"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "netlist",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "measurements",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "simulate.em": {
+      "description": "Solve a saved physical field study with explicit geometry, materials, ports, boundaries, mesh and convergence settings; electromagnetic compliance requires its own modeled limits.",
+      "family": "simulate",
+      "input_schema": "#/$defs/TaskSimulateEm",
+      "tools": [
+        "meep",
+        "openems",
+        "csxcad",
+        "palace",
+        "gmsh",
+        "meow",
+        "femwell",
+        "meshwell",
+        "scikit_fem",
+        "scikit_rf",
+        "gplugins"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "fields",
+        "modes",
+        "s_parameters",
+        "measurements",
+        "convergence",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "meep",
+        "openems",
+        "palace",
+        "meow",
+        "femwell"
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "matrix",
+        "traces",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "fields",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "s_parameters",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "simulate.thermal": {
+      "description": "Solve a saved thermal study with explicit materials, power sources, boundaries and mesh; coupled electrothermal behavior requires a separately qualified study.",
+      "family": "simulate",
+      "input_schema": "#/$defs/TaskSimulateThermal",
+      "tools": [
+        "elmer_fem",
+        "gmsh",
+        "meshwell"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "temperature_map",
+        "measurements",
+        "convergence",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "elmer_fem"
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "layout",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "config",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "toml",
+              "json"
+            ],
+            "required": false,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "temperature_map",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "simulate.device": {
+      "description": "Solve declared semiconductor-device equations and physical boundary conditions in a saved qualified DEVSIM study.",
+      "family": "simulate",
+      "input_schema": "#/$defs/TaskSimulateDevice",
+      "tools": [
+        "devsim",
+        "gmsh"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "device_fields",
+        "characteristics",
+        "measurements",
+        "convergence",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "devsim"
+      ],
+      "delivery": "post_mvp",
+      "presentation": [
+        "field",
+        "table",
+        "traces"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "mesh",
+            "kind": "config",
+            "schema": "rocketeda/config/v1",
+            "formats": [
+              "msh",
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "device_fields",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "characteristics",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "generate.views": {
+      "description": "Generate selected component views from pinned sources/factories, producing candidate artifacts and canonical mappings; project adoption uses the shared revision-checked edit contract.",
+      "family": "generate",
+      "input_schema": "#/$defs/TaskGenerateViews",
+      "tools": [
+        "gdsfactory",
+        "kfactory",
+        "klayout",
+        "xschem",
+        "vlsir",
+        "vlsirtools",
+        "amaranth"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "generated_views",
+        "mappings",
+        "interface_candidates",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "gdsfactory",
+        "kfactory",
+        "klayout",
+        "xschem",
+        "vlsir",
+        "amaranth"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "component",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "generated_views",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "py",
+              "gds"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "mappings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "generate.netlist": {
+      "description": "Emit a circuit netlist for the selected schematic/component closure with explicit canonical-to-native terminal ordering.",
+      "family": "generate",
+      "input_schema": "#/$defs/TaskGenerateNetlist",
+      "tools": [
+        "connectgraph",
+        "xschem",
+        "gdsfactory",
+        "kfactory",
+        "vlsir",
+        "vlsirtools"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "netlist",
+        "mappings",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "connectgraph",
+        "xschem",
+        "gdsfactory",
+        "kfactory",
+        "vlsir"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "schematic",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "xschem",
+              "python"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "netlist",
+            "kind": "artifact",
+            "schema": "rocketeda/netlist/v1",
+            "formats": [
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "export.design": {
+      "description": "Export a pinned design view or project bundle, retaining supported native properties and reporting any lossy conversion.",
+      "family": "export",
+      "input_schema": "#/$defs/TaskExportDesign",
+      "tools": [
+        "gdsfactory",
+        "kfactory",
+        "klayout",
+        "magic",
+        "xschem",
+        "yosys",
+        "vlsir",
+        "vlsirtools"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "exported_design",
+        "mappings",
+        "conversion_report",
+        "findings",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "required",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "gdsfactory",
+        "kfactory",
+        "klayout",
+        "magic",
+        "xschem",
+        "yosys",
+        "vlsir"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "design",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "python",
+              "xschem",
+              "verilog",
+              "systemverilog",
+              "vhdl"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "exported_design",
+            "kind": "artifact",
+            "schema": "rocketeda/layout/v1",
+            "formats": [
+              "gds",
+              "oas",
+              "verilog",
+              "spice"
+            ],
+            "required": true,
+            "many": false
+          },
+          {
+            "name": "mappings",
+            "kind": "dataset",
+            "schema": "rocketeda/dataset/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    },
+    "compile.model": {
+      "description": "Compile a pinned Verilog-A source closure into a compatible OSDI model artifact in the isolated worker.",
+      "family": "compile",
+      "input_schema": "#/$defs/TaskCompileModel",
+      "tools": [
+        "openvaf"
+      ],
+      "target_kinds": [
+        "project",
+        "component",
+        "instance"
+      ],
+      "outputs": [
+        "compiled_model",
+        "model_manifest",
+        "diagnostics",
+        "logs"
+      ],
+      "coalescing": "snapshot",
+      "qualification": "optional",
+      "effects": "artifacts_only",
+      "availability": "contextual_not_promised",
+      "providers": [
+        "openvaf"
+      ],
+      "delivery": "mvp",
+      "presentation": [
+        "table"
+      ],
+      "io": {
+        "inputs": [
+          {
+            "name": "model",
+            "kind": "source",
+            "schema": "rocketeda/source/v1",
+            "formats": [
+              "verilog-a"
+            ],
+            "required": true,
+            "many": false
+          }
+        ],
+        "outputs": [
+          {
+            "name": "compiled_model",
+            "kind": "model",
+            "schema": "rocketeda/model/v1",
+            "formats": [
+              "json"
+            ],
+            "required": true,
+            "many": false
+          }
+        ]
+      }
+    }
+  },
+  "tools": {
+    "librelane": {
+      "description": "Pinned ASIC flow distribution and registered flow/stage orchestrator.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.asic",
+        "implement.asic"
+      ],
+      "qualification": "required"
+    },
+    "yosys": {
+      "description": "RTL elaboration, synthesis, netlist transformation and serialization.",
+      "kind": "adapter",
+      "tasks": [
+        "check.formal",
+        "check.equivalence",
+        "check.mutation",
+        "synthesize.hdl",
+        "implement.asic",
+        "implement.fpga",
+        "export.design"
+      ],
+      "qualification": "required"
+    },
+    "abc": {
+      "description": "Logic optimization/technology mapping and supported formal backend inside a pinned flow.",
+      "kind": "backend",
+      "tasks": [
+        "check.formal",
+        "check.equivalence",
+        "synthesize.hdl",
+        "implement.asic"
+      ],
+      "qualification": "required"
+    },
+    "slang": {
+      "description": "Qualified SystemVerilog parsing, elaboration and diagnostics.",
+      "kind": "adapter",
+      "tasks": [
+        "check.syntax",
+        "synthesize.hdl"
+      ],
+      "qualification": "required"
+    },
+    "yosys_slang": {
+      "description": "Qualified Slang frontend integration for the pinned Yosys distribution.",
+      "kind": "backend",
+      "tasks": [
+        "check.syntax",
+        "synthesize.hdl"
+      ],
+      "qualification": "required"
+    },
+    "openroad": {
+      "description": "Physical implementation, timing, power-grid and routing tasks through registered schemas.",
+      "kind": "adapter",
+      "tasks": [
+        "check.antenna",
+        "implement.asic",
+        "analyze.timing",
+        "analyze.power"
+      ],
+      "qualification": "required"
+    },
+    "opendb": {
+      "description": "OpenROAD physical database and registered geometry/netlist utility backend.",
+      "kind": "library",
+      "tasks": [
+        "check.antenna",
+        "implement.asic"
+      ],
+      "qualification": "required"
+    },
+    "opensta": {
+      "description": "Static timing and supported characterized-power analysis.",
+      "kind": "adapter",
+      "tasks": [
+        "implement.asic",
+        "analyze.timing",
+        "analyze.power"
+      ],
+      "qualification": "required"
+    },
+    "openrcx": {
+      "description": "Technology-qualified interconnect parasitic RC extraction.",
+      "kind": "backend",
+      "tasks": [
+        "implement.asic",
+        "extract.layout"
+      ],
+      "qualification": "required"
+    },
+    "magic": {
+      "description": "Technology-bound layout operations, DRC, extraction and native layout exchange.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.analog",
+        "check.drc",
+        "implement.asic",
+        "extract.layout",
+        "export.design"
+      ],
+      "qualification": "required"
+    },
+    "netgen": {
+      "description": "Technology-configured circuit/netlist comparison for LVS.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.analog",
+        "check.lvs",
+        "implement.asic"
+      ],
+      "qualification": "required"
+    },
+    "klayout": {
+      "description": "Geometry/format processing, rule-deck DRC, qualified LVS and stream-out comparison.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.analog",
+        "workflow.photonic",
+        "check.drc",
+        "check.lvs",
+        "check.antenna",
+        "check.layout_xor",
+        "implement.asic",
+        "extract.layout",
+        "generate.views",
+        "export.design"
+      ],
+      "qualification": "required"
+    },
+    "ngspice": {
+      "description": "SPICE circuit solver with analysis/model/dialect-specific qualification.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.analog",
+        "simulate.spice",
+        "simulate.cosim",
+        "characterize.circuit"
+      ],
+      "qualification": "required"
+    },
+    "xyce": {
+      "description": "Alternative circuit solver; its supported analyses and model dialect are qualified separately.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.analog",
+        "simulate.spice",
+        "simulate.cosim",
+        "characterize.circuit"
+      ],
+      "qualification": "required"
+    },
+    "xschem": {
+      "description": "Native schematic import/export and netlisting; Rocket owns its graphical editor.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.analog",
+        "generate.views",
+        "generate.netlist",
+        "export.design"
+      ],
+      "qualification": "required"
+    },
+    "cace": {
+      "description": "Saved circuit characterization-plan orchestration and specification evaluation.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.analog",
+        "characterize.circuit"
+      ],
+      "qualification": "required"
+    },
+    "openvaf": {
+      "description": "Verilog-A-to-OSDI model compilation for a compatible target simulator.",
+      "kind": "adapter",
+      "tasks": [
+        "compile.model"
+      ],
+      "qualification": "required"
+    },
+    "icarus": {
+      "description": "Icarus Verilog compilation and event-driven simulation.",
+      "kind": "adapter",
+      "tasks": [
+        "check.syntax",
+        "simulate.hdl",
+        "simulate.cosim"
+      ],
+      "qualification": "required"
+    },
+    "verilator": {
+      "description": "Qualified SystemVerilog lint, compiled simulation and supported coupling backend.",
+      "kind": "adapter",
+      "tasks": [
+        "check.syntax",
+        "simulate.hdl",
+        "simulate.cosim"
+      ],
+      "qualification": "required"
+    },
+    "ghdl": {
+      "description": "VHDL analysis/simulation and separately qualified Yosys synthesis integration.",
+      "kind": "adapter",
+      "tasks": [
+        "check.syntax",
+        "simulate.hdl",
+        "simulate.cosim",
+        "synthesize.hdl"
+      ],
+      "qualification": "required"
+    },
+    "cocotb": {
+      "description": "Python testbench integration against a qualified installed HDL simulator.",
+      "kind": "library",
+      "tasks": [
+        "simulate.hdl"
+      ],
+      "qualification": "required"
+    },
+    "sby": {
+      "description": "SymbiYosys property proof, bounded checking and cover orchestration.",
+      "kind": "adapter",
+      "tasks": [
+        "check.formal"
+      ],
+      "qualification": "required"
+    },
+    "eqy": {
+      "description": "Yosys implementation-equivalence orchestration.",
+      "kind": "adapter",
+      "tasks": [
+        "check.equivalence"
+      ],
+      "qualification": "required"
+    },
+    "mcy": {
+      "description": "Mutation-based evaluation of digital verification effectiveness.",
+      "kind": "adapter",
+      "tasks": [
+        "check.mutation"
+      ],
+      "qualification": "required"
+    },
+    "z3": {
+      "description": "Pinned SMT solver used through a registered formal-engine combination.",
+      "kind": "backend",
+      "tasks": [
+        "check.formal"
+      ],
+      "qualification": "required"
+    },
+    "boolector": {
+      "description": "Pinned SMT solver used through a registered formal-engine combination.",
+      "kind": "backend",
+      "tasks": [
+        "check.formal"
+      ],
+      "qualification": "required"
+    },
+    "bitwuzla": {
+      "description": "Pinned SMT solver used through a registered formal-engine combination.",
+      "kind": "backend",
+      "tasks": [
+        "check.formal"
+      ],
+      "qualification": "required"
+    },
+    "yices": {
+      "description": "Pinned SMT solver used through a registered formal-engine combination.",
+      "kind": "backend",
+      "tasks": [
+        "check.formal"
+      ],
+      "qualification": "required"
+    },
+    "nextpnr": {
+      "description": "FPGA place-and-route for specifically qualified device/database targets.",
+      "kind": "adapter",
+      "tasks": [
+        "implement.fpga"
+      ],
+      "qualification": "required"
+    },
+    "icestorm": {
+      "description": "iCE40 device data and bitstream utilities where shipped and qualified.",
+      "kind": "backend",
+      "tasks": [
+        "implement.fpga"
+      ],
+      "qualification": "required"
+    },
+    "trellis": {
+      "description": "ECP5 device data and bitstream utilities where shipped and qualified.",
+      "kind": "backend",
+      "tasks": [
+        "implement.fpga"
+      ],
+      "qualification": "required"
+    },
+    "oxide": {
+      "description": "Nexus device data and bitstream utilities where shipped and qualified.",
+      "kind": "backend",
+      "tasks": [
+        "implement.fpga"
+      ],
+      "qualification": "required"
+    },
+    "apicula": {
+      "description": "Gowin device data and bitstream utilities where shipped and qualified.",
+      "kind": "backend",
+      "tasks": [
+        "implement.fpga"
+      ],
+      "qualification": "required"
+    },
+    "sax": {
+      "description": "Frequency/wavelength-domain photonic compact-model circuit solver.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.photonic",
+        "simulate.optical"
+      ],
+      "qualification": "required"
+    },
+    "circulax": {
+      "description": "Qualified mixed-domain compact-model circuit analyses with a version-bound API.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.photonic",
+        "simulate.optical"
+      ],
+      "qualification": "required"
+    },
+    "gdsfactory": {
+      "description": "Full installed GDSFactory component, geometry, routing, ports and generation API inside managed workers.",
+      "kind": "library",
+      "tasks": [
+        "workflow.photonic",
+        "check.view_sync",
+        "extract.layout",
+        "generate.views",
+        "generate.netlist",
+        "export.design"
+      ],
+      "qualification": "required"
+    },
+    "kfactory": {
+      "description": "KLayout-backed component, geometry, port and connectivity library.",
+      "kind": "library",
+      "tasks": [
+        "workflow.photonic",
+        "check.view_sync",
+        "extract.layout",
+        "generate.views",
+        "generate.netlist",
+        "export.design"
+      ],
+      "qualification": "required"
+    },
+    "gplugins": {
+      "description": "Qualified solver integration subset; importing a plugin does not qualify its backend.",
+      "kind": "library",
+      "tasks": [
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "meep": {
+      "description": "Qualified local electromagnetic FDTD studies.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.photonic",
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "openems": {
+      "description": "Qualified local electromagnetic FDTD and RF/antenna studies.",
+      "kind": "adapter",
+      "tasks": [
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "csxcad": {
+      "description": "Geometry/material definition library associated with openEMS.",
+      "kind": "library",
+      "tasks": [
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "palace": {
+      "description": "Qualified finite-element electromagnetic field/eigenmode studies.",
+      "kind": "adapter",
+      "tasks": [
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "gmsh": {
+      "description": "Physical geometry and mesh generation under the selected study contract.",
+      "kind": "library",
+      "tasks": [
+        "simulate.em",
+        "simulate.thermal",
+        "simulate.device"
+      ],
+      "qualification": "required"
+    },
+    "meow": {
+      "description": "Qualified eigenmode-expansion and mode-solver integration.",
+      "kind": "adapter",
+      "tasks": [
+        "workflow.photonic",
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "femwell": {
+      "description": "Qualified finite-element mode/field modeling APIs.",
+      "kind": "library",
+      "tasks": [
+        "workflow.photonic",
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "meshwell": {
+      "description": "Qualified geometry-to-mesh preparation APIs.",
+      "kind": "library",
+      "tasks": [
+        "simulate.em",
+        "simulate.thermal"
+      ],
+      "qualification": "required"
+    },
+    "scikit_fem": {
+      "description": "Finite-element assembly library used by qualified modeling workflows.",
+      "kind": "library",
+      "tasks": [
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "scikit_rf": {
+      "description": "RF network/S-parameter processing and analysis library.",
+      "kind": "library",
+      "tasks": [
+        "analyze.measurements",
+        "simulate.em"
+      ],
+      "qualification": "required"
+    },
+    "elmer_fem": {
+      "description": "Qualified finite-element thermal studies; coupling is study-specific.",
+      "kind": "adapter",
+      "tasks": [
+        "simulate.thermal"
+      ],
+      "qualification": "required"
+    },
+    "devsim": {
+      "description": "Qualified semiconductor-device equation solves.",
+      "kind": "adapter",
+      "tasks": [
+        "simulate.device"
+      ],
+      "qualification": "required"
+    },
+    "gtkwave": {
+      "description": "Optional native waveform artifact viewer; inspection/launch is a frontend capability, not a computational run task.",
+      "kind": "viewer",
+      "tasks": [],
+      "qualification": "required"
+    },
+    "pyspice": {
+      "description": "Python circuit/simulator convenience API; it is not an independent solver.",
+      "kind": "library",
+      "tasks": [
+        "characterize.circuit"
+      ],
+      "qualification": "required"
+    },
+    "vlsir": {
+      "description": "Circuit/interchange data library used by qualified generation and exchange tasks.",
+      "kind": "library",
+      "tasks": [
+        "generate.views",
+        "generate.netlist",
+        "export.design"
+      ],
+      "qualification": "required"
+    },
+    "vlsirtools": {
+      "description": "Circuit/interchange and simulator integration helpers in prepared workers.",
+      "kind": "library",
+      "tasks": [
+        "generate.views",
+        "generate.netlist",
+        "export.design"
+      ],
+      "qualification": "required"
+    },
+    "numpy": {
+      "description": "Numerical array APIs in the prepared scripting/analysis profile.",
+      "kind": "library",
+      "tasks": [
+        "analyze.measurements",
+        "characterize.circuit"
+      ],
+      "qualification": "required"
+    },
+    "scipy": {
+      "description": "Numerical/signal-analysis APIs in the prepared scripting/analysis profile.",
+      "kind": "library",
+      "tasks": [
+        "analyze.measurements",
+        "characterize.circuit"
+      ],
+      "qualification": "required"
+    },
+    "pandas": {
+      "description": "Tabular characterization/result processing APIs.",
+      "kind": "library",
+      "tasks": [
+        "analyze.measurements",
+        "characterize.circuit"
+      ],
+      "qualification": "required"
+    },
+    "matplotlib": {
+      "description": "Engine-artifact plot generation APIs.",
+      "kind": "library",
+      "tasks": [
+        "analyze.measurements"
+      ],
+      "qualification": "required"
+    },
+    "pint": {
+      "description": "Unit-aware numerical helpers in prepared workers; the public API uses Quantity.",
+      "kind": "library",
+      "tasks": [],
+      "qualification": "required"
+    },
+    "networkx": {
+      "description": "Graph-analysis helpers in prepared workers; canonical topology remains engine-owned.",
+      "kind": "library",
+      "tasks": [],
+      "qualification": "required"
+    },
+    "pyvista": {
+      "description": "Qualified physical-field visualization/mesh inspection APIs.",
+      "kind": "library",
+      "tasks": [],
+      "qualification": "required"
+    },
+    "trimesh": {
+      "description": "Qualified mesh/geometry processing APIs.",
+      "kind": "library",
+      "tasks": [],
+      "qualification": "required"
+    },
+    "jax": {
+      "description": "Pinned CPU numerical/autodifferentiation runtime used by qualified compact-model profiles.",
+      "kind": "library",
+      "tasks": [],
+      "qualification": "required"
+    },
+    "amaranth": {
+      "description": "User-requested Python HDL frontend and native simulator; add, pin and qualify profile first. Generated Verilog may use other qualified downstream tools.",
+      "kind": "library",
+      "tasks": [
+        "synthesize.hdl",
+        "generate.views",
+        "simulate.hdl"
+      ],
+      "qualification": "required"
+    },
+    "connectgraph": {
+      "description": "Engine-owned canonical connectivity, electrical-rule and identity-mapping operations.",
+      "kind": "adapter",
+      "tasks": [
+        "check.connectivity",
+        "check.erc",
+        "check.view_sync",
+        "generate.netlist"
+      ],
+      "qualification": "required"
+    }
+  },
+  "workflows": {
+    "workflow.asic": {
+      "label": "Build ASIC",
+      "entry": "run",
+      "required_gates": [
+        "syntax",
+        "elaboration",
+        "synthesis",
+        "implementation",
+        "timing",
+        "drc",
+        "lvs",
+        "antenna",
+        "final_view_consistency"
+      ],
+      "behavior": "Resolve coverage plan from target+canvas+PDK. Execute prerequisite DAG, allow independent checks to overlap, block completion when required steps are unsupported/skipped/failed. Partial stop_after is not signoff."
+    },
+    "workflow.analog": {
+      "label": "Verify analog circuit",
+      "entry": "run",
+      "required_gates": [
+        "netlist",
+        "connectivity",
+        "selected_analyses",
+        "measurements"
+      ],
+      "conditional_gates": {
+        "physical": [
+          "drc",
+          "lvs",
+          "extraction",
+          "post_layout_simulation"
+        ]
+      },
+      "behavior": "Use declared testbench/analysis plan and target specs; process-profile-required stages cannot be omitted by a client flag."
+    },
+    "workflow.photonic": {
+      "label": "Verify photonic circuit",
+      "entry": "run",
+      "required_gates": [
+        "interface_and_connectivity",
+        "qualified_compact_models",
+        "optical_circuit_response"
+      ],
+      "conditional_gates": {
+        "physical": [
+          "layout_drc",
+          "physical_connectivity",
+          "layout_to_model_comparison"
+        ],
+        "requested_device_physics": [
+          "mode_or_field_solver",
+          "mesh_convergence"
+        ]
+      },
+      "behavior": "Honor required coverage profile; no claim that generic DRC/LVS or device physics applies to every PDK."
+    }
+  },
+  "component-types": {
+    "spice_block": {
+      "description": "Editable pure SPICE subcircuit and terminal interface; simulation-only by default, physical views attach explicitly.",
+      "primary_role": "implementation",
+      "primary_format": "spice"
+    },
+    "gdsf_component": {
+      "description": "Project-owned Python factory with full installed GDSFactory, declared ports, materialized managed layout and generated symbol.",
+      "primary_role": "layout_generator",
+      "primary_format": "python"
+    },
+    "hdl_component": {
+      "description": "Digital component with source set/top/parameters, inherited canvas authoring language, elaborated canonical interface and implementation flow.",
+      "primary_role": "implementation",
+      "primary_format": "canvas.hdl.language"
+    },
+    "assembly": {
+      "description": "Hierarchical circuit composition with linked schematic and layout cell."
+    },
+    "primitive": {
+      "description": "Qualified PDK or library device/cell reference with canonical interface and model availability."
+    },
+    "testbench": {
+      "description": "Harness entity, not fabricated circuit component; SPICE/HDL/cocotb templates target legal sibling/descendant DUTs."
+    }
+  },
+  "errors": {
+    "invalid_request": 400,
+    "not_found": 404,
+    "revision_conflict": 409,
+    "request_conflict": 409,
+    "unknown_task": 422,
+    "unknown_schema": 422,
+    "invalid_scope": 422,
+    "unsupported_target": 422,
+    "capability_unavailable": 422,
+    "ambiguous_view": 422,
+    "incompatible_language": 422,
+    "testbench_scope_violation": 422,
+    "interface_drift": 409,
+    "ingredient_drift": 409,
+    "prerequisite_failed": 409,
+    "quarantined_run": 409,
+    "invalid_run_state": 409,
+    "cursor_expired": 409,
+    "queue_full": 503,
+    "runtime_unavailable": 503,
+    "internal_error": 500,
+    "duplicate_configuration": 422,
+    "invalid_testbench_binding": 422,
+    "read_set_incomplete": 409
+  }
+}

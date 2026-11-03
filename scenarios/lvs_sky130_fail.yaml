@@ -1,0 +1,7 @@
+name: lvs sky130 fail on mismatched netlist
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-lvs-2, operation: run_lvs, target: sky130_fd_sc_hd__inv_2}
+  - run_live: {backend: extract_lvs_sky130, cell: sky130_fd_sc_hd__inv_2, mutate: true}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

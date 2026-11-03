@@ -1,0 +1,10 @@
+# Abrupt 0.5->1.0um width step (MEOW-LIVE proof as an op fixture):
+# T=0.877/R>0 — misses the matched-guide 0.99 transmission target.
+device: strip-step
+wl_um: 1.55
+cell_length_um: 10.0
+widths_um: [0.5, 1.0]
+modes: {base: 2, refined: 4}
+targets:
+  - {metric: transmission, min: 0.99}
+  - {metric: convergence_dT, max: 0.05}

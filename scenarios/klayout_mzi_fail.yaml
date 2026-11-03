@@ -1,0 +1,7 @@
+name: klayout mzi fail on sliver mutant
+engine: {project_id: photonic_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-klmzi-2, operation: run_drc, target: mzi_ref}
+  - run_live: {backend: klayout_mzi, sliver: true}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

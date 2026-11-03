@@ -1,0 +1,7 @@
+name: ngspice bandgap fail on sizing mutant
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-spice-2, operation: run_spice, target: bandgap_core}
+  - run_live: {backend: ngspice_bandgap, mutation: {operator: bandgap_sizing_out_of_spec, seed: 0}}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

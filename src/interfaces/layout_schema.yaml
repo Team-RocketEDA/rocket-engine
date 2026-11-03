@@ -1,0 +1,278 @@
+# LAYOUT-SCHEMA v1: machine-readable ENGINE_ROOT + linked-project layout.
+# Source of truth for dir/file names (ADR-001 consequences), validator
+# input, and migration baseline. Normative prose: docs/storage-policy.md.
+schema_version: 1
+description: >-
+  Engine-root and linked-project folder schema. pdks/ is the sole shared
+  store; cache/ is disposable derivations (not a store); managed projects
+  live at projects/<id>/ with co-located runs/; linked projects keep
+  engine state only under .rocket/ (gitignored exhaust).
+engine_root:
+  - name: layout.version
+    type: file
+    match: exact
+    required: true
+    tracked: true
+    created_by: engine
+    mutable: false
+    format: version
+    description: >-
+      Version stamp (YAML with schema_version int). Checked first;
+      newer-than-known refuses loudly, never misreads.
+  - name: policy.yaml
+    type: file
+    match: exact
+    required: true
+    tracked: true
+    created_by: engine
+    mutable: true
+    format: policy
+    description: >-
+      Global defaults (timeouts, threads, flags, deck/tool fallbacks,
+      seeds). KiCad-style base; project policy overrides beside runs.
+  - name: pdks
+    type: dir
+    match: exact
+    required: true
+    tracked: true
+    created_by: engine
+    mutable: false
+    description: >-
+      SOLE shared store: verified PDK copies + manifest. Immutable once
+      verified; re-fetch re-verifies instead of duplicating.
+    children:
+      - name: <id>
+        type: dir
+        match: pattern
+        pattern: ^[a-z0-9][a-z0-9_.-]*$
+        required: false
+        tracked: true
+        created_by: engine
+        mutable: false
+        description: One PDK id (e.g. sky130A lowercased by PATH-GUARD slug).
+        children:
+          - name: <revision>
+            type: dir
+            match: pattern
+            pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
+            required: false
+            tracked: true
+            created_by: engine
+            mutable: false
+            description: One PDK revision; manifest pins identity (I28).
+            children:
+              - name: manifest.yaml
+                type: file
+                match: exact
+                required: true
+                tracked: true
+                created_by: engine
+                mutable: false
+                format: manifest
+                description: >-
+                  PDK manifest (hashes, source, date). Format owned by
+                  PDK-STORE; presence + non-empty enforced here.
+  - name: cache
+    type: dir
+    match: exact
+    required: true
+    tracked: false
+    created_by: engine
+    mutable: true
+    children: []
+    description: >-
+      Disposable derivations only. Not a store: nothing trusted is read
+      from it; deleting it costs only rebuild time.
+  - name: projects
+    type: dir
+    match: exact
+    required: true
+    tracked: true
+    created_by: engine
+    mutable: true
+    description: Default home for engine-managed projects.
+    children:
+      - name: <id>
+        type: dir
+        match: pattern
+        pattern: ^[a-z0-9][a-z0-9_.-]*$
+        required: false
+        tracked: true
+        created_by: engine
+        mutable: true
+        description: One managed project; runs co-located under runs/.
+        children:
+          - name: policy.yaml
+            type: file
+            match: exact
+            required: false
+            tracked: true
+            created_by: engine
+            mutable: true
+            format: policy
+            description: >-
+              Optional project-level override beside runs (KiCad-style:
+              wins over global, loses to explicit run args).
+          - name: events.yaml
+            type: file
+            match: exact
+            required: false
+            tracked: true
+            created_by: engine
+            mutable: true
+            format: events
+            description: >-
+              Durable ordered event ledger (LEDGER-DURABLE/I30):
+              seq-ordered actor-attributed events (job_queued,
+              run_completed, run_failed). Absent until the first
+              engine-mediated mutation; trimmed oldest-first by the
+              retention bound, never edited by hand.
+          - name: ledger.yaml
+            type: file
+            match: exact
+            required: false
+            tracked: true
+            created_by: engine
+            mutable: true
+            format: ledger
+            description: >-
+              Ledger head (LEDGER-DURABLE/I30): current revision plus
+              admitted-request identity for idempotent replay and
+              run_job lookup. Absent until the first accepted
+              mutation; rewritten atomically on every mutation.
+          - name: snapshots
+            type: dir
+            match: exact
+            required: false
+            tracked: true
+            created_by: engine
+            mutable: true
+            description: >-
+              Restorable per-revision snapshots (REWIND): byte copies
+              of managed documents at each revision, restored by
+              rewind. Absent until the first snapshotted mutation;
+              never hand-edited.
+            children:
+              - name: <revision>
+                type: dir
+                match: pattern
+                pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
+                required: false
+                tracked: true
+                created_by: engine
+                mutable: false
+                children: []
+                description: >-
+                  One revision snapshot with the managed bytes as
+                  restored by rewind. Immutable once written.
+          - name: runs
+            type: dir
+            match: exact
+            required: true
+            tracked: false
+            created_by: engine
+            mutable: true
+            description: >-
+              Co-located run evidence (native outputs, findings,
+              verdicts). Gitignored exhaust; travels via CI artifacts.
+            children:
+              - name: <run_id>
+                type: dir
+                match: pattern
+                pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
+                required: false
+                tracked: false
+                created_by: engine
+                mutable: false
+                children: []
+                description: >-
+                  One run record with I28 ingredient closure (project
+                  revision, PDK id+rev+hash, deck, solver, seeds,
+                  config). Immutable once written.
+linked_project:
+  - name: .rocket
+    type: dir
+    match: exact
+    required: true
+    tracked: false
+    created_by: engine
+    mutable: true
+    description: >-
+      Single carve-out: the engine writes into a caller tree only here,
+      never beside sources. Gitignored exhaust. Caller sources outside
+      are untouched and unvalidated.
+    children:
+      - name: layout.version
+        type: file
+        match: exact
+        required: true
+        tracked: false
+        created_by: engine
+        mutable: false
+        format: version
+        description: Version stamp for the carve-out (same refuse-newer rule).
+      - name: policy.yaml
+        type: file
+        match: exact
+        required: false
+        tracked: false
+        created_by: engine
+        mutable: true
+        format: policy
+        description: Optional project-level override (local, gitignored).
+      - name: runs
+        type: dir
+        match: exact
+        required: true
+        tracked: false
+        created_by: engine
+        mutable: true
+        description: Co-located run evidence (same I28 closure as managed).
+        children:
+          - name: <run_id>
+            type: dir
+            match: pattern
+            pattern: ^[A-Za-z0-9][A-Za-z0-9_.-]*$
+            required: false
+            tracked: false
+            created_by: engine
+            mutable: false
+            children: []
+            description: One run record, immutable once written.
+policy_template:
+  description: >-
+    Zero-silent-defaults: the template ships every default explicitly;
+    anything required must be present and non-empty somewhere in the
+    chain (run args > project policy > global policy) or startup fails
+    loudly. Per-tool audit (2026-10-29) below pins each default's source.
+  required:
+    - timeout_s
+    - preflight_timeout_s
+    - threads
+    - slang_flags
+    - tools
+    - decks
+    - seeds
+  defaults:
+    timeout_s: 120
+    preflight_timeout_s: 30
+    threads: 4
+    slang_flags:
+      - -Wextra
+    tools:
+      run_drc: magic
+      run_hdl_test: icarus
+      run_optical: sax
+      run_syntax: slang
+    decks:
+      run_drc: sky130A
+    seeds:
+      - 0
+  audit:
+    timeout_s: All five solver adapters (_TIMEOUT_S=120) plus BwrapRunner.run default (120).
+    preflight_timeout_s: BwrapRunner.preflight default (30).
+    threads: No existing knob; new canonical name (default 4) for solver/worker parallelism.
+    slang_flags: SyntaxAdapter _DEFAULT_FLAGS (["-Wextra"]); other solvers use fixed argv.
+    tools: Engine deck.tool fallbacks — run_drc first-registered magic (klayout alt), run_hdl_test icarus, run_optical sax, run_syntax slang.
+    decks: Template-owned (PDK-STORE resolves id+rev to manifest-hashed paths); sky130A is the MVP demo PDK.
+    seeds: No existing knob; new canonical name (engine-api seeds[]); [0] is the deterministic default.

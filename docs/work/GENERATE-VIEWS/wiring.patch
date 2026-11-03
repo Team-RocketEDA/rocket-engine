@@ -1,0 +1,70 @@
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -43,6 +43,7 @@
+ from .adapters.drc_kl import KlayoutDrcAdapter
+ from .adapters.errors import AdapterError
+ from .adapters.extract_magic import MagicExtractAdapter
++from .adapters.gdsfactory.adapter import GdsfactoryViewsAdapter
+ from .adapters.hdl_sim import HdlSimAdapter
+ from .adapters.lvs_netgen import NetgenLvsAdapter
+ from .adapters.ngspice import NgspiceAdapter
+@@ -270,6 +271,7 @@
+             "run_syntax": {"slang": SyntaxAdapter()},
+             "run_connectivity": {"connectgraph": ConnectivityAdapter()},
+             "run_erc": {"connectgraph": ConnectivityAdapter()},
++            "generate_views": {"gdsfactory": GdsfactoryViewsAdapter()},
+         }
+         self._yaml = YAML(typ="safe")
+         self._constraints = dict(constraints) if constraints is not None else None
+--- a/src/interfaces/setup.py
++++ b/src/interfaces/setup.py
+@@ -61,6 +61,7 @@
+     ("run_syntax", "slang"): {"binaries": ["slang"]},
+     ("run_connectivity", "connectgraph"): {},
+     ("run_erc", "connectgraph"): {},
++    ("generate_views", "gdsfactory"): {"python": ["gdsfactory"]},
+ }
+ 
+ 
+--- a/src/interfaces/setup_catalogue.yaml
++++ b/src/interfaces/setup_catalogue.yaml
+@@ -65,6 +65,12 @@
+     python: [sax]
+     remedy: "sax not installed, uv sync --group photonic (B10-owned tooling)"
+     recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
++  - id: gdsfactory
++    kind: python
++    label: gdsfactory (layout views)
++    python: [gdsfactory]
++    remedy: "gdsfactory not installed, uv sync --group layout (B10-owned tooling)"
++    recipe: "pyproject.toml [dependency-groups] layout: uv sync --group layout (B10)."
+   - id: cvc
+     kind: tool
+     label: cvc
+--- a/scripts/api_spec.py
++++ b/scripts/api_spec.py
+@@ -147,6 +147,10 @@
+             rel = f"adapters/{parts[1]}/__init__.py"
+             for alias in node.names:
+                 locations[alias.asname or alias.name] = rel
++        if len(parts) == 3 and parts[0] == "adapters":
++            rel = f"adapters/{parts[1]}/{parts[2]}.py"
++            for alias in node.names:
++                locations[alias.asname or alias.name] = rel
+     solvers = {}
+     for node in ast.walk(tree):
+         if not isinstance(node, ast.ClassDef) or node.name != "Engine":
+--- a/src/adapters/gdsfactory/__init__.py
++++ b/src/adapters/gdsfactory/__init__.py
+@@ -8,8 +8,9 @@
+ fail loud (`missing_dependency`), never fake-green. The cspdk
+ tree is git-ignored vendor data: pass `cspdk_path`
+ (`scripts/fetch_fixtures.py --only cspdk`) where the package
+-is not installed. A full layout Engine adapter is follow-up,
+-out of scope.
++is not installed. The full layout Engine adapter is
++GdsfactoryViewsAdapter (generate_views, adapter.py); this smoke is
++its qualification fixture.
+ """
+ 
+ import sys

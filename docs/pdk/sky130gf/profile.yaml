@@ -1,0 +1,89 @@
+# PDK-SKY130GF lane profile: SkyWater sky130 via the gdsfactory pip package.
+# Shape follows the PDK-PROFILE direction lock: {gdsfactory package
+# pin, KLayout tech, decks, models}. All relpaths resolve against
+# the sky130 package root (pip site-packages). Single variant: the
+# pip wheel repacks one process (sky130_fd_pr + sky130_fd_sc_hd).
+# DRC/LVS/extract/sim authority stays with the open_pdks sky130A
+# tree (pdk-sky130A catalogue entry) — see the decision record.
+schema: rocketeda/pdk-profile/v0.1
+id: sky130gf
+label: SkyWater sky130 via gdsfactory pip (sky130)
+upstream: https://github.com/gdsfactory/skywater130
+license: MIT (wrapper); Apache-2.0 (SkyWater src content)
+package: sky130
+pins:
+  sky130: "1.0.0"
+  gdsfactory: "9.51.0"
+  klayout: "0.28.16"
+as_shipped:
+  gdsfactory: "9.40.2"
+  gdsfactoryplus: "1.8.20"
+  PySpice: "1.5"
+  doroutes: "0.5.0"
+decision:
+  registration: dual-scoped
+  tree_authority: sky130A
+  pip_scope: [layout, cells, klayout-tech]
+  tree_scope: [drc, lvs, extract, sim]
+  no_mixing: >-
+    Runs pin the distribution (sky130gf pip vs sky130A tree) in the
+    ingredient closure; capabilities never overlap so no run can silently
+    mix distributions. The pip profile declares drc/lvs/extract/sim n/a
+    with a pointer to the tree deck.
+  rejected: >-
+    volare (efabless PDK fetcher) rejected as a lane distribution:
+    it fetches the same open_pdks tree content (not a distinct
+    distribution), needs GitHub network + token at provision time
+    (ls-remote timed out in evaluation), and would register a second
+    confusing path to identical decks.
+variants:
+  sky130:
+    module: sky130
+    pdk_name: sky130
+    process: SkyWater 130nm CMOS (pip repack of sky130_fd_pr + sky130_fd_sc_hd)
+    status: proven
+    cell_count: 767
+    tech:
+      klayout_dir: sky130/klayout
+      lyt: sky130/klayout/sky130.lyt
+      lyt_alt: sky130/klayout/tech.lyt
+      lyp: sky130/klayout/layers.lyp
+      layers_yaml: sky130/klayout/layers.yaml
+      d25: sky130/klayout/d25/sky130.lyd25
+      tech_name: sky130
+    drc:
+      deck: null
+      deck_reason: >-
+        No runnable .lydrc ships (0 found in sky130 1.0.0); the only
+        deck-like file is a d25 GUI macro (batch run fails: "No layout
+        loaded for running 2.5d view"). Upstream DRC CI runs through the
+        gdsfactoryplus cloud workflow (needs GFP_API_KEY), which the engine
+        cannot use. DRC authority stays with the tree deck
+        libs.tech/klayout/drc/sky130A.lydrc.
+      d25_status: inventoried-not-runnable
+    models:
+      path: sky130/src/sky130_fd_pr/models/sky130.lib.spice
+      spice_file_count: 146
+      authority: >-
+        tree (sim stays on the open_pdks sky130.lib.spice; pip models
+        vendored but unproven here)
+      status: inventoried
+    libraries:
+      fd_pr_cells: 129
+      sc_hd_cells: 163
+      gds_files: 727
+proofs:
+  layout:
+    variant: sky130
+    cell: sky130_fd_pr__nfet_01v8
+    ports: [BODY, DRAIN, GATE, SOURCE]
+    n_polygons: 48
+    bbox_um: [[-1.0, -1.205], [1.0, 1.205]]
+    reference_gds: nfet_01v8.gds
+    sha256: 0bd23411439124a00404806fe5003c377c0e5158b948417faa6a691f054a3e34
+  stdcell:
+    variant: sky130
+    cell: sky130_fd_sc_hd__inv_2
+    ports: [VGND, VPWR]
+    n_polygons: 46
+    bbox_um: [[-0.19, -0.24], [1.57, 2.96]]

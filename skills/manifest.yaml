@@ -1,0 +1,9 @@
+schema: rocketeda/skills/v1
+version: "0.1.0"
+status: source-library
+skills:
+  - name: rocket-engine
+    path: rocket-engine/SKILL.md
+    description: Local project authoring, task discovery and typed tool evidence.
+contract: ../contracts/engine-v1.schema.json
+runtime_rule: Discover actual provider version and capabilities; v1 design is not a deployment claim.

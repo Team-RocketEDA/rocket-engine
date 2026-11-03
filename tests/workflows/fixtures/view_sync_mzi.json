@@ -1,0 +1,353 @@
+{
+  "extracted": {
+    "cell": "mzi_top",
+    "instances": [
+      {
+        "name": "S1",
+        "symbol": "coupler"
+      },
+      {
+        "name": "S2",
+        "symbol": "coupler"
+      }
+    ],
+    "labels": [
+      {
+        "name": "ARM_A",
+        "xy": [
+          50,
+          0
+        ]
+      },
+      {
+        "name": "ARM_B",
+        "xy": [
+          50,
+          20
+        ]
+      },
+      {
+        "name": "IN",
+        "xy": [
+          -100,
+          0
+        ]
+      },
+      {
+        "name": "OUT",
+        "xy": [
+          200,
+          0
+        ]
+      },
+      {
+        "name": "TERM_S1",
+        "xy": [
+          -100,
+          20
+        ]
+      }
+    ],
+    "pins": [
+      {
+        "instance": "S1",
+        "pin": "in1",
+        "xy": [
+          -100,
+          0
+        ]
+      },
+      {
+        "instance": "S1",
+        "pin": "in2",
+        "xy": [
+          -100,
+          20
+        ]
+      },
+      {
+        "instance": "S1",
+        "pin": "o1",
+        "xy": [
+          0,
+          0
+        ]
+      },
+      {
+        "instance": "S1",
+        "pin": "out2",
+        "xy": [
+          0,
+          20
+        ]
+      },
+      {
+        "instance": "S2",
+        "pin": "i1",
+        "xy": [
+          100,
+          0
+        ]
+      },
+      {
+        "instance": "S2",
+        "pin": "in2",
+        "xy": [
+          100,
+          20
+        ]
+      },
+      {
+        "instance": "S2",
+        "pin": "out1",
+        "xy": [
+          200,
+          0
+        ]
+      }
+    ],
+    "ports": [
+      {
+        "direction": "output",
+        "name": "IN"
+      },
+      {
+        "direction": "inout",
+        "name": "ARM_A"
+      }
+    ],
+    "symbols": {
+      "coupler": {
+        "pins": [
+          "in1",
+          "in2",
+          "out1",
+          "out2"
+        ]
+      }
+    },
+    "wires": [
+      [
+        [
+          0,
+          0
+        ],
+        [
+          100,
+          0
+        ]
+      ],
+      [
+        [
+          0,
+          20
+        ],
+        [
+          100,
+          20
+        ]
+      ],
+      [
+        [
+          50,
+          0
+        ],
+        [
+          50,
+          20
+        ]
+      ]
+    ]
+  },
+  "intended": {
+    "cell": "mzi_top",
+    "instances": [
+      {
+        "name": "S1",
+        "symbol": "coupler"
+      },
+      {
+        "name": "S2",
+        "symbol": "coupler"
+      }
+    ],
+    "labels": [
+      {
+        "name": "ARM_A",
+        "xy": [
+          50,
+          0
+        ]
+      },
+      {
+        "name": "ARM_B",
+        "xy": [
+          50,
+          20
+        ]
+      },
+      {
+        "name": "IN",
+        "xy": [
+          -100,
+          0
+        ]
+      },
+      {
+        "name": "OUT",
+        "xy": [
+          200,
+          0
+        ]
+      },
+      {
+        "name": "TERM_S1",
+        "xy": [
+          -100,
+          20
+        ]
+      },
+      {
+        "name": "TERM_S2",
+        "xy": [
+          200,
+          20
+        ]
+      }
+    ],
+    "pins": [
+      {
+        "instance": "S1",
+        "pin": "in1",
+        "xy": [
+          -100,
+          0
+        ]
+      },
+      {
+        "instance": "S1",
+        "pin": "in2",
+        "xy": [
+          -100,
+          20
+        ]
+      },
+      {
+        "instance": "S1",
+        "pin": "out1",
+        "xy": [
+          0,
+          0
+        ]
+      },
+      {
+        "instance": "S1",
+        "pin": "out2",
+        "xy": [
+          0,
+          20
+        ]
+      },
+      {
+        "instance": "S2",
+        "pin": "in1",
+        "xy": [
+          100,
+          0
+        ]
+      },
+      {
+        "instance": "S2",
+        "pin": "in2",
+        "xy": [
+          100,
+          20
+        ]
+      },
+      {
+        "instance": "S2",
+        "pin": "out1",
+        "xy": [
+          200,
+          0
+        ]
+      },
+      {
+        "instance": "S2",
+        "pin": "out2",
+        "xy": [
+          200,
+          20
+        ]
+      }
+    ],
+    "ports": [
+      {
+        "direction": "input",
+        "name": "IN"
+      },
+      {
+        "direction": "output",
+        "name": "OUT"
+      }
+    ],
+    "symbols": {
+      "coupler": {
+        "pins": [
+          "in1",
+          "in2",
+          "out1",
+          "out2"
+        ]
+      }
+    },
+    "wires": [
+      [
+        [
+          0,
+          0
+        ],
+        [
+          100,
+          0
+        ]
+      ],
+      [
+        [
+          0,
+          20
+        ],
+        [
+          100,
+          20
+        ]
+      ]
+    ]
+  },
+  "links": [
+    {
+      "CellLink": {
+        "cell": "mzi:cp",
+        "pinMap": [
+          {
+            "cellPin": "o1",
+            "symPin": "out1"
+          }
+        ]
+      },
+      "id": "S1"
+    },
+    {
+      "CellLink": {
+        "cell": "mzi:cp",
+        "pinMap": [
+          {
+            "cellPin": "i1",
+            "symPin": "in1"
+          }
+        ]
+      },
+      "id": "S2"
+    }
+  ]
+}

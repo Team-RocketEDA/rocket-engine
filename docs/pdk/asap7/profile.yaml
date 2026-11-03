@@ -1,0 +1,114 @@
+# PDK-ASAP7 lane profile: ASAP7 predictive 7nm FinFET (ASU+ARM, BSD-3).
+# SPIKE-FIRST lane: gdsfactory does not cover ASAP7 (verified: no
+# refs in installed gdsfactory, engine api-map, or the upstream PDK
+# list), so proofs bypass the engine gdsfactory adapter and verify
+# the pre-cloned trees directly (stdlib parsing + KLayout batch +
+# 7z). All matrix rows are predictive-only, never manufacturable,
+# and must never look better-proven than measured silicon.
+schema: rocketeda/pdk-profile/v0.1
+id: asap7
+label: ASAP7 predictive 7nm FinFET PDK (ASU+ARM, predictive-only)
+upstream: https://github.com/The-OpenROAD-Project/asap7
+license: BSD-3-Clause
+predictive_only: true
+manufacturable: false
+pins:
+  klayout: "0.28.16"
+  ngspice: "42"
+  xschem: "3.4.8RC"
+source:
+  wrapper_rev: d24f8b857ff74cf5b21ab18a7e1b11a3954c449b
+  wrapper_short_rev: d24f8b8
+  wrapper_date: "2025-03-12"
+  lib_rev: e5bd25da72cd297b8c0ec6f77600e0cbaa1124d0
+  lib_short_rev: e5bd25d
+  lib_date: "2026-10-17"
+  r1p7_rev: 58d72c9d291e186a77468586ab0c43d8a21eda6a
+  r1p7_short_rev: 58d72c9
+  r1p7_date: "2024-07-18"
+wrapper:
+  readme: README.md
+  license: LICENSE
+  gitmodules: .gitmodules
+  submodules_initialized: false
+  submodule_dirs:
+    - asap7_pdk_r1p7
+    - asap7sc6t_26
+    - asap7sc7p5t_27
+    - asap7sc7p5t_28
+    - asap7_sram_0p0
+spike:
+  # Digital: OpenROAD-flow-scripts ships flow/platforms/asap7
+  # (verified upstream HTTP 200 with drc/gds/KLayout collateral,
+  # 2026-10-31); openroad+yosys are NOT installed here, so the
+  # digital flow is claimed-upstream, never run in this lane.
+  orfs_platform: https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/tree/master/flow/platforms/asap7
+  orfs_platform_status: claimed-upstream-not-run-here
+  openroad_installed: false
+  yosys_installed: false
+  gdsfactory_covers_asap7: false
+  # Custom: ngspice-42 carries OSDI symbols and sims (RC verified);
+  # OpenVAF is absent and the PDK ships HSPICE-only BSIMCMG cards
+  # (no Verilog-A), so the OSDI path is precisely blocked.
+  ngspice_osdi_symbols: true
+  openvaf_installed: false
+  xschem_runs_textmode: true
+variants:
+  sc7p5t_28:
+    library: asap7sc7p5t_28
+    lib_version: 28
+    track: 7.5t
+    vts: [LVT, RVT, SLVT, SRAM]
+    status: predictive-proof
+    tech:
+      techlef: techlef_misc/asap7_tech_1x_201209.lef
+      verilog_dir: Verilog
+      lef_dir: LEF
+      gds_dir: GDS
+      lib_ccs_dir: LIB/CCS
+      lib_nldm_dir: LIB/NLDM
+      n_verilog_files: 24
+      n_lef_files: 4
+      n_gds_files: 4
+    drc:
+      deck: null
+      deck_status: missing-open-source
+      deck_note: >
+        No open-source DRC deck ships anywhere: r1p7 carries only
+        Calibre placeholder READMEs (real SVRF decks are a manual
+        download from asap.asu.edu) and Cadence-only collateral.
+        ORFS platform KLayout/drc collateral is claimed-upstream,
+        not verified here.
+      inventoried_cells:
+        - Verilog/IO_cell/ASAP7_IOCELLBUFANTENNA.v
+        - LEF/IO_cell/ASAP7_IOCELLBUFANTENNAIN_5um.lef
+        - LEF/IO_cell/ASAP7_IOCELLBUFANTENNAOUT_5um.lef
+    models:
+      path: null
+      format: hspice-bsimcmg-l72
+      bsimcmg_version: 107
+      corners: [TT, SS, FF]
+      cards_per_corner: 8
+      status: blocked-openvaf-missing
+      note: >
+        r1p7 models/hspice holds HSPICE-only BSIMCMG level=72 v107
+        cards (4 VTs x N/P). ngspice cannot read HSPICE level 72;
+        the OSDI route needs OpenVAF (absent) plus Verilog-A
+        BSIMCMG sources (not in the PDK).
+proofs:
+  verilog_total_modules: 812
+  verilog_group_counts: {AO: 42, INVBUF: 37, OA: 34, SEQ: 33, SIMPLE: 56, TBUF: 1}
+  lef_macros_per_file: 213
+  gds_cells_per_file: 213
+  gds_dbu: 0.00025
+  invx1_r:
+    bbox_dbu: [0, -88, 824, 1168]
+    bbox_um: [[0.0, -0.022], [0.206, 0.292]]
+    n_shapes: 51
+    n_layers: 16
+  techlef_n_layers: 24
+  lib_nldm_archives: 73
+  lib_ccs_archives: 218
+  fixture: tests/pdk_asap7/fixtures/invx1_r.gds
+  fixture_sha256: c1c99056fb583177ef4e60c4609efba12c5bf12a6a5edd48a8ed1df3ff5caa4b
+  fixture_bytes: 3476

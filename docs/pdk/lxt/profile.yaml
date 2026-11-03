@@ -1,0 +1,141 @@
+# PDK-LXT lane profile: Luxelligence GF TFLN/TFLT PDK (gdsfactory).
+# Shape follows the sibling PDK-CSPDK direction lock: {package pin,
+# KLayout tech, decks, models} per variant. All relpaths resolve
+# against the upstream repo root at the pinned revision. The DRC deck
+# (.lydrc) is GATED upstream — deck fields stay null with the fetch
+# recipe; only the user-supplied-deck flow is proven here.
+schema: rocketeda/pdk-profile/v0.1
+id: lxt
+display_id: lxt_pdk_gf
+label: Luxelligence GF TFLN/TFLT PDK (gdsfactory lxt_pdk_gf)
+upstream: https://github.com/Luxtelligence/lxt_pdk_gf.git
+revision: d16db6a4882657feb1ce696c16c604ff6cb7ccfa
+revision_date: 2026-06-01
+revision_subject: Merge pull request #124 from Luxtelligence/length_imbalance_fix
+license: MIT
+package: lxt_pdk_gf
+package_version: "2.0"
+pins:
+  python: "3.12"
+  gdsfactory: '~=9.34'
+  gplugins: '>=1.4,<2'
+  sax: '~=0.16.3'
+tech_install:
+  script: install_tech.py
+  covers:
+    - lnoi400
+  manual_variant: >-
+    ltoi300 needs the same symlink shape done manually
+    (upstream install_tech.py only links lnoi400/klayout; see recipe.md)
+variants:
+  ltoi300:
+    module: ltoi300
+    pdk_name: ltoi300
+    process: lithium tantalate on insulator, 300 nm film (180 nm ridge + 120 nm slab)
+    status: proven
+    tech:
+      klayout_dir: ltoi300/klayout
+      lyt: null
+      lyt_reason: ltoi300/klayout ships only ltoi300.lyp (no tech.lyt) at the pinned revision
+      lyp: ltoi300/klayout/ltoi300.lyp
+      layers_yaml: ltoi300/layers.yaml
+      tech_name: null
+    drc:
+      deck: null
+      deck_status: gated
+      deck_reason: >-
+        no .lydrc in the repo (verified: zero deck files in the
+        pinned tree); runsets ship only via the access gate below
+      fetch_url: https://resources.luxtelligence.ai/request-access?resource=drc
+      gate_requirement: >-
+        request access through the Luxtelligence resources
+        web flow ("LXT Design Manual - Foundry Design Guidelines"), then
+        download the stack-specific .lydrc file(s)
+      deck_glob: '*.lydrc'
+      install_dir: <user home>/Klayout/drc
+      run: >-
+        KLayout GUI only (Tools -> DRC -> Edit DRC Script -> run); no
+        upstream batch command documented
+      caveats: >-
+        KLayout uses only the first DRC file in drc/ — keep only
+        one .lydrc at a time; flagged violations may be advisory and the
+        deck does not catch everything (upstream README)
+      engine_rules: null
+      engine_rules_reason: >-
+        upstream publishes no numeric design-rule
+        values outside the gated deck, so the lane invents none; the
+        100 nm width/space check in test_proofs.py is a labelled
+        geometry sanity check, not DRC
+    models:
+      path: ltoi300/models.py
+      registry: get_models
+      count: 13
+      status: proven
+      proof_model: straight_rwg900_cband
+    cells:
+      path: ltoi300/cells.py
+      count: 26
+      proof_cell: straight_rwg900_cband
+  lnoi400:
+    module: lnoi400
+    pdk_name: lnoi400
+    process: lithium niobate on insulator, 400 nm film (200 nm ridge + 200 nm slab)
+    status: proven
+    tech:
+      klayout_dir: lnoi400/klayout
+      lyt: lnoi400/klayout/tech.lyt
+      lyp: lnoi400/klayout/lnoi400.lyp
+      layers_yaml: lnoi400/layers.yaml
+      tech_name: LNOI400
+      d25_stack_view: lnoi400/klayout/d25/LNOI400.lyd25
+      d25_note: the .lyd25 is a 2.5D layer-stack view script (z extrusion),
+        not a DRC deck
+    drc:
+      deck: null
+      deck_status: gated
+      deck_reason: >-
+        no .lydrc in the repo (verified: zero deck files in the
+        pinned tree); runsets ship only via the access gate below
+      fetch_url: https://resources.luxtelligence.ai/request-access?resource=drc
+      gate_requirement: >-
+        request access through the Luxtelligence resources
+        web flow ("LXT Design Manual - Foundry Design Guidelines"), then
+        download the stack-specific .lydrc file(s)
+      deck_glob: '*.lydrc'
+      install_dir: <user home>/Klayout/drc
+      run: >-
+        KLayout GUI only (Tools -> DRC -> Edit DRC Script -> run); no
+        upstream batch command documented
+      caveats: >-
+        KLayout uses only the first DRC file in drc/ — keep only
+        one .lydrc at a time; flagged violations may be advisory and the
+        deck does not catch everything (upstream README)
+      engine_rules: null
+      engine_rules_reason: >-
+        upstream publishes no numeric design-rule
+        values outside the gated deck, so the lane invents none
+    models:
+      path: lnoi400/models.py
+      registry: get_models
+      count: 9
+      status: proven
+      proof_model: straight_rwg1000
+    cells:
+      path: lnoi400/cells.py
+      count: 23
+      proof_cell: straight_rwg1000
+capabilities:
+  layout:
+    status: supported
+    path: gdsfactory
+    evidence: straight_rwg900_cband(L10) builds with golden ports/bbox/layers
+  optical_sim:
+    status: supported
+    path: sax
+    evidence: PDK.models entries evaluate to SDict at wl=1.55 with golden S-params
+  drc:
+    status: gated
+    deck_kind: user-supplied
+    fetch_url: https://resources.luxtelligence.ai/request-access?resource=drc
+    evidence: register_pdk/resolve_deck hash-pinned flow proven with a
+      labelled stand-in; the gated deck itself never vendored or faked

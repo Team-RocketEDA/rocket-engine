@@ -1,0 +1,8 @@
+Problem: auth.py (require_local_caller/caller_context) has zero callers in src — dead code; localhost-only rests on the bind-time guard alone, do_POST never checks peer. POST routes ANY path, no Content-Type check, unbounded body read, unbounded threads, dropped access log, no Origin check (browser-CSRF class).
+Expected-per: HTTP-LOCALHOST threat model; INVARIANT-PARTIALS I12. Audit MC-14, MC-40, D-26/D-27.
+Ruling: RULING-04 (trusted-local, no cloud ever, no auth needed) — DELETE auth.py instead of wiring it; keep the tested loopback bind guard. Then: path + Content-Type checks, bounded body/threads, Origin check, restore audit log. Positive to preserve: check_loopback_host + host_shell rejection (test-pinned).
+
+## Step-3 done
+auth.py deleted; FastAPI/uvicorn listener with path, content-type,
+body, Origin, concurrency, audit hardening. Loopback bind guard
+kept; per-request peer check unnecessary (bind guarantees loopback).

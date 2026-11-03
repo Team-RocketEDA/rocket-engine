@@ -1,0 +1,592 @@
+{
+  "librelane": {
+    "description": "Pinned ASIC flow distribution and registered flow/stage orchestrator.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.asic",
+      "implement.asic"
+    ],
+    "qualification": "required"
+  },
+  "yosys": {
+    "description": "RTL elaboration, synthesis, netlist transformation and serialization.",
+    "kind": "adapter",
+    "tasks": [
+      "check.formal",
+      "check.equivalence",
+      "check.mutation",
+      "synthesize.hdl",
+      "implement.asic",
+      "implement.fpga",
+      "export.design"
+    ],
+    "qualification": "required"
+  },
+  "abc": {
+    "description": "Logic optimization/technology mapping and supported formal backend inside a pinned flow.",
+    "kind": "backend",
+    "tasks": [
+      "check.formal",
+      "check.equivalence",
+      "synthesize.hdl",
+      "implement.asic"
+    ],
+    "qualification": "required"
+  },
+  "slang": {
+    "description": "Qualified SystemVerilog parsing, elaboration and diagnostics.",
+    "kind": "adapter",
+    "tasks": [
+      "check.syntax",
+      "synthesize.hdl"
+    ],
+    "qualification": "required"
+  },
+  "yosys_slang": {
+    "description": "Qualified Slang frontend integration for the pinned Yosys distribution.",
+    "kind": "backend",
+    "tasks": [
+      "check.syntax",
+      "synthesize.hdl"
+    ],
+    "qualification": "required"
+  },
+  "openroad": {
+    "description": "Physical implementation, timing, power-grid and routing tasks through registered schemas.",
+    "kind": "adapter",
+    "tasks": [
+      "check.antenna",
+      "implement.asic",
+      "analyze.timing",
+      "analyze.power"
+    ],
+    "qualification": "required"
+  },
+  "opendb": {
+    "description": "OpenROAD physical database and registered geometry/netlist utility backend.",
+    "kind": "library",
+    "tasks": [
+      "check.antenna",
+      "implement.asic"
+    ],
+    "qualification": "required"
+  },
+  "opensta": {
+    "description": "Static timing and supported characterized-power analysis.",
+    "kind": "adapter",
+    "tasks": [
+      "implement.asic",
+      "analyze.timing",
+      "analyze.power"
+    ],
+    "qualification": "required"
+  },
+  "openrcx": {
+    "description": "Technology-qualified interconnect parasitic RC extraction.",
+    "kind": "backend",
+    "tasks": [
+      "implement.asic",
+      "extract.layout"
+    ],
+    "qualification": "required"
+  },
+  "magic": {
+    "description": "Technology-bound layout operations, DRC, extraction and native layout exchange.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.analog",
+      "check.drc",
+      "implement.asic",
+      "extract.layout",
+      "export.design"
+    ],
+    "qualification": "required"
+  },
+  "netgen": {
+    "description": "Technology-configured circuit/netlist comparison for LVS.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.analog",
+      "check.lvs",
+      "implement.asic"
+    ],
+    "qualification": "required"
+  },
+  "klayout": {
+    "description": "Geometry/format processing, rule-deck DRC, qualified LVS and stream-out comparison.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.analog",
+      "workflow.photonic",
+      "check.drc",
+      "check.lvs",
+      "check.antenna",
+      "check.layout_xor",
+      "implement.asic",
+      "extract.layout",
+      "generate.views",
+      "export.design"
+    ],
+    "qualification": "required"
+  },
+  "ngspice": {
+    "description": "SPICE circuit solver with analysis/model/dialect-specific qualification.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.analog",
+      "simulate.spice",
+      "simulate.cosim",
+      "characterize.circuit"
+    ],
+    "qualification": "required"
+  },
+  "xyce": {
+    "description": "Alternative circuit solver; its supported analyses and model dialect are qualified separately.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.analog",
+      "simulate.spice",
+      "simulate.cosim",
+      "characterize.circuit"
+    ],
+    "qualification": "required"
+  },
+  "xschem": {
+    "description": "Native schematic import/export and netlisting; Rocket owns its graphical editor.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.analog",
+      "generate.views",
+      "generate.netlist",
+      "export.design"
+    ],
+    "qualification": "required"
+  },
+  "cace": {
+    "description": "Saved circuit characterization-plan orchestration and specification evaluation.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.analog",
+      "characterize.circuit"
+    ],
+    "qualification": "required"
+  },
+  "openvaf": {
+    "description": "Verilog-A-to-OSDI model compilation for a compatible target simulator.",
+    "kind": "adapter",
+    "tasks": [
+      "compile.model"
+    ],
+    "qualification": "required"
+  },
+  "icarus": {
+    "description": "Icarus Verilog compilation and event-driven simulation.",
+    "kind": "adapter",
+    "tasks": [
+      "check.syntax",
+      "simulate.hdl",
+      "simulate.cosim"
+    ],
+    "qualification": "required"
+  },
+  "verilator": {
+    "description": "Qualified SystemVerilog lint, compiled simulation and supported coupling backend.",
+    "kind": "adapter",
+    "tasks": [
+      "check.syntax",
+      "simulate.hdl",
+      "simulate.cosim"
+    ],
+    "qualification": "required"
+  },
+  "ghdl": {
+    "description": "VHDL analysis/simulation and separately qualified Yosys synthesis integration.",
+    "kind": "adapter",
+    "tasks": [
+      "check.syntax",
+      "simulate.hdl",
+      "simulate.cosim",
+      "synthesize.hdl"
+    ],
+    "qualification": "required"
+  },
+  "cocotb": {
+    "description": "Python testbench integration against a qualified installed HDL simulator.",
+    "kind": "library",
+    "tasks": [
+      "simulate.hdl"
+    ],
+    "qualification": "required"
+  },
+  "sby": {
+    "description": "SymbiYosys property proof, bounded checking and cover orchestration.",
+    "kind": "adapter",
+    "tasks": [
+      "check.formal"
+    ],
+    "qualification": "required"
+  },
+  "eqy": {
+    "description": "Yosys implementation-equivalence orchestration.",
+    "kind": "adapter",
+    "tasks": [
+      "check.equivalence"
+    ],
+    "qualification": "required"
+  },
+  "mcy": {
+    "description": "Mutation-based evaluation of digital verification effectiveness.",
+    "kind": "adapter",
+    "tasks": [
+      "check.mutation"
+    ],
+    "qualification": "required"
+  },
+  "z3": {
+    "description": "Pinned SMT solver used through a registered formal-engine combination.",
+    "kind": "backend",
+    "tasks": [
+      "check.formal"
+    ],
+    "qualification": "required"
+  },
+  "boolector": {
+    "description": "Pinned SMT solver used through a registered formal-engine combination.",
+    "kind": "backend",
+    "tasks": [
+      "check.formal"
+    ],
+    "qualification": "required"
+  },
+  "bitwuzla": {
+    "description": "Pinned SMT solver used through a registered formal-engine combination.",
+    "kind": "backend",
+    "tasks": [
+      "check.formal"
+    ],
+    "qualification": "required"
+  },
+  "yices": {
+    "description": "Pinned SMT solver used through a registered formal-engine combination.",
+    "kind": "backend",
+    "tasks": [
+      "check.formal"
+    ],
+    "qualification": "required"
+  },
+  "nextpnr": {
+    "description": "FPGA place-and-route for specifically qualified device/database targets.",
+    "kind": "adapter",
+    "tasks": [
+      "implement.fpga"
+    ],
+    "qualification": "required"
+  },
+  "icestorm": {
+    "description": "iCE40 device data and bitstream utilities where shipped and qualified.",
+    "kind": "backend",
+    "tasks": [
+      "implement.fpga"
+    ],
+    "qualification": "required"
+  },
+  "trellis": {
+    "description": "ECP5 device data and bitstream utilities where shipped and qualified.",
+    "kind": "backend",
+    "tasks": [
+      "implement.fpga"
+    ],
+    "qualification": "required"
+  },
+  "oxide": {
+    "description": "Nexus device data and bitstream utilities where shipped and qualified.",
+    "kind": "backend",
+    "tasks": [
+      "implement.fpga"
+    ],
+    "qualification": "required"
+  },
+  "apicula": {
+    "description": "Gowin device data and bitstream utilities where shipped and qualified.",
+    "kind": "backend",
+    "tasks": [
+      "implement.fpga"
+    ],
+    "qualification": "required"
+  },
+  "sax": {
+    "description": "Frequency/wavelength-domain photonic compact-model circuit solver.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.photonic",
+      "simulate.optical"
+    ],
+    "qualification": "required"
+  },
+  "circulax": {
+    "description": "Qualified mixed-domain compact-model circuit analyses with a version-bound API.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.photonic",
+      "simulate.optical"
+    ],
+    "qualification": "required"
+  },
+  "gdsfactory": {
+    "description": "Full installed GDSFactory component, geometry, routing, ports and generation API inside managed workers.",
+    "kind": "library",
+    "tasks": [
+      "workflow.photonic",
+      "check.view_sync",
+      "extract.layout",
+      "generate.views",
+      "generate.netlist",
+      "export.design"
+    ],
+    "qualification": "required"
+  },
+  "kfactory": {
+    "description": "KLayout-backed component, geometry, port and connectivity library.",
+    "kind": "library",
+    "tasks": [
+      "workflow.photonic",
+      "check.view_sync",
+      "extract.layout",
+      "generate.views",
+      "generate.netlist",
+      "export.design"
+    ],
+    "qualification": "required"
+  },
+  "gplugins": {
+    "description": "Qualified solver integration subset; importing a plugin does not qualify its backend.",
+    "kind": "library",
+    "tasks": [
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "meep": {
+    "description": "Qualified local electromagnetic FDTD studies.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.photonic",
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "openems": {
+    "description": "Qualified local electromagnetic FDTD and RF/antenna studies.",
+    "kind": "adapter",
+    "tasks": [
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "csxcad": {
+    "description": "Geometry/material definition library associated with openEMS.",
+    "kind": "library",
+    "tasks": [
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "palace": {
+    "description": "Qualified finite-element electromagnetic field/eigenmode studies.",
+    "kind": "adapter",
+    "tasks": [
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "gmsh": {
+    "description": "Physical geometry and mesh generation under the selected study contract.",
+    "kind": "library",
+    "tasks": [
+      "simulate.em",
+      "simulate.thermal",
+      "simulate.device"
+    ],
+    "qualification": "required"
+  },
+  "meow": {
+    "description": "Qualified eigenmode-expansion and mode-solver integration.",
+    "kind": "adapter",
+    "tasks": [
+      "workflow.photonic",
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "femwell": {
+    "description": "Qualified finite-element mode/field modeling APIs.",
+    "kind": "library",
+    "tasks": [
+      "workflow.photonic",
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "meshwell": {
+    "description": "Qualified geometry-to-mesh preparation APIs.",
+    "kind": "library",
+    "tasks": [
+      "simulate.em",
+      "simulate.thermal"
+    ],
+    "qualification": "required"
+  },
+  "scikit_fem": {
+    "description": "Finite-element assembly library used by qualified modeling workflows.",
+    "kind": "library",
+    "tasks": [
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "scikit_rf": {
+    "description": "RF network/S-parameter processing and analysis library.",
+    "kind": "library",
+    "tasks": [
+      "analyze.measurements",
+      "simulate.em"
+    ],
+    "qualification": "required"
+  },
+  "elmer_fem": {
+    "description": "Qualified finite-element thermal studies; coupling is study-specific.",
+    "kind": "adapter",
+    "tasks": [
+      "simulate.thermal"
+    ],
+    "qualification": "required"
+  },
+  "devsim": {
+    "description": "Qualified semiconductor-device equation solves.",
+    "kind": "adapter",
+    "tasks": [
+      "simulate.device"
+    ],
+    "qualification": "required"
+  },
+  "gtkwave": {
+    "description": "Optional native waveform artifact viewer; inspection/launch is a frontend capability, not a computational run task.",
+    "kind": "viewer",
+    "tasks": [],
+    "qualification": "required"
+  },
+  "pyspice": {
+    "description": "Python circuit/simulator convenience API; it is not an independent solver.",
+    "kind": "library",
+    "tasks": [
+      "characterize.circuit"
+    ],
+    "qualification": "required"
+  },
+  "vlsir": {
+    "description": "Circuit/interchange data library used by qualified generation and exchange tasks.",
+    "kind": "library",
+    "tasks": [
+      "generate.views",
+      "generate.netlist",
+      "export.design"
+    ],
+    "qualification": "required"
+  },
+  "vlsirtools": {
+    "description": "Circuit/interchange and simulator integration helpers in prepared workers.",
+    "kind": "library",
+    "tasks": [
+      "generate.views",
+      "generate.netlist",
+      "export.design"
+    ],
+    "qualification": "required"
+  },
+  "numpy": {
+    "description": "Numerical array APIs in the prepared scripting/analysis profile.",
+    "kind": "library",
+    "tasks": [
+      "analyze.measurements",
+      "characterize.circuit"
+    ],
+    "qualification": "required"
+  },
+  "scipy": {
+    "description": "Numerical/signal-analysis APIs in the prepared scripting/analysis profile.",
+    "kind": "library",
+    "tasks": [
+      "analyze.measurements",
+      "characterize.circuit"
+    ],
+    "qualification": "required"
+  },
+  "pandas": {
+    "description": "Tabular characterization/result processing APIs.",
+    "kind": "library",
+    "tasks": [
+      "analyze.measurements",
+      "characterize.circuit"
+    ],
+    "qualification": "required"
+  },
+  "matplotlib": {
+    "description": "Engine-artifact plot generation APIs.",
+    "kind": "library",
+    "tasks": [
+      "analyze.measurements"
+    ],
+    "qualification": "required"
+  },
+  "pint": {
+    "description": "Unit-aware numerical helpers in prepared workers; the public API uses Quantity.",
+    "kind": "library",
+    "tasks": [],
+    "qualification": "required"
+  },
+  "networkx": {
+    "description": "Graph-analysis helpers in prepared workers; canonical topology remains engine-owned.",
+    "kind": "library",
+    "tasks": [],
+    "qualification": "required"
+  },
+  "pyvista": {
+    "description": "Qualified physical-field visualization/mesh inspection APIs.",
+    "kind": "library",
+    "tasks": [],
+    "qualification": "required"
+  },
+  "trimesh": {
+    "description": "Qualified mesh/geometry processing APIs.",
+    "kind": "library",
+    "tasks": [],
+    "qualification": "required"
+  },
+  "jax": {
+    "description": "Pinned CPU numerical/autodifferentiation runtime used by qualified compact-model profiles.",
+    "kind": "library",
+    "tasks": [],
+    "qualification": "required"
+  },
+  "amaranth": {
+    "description": "User-requested Python HDL frontend and native simulator; add, pin and qualify profile first. Generated Verilog may use other qualified downstream tools.",
+    "kind": "library",
+    "tasks": [
+      "synthesize.hdl",
+      "generate.views",
+      "simulate.hdl"
+    ],
+    "qualification": "required"
+  },
+  "connectgraph": {
+    "description": "Engine-owned canonical connectivity, electrical-rule and identity-mapping operations.",
+    "kind": "adapter",
+    "tasks": [
+      "check.connectivity",
+      "check.erc",
+      "check.view_sync",
+      "generate.netlist"
+    ],
+    "qualification": "required"
+  }
+}

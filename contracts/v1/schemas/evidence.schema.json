@@ -1,0 +1,605 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:evidence",
+  "title": "Engine v1 evidence schemas",
+  "$defs": {
+    "Artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref",
+        "name",
+        "media_type",
+        "size",
+        "sha256"
+      ]
+    },
+    "Finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "artifact": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "location": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+        }
+      },
+      "required": [
+        "id",
+        "severity",
+        "code",
+        "message"
+      ]
+    },
+    "Measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "limit": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "margin": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN",
+            "NOT_RUN",
+            "UNSUPPORTED"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "status"
+      ]
+    },
+    "Ingredient": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        }
+      },
+      "required": [
+        "ref",
+        "role",
+        "sha256"
+      ]
+    },
+    "ToolIngredient": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "profile": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ]
+    },
+    "InputLock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "target": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Target"
+        },
+        "canvas": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "canvas.toml"
+            },
+            "sha256": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+            },
+            "schema": {
+              "const": "rocketeda/canvas/v1"
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "schema"
+          ]
+        },
+        "ingredients": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ingredient"
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/ToolIngredient"
+          }
+        },
+        "pdks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ref": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+              },
+              "manifest_hash": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+              }
+            },
+            "required": [
+              "ref",
+              "manifest_hash"
+            ]
+          }
+        },
+        "resolved_configuration": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/JsonValue"
+          }
+        },
+        "seeds": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "closure_hash": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        }
+      },
+      "required": [
+        "snapshot",
+        "target",
+        "canvas",
+        "ingredients",
+        "tools",
+        "pdks",
+        "resolved_configuration",
+        "seeds",
+        "closure_hash"
+      ],
+      "description": "I28: full transitive consumed source/model/PDK/technology/layer/pin-map/testbench/config/profile/tool closure. Inputs retained or fail loudly; outputs never substitute for missing source truth."
+    },
+    "RunRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "project_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "request_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+            "interrupted",
+            "quarantined",
+            "discarded",
+            "skipped"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN",
+            "NOT_RUN",
+            "UNSUPPORTED",
+            "NOT_APPLICABLE"
+          ]
+        },
+        "target": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Target"
+        },
+        "input_lock": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/InputLock"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Finding"
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Measurement"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Artifact"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "freshness": {
+          "type": "string",
+          "enum": [
+            "current",
+            "stale",
+            "unknown"
+          ]
+        },
+        "convergence": {
+          "type": "string",
+          "enum": [
+            "converged",
+            "not_converged",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "failure": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ExecutionFailure"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/CommittedEffect"
+          }
+        },
+        "script_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "workspace_id": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "generation": {
+              "type": "string",
+              "minLength": 1
+            },
+            "history_cursor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+            }
+          },
+          "required": [
+            "workspace_id",
+            "generation",
+            "history_cursor",
+            "source"
+          ]
+        },
+        "skip_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cancel_requested": {
+          "type": "boolean"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TaskInput"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TaskOutput"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "request_ids",
+        "task",
+        "state",
+        "verdict",
+        "target",
+        "freshness",
+        "convergence",
+        "input_lock",
+        "effects",
+        "cancel_requested"
+      ],
+      "description": "Execution state and electrical/design verdict are independent. No client can write a trusted verdict. No auto-reexecution on restart.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "queued"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "verdict": {
+                "const": "NOT_RUN"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "running"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "verdict": {
+                "type": "string",
+                "enum": [
+                  "UNKNOWN",
+                  "NOT_RUN"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "not": {
+                  "const": "completed"
+                }
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "verdict": {
+                "not": {
+                  "const": "PASS"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "failed"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "failure"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "skipped"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "skip_reason"
+            ]
+          }
+        }
+      ]
+    },
+    "SourceContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "text": {
+          "type": "string"
+        },
+        "encoding": {
+          "const": "utf-8"
+        },
+        "sha256": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        }
+      },
+      "required": [
+        "ref",
+        "text",
+        "encoding",
+        "sha256"
+      ]
+    },
+    "RequestRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "edit",
+            "run",
+            "script"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "not_admitted",
+            "admitted",
+            "committed",
+            "rejected"
+          ]
+        },
+        "run_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "receipt": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/RunReceipt"
+        },
+        "effect": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/CommittedEffect"
+        },
+        "submission_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        }
+      },
+      "required": [
+        "request_id",
+        "method",
+        "state",
+        "run_ids"
+      ]
+    }
+  }
+}

@@ -1,46 +1,54 @@
-# adapters — one duplex adapter per channel
+# adapters — transport edges and solver integrations
 
-## Responsibility (PRD)
+This package contains the client transports and wrappers around existing EDA tools. composition.Engine selects a registered solver for each operation. Adapters return normalized results; project state and verdict rules stay in engine services.
 
-Every edge implementation lives here. Each submodule owns its full
-round trip, both directions — no inbound/outbound grouping. Transports
-drive engine use cases through the `interfaces/` ports; solver wrappers
-implement those ports against real tools
-([frontend-tooling-spec §1, §8](../PRD/tools-research/frontend-tooling-spec.md),
-[tech-stack transports](../PRD/tech-stack.md), blueprint B5/B7/B9).
+## Client transports
 
-| Submodule | Channel | PRD source |
-|---|---|---|
-| `api/` | HTTP service (FastAPI routes + SSE) | tech-stack "Web service" |
-| `ipc/` | Electron main ↔ engine framed stdio | tech-stack "Desktop engine transport" |
-| `mcp/` | MCP stdio bridge for the agent harness | suggested-api §10, harness §3.4, B9 |
-| `cli/` | Headless debug client | project decision, parked stretch goal |
-| `<solver>/` | One per tool family (ngspice, magic, sax, …) | verification-process adapter table, B7 |
+| Adapter | Current surface |
+|---|---|
+| cli/ | Interactive command loop, one-operation mode, sequential --batch, and JSON output; entry point is python -m rocket_engine. |
+| mcp/ | Project-scoped MCP stdio server with one tool per catalog operation/query; descriptions come from handler docstrings. Most input schemas remain generic. |
+| http/ | HttpTransport.handle routes one JSON command/query envelope; serve_http adds a FastAPI/uvicorn POST listener on loopback only (no auth, ADR-006). SSE is not implemented here. |
+| ipc/ | IpcTransport.handle routes one JSON command/query envelope. Length-prefix framing and Electron child-process lifecycle are not implemented here. |
 
-## Inputs
+Events are read through the engine event-query surface; HTTP SSE and pushed IPC events are not currently provided by these transport classes.
 
-- `../interfaces/README.md` (the ports each adapter speaks).
-- Outside bytes (transports) or engine jobs (solvers).
+## Registered solver adapters
 
-## Outputs
+| Operation | Registered tool(s) |
+|---|---|
+| run_drc | Magic (default), KLayout |
+| run_hdl_test, run_syntax, run_formal, run_synth, run_timing | Icarus, Slang, SBY, Yosys, OpenSTA |
+| run_spice, run_post_layout, run_cosim | ngspice; run_cosim also uses Icarus |
+| run_optical, run_em | SAX/Circulax, MEOW |
+| run_extraction, run_lvs | Magic, Netgen |
+| run_connectivity, run_erc, run_view_sync | connectgraph |
+| generate_views | GDSFactory |
+| run_digital_flow | LibreLane |
 
-- Transport adapters: engine commands in, project events out.
-- Solver adapters: tool invocations out, normalized evidence in.
+The exact registration order and default tool are in [composition.py](../composition.py). A registered adapter can still be blocked by a missing executable, incompatible PDK/deck, or an unqualified flow. Use get_capabilities for machine-specific readiness; see the [DIGITAL-FLOW report](../../docs/work/DIGITAL-FLOW/report.md) for the current live-flow limitation.
+
+## Gateway rule: api contract + port adapter
+
+`api.py` is the one inbound port: it builds the single submit
+envelope (project_id, operation, arguments, minted-or-caller
+request_id) and calls the engine. Every gateway is that contract
+plus one framing adapter, composed — never inherited:
+
+- http/mcp/ipc `handle`: parse the wire frame, enforce scope, call
+  `api.submit`, serialize the result or error envelope.
+- cli/console `OpDispatcher.execute`: parse op-call text, stamp the
+  head revision on operations, call `api.submit`.
+
+Gateways own only I/O framing and wire-appropriate errors
+(UsageError on text wires, AdapterError on framed wires); the
+envelope shape, error payloads (`errors.error_payload`), and status
+mapping (`errors.status_for_code`) exist exactly once and are
+shared. A new transport adds one framing module over `api.submit`
+— never a second envelope builder, never a transport subclass.
 
 ## Boundaries
 
-Owns: protocol framing, tool CLIs, output parsing. Must not own:
-business rules, state, verdicts — and no adapter imports another.
+Transport adapters validate the envelope and project scope, then call the api contract (`api.submit` → Engine.submit). Solver adapters implement the ToolAdapter port and own tool invocation and output parsing. The intended module boundary forbids solver adapters from importing one another. Current exception: CosimAdapter calls HdlSimAdapter directly for its digital half; treat this as existing boundary debt, not a pattern to extend.
 
-## Routing
-
-- What commands/events look like → `../interfaces/README.md`.
-- How jobs are queued and judged → `../execution/README.md`.
-- Which tool to wrap next → `../workflows/README.md` (plan slots).
-
-## Status
-
-Scaffold — stubs only. Transports land slice 5 (CLI last, parked);
-first solver lands slice 4. Transport invariants I05/I12/I19, solver
-invariant I14. Tests: `tests/adapters/` (transports vs fake engine,
-solvers vs real fixtures).
+For endpoint documentation rules, see [AGENTS.md](../../AGENTS.md). For operation names, see [interfaces](../interfaces/README.md) and the [generated API reference](../../docs/engine-api.md).

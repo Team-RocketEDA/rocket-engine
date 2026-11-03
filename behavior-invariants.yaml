@@ -1,0 +1,24 @@
+# Behavior invariants — engine-wide behavioral contracts.
+#
+# Each entry states one invariant in plain language, names the
+# code that enforces it, and cites the ruling it comes from.
+# This file grows one entry at a time; entries are never
+# renumbered or silently reworded.
+version: 1
+invariants:
+  - id: PER-PDK-IP
+    statement: >-
+      Prebuilt IP is per-PDK: each PDK strictly owns its blocks.
+      Searches scope to one named PDK, and instantiating a
+      foreign-PDK block fails unless the block opted into shared
+      scope with a recorded reason (digital blocks may generalize
+      case by case; the default stays per-PDK). Every placed
+      instance keeps its symbol-plus-footprint linkage intact via
+      the IpLink component.
+    enforcement:
+      - src/project/ip/lifecycle.py (registries, scope gate, IpLink)
+      - src/project/ip/blocks.py (layout resolution stays inside
+        the owning <root>/<pdk>/ scope)
+      - behavior-invariants.yaml (this file; RULING-01)
+    rulings:
+      - RULING-01

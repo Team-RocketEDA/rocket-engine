@@ -1,58 +1,30 @@
-# execution — the live Python environment + job lifecycle
+# execution — run lifecycle, isolation, and verdicts
 
-## Responsibility (PRD)
+`execution/` provides run-state services and execution helpers used by the engine composition root. It covers admission/backpressure, solver process isolation, the Python execution approval surface, normalized evidence, and verdict evaluation. It contains no UI code and owns no solver-specific parsing.
 
-This module houses the **live Python execution environment the IDE
-uses as its terminal**. Every "Run" in RocketIDE's Python panel — and
-every MCP `python_execute` call — executes here, in a prepared,
-locked-profile, OS-isolated worker with the project/PDK/IP/tool
-proxies prebound. The terminal UI lives in RocketIDE; the interpreter,
-sandbox, lifecycle, and authority it talks to live here.
+## Main pieces
 
-Four parts, one owner:
+- `service.py`: in-memory run and approval records, cancellation state, evidence/findings access, and verdict evaluation. Run records live for the lifetime of the `Engine` instance.
+- `apig_pool.py`, `coalesce.py`, and `block_runs_scope.py`: bounded dispatch, duplicate-submit coalescing, and block-scoped run input handling.
+- `runner.py`: subprocess helpers and `BwrapRunner` for OS-level tool isolation when the host supports the required sandbox.
+- `replay_safe.py`: reports interrupted runs after restart and requires an explicit resume or discard decision; it does not silently re-execute survivors.
+- `python_exec.py` and `console.py`: project-script/console request handling and approval-binding semantics. `python_execute` requests admission; the caller cannot approve its own code.
+- `dispatch.py`: shared operation-call parsing and dispatch used by the CLI and console paths.
 
-- **workers/** — the live env: prepared UV profiles, fresh worker per
-  execution (console cell or tool job), scoped credentials, Bubblewrap
-  namespaces + seccomp + cgroup, confirmed process-tree termination.
-- **queue/** — admission, queueing, dispatch, cancellation races.
-- **evidence/** — immutable input locks, artifact manifests, freshness.
-- **evaluator/** — verdicts (PASS/FAIL/NOT_RUN/UNSUPPORTED), bounded
-  summaries with cursors, executable-closure approval gate.
+## Run flow
 
-PRD sources:
-[frontend-tooling-spec §3–§4](../PRD/tools-research/frontend-tooling-spec.md),
-[python-console-spec](../PRD/tools-research/python-console-spec.md)
-(worker lifecycle, isolation, approval binding),
-[suggested-api §11](../PRD/tools-research/suggested-api.md) (evidence).
-Blueprint B4; console UX surface (B8) lands here later, not as a new
-module.
+`Engine.submit` validates and admits a solver operation, captures its project context, dispatches the selected adapter, and normally returns the completed result inline. `run_job` is available for deferred work, pool draining, batch pumping, and idempotent retrieval of an admitted run's completion. The two surfaces share the same run IDs and verdict rules.
 
-## Inputs
+Solver adapters return structured findings, measurements, and artifacts. The engine evaluates those results into `PASS`, `FAIL`, `NOT_RUN`, or `UNSUPPORTED`; a zero process exit does not establish `PASS`. Missing isolation support disables isolated work instead of falling back to an unrestricted host process.
 
-- Admitted jobs from `project/`; tool results from
-  `adapters/<solver>/`; human approvals from the trusted UI route.
+## Persistence boundary
 
-## Outputs
-
-- Live execution (terminal output, effects, child runs), evidence
-  manifests, verdicts, cancellation outcomes. Unavailable sandbox
-  disables admission — never host fallback.
-
-## Boundaries
-
-Owns: the live env, dispatch, isolation, evidence, evaluation. Must
-not own: solver CLIs, check planning, transport protocols, any UI.
+The project ledger can persist when `engine_root` is configured, but `ExecutionService` run state and captured logs are in-memory per engine instance. The MCP launcher can write completed run evidence under the bound project's `results/engine-runs/`. These are separate lifecycles; do not assume every queue item or log survives an engine restart.
 
 ## Routing
 
-- Evidence/record shapes → `../interfaces/README.md`.
-- State and events → `../project/README.md`.
-- Which stages exist → `../workflows/README.md`.
-- Which tool runs a job → `../adapters/README.md`.
-
-## Status
-
-Scaffold — package + this contract only. Slice 2. Invariants
-I08–I11 (evidence), I15–I18 + I22–I24 (isolation/approval/lifecycle).
-Tests: `tests/execution/` (injected failures, truncation, cancel races,
-adversarial isolation probes).
+- Project revisions/events → [`project/`](../project/README.md).
+- Result and command records → [`interfaces/`](../interfaces/README.md).
+- Tool invocation and parsing → [`adapters/`](../adapters/README.md).
+- Process ordering and the fully-verified gate → [`workflows/`](../workflows/README.md).
+- Isolation and console contracts → [Python console spec](../../../PRD/tools-research/python-console-spec.md).

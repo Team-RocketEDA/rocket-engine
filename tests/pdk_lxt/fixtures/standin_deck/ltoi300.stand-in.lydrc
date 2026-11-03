@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- STAND-IN deck for the PDK-LXT lane user-supplied-deck flow.
+     This is NOT the Luxtelligence DRC deck: the real .lydrc runsets
+     are gated behind an access request and are never vendored here.
+     To obtain the real deck for your stack, request access at:
+       https://resources.luxtelligence.ai/request-access?resource=drc
+     then place the downloaded .lydrc in <user home>/Klayout/drc/
+     (keep only one .lydrc there at a time) and run it via the
+     KLayout GUI: Tools -> DRC -> Edit DRC Script. See
+     docs/pdk/lxt/recipe.md for the full gate documentation. -->
+<klayout-macro>
+ <description>LXT ltoi300 STAND-IN (no rules; flow test only)</description>
+ <version/>
+ <category>drc</category>
+ <prolog/>
+ <epilog/>
+ <doc>Stand-in. Encodes zero design rules.</doc>
+ <autorun>false</autorun>
+ <autorun-early>false</autorun-early>
+ <show-in-menu>false</show-in-menu>
+ <group-name>lxt_standin</group-name>
+ <interpreter>dsl</interpreter>
+ <dsl-interpreter-name>drc-dsl-xml</dsl-interpreter-name>
+ <text>
+# STAND-IN: intentionally rule-free. Passes any input.
+source("STAND-IN ltoi300: no rules encoded")
+</text>
+</klayout-macro>

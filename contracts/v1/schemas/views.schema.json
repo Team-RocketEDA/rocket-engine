@@ -1,0 +1,400 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:views",
+  "title": "Engine v1 views schemas",
+  "$defs": {
+    "TraceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "signal": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "real",
+            "imag",
+            "magnitude",
+            "phase_deg",
+            "phase_rad",
+            "magnitude_db",
+            "power_db"
+          ]
+        },
+        "axis": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right"
+          ]
+        },
+        "reference": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        }
+      },
+      "required": [
+        "signal",
+        "transform",
+        "axis"
+      ],
+      "description": "Transforms are deterministic display operations on raw values, never alternative electrical results. Dimensioned dB requires an explicit reference."
+    },
+    "TraceView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "traces"
+        },
+        "x_axis": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "traces": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/TraceBinding"
+          },
+          "minItems": 1
+        },
+        "slice": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "axis": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "axis",
+              "index"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id",
+        "x_axis",
+        "traces"
+      ]
+    },
+    "TableView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "table"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "column": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "ascending",
+                  "descending"
+                ]
+              }
+            },
+            "required": [
+              "column",
+              "direction"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id"
+      ]
+    },
+    "MatrixView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "heatmap"
+        },
+        "row_axis": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "column_axis": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "real",
+            "imag",
+            "magnitude",
+            "phase_deg",
+            "phase_rad",
+            "magnitude_db",
+            "power_db"
+          ]
+        },
+        "slice": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "axis": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "axis",
+              "index"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id",
+        "row_axis",
+        "column_axis",
+        "transform"
+      ],
+      "description": "Requires actual matrix axes; data shape determines display, never solver brand or decorative choice."
+    },
+    "MarkerView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "markers"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id"
+      ]
+    },
+    "DigitalView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "waveform"
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        },
+        "radix": {
+          "type": "string",
+          "enum": [
+            "binary",
+            "hex",
+            "decimal",
+            "signed_decimal"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id"
+      ]
+    },
+    "FieldView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "field"
+        },
+        "field": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "real",
+            "imag",
+            "magnitude",
+            "phase_deg"
+          ]
+        },
+        "slice": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "axis": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "position": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+            }
+          },
+          "required": [
+            "axis",
+            "position"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id",
+        "field"
+      ]
+    },
+    "DataView": {
+      "oneOf": [
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TraceView"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TableView"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/MatrixView"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/MarkerView"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/DigitalView"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/FieldView"
+        },
+        {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/TreeView"
+        }
+      ]
+    },
+    "TreeView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "dataset_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "tree"
+        },
+        "expanded": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "dataset_id"
+      ],
+      "description": "Tree descriptor: which node IDs render expanded. Expansion state is data, not renderer code."
+    }
+  }
+}

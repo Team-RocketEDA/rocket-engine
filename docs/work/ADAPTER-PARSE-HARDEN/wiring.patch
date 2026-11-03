@@ -1,0 +1,302 @@
+diff --git a/src/adapters/circulax/_driver.py b/src/adapters/circulax/_driver.py
+index 0aec7a1..4cba8e3 100644
+--- a/src/adapters/circulax/_driver.py
++++ b/src/adapters/circulax/_driver.py
+@@ -2,8 +2,9 @@
+ 
+ The adapter copies this file into the run workdir next to
+ `circulax_job.json` and executes `python circulax_driver.py
+-circulax_job.json`. Exactly one JSON document is printed to stdout;
+-solver warnings go to stderr untouched.
++circulax_job.json`. One marker-delimited JSON envelope is printed to stdout
++(ROCKETEDA_ENVELOPE_BEGIN/END); chatter outside the markers is
++tolerated and stays in logs.
+ 
+ The netlist is built from the project spec (`doc` instances +
+ connections + transient): nothing is hardcoded — R/C/V, the
+@@ -24,6 +25,9 @@ import json
+ import re
+ import sys
+ 
++_ENVELOPE_BEGIN = "ROCKETEDA_ENVELOPE_BEGIN"
++_ENVELOPE_END = "ROCKETEDA_ENVELOPE_END"
++
+ _QUOTED_RE = re.compile(r"""['\"]([^'\"]+)['\"]""")
+ 
+ _COMPONENTS = ("vsource", "resistor", "capacitor", "ground")
+@@ -51,6 +55,7 @@ def _find_line(text, token):
+ 
+ 
+ def _fail(code, message, token, line):
++    print(_ENVELOPE_BEGIN)
+     print(
+         json.dumps(
+             {
+@@ -64,6 +69,7 @@ def _fail(code, message, token, line):
+             }
+         )
+     )
++    print(_ENVELOPE_END)
+ 
+ 
+ def main(argv):
+@@ -156,6 +162,7 @@ def main(argv):
+         token = _token(doc, message)
+         _fail("invalid_circuit", message, token, _find_line(text, token))
+         return 2
++    print(_ENVELOPE_BEGIN)
+     print(
+         json.dumps(
+             {
+@@ -174,6 +181,7 @@ def main(argv):
+             }
+         )
+     )
++    print(_ENVELOPE_END)
+     return 0
+ 
+ 
+diff --git a/src/adapters/circulax/adapter.py b/src/adapters/circulax/adapter.py
+index cf04191..6520ab8 100644
+--- a/src/adapters/circulax/adapter.py
++++ b/src/adapters/circulax/adapter.py
+@@ -41,6 +41,10 @@ try:
+     from ...interfaces import ToolAdapter
+ except ImportError:
+     from rocket_engine.interfaces import ToolAdapter
++try:
++    from ..envelope import extract_envelope
++except ImportError:
++    from rocket_engine.adapters.envelope import extract_envelope
+ try:
+     from ..errors import AdapterError
+ except ImportError:
+@@ -393,20 +397,9 @@ class CirculaxAdapter(ToolAdapter):
+                 driver printed no JSON envelope or no result.
+         """
+         spec = native_output.get("spec", "")
+-        try:
+-            envelope = json.loads(native_output.get("stdout", ""))
+-        except (TypeError, ValueError):
+-            raise AdapterError(
+-                "runner_unavailable",
+-                "circulax driver printed no JSON envelope.",
+-            ) from None
+-        if not isinstance(envelope, dict) or not isinstance(
+-            envelope.get("ok"), bool
+-        ):
+-            raise AdapterError(
+-                "runner_unavailable",
+-                "circulax driver printed no JSON envelope.",
+-            )
++        envelope = extract_envelope(
++            native_output.get("stdout", ""), tool="circulax"
++        )
+         if not envelope["ok"]:
+             error = envelope.get("error") or {}
+             code = error.get("code")
+diff --git a/src/adapters/gdsfactory/_driver.py b/src/adapters/gdsfactory/_driver.py
+index 4756453..509ee1c 100644
+--- a/src/adapters/gdsfactory/_driver.py
++++ b/src/adapters/gdsfactory/_driver.py
+@@ -2,8 +2,9 @@
+ 
+ The adapter copies this file into the run workdir next to
+ `gf_views_job.json` and executes `python gf_views_driver.py
+-gf_views_job.json`. Exactly one JSON document is printed to stdout;
+-solver warnings go to stderr untouched.
++gf_views_job.json`. One marker-delimited JSON envelope is printed to stdout
++(ROCKETEDA_ENVELOPE_BEGIN/END); chatter outside the markers is
++tolerated and stays in logs.
+ 
+ Every recipe consumes project inputs from the job: view-spec cells +
+ params, project GDS paths, and the optional project pin map. Nothing
+@@ -23,6 +24,9 @@ import json
+ import sys
+ from pathlib import Path
+ 
++_ENVELOPE_BEGIN = "ROCKETEDA_ENVELOPE_BEGIN"
++_ENVELOPE_END = "ROCKETEDA_ENVELOPE_END"
++
+ _BOUNDARY_NOTE = (
+     "GDS import alone does not reconstruct macro pins/obstructions "
+     "(PRD boundary note); bind a project pin_map to publish them."
+@@ -34,6 +38,7 @@ _BUILD_NOTE = (
+ 
+ 
+ def _fail(code, message, token, line):
++    print(_ENVELOPE_BEGIN)
+     print(
+         json.dumps(
+             {
+@@ -47,6 +52,7 @@ def _fail(code, message, token, line):
+             }
+         )
+     )
++    print(_ENVELOPE_END)
+ 
+ 
+ def _find_line(text, token):
+@@ -410,6 +416,7 @@ def main(argv):
+         _fail("unsupported_format", str(exc), recipe,
+               _find_line(text, recipe))
+         return 2
++    print(_ENVELOPE_BEGIN)
+     print(
+         json.dumps(
+             {
+@@ -431,6 +438,7 @@ def main(argv):
+             }
+         )
+     )
++    print(_ENVELOPE_END)
+     return 0
+ 
+ 
+diff --git a/src/adapters/gdsfactory/adapter.py b/src/adapters/gdsfactory/adapter.py
+index 09875b9..f595ba5 100644
+--- a/src/adapters/gdsfactory/adapter.py
++++ b/src/adapters/gdsfactory/adapter.py
+@@ -42,6 +42,10 @@ try:
+     from ...interfaces import ToolAdapter
+ except ImportError:
+     from rocket_engine.interfaces import ToolAdapter
++try:
++    from ..envelope import extract_envelope
++except ImportError:
++    from rocket_engine.adapters.envelope import extract_envelope
+ try:
+     from ..errors import AdapterError
+ except ImportError:
+@@ -451,20 +455,9 @@ class GdsfactoryViewsAdapter(ToolAdapter):
+         if not spec:
+             sources = native_output.get("sources") or []
+             spec = sources[0] if sources else ""
+-        try:
+-            envelope = json.loads(native_output.get("stdout", ""))
+-        except (TypeError, ValueError):
+-            raise AdapterError(
+-                "runner_unavailable",
+-                "views driver printed no JSON envelope.",
+-            ) from None
+-        if not isinstance(envelope, dict) or not isinstance(
+-            envelope.get("ok"), bool
+-        ):
+-            raise AdapterError(
+-                "runner_unavailable",
+-                "views driver printed no JSON envelope.",
+-            )
++        envelope = extract_envelope(
++            native_output.get("stdout", ""), tool="views"
++        )
+         if not envelope["ok"]:
+             error = envelope.get("error") or {}
+             code = error.get("code")
+diff --git a/src/adapters/sax/__init__.py b/src/adapters/sax/__init__.py
+index c5f6799..38bd308 100644
+--- a/src/adapters/sax/__init__.py
++++ b/src/adapters/sax/__init__.py
+@@ -24,6 +24,7 @@ from ruamel.yaml import YAML
+ from ...execution.errors import ExecutionError
+ from ...execution.runner import tool_roots
+ from ...interfaces import ToolAdapter
++from ..envelope import extract_envelope
+ from ..errors import AdapterError
+ 
+ OPERATION = "run_optical"
+@@ -362,18 +363,9 @@ class SaxAdapter(ToolAdapter):
+                 target pair.
+         """
+         spec = native_output.get("spec", "")
+-        try:
+-            envelope = json.loads(native_output.get("stdout", ""))
+-        except (TypeError, ValueError):
+-            raise AdapterError(
+-                "runner_unavailable", "sax driver printed no JSON envelope."
+-            ) from None
+-        if not isinstance(envelope, dict) or not isinstance(
+-            envelope.get("ok"), bool
+-        ):
+-            raise AdapterError(
+-                "runner_unavailable", "sax driver printed no JSON envelope."
+-            )
++        envelope = extract_envelope(
++            native_output.get("stdout", ""), tool="sax"
++        )
+         if not envelope["ok"]:
+             error = envelope.get("error") or {}
+             code = error.get("code")
+diff --git a/src/adapters/sax/_driver.py b/src/adapters/sax/_driver.py
+index 2a73a6b..7ebceff 100644
+--- a/src/adapters/sax/_driver.py
++++ b/src/adapters/sax/_driver.py
+@@ -1,8 +1,9 @@
+ """Staged SAX sim driver: job JSON in, result envelope JSON on stdout.
+ 
+ The adapter copies this file into the run workdir next to `sax_job.json`
+-and executes `python sax_driver.py sax_job.json`. Exactly one JSON
+-document is printed to stdout; sax warnings go to stderr untouched.
++and executes `python sax_driver.py sax_job.json`. One marked JSON
++envelope is printed to stdout (ROCKETEDA_ENVELOPE_BEGIN/END);
++chatter outside the markers is tolerated and stays in logs.
+ 
+ Envelope: `{"ok": true, "sax_version, "result": {wavelength_nm[],
+ transmission{"a>b": []}, ports[]}}` or `{"ok": false, "error":
+@@ -16,6 +17,9 @@ import json
+ import re
+ import sys
+ 
++_ENVELOPE_BEGIN = "ROCKETEDA_ENVELOPE_BEGIN"
++_ENVELOPE_END = "ROCKETEDA_ENVELOPE_END"
++
+ _QUOTED_RE = re.compile(r"""['\"]([^'\"]+)['\"]""")
+ 
+ 
+@@ -51,6 +55,7 @@ def _find_line(text, token):
+ 
+ 
+ def _fail(code, message, token, line):
++    print(_ENVELOPE_BEGIN)
+     print(
+         json.dumps(
+             {
+@@ -64,6 +69,7 @@ def _fail(code, message, token, line):
+             }
+         )
+     )
++    print(_ENVELOPE_END)
+ 
+ 
+ def main(argv):
+@@ -120,6 +126,7 @@ def main(argv):
+         token = _token(doc, message)
+         _fail("invalid_circuit", message, token, _find_line(text, token))
+         return 2
++    print(_ENVELOPE_BEGIN)
+     print(
+         json.dumps(
+             {
+@@ -133,6 +140,7 @@ def main(argv):
+             }
+         )
+     )
++    print(_ENVELOPE_END)
+     return 0
+ 
+ 
+diff --git a/tests/adapters/test_generate_views.py b/tests/adapters/test_generate_views.py
+index f765d4e..3977cdc 100644
+--- a/tests/adapters/test_generate_views.py
++++ b/tests/adapters/test_generate_views.py
+@@ -500,8 +500,10 @@ def test_generate_views_driver_reports_missing_solver_loudly(tmp_path):
+         text=True,
+         timeout=120,
+     )
++    from rocket_engine.adapters.envelope import extract_envelope
++
+     assert proc.returncode == 3
+-    envelope = json.loads(proc.stdout)
++    envelope = extract_envelope(proc.stdout, tool="views")
+     assert envelope["ok"] is False
+     assert envelope["error"]["code"] == "missing_dependency"
+ 

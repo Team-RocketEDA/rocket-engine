@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:results",
+  "title": "Engine v1 results schemas",
+  "$defs": {
+    "LogDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "stream": {
+          "type": "string",
+          "enum": [
+            "stdout",
+            "stderr",
+            "tool"
+          ]
+        },
+        "artifact": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "encoding": {
+          "const": "utf-8"
+        }
+      },
+      "required": [
+        "id",
+        "run_id",
+        "stream",
+        "artifact",
+        "cursor",
+        "encoding"
+      ],
+      "description": "Verbose text belongs to the subscribed output terminal and raw artifact, not the normal plot/violations surface."
+    },
+    "ResultProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snapshot": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "input_lock": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "closure_hash": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/ToolIngredient"
+          }
+        },
+        "parents": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+          }
+        }
+      },
+      "required": [
+        "snapshot",
+        "input_lock",
+        "closure_hash",
+        "tools",
+        "parents"
+      ],
+      "description": "I28 exact consumed closure and upstream outputs; every dataset is tied to this immutable result revision."
+    },
+    "ResultGap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dataset_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "code",
+        "reason"
+      ],
+      "description": "Precise missing/partial/convergence metadata; not editorial copy for a default screen."
+    },
+    "ResultBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "rocketeda/results/v1"
+        },
+        "ref": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+        },
+        "run_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Target"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "invalid"
+          ]
+        },
+        "freshness": {
+          "type": "string",
+          "enum": [
+            "current",
+            "stale",
+            "unknown"
+          ]
+        },
+        "convergence": {
+          "type": "string",
+          "enum": [
+            "converged",
+            "not_converged",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "provenance": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ResultProvenance"
+        },
+        "datasets": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Dataset"
+          }
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/DataView"
+          }
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Measurement"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Finding"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Artifact"
+          }
+        },
+        "logs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/LogDescriptor"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/ResultGap"
+          }
+        }
+      },
+      "required": [
+        "schema",
+        "ref",
+        "run_id",
+        "task",
+        "target",
+        "state",
+        "freshness",
+        "convergence",
+        "provenance",
+        "datasets",
+        "views",
+        "measurements",
+        "findings",
+        "artifacts",
+        "logs",
+        "gaps"
+      ],
+      "description": "Immutable, headless result data. Views bind dataset IDs; frontend owns plot/theme/docking. No HTML/JS/components, canned prose or renderer-specific payloads."
+    }
+  }
+}

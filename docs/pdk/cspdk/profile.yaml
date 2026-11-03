@@ -1,0 +1,195 @@
+# PDK-CSPDK lane profile: CORNERSTONE photonics PDK (gdsfactory cspdk).
+# All relpaths resolve against the cspdk package root (pip site-packages
+# or the fixtures/upstream/cspdk tree). si340 is the proven variant; the
+# other seven are inventoried (paths verified present, behavior not
+# proven here). Verified 2026-10-31 against cspdk 2.1.0 @ 3323b17b.
+schema: rocketeda/pdk-profile/v0.1
+id: cspdk
+label: CORNERSTONE photonics PDK (gdsfactory cspdk)
+upstream: https://github.com/gdsfactory/cspdk
+upstream_rev: 3323b17b4d75c852ed2372d7d13239408cca0eb1
+license: MIT
+package: cspdk
+pins:
+  cspdk: "2.1.0"
+  gdsfactory: "9.51.0"
+  sax: "0.18.2"
+variants:
+  si220:
+    module: cspdk.si220
+    pdk_name: cspdk.si220
+    process: SOI 220nm, strip + rib, C-band / O-band
+    status: inventoried
+    tech:
+      klayout_dir: cspdk/si220/klayout
+      lyt: cspdk/si220/klayout/tech.lyt
+      lyp: cspdk/si220/klayout/layers.lyp
+      layers_yaml: cspdk/si220/layers.yaml
+      tech_name: Cornerstone_si220
+    drc:
+      deck:
+        - cspdk/si220/klayout/d25/Cornerstone.lyd25
+        - cspdk/si220/klayout/d25/Cornerstone_si220.lyd25
+      deck_status: inventoried
+    models:
+      path: cspdk/si220/models
+      registry: null
+      count: null
+      status: inventoried
+  si340:
+    module: cspdk.si340
+    pdk_name: cornerstone_si340
+    process: SOI 340nm, strip + rib, C-band / O-band
+    status: proven
+    tech:
+      klayout_dir: cspdk/si340/klayout
+      lyt: cspdk/si340/klayout/tech.lyt
+      lyp: cspdk/si340/klayout/layers.lyp
+      layers_yaml: cspdk/si340/layers.yaml
+      tech_name: Cornerstone_si340
+      quirks:
+        - "cspdk.si340.config.PATH.lyp/lyt point at klayout/tech/*, which does not exist; real files sit directly under klayout/"
+        - "upstream install_tech.py links si220 + sin300 only; si340 needs the manual symlink in recipe.md"
+    drc:
+      deck: null
+      deck_reason: si340 ships tech.lyt + layers.lyp but no runnable local deck; upstream DRC runs through the gdsfactoryplus cloud workflow (needs GFP_API_KEY), which the engine must never touch. The engine KLayout batch rules below stand in.
+      engine_rules:
+        - layer: [3, 0]
+          width_um: 0.35
+          space_um: 0.2
+          name: si340_WG
+          ref: CORNERSTONE-49th-Call-Design-Guidelines-1.pdf section 5.3-5.4 Table 4 (GDS 3/0 min feature 350 nm, min gap 200 nm)
+    models:
+      path: cspdk/si340/models.py
+      registry: get_models
+      count: 39
+      status: proven
+  si500:
+    module: cspdk.si500
+    pdk_name: cornerstone_si500
+    process: SOI 500nm rib, C-band
+    status: inventoried
+    tech:
+      klayout_dir: cspdk/si500/klayout
+      lyt: cspdk/si500/klayout/tech.lyt
+      lyp: cspdk/si500/klayout/layers.lyp
+      layers_yaml: cspdk/si500/layers.yaml
+      tech_name: Cornerstone_si500
+    drc:
+      deck:
+        - cspdk/si500/klayout/d25/Cornerstone.lyd25
+        - cspdk/si500/klayout/d25/Cornerstone_si220.lyd25
+        - cspdk/si500/klayout/d25/Cornerstone_si500.lyd25
+      deck_status: inventoried
+    models:
+      path: cspdk/si500/models.py
+      registry: null
+      count: null
+      status: inventoried
+  sin300:
+    module: cspdk.sin300
+    pdk_name: cornerstone_sin300
+    process: SiN 300nm strip, C-band / O-band
+    status: inventoried
+    tech:
+      klayout_dir: cspdk/sin300/klayout
+      lyt: cspdk/sin300/klayout/tech.lyt
+      lyp: cspdk/sin300/klayout/layers.lyp
+      layers_yaml: cspdk/sin300/layers.yaml
+      tech_name: Cornerstone_sin300
+    drc:
+      deck:
+        - cspdk/sin300/klayout/d25/Cornerstone.lyd25
+        - cspdk/sin300/klayout/d25/Cornerstone_sin300.lyd25
+      deck_status: inventoried
+    models:
+      path: cspdk/sin300/models.py
+      registry: null
+      count: null
+      status: inventoried
+  sin200:
+    module: cspdk.sin200
+    pdk_name: cornerstone_sin200
+    process: SiN 200nm strip, visible (520/638/780 nm)
+    status: inventoried
+    tech: null
+    tech_gap: ships no klayout/ dir in cspdk 2.1.0
+    layers_yaml: cspdk/sin200/layers.yaml
+    drc:
+      deck: null
+      deck_reason: inventoried, no deck ships for this variant
+    models:
+      path: cspdk/sin200/models.py
+      registry: null
+      count: null
+      status: inventoried
+  ge_on_si:
+    module: cspdk.ge_on_si
+    pdk_name: cornerstone_ge_on_si
+    process: Ge-on-Si rib, mid-IR (3800 nm)
+    status: inventoried
+    tech: null
+    tech_gap: ships no klayout/ dir in cspdk 2.1.0
+    layers_yaml: cspdk/ge_on_si/layers.yaml
+    drc:
+      deck: null
+      deck_reason: inventoried, no deck ships for this variant
+    models:
+      path: cspdk/ge_on_si/models.py
+      registry: null
+      count: null
+      status: inventoried
+  si_sus:
+    module: cspdk.si_sus
+    pdk_name: cornerstone_si_sus
+    process: suspended Si, mid-IR (3800 nm)
+    status: inventoried
+    tech: null
+    tech_gap: ships no klayout/ dir in cspdk 2.1.0
+    layers_yaml: cspdk/si_sus/layers.yaml
+    drc:
+      deck: null
+      deck_reason: inventoried, no deck ships for this variant
+    models:
+      path: cspdk/si_sus/models.py
+      registry: null
+      count: null
+      status: inventoried
+  si220_ebeam_event:
+    module: cspdk.si220_ebeam_event
+    pdk_name: cornerstone_si220_ebeam_event
+    process: SOI 220nm e-beam, event-only, rib, C-band
+    status: inventoried
+    tech: null
+    tech_gap: ships no klayout/ dir in cspdk 2.1.0
+    layers_yaml: cspdk/si220_ebeam_event/layers.yaml
+    drc:
+      deck: null
+      deck_reason: event-only variant; rule checks live in a klayout.db script instead of a deck
+      script: cspdk/si220_ebeam_event/drc.py
+    models:
+      path: cspdk/si220_ebeam_event/models.py
+      registry: null
+      count: null
+      status: inventoried
+proofs:
+  layout:
+    variant: si340
+    cell: mzi
+    ports: [o1, o2, o3]
+    n_polygons: 16
+    bbox_um: [[-20.0, -27.8], [181.3, 22.8]]
+    reference_gds: tests/pdk_cspdk/fixtures/mzi_ref.gds
+  drc:
+    variant: si340
+    tool: klayout
+    rules_ref: CORNERSTONE-49th-Call-Design-Guidelines-1.pdf section 5.3-5.4 Table 4
+    ref_total: 0
+    bad_total: 2
+  optical:
+    variant: si340
+    circuit: mzi_sc
+    delta_length: 10.0
+    at_nm: 1550.0
+    t_cross: 0.8140825560639245
+    t_bar: 0.05688103389215629

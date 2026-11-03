@@ -1,0 +1,7 @@
+# Project view spec without the PDK: generic straight, no cspdk needed.
+views: straight-project
+pdk: generic
+cells:
+  - cell: straight
+exports:
+  - filename: straight.gds

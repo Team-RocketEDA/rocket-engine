@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:layout",
+  "title": "Engine v1 layout schemas",
+  "$defs": {
+    "CellData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "cell"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "um",
+            "nm"
+          ]
+        },
+        "grid": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "technology": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "generator",
+            "native_source"
+          ]
+        },
+        "source_view": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "unit",
+        "grid",
+        "technology",
+        "authority"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "authority": {
+                "enum": [
+                  "generator",
+                  "native_source"
+                ]
+              }
+            },
+            "required": [
+              "authority"
+            ]
+          },
+          "then": {
+            "required": [
+              "source_view"
+            ]
+          }
+        }
+      ]
+    },
+    "ShapeGeometry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "rectangle"
+            },
+            "origin": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+            },
+            "size": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+            }
+          },
+          "required": [
+            "type",
+            "origin",
+            "size"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "polygon"
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+              },
+              "minItems": 3
+            },
+            "holes": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+                },
+                "minItems": 3
+              }
+            }
+          },
+          "required": [
+            "type",
+            "points"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "path"
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+              },
+              "minItems": 2
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "type",
+            "points",
+            "width"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "label"
+            },
+            "position": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "position",
+            "text"
+          ]
+        }
+      ]
+    },
+    "ShapeData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "shape"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "layer": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "geometry": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/ShapeGeometry"
+        },
+        "net": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "layer",
+        "geometry"
+      ],
+      "description": "Physical geometry belongs to a cell; it is not automatically a separate circuit component."
+    },
+    "LayerData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "layer"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "technology": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "material",
+            "contact",
+            "routing",
+            "implant",
+            "well",
+            "annotation",
+            "derived"
+          ]
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "output_layer": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_datatype": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "technology",
+        "role"
+      ]
+    }
+  }
+}

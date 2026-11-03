@@ -1,0 +1,12 @@
+# Broken circuit: valid YAML, but c1,out0 links to instance "ghost"
+# which does not exist. sax raises KeyError('ghost'); the adapter
+# must report an error violation naming ghost with file + line.
+circuit: broken-link
+instances:
+  c1: {component: coupler_ideal, settings: {coupling: 0.5}}
+connections:
+  c1,out0: ghost,in0
+ports:
+  in0: c1,in0
+sweep: {start_nm: 1550.0, stop_nm: 1550.0, points: 1}
+targets: []

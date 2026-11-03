@@ -1,0 +1,16 @@
+# Good RC step (CIRCULAX-LIVE proof as an op fixture): 1k/1nF, tau=1us.
+# Proven smoke numbers: Vc(1us)=0.6321, Vc(5us)=0.9933 — passes 0.9 V @5us.
+circuit: rc-step-good
+instances:
+  V1: {component: vsource, settings: {V: 1.0}}
+  R1: {component: resistor, settings: {R: 1000.0}}
+  C1: {component: capacitor, settings: {C: 1.0e-9}}
+  GND: {component: ground}
+connections:
+  V1,p1: R1,p1
+  V1,p2: GND,p1
+  R1,p2: C1,p1
+  C1,p2: GND,p1
+transient: {t1_s: 5.0e-6, points: 11, dt0_s: 1.0e-8, observe: "C1,p1"}
+targets:
+  - {at_s: 5.0e-6, min_V: 0.9}

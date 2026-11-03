@@ -1,0 +1,55 @@
+diff --git a/src/interfaces/vocabulary.py b/src/interfaces/vocabulary.py
+index c466c7b1ce8755aa8ef981b0e09337426b318aa6..a11f88336cd1dc2786ff37100abf4439fa98a8b5 100644
+--- a/src/interfaces/vocabulary.py
++++ b/src/interfaces/vocabulary.py
+@@ -7,6 +7,7 @@
+ OPERATIONS = frozenset(
+     {
+         "generate_views", "run_hdl_test", "run_formal", "run_syntax",
++        "run_synth",
+         "run_connectivity", "run_drc", "run_lvs", "run_erc", "run_spice",
+         "run_optical", "run_digital_flow", "run_timing", "run_extraction",
+         "run_post_layout", "run_em", "run_thermal", "python_execute",
+diff --git a/src/composition.py b/src/composition.py
+index 2bbe32fe9c578d00681582c977c3bb9842b6a9af..5f07fb1ebc78e5e0758e46f026920c25eb833ed5 100644
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -27,8 +27,8 @@
+ maps to named solvers; `deck.tool` selects one, defaulting to the
+ first registered (run_drc: magic, then klayout; run_optical: sax;
+ run_extraction: magic; run_lvs: netgen; run_spice: ngspice;
+-run_syntax: slang; run_hdl_test: icarus; run_connectivity:
+-connectgraph; run_erc: connectgraph).
++run_syntax: slang; run_hdl_test: icarus; run_synth: yosys;
++run_connectivity: connectgraph; run_erc: connectgraph).
+ Unregistered operations and unknown deck tools raise instead of
+ faking a verdict.
+ """
+@@ -48,6 +48,7 @@
+ from .adapters.ngspice import NgspiceAdapter
+ from .adapters.sax import SaxAdapter
+ from .adapters.syntax import SyntaxAdapter
++from .adapters.synth_yosys import YosysSynthAdapter
+ from .execution.apig_pool import (
+     ApigPool,
+     request_for_run,
+@@ -268,6 +269,7 @@
+             "run_lvs": {"netgen": NetgenLvsAdapter()},
+             "run_spice": {"ngspice": NgspiceAdapter()},
+             "run_syntax": {"slang": SyntaxAdapter()},
++            "run_synth": {"yosys": YosysSynthAdapter()},
+             "run_connectivity": {"connectgraph": ConnectivityAdapter()},
+             "run_erc": {"connectgraph": ConnectivityAdapter()},
+         }
+diff --git a/src/interfaces/setup.py b/src/interfaces/setup.py
+index f662288b5e63aa40a2b74ad5c2e09897aa355ecc..5ad1f94f307eb26dfa6168603123e5b493aaaa81 100644
+--- a/src/interfaces/setup.py
++++ b/src/interfaces/setup.py
+@@ -59,6 +59,7 @@
+     ("run_lvs", "netgen"): {"binaries": ["netgen"], "banner": "lvs"},
+     ("run_spice", "ngspice"): {"binaries": ["ngspice"]},
+     ("run_syntax", "slang"): {"binaries": ["slang"]},
++    ("run_synth", "yosys"): {"binaries": ["yosys"]},
+     ("run_connectivity", "connectgraph"): {},
+     ("run_erc", "connectgraph"): {},
+ }

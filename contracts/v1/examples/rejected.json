@@ -1,0 +1,603 @@
+[
+  {
+    "name": "Unknown request field",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-describe",
+      "method": "describe",
+      "params": {
+        "accidental_extra": true
+      }
+    }
+  },
+  {
+    "name": "Missing project context for delete",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-edit",
+      "method": "edit",
+      "params": {
+        "preconditions": [
+          {
+            "id": "x",
+            "revision": "r1"
+          }
+        ],
+        "changes": [
+          {
+            "op": "delete",
+            "id": "x"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Missing CAS for source save",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-edit",
+      "method": "edit",
+      "params": {
+        "project_id": "chip",
+        "preconditions": [],
+        "changes": [
+          {
+            "op": "write_source",
+            "id": "s",
+            "text": "x",
+            "encoding": "utf-8"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Unknown tool task",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-run",
+      "method": "run",
+      "params": {
+        "action": "start",
+        "target": {
+          "project_id": "chip",
+          "kind": "project"
+        },
+        "task": "simulate.magic_everything",
+        "options": {}
+      }
+    }
+  },
+  {
+    "name": "Opaque SPICE options forbidden",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-run",
+      "method": "run",
+      "params": {
+        "action": "start",
+        "target": {
+          "project_id": "chip",
+          "kind": "project"
+        },
+        "task": "simulate.spice",
+        "options": {
+          "analysis": "op",
+          "shell": "rm"
+        }
+      }
+    }
+  },
+  {
+    "name": "Transient requires time settings",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-run",
+      "method": "run",
+      "params": {
+        "action": "start",
+        "target": {
+          "project_id": "chip",
+          "kind": "project"
+        },
+        "task": "simulate.spice",
+        "options": {
+          "analysis": "tran"
+        }
+      }
+    }
+  },
+  {
+    "name": "Task rejects unrelated tool selector",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-run",
+      "method": "run",
+      "params": {
+        "action": "start",
+        "target": {
+          "project_id": "chip",
+          "kind": "project"
+        },
+        "task": "simulate.spice",
+        "tool": "yosys",
+        "options": {
+          "analysis": "op"
+        }
+      }
+    }
+  },
+  {
+    "name": "Source save never carries claimed trusted verdict",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-edit",
+      "method": "edit",
+      "params": {
+        "project_id": "chip",
+        "preconditions": [
+          {
+            "id": "s",
+            "revision": "r1"
+          }
+        ],
+        "changes": [
+          {
+            "op": "write_source",
+            "id": "s",
+            "text": "x",
+            "encoding": "utf-8",
+            "verdict": "PASS"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "No replay lifecycle action",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-run",
+      "method": "run",
+      "params": {
+        "action": "replay",
+        "project_id": "chip",
+        "run_id": "r"
+      }
+    }
+  },
+  {
+    "name": "Cancel cannot override quarantine",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-run",
+      "method": "run",
+      "params": {
+        "action": "cancel",
+        "project_id": "chip",
+        "run_id": "r",
+        "override_quarantine": true
+      }
+    }
+  },
+  {
+    "name": "Script needs exactly one code source",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "req-script",
+      "method": "script",
+      "params": {
+        "action": "execute",
+        "project_id": "chip",
+        "workspace_id": "w",
+        "generation": "g",
+        "snapshot": "r1",
+        "history_cursor": "h",
+        "code": "print(1)",
+        "source": {
+          "scope": "project",
+          "id": "script",
+          "revision": "r1"
+        }
+      }
+    }
+  },
+  {
+    "name": "Run cannot omit I28 lock",
+    "schema": "#/$defs/RunRecord",
+    "value": {
+      "id": "run-1",
+      "project_id": "chip",
+      "request_ids": [
+        "req-tran"
+      ],
+      "task": "simulate.spice",
+      "state": "completed",
+      "verdict": "PASS",
+      "target": {
+        "project_id": "chip",
+        "kind": "component",
+        "id": "amp",
+        "snapshot": "r7"
+      },
+      "effects": [],
+      "cancel_requested": false,
+      "freshness": "current",
+      "convergence": "converged"
+    }
+  },
+  {
+    "name": "Queued execution cannot claim PASS",
+    "schema": "#/$defs/RunRecord",
+    "value": {
+      "id": "run-1",
+      "project_id": "chip",
+      "request_ids": [
+        "req-tran"
+      ],
+      "task": "simulate.spice",
+      "state": "queued",
+      "verdict": "PASS",
+      "target": {
+        "project_id": "chip",
+        "kind": "component",
+        "id": "amp",
+        "snapshot": "r7"
+      },
+      "input_lock": {
+        "snapshot": {
+          "scope": "project",
+          "id": "chip",
+          "revision": "r1"
+        },
+        "target": {
+          "project_id": "chip",
+          "kind": "component",
+          "id": "amp",
+          "snapshot": "r7"
+        },
+        "canvas": {
+          "path": "canvas.toml",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "schema": "rocketeda/canvas/v1"
+        },
+        "ingredients": [
+          {
+            "ref": {
+              "scope": "project",
+              "id": "amp-source",
+              "revision": "r1"
+            },
+            "role": "implementation",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "tools": [
+          {
+            "id": "ngspice",
+            "version": "qualified-version",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "profile": {
+              "scope": "engine",
+              "id": "analog-profile",
+              "revision": "r1"
+            }
+          }
+        ],
+        "pdks": [
+          {
+            "ref": {
+              "scope": "pdk",
+              "id": "sky130A",
+              "revision": "r1"
+            },
+            "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "resolved_configuration": {
+          "analysis": "op"
+        },
+        "seeds": {},
+        "closure_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "effects": [],
+      "cancel_requested": false,
+      "freshness": "current",
+      "convergence": "converged"
+    }
+  },
+  {
+    "name": "Resume result cannot be discarded",
+    "schema": "#/$defs/RunControlResult",
+    "value": {
+      "run_id": "r",
+      "project_id": "chip",
+      "action": "resume",
+      "state": "discarded",
+      "cancel_requested": false,
+      "event_cursor": "c"
+    }
+  },
+  {
+    "name": "Queue full must be retryable with capacity",
+    "schema": "#/$defs/Error",
+    "value": {
+      "code": "queue_full",
+      "message": "Pause until capacity resumes. Request was not admitted.",
+      "details": [],
+      "retryable": false,
+      "admitted": false,
+      "capacity": {
+        "lane": "jobs",
+        "accepting": false,
+        "available": 0,
+        "pending": 32,
+        "generation": "capacity-4",
+        "retry_after_ms": 100
+      },
+      "retry_after_ms": 100
+    }
+  },
+  {
+    "name": "Expired cursor needs resync source",
+    "schema": "#/$defs/Error",
+    "value": {
+      "code": "cursor_expired",
+      "message": "Resync required",
+      "details": [],
+      "retryable": false,
+      "admitted": false
+    }
+  },
+  {
+    "name": "Stored bench needs saved source",
+    "schema": "#/$defs/EntityRecord",
+    "value": {
+      "id": "tb",
+      "revision": "r1",
+      "project_id": "chip",
+      "data": {
+        "kind": "testbench",
+        "name": "counter_test",
+        "parent": "top-sheet",
+        "bench_type": "cocotb",
+        "target": {
+          "sibling": "counter-instance",
+          "descendants": []
+        }
+      }
+    }
+  },
+  {
+    "name": "Circuit component needs SPICE availability slot",
+    "schema": "#/$defs/ComponentData",
+    "value": {
+      "kind": "component",
+      "name": "amp",
+      "component_type": "spice_block",
+      "domains": [
+        "analog"
+      ],
+      "ports": [],
+      "views": []
+    }
+  },
+  {
+    "name": "Canvas selected HDL is one supported authoring dialect",
+    "schema": "#/$defs/CanvasConfig",
+    "value": {
+      "schema": "rocketeda/canvas/v1",
+      "hdl": {
+        "language": "verilog,vhdl"
+      },
+      "technology": {
+        "scope": "pdk",
+        "id": "sky130A",
+        "revision": "r1"
+      },
+      "pdks": [
+        {
+          "scope": "pdk",
+          "id": "sky130A",
+          "revision": "r1"
+        }
+      ],
+      "targets": [
+        {
+          "metric": "clock.frequency",
+          "operator": "ge",
+          "limit": {
+            "value": 100,
+            "unit": "MHz"
+          },
+          "required": true
+        }
+      ],
+      "tools": {
+        "librelane": {
+          "profile": {
+            "scope": "engine",
+            "id": "librelane-profile",
+            "revision": "r1"
+          },
+          "density": 0.45,
+          "effort": "standard",
+          "corners": [
+            "tt"
+          ]
+        },
+        "ngspice": {
+          "profile": {
+            "scope": "engine",
+            "id": "analog-profile",
+            "revision": "r1"
+          },
+          "temperature": {
+            "value": 27,
+            "unit": "degC"
+          },
+          "reltol": 0.001
+        }
+      }
+    }
+  },
+  {
+    "name": "Stored sources cannot carry transaction local references",
+    "schema": "#/$defs/EntityRecord",
+    "value": {
+      "id": "filter",
+      "revision": "r1",
+      "data": {
+        "kind": "component",
+        "name": "filter",
+        "component_type": "gdsf_component",
+        "domains": [
+          "photonic"
+        ],
+        "ports": [],
+        "models": {
+          "spice": {
+            "state": "not_applicable",
+            "reason": "Pure optical layout; optical compact model is separate."
+          }
+        },
+        "views": [
+          {
+            "id": "layout-source",
+            "role": "layout_generator",
+            "format": "python",
+            "authority": "generator",
+            "sources": [
+              {
+                "local": "@source"
+              }
+            ],
+            "entry": "make_filter",
+            "profile": {
+              "scope": "engine",
+              "id": "design-profile",
+              "revision": "r1"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Run state event cannot claim queued PASS",
+    "schema": "#/$defs/Event",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "id": "e",
+      "cursor": "c",
+      "type": "run.state",
+      "actor": "engine",
+      "project_id": "chip",
+      "time": "2026-11-01T15:00:00Z",
+      "data": {
+        "run_id": "r",
+        "state": "queued",
+        "verdict": "PASS"
+      }
+    }
+  },
+  {
+    "name": "Formal SMT backend is not the top-level task driver",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "reject-21",
+      "method": "run",
+      "params": {
+        "action": "start",
+        "target": {
+          "project_id": "chip",
+          "kind": "component",
+          "id": "core"
+        },
+        "task": "check.formal",
+        "tool": "z3",
+        "options": {
+          "mode": "prove",
+          "solver": "z3"
+        }
+      }
+    }
+  },
+  {
+    "name": "Production ASIC workflow excludes harness as manufactured target",
+    "schema": "#/$defs/Request",
+    "value": {
+      "protocol": "rocketeda/v1",
+      "request_id": "reject-22",
+      "method": "run",
+      "params": {
+        "action": "start",
+        "target": {
+          "project_id": "chip",
+          "kind": "testbench",
+          "id": "tb-core"
+        },
+        "task": "workflow.asic",
+        "options": {}
+      }
+    }
+  },
+  {
+    "name": "Canvas hdl block without a language is not photonic (omit the key)",
+    "schema": "#/$defs/CanvasConfig",
+    "value": {
+      "schema": "rocketeda/canvas/v1",
+      "hdl": {},
+      "technology": {
+        "scope": "pdk",
+        "id": "sky130A",
+        "revision": "r1"
+      },
+      "pdks": [
+        {
+          "scope": "pdk",
+          "id": "sky130A",
+          "revision": "r1"
+        }
+      ],
+      "targets": [
+        {
+          "metric": "clock.frequency",
+          "operator": "ge",
+          "limit": {
+            "value": 100,
+            "unit": "MHz"
+          },
+          "required": true
+        }
+      ],
+      "tools": {
+        "ngspice": {
+          "profile": {
+            "scope": "engine",
+            "id": "analog-profile",
+            "revision": "r1"
+          },
+          "temperature": {
+            "value": 27,
+            "unit": "degC"
+          },
+          "reltol": 0.001
+        }
+      }
+    }
+  }
+]

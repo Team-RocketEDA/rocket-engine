@@ -1,0 +1,464 @@
+diff --git a/scripts/api_spec.py b/scripts/api_spec.py
+index f808d22..8a94873 100644
+--- a/scripts/api_spec.py
++++ b/scripts/api_spec.py
+@@ -21,6 +21,8 @@ Contract sources read (all AST, all code):
+ - adapter preflight/execute/parse docstrings — Returns/Raises,
+ - ProjectService method docstrings — CRUD/query Args/Returns/Raises,
+ - Engine._run_queued docstring — run_job contract.
++- execution/python_exec.py request_execution docstring —
++  python_execute contract (Engine-direct op).
+ 
+ Conventions honored: `Job keys:` / `Request keys:` sections list
+ `name:` or `name (required):` items; envelope plumbing
+@@ -384,6 +386,17 @@ def endpoint_spec(name, root=None):
+         spec["summary"] = parse_docstring(doc_of(
+             "composition.py", "Engine._run_queued", root=root
+         ))["summary"]
++    elif name == "python_execute":
++        spec["wired"] = True
++        spec["handlers"] = [
++            "rocket_engine.composition.Engine.submit",
++            "rocket_engine.execution.python_exec."
++            "PythonExecService.request_execution",
++        ]
++        spec["summary"] = parse_docstring(doc_of(
++            "execution/python_exec.py",
++            "PythonExecService.request_execution", root=root
++        ))["summary"]
+     elif name in qmethods:
+         spec["wired"] = True
+         spec["handlers"] = [
+@@ -457,6 +470,21 @@ def section_body(name, root=None):
+             _optional_block("Returns", parsed["returns"]),
+             _optional_block("Raises", parsed["raises"]),
+         ])
++    if name == "python_execute":
++        parsed = parse_docstring(doc_of(
++            "execution/python_exec.py",
++            "PythonExecService.request_execution", root=root
++        ))
++        return _join_blocks([
++            spec["summary"],
++            "Handler: `rocket_engine.composition.Engine.submit` "
++            "(submit opens a pending approval; the human UI route "
++            "resolves it, then `run_job` executes the admitted run).",
++            _arguments_block(parsed["job_keys"]),
++            _optional_block("Returns", parsed["returns"]),
++            _optional_block("Raises", parsed["raises"]),
++            "\n".join(f"Caution: {c}" for c in parsed["cautions"]),
++        ])
+     return (
+         spec["summary"]
+         + "\n\n`Engine.submit` raises `unsupported_operation` for this "
+@@ -650,6 +678,18 @@ def _schema_for(name, kind, solvers, crud, qmethods, qengines,
+         schema["returns"] = parsed["returns"]
+         schema["raises"] = parsed["raises"]
+         return schema
++    if name == "python_execute":
++        parsed = parse_docstring(doc_of(
++            "execution/python_exec.py",
++            "PythonExecService.request_execution", root=root
++        ))
++        schema["properties"] = {
++            n: {"description": d} for n, _r, d in parsed["job_keys"]
++        }
++        schema["required"] = [n for n, r, _d in parsed["job_keys"] if r]
++        schema["returns"] = parsed["returns"]
++        schema["raises"] = parsed["raises"]
++        return schema
+     schema["returns"] = ""
+     return schema
+ 
+diff --git a/src/adapters/mcp/server.py b/src/adapters/mcp/server.py
+index 6956cc0..dd84f4a 100644
+--- a/src/adapters/mcp/server.py
++++ b/src/adapters/mcp/server.py
+@@ -28,6 +28,7 @@ from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
+ from ruamel.yaml import YAML
+ 
+ from ...execution.errors import ExecutionError
++from ...execution.python_exec import MCP_INPUT_SCHEMA
+ from ...interfaces.vocabulary import OPERATIONS, QUERIES
+ from ...project.errors import ProjectError
+ from ..errors import AdapterError
+@@ -36,6 +37,11 @@ from . import McpTransport
+ _ENGINE_ERRORS = (AdapterError, ProjectError, ExecutionError)
+ 
+ 
++_TOOL_SCHEMAS = {
++    "python_execute": MCP_INPUT_SCHEMA,
++}
++
++
+ _HELP_ENGINE = None
+ 
+ 
+@@ -94,6 +100,12 @@ def describe_tool(name):
+         # run_job's contract doc lives on the phase-2 runner
+         # (introspection only; never called for help).
+         return _summary_of(Engine._run_queued)
++    if name == "python_execute":
++        # python_execute's contract doc lives on the approval
++        # request (introspection only; never called for help).
++        from ...execution.python_exec import PythonExecService
++
++        return _summary_of(PythonExecService.request_execution)
+     if name in OPERATIONS and hasattr(ProjectService, name):
+         return _summary_of(getattr(ProjectService, name))
+     method = QUERY_METHODS.get(name)
+@@ -120,7 +132,7 @@ def tool_definitions():
+         tools.append(Tool(
+             name=name,
+             description=describe_tool(name),
+-            inputSchema={"type": "object"},
++            inputSchema=_TOOL_SCHEMAS.get(name, {"type": "object"}),
+         ))
+     return tools
+ 
+diff --git a/src/composition.py b/src/composition.py
+index 576c431..f62d2d5 100644
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -42,7 +42,9 @@ from .adapters.lvs_netgen import NetgenLvsAdapter
+ from .adapters.ngspice import NgspiceAdapter
+ from .adapters.sax import SaxAdapter
+ from .adapters.syntax import SyntaxAdapter
++from .execution.dispatch import OpDispatcher
+ from .execution.errors import ExecutionError
++from .execution.python_exec import PythonExecService
+ from .execution.service import ExecutionService
+ from .interfaces.setup import report_capabilities
+ from .interfaces.vocabulary import OPERATIONS, QUERIES
+@@ -84,6 +86,7 @@ QUERY_ENGINE_METHODS = {
+     "get_check_results": "check_results",
+     "get_logs": "run_logs",
+     "list_job_kinds": "job_kinds",
++    "get_python_console": "python_console",
+ }
+ 
+ # Job-result queries served from execution state (plus the captured run log).
+@@ -140,10 +143,13 @@ class Engine:
+         constraints: Optional run_spice metric targets
+             ({metric: {min, max, unit[, expr, control]}}); caller
+             targets are refused, unknown metrics fail loudly.
++        project_dir: Project folder python_execute path mode
++            resolves inside; path mode refuses loudly without one.
+     """
+ 
+     def __init__(self, project_id, actor, catalog_root=".",
+-                 engine_root=None, linked_root=None, constraints=None):
++                 engine_root=None, linked_root=None, constraints=None,
++                 project_dir=None):
+         self._project_id = project_id
+         self._actor = actor
+         self._project = ProjectService(
+@@ -166,6 +172,13 @@ class Engine:
+         self._logs = {}
+         self._latest = {}
+         self._run_jobs = {}
++        self._pyexec = PythonExecService(
++            project_id, actor,
++            execution=self._execution,
++            project_root=project_dir,
++            dispatcher=OpDispatcher(
++                self, project_id=project_id, actor=actor),
++        )
+ 
+     def snapshot(self):
+         """Read the current project snapshot.
+@@ -233,7 +246,7 @@ class Engine:
+             self._solvers,
+             target=target,
+             engine_root=engine_root,
+-            served=_CRUD_OPERATIONS | {"run_job"},
++            served=_CRUD_OPERATIONS | {"run_job", "python_execute"},
+         )
+ 
+     def submit(self, command):
+@@ -257,8 +270,9 @@ class Engine:
+             mapping for get_capabilities, the event page for
+             get_events_since, the project/document listing for
+             the CRUD queries, the status/checks/logs/kinds for
+-            the job-result queries, or the completed mapping for
+-            run_job.
++            the job-result queries, the completed mapping for
++            run_job, the approval handle for python_execute, or
++            the console view for get_python_console.
+ 
+         Raises:
+             ProjectError: cross_project_denied for a foreign
+@@ -295,6 +309,8 @@ class Engine:
+                 target=arguments.get("target"),
+                 engine_root=arguments.get("engine_root"),
+             )
++        if name == "get_python_console":
++            return self.python_console()
+         if name == "get_events_since":
+             return self._query_events_since(arguments)
+         if name == "list_projects":
+@@ -321,6 +337,8 @@ class Engine:
+             return self.run(command)
+         if name in _CRUD_OPERATIONS:
+             return self._submit_crud(name, arguments, command)
++        if name == "python_execute":
++            return self._submit_pyexec(arguments, command)
+         if not self._solvers.get(name):
+             raise ProjectError(
+                 "unsupported_operation", f"No solver registered: {name}."
+@@ -443,6 +461,134 @@ class Engine:
+             expected_revision=arguments.get("expected_revision"),
+         )
+ 
++    def _submit_pyexec(self, arguments, command):
++        """Admit a python_execute request: gate, then open an approval.
++
++        Shape validation runs before the revision gate so malformed
++        requests fail before anything is persisted or queued; the
++        gated submit then advances the revision and appends
++        job_queued like every other operation. The ack run_id IS
++        the execution id: approval admits it, run_job executes it.
++
++        Args:
++            arguments: python_execute arguments (mode plus lines
++                or path, timeout_s, artifacts, expected_revision).
++            command: Envelope carrying request_id.
++
++        Returns:
++            Admission mapping with the ack fields plus
++                execution_id, approval_id, and pending_approval
++                state. No run exists until the UI route approves.
++
++        Raises:
++            ProjectError: revision_conflict for a stale
++                expected_revision, request_conflict for a reused
++                envelope id with new text.
++            ExecutionError: invalid_command/invalid_cell/empty_cell
++                for malformed requests, path_escape/invalid_path/
++                cell_unreadable for bad project files.
++        """
++        self._pyexec.validate_request(
++            arguments.get("mode"),
++            lines=arguments.get("lines"),
++            path=arguments.get("path"),
++            artifacts=arguments.get("artifacts", ()),
++            timeout_s=arguments.get("timeout_s"),
++        )
++        buf = io.StringIO()
++        self._yaml.dump(
++            {"operation": "python_execute", "arguments": arguments}, buf)
++        request_id = command.get("request_id") or uuid.uuid4().hex
++        ack = self._project.submit(
++            buf.getvalue(),
++            str(request_id),
++            expected_revision=arguments.get("expected_revision"),
++        )
++        handle = self._pyexec.request_execution(
++            arguments["mode"],
++            lines=arguments.get("lines"),
++            path=arguments.get("path"),
++            request_id=str(request_id),
++            run_id=ack["run_id"],
++            expected_revision=arguments.get("expected_revision"),
++            artifacts=arguments.get("artifacts", ()),
++            timeout_s=arguments.get("timeout_s"),
++        )
++        self._run_jobs.setdefault(
++            ack["run_id"],
++            {
++                "operation": "python_execute",
++                "arguments": dict(arguments),
++                "snapshot_id": ack["snapshot_id"],
++                "request_id": str(request_id),
++            },
++        )
++        return {**ack, **handle, "state": "pending_approval"}
++
++    def resolve_python_approval(self, approval_id, decision, actor=None):
++        """Resolve a python_execute approval via the human UI route.
++
++        Agent calls request approval; they never grant it — this
++        method is the trusted UI route, and no MCP tool maps to it.
++
++        Args:
++            approval_id: Approval bound by the submit call.
++            decision: `approved` to admit the queued run, `denied`
++                to lapse the approval with no run.
++            actor: Human actor the decision is attributed to; the
++                engine actor when omitted.
++
++        Returns:
++            Resolution with approval_id, approval_state,
++                execution_id, and the run_id once admitted.
++
++        Raises:
++            ExecutionError: approval_invalid/approval_denied/
++                approval_expired/approval_forbidden per the
++                approval ledger.
++
++        Caution: Human route only — MCP agents must never call
++            this; there is deliberately no MCP tool for it.
++        """
++        return self._pyexec.resolve_approval(
++            approval_id, decision, via="ui",
++            actor=actor if actor is not None else self._actor,
++        )
++
++    def python_console(self):
++        """Read the python_execute console view.
++
++        Returns:
++            Console view with project_id, generation, env_digest,
++                history cursor, and pending approvals.
++
++        Caution: Read-only: reports approval queue state, never
++            resolves anything.
++        """
++        return self._pyexec.console_view()
++
++    def cancel_job(self, run_id=None):
++        """Cancel a queued or running job through the job surface.
++
++        A live python_execute worker tree is killed promptly;
++        finished runs keep their terminal state, truthfully.
++
++        Args:
++            run_id: Admitted execution id to cancel.
++
++        Returns:
++            Mapping with run_id and state.
++
++        Raises:
++            ProjectError: invalid_command without a run_id.
++            ExecutionError: unknown_run for an id never admitted.
++        """
++        if run_id is None:
++            raise ProjectError(
++                "invalid_command", "cancel_job needs a run_id argument."
++            )
++        return self._pyexec.cancel(run_id)
++
+     def _select_solver(self, name, arguments):
+         solvers = self._solvers.get(name) or {}
+         if not solvers:
+@@ -746,6 +892,8 @@ class Engine:
+             snapshot_id = ack.get("snapshot_id", "")
+             request_id = str(request_id)
+             run_id = ack.get("run_id")
++        if stored_operation == "python_execute":
++            return self._run_pyexec(run_id, request_id)
+         if not self._solvers.get(stored_operation):
+             raise ProjectError(
+                 "unsupported_operation", f"No solver registered: {stored_operation}."
+@@ -763,6 +911,58 @@ class Engine:
+             contain=True,
+         )
+ 
++    def _run_pyexec(self, run_id, request_id):
++        """Execute an admitted python_execute run (phase 2).
++
++        Approval lapses propagate as approval errors — approval
++        state is never folded into a verdict. Completion carries
++        the NOT_RUN verdict (zero exit is never check PASS) and
++        appends the run_failed ledger event the NOT_RUN shape
++        owns; cancellation returns the cancelled state with no
++        ledger event, like every cancelled job.
++
++        Args:
++            run_id: Admitted execution id (the submit ack id).
++            request_id: Queued request this run discharges.
++
++        Returns:
++            Completion mapping with run_id, state, verdict, and
++                operation.
++
++        Raises:
++            ExecutionError: unknown_run for an id never admitted,
++                approval_pending/approval_denied/approval_expired
++                when the approval lapses, approval_invalid for
++                binding drift.
++
++        Caution: Runs the approved worker now — read the verdict
++            (always NOT_RUN) plus the execution record, never the
++            exit path.
++        """
++        record = self._pyexec.run_job(run_id)
++        self._latest["python_execute"] = run_id
++        log = record.get("stdout", "")
++        if record.get("stderr"):
++            log += "\n--- stderr ---\n" + record["stderr"]
++        self._logs[run_id] = log
++        if record["state"] == "cancelled":
++            return {
++                "run_id": run_id,
++                "state": "cancelled",
++                "verdict": record["verdict"],
++                "operation": "python_execute",
++            }
++        self._project.append_run_event(
++            "run_failed", run_id, "python_execute", record["verdict"],
++            request_id,
++        )
++        return {
++            "run_id": run_id,
++            "state": "completed",
++            "verdict": record["verdict"],
++            "operation": "python_execute",
++        }
++
+     def _run_operation(self, name, arguments, snapshot_id, request_id, run_id=None, contain=False):
+         """Select the solver, run it, judge the verdict, log completion."""
+         solvers = self._solvers.get(name) or {}
+@@ -922,6 +1122,12 @@ class Engine:
+             return self._run_queued(command)
+         if name in _CRUD_OPERATIONS:
+             return self.submit(command)
++        if name == "python_execute":
++            raise ProjectError(
++                "invalid_command",
++                "python_execute needs submit, human approval, then "
++                "run_job; direct run cannot approve.",
++            )
+         arguments = self._apply_targets(name, dict(command.get("arguments") or {}))
+         return self._run_operation(
+             name,
+diff --git a/src/execution/__init__.py b/src/execution/__init__.py
+index 0df8509..0e57ed6 100644
+--- a/src/execution/__init__.py
++++ b/src/execution/__init__.py
+@@ -3,6 +3,16 @@
+ from .console import ConsoleSession, get_help
+ from .dispatch import OpDispatcher, parse_op_call, parse_op_tokens
+ from .errors import ExecutionError, UsageError
++from .python_exec import (
++    MCP_INPUT_SCHEMA,
++    PythonExecRunner,
++    PythonExecService,
++    build_worker_source,
++    not_run_verdict,
++    parse_exception,
++    prelude_digest_for,
++    resolve_script_path,
++)
+ from .runner import BwrapRunner
+ from .service import ExecutionService
+ from .worker import CellRunner, CredentialGate, worker_profile
+@@ -14,10 +24,18 @@ __all__ = [
+     "CredentialGate",
+     "ExecutionError",
+     "ExecutionService",
++    "MCP_INPUT_SCHEMA",
+     "OpDispatcher",
++    "PythonExecRunner",
++    "PythonExecService",
+     "UsageError",
++    "build_worker_source",
+     "get_help",
++    "not_run_verdict",
++    "parse_exception",
+     "parse_op_call",
+     "parse_op_tokens",
++    "prelude_digest_for",
++    "resolve_script_path",
+     "worker_profile",
+ ]

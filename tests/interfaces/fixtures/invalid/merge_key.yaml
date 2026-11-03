@@ -1,0 +1,10 @@
+schema: rocketeda/v0.1
+kind: component
+id: merged_arm
+revision: "r1"
+scope: project
+description: Fixture with an inline merge key and no anchors (must be rejected).
+parameters:
+  variant:
+    <<: {width: 1}
+    extra: 2

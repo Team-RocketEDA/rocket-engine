@@ -1,0 +1,74 @@
+# PDK-UBC lane profile: SiEPIC EBeam UBC PDK (gdsfactory).
+# Shape follows the PDK-PROFILE direction lock: {gdsfactory package
+# pin, KLayout tech, decks, models}. All relpaths resolve against
+# the ubcpdk source root (pip site-packages, fixtures/upstream/ubc,
+# or /tmp/pdk-sources/ubc). Single ebeam variant, proven.
+schema: rocketeda/pdk-profile/v0.1
+id: ubc
+label: SiEPIC EBeam UBC PDK (gdsfactory ubcpdk)
+upstream: https://github.com/gdsfactory/ubc
+license: MIT
+package: ubcpdk
+pins:
+  ubcpdk: "3.3.5"
+  gdsfactory: "9.51.0"
+  sax: "0.18.2"
+  klayout: "0.28.16"
+source:
+  rev: 598a773b6439a4fb5049198ecf88d5f6a30ef3fc
+  short_rev: 598a773
+  # Version note: pyproject.toml + ubcpdk/__init__.py say 3.3.5;
+  # README.md still says 3.3.4 (stale header, not the pin).
+variants:
+  ebeam:
+    module: ubcpdk
+    pdk_name: ubcpdk
+    process: SOI 220nm, ebeam lithography, strip, C-band (1310/1550 fixed cells)
+    status: proven
+    tech:
+      klayout_dir: ubcpdk/klayout/tech
+      lyt: ubcpdk/klayout/tech/tech.lyt
+      lyp: ubcpdk/klayout/tech/layers.lyp
+      layers_yaml: ubcpdk/layers.yaml
+      tech_name: UBCPDK
+    drc:
+      deck: ubcpdk/klayout/tech/drc/SiEPIC_EBeam_DRC.lyp
+      deck_status: proven
+      deck_note: >
+        PDK deck ships GUI-oriented with no source()/file-report batch
+        hooks. The unmodified deck under klayout -b errors with 'No cell
+        name specified' and writes no report (verified 2026-10-31, KLayout
+        0.28.16). The lane adds only the 2-line batch header
+        (source($input)/report-to-file, the same shape the sky130 deck
+        carries inline). Checks run verbatim, harness generated at test
+        time and asserted verbatim.
+      inventoried_decks:
+        - ubcpdk/klayout/tech/drc/ELEC463 Doping.lydrc
+        - ubcpdk/klayout/tech/drc/ELEC463 Metal Heater.lydrc
+    models:
+      path: ubcpdk/models
+      registry: get_models
+      count: 32
+      status: proven
+proofs:
+  layout:
+    variant: ebeam
+    cell: mzi
+    delta_length: 10.0
+    ports: [o1, o2, o3, o4]
+    n_polygons: 34
+    bbox_um: [[-10.0, -29.4], [99.1, 25.1]]
+    reference_gds: tests/gds_ref_si220/mzi.gds
+  optical:
+    variant: ebeam
+    model: ubcpdk PDK.models
+    circuit: mzi
+    at_nm: 1550.0
+    goldens:
+      delta_length_10: {o1_o3: 0.18527868264398265, o1_o4: 0.7948270469902452}
+      delta_length_100: {o1_o3: 0.021840364329025166, o1_o4: 0.9547455489516119}
+  drc:
+    reference_total: 6
+    reference_rules: {Boundary: 6}
+    bad_total: 5
+    bad_rules: {Boundary: 3, Si_space: 1, Si_width: 1}

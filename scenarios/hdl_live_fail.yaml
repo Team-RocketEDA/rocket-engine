@@ -1,0 +1,7 @@
+name: hdl live fail on known-bad bench
+engine: {project_id: digital_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-hdl-2, operation: run_hdl_test, target: counter}
+  - run_live: {backend: hdl, sources: [counter.v, tb_fatal.v]}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

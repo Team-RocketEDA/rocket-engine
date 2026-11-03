@@ -1,0 +1,629 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:task-implementation",
+  "title": "Engine v1 task-implementation schemas",
+  "$defs": {
+    "TaskSynthesizeHdl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "top": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        },
+        "library": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "frontend": {
+          "type": "string",
+          "enum": [
+            "canvas",
+            "slang",
+            "ghdl",
+            "amaranth"
+          ]
+        },
+        "output_format": {
+          "type": "string",
+          "enum": [
+            "verilog",
+            "json",
+            "rtlil",
+            "spice"
+          ]
+        }
+      },
+      "required": [
+        "top"
+      ]
+    },
+    "TaskImplementAsic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "full",
+            "synthesis",
+            "floorplan",
+            "macro_placement",
+            "io_placement",
+            "pdn",
+            "global_placement",
+            "detailed_placement",
+            "placement",
+            "cts",
+            "global_routing",
+            "detailed_routing",
+            "routing",
+            "fill",
+            "signoff",
+            "registered_step"
+          ]
+        },
+        "flow": {
+          "type": "string",
+          "enum": [
+            "classic",
+            "chip",
+            "vhdl_classic"
+          ]
+        },
+        "resume_from": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "constraints": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Named corner in the pinned model/PDK manifest."
+          },
+          "minItems": 1
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "stage"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "stage": {
+                "const": "registered_step"
+              }
+            },
+            "required": [
+              "stage"
+            ]
+          },
+          "then": {
+            "required": [
+              "step_id"
+            ]
+          }
+        }
+      ]
+    },
+    "TaskImplementFpga": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        },
+        "device": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        },
+        "constraints": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "top": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        },
+        "emit_bitstream": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "architecture",
+        "device",
+        "constraints",
+        "top"
+      ]
+    },
+    "TaskAnalyzeTiming": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "constraints": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Named corner in the pinned model/PDK manifest."
+          },
+          "minItems": 1
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "setup",
+              "hold",
+              "max_slew",
+              "max_capacitance",
+              "recovery",
+              "removal",
+              "clock_gating"
+            ]
+          },
+          "minItems": 1
+        },
+        "parasitics": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "constraints"
+      ]
+    },
+    "TaskAnalyzePower": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "analysis": {
+          "type": "string",
+          "enum": [
+            "power",
+            "ir_drop"
+          ]
+        },
+        "activity": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "supplies": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Named corner in the pinned model/PDK manifest."
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "analysis"
+      ]
+    },
+    "TaskAnalyzeMeasurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "analysis": {
+          "type": "string",
+          "enum": [
+            "measure",
+            "fft",
+            "compare",
+            "plot"
+          ]
+        },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 1
+        },
+        "baseline": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "analysis",
+        "inputs",
+        "definitions"
+      ]
+    },
+    "TaskExtractLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "devices",
+            "rc",
+            "connectivity"
+          ]
+        },
+        "deck": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "output_format": {
+          "type": "string",
+          "enum": [
+            "spice",
+            "cdl",
+            "spef",
+            "json"
+          ]
+        },
+        "hierarchical": {
+          "type": "boolean"
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Named corner in the pinned model/PDK manifest."
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "TaskCharacterizeCircuit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "plan": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "sweep",
+            "corners",
+            "monte_carlo"
+          ]
+        },
+        "sweeps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "parameter": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Qualified design/model parameter identifier."
+              },
+              "target": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+              },
+              "start": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "stop": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "step": {
+                "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+                },
+                "minItems": 1
+              }
+            },
+            "required": [
+              "parameter"
+            ],
+            "oneOf": [
+              {
+                "required": [
+                  "start",
+                  "stop",
+                  "step"
+                ]
+              },
+              {
+                "required": [
+                  "values"
+                ]
+              }
+            ]
+          },
+          "minItems": 1
+        },
+        "corners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Named corner in the pinned model/PDK manifest."
+          },
+          "minItems": 1
+        },
+        "samples": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "plan",
+        "mode"
+      ]
+    },
+    "TaskGenerateViews": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "symbol",
+              "schematic",
+              "layout",
+              "interface",
+              "model",
+              "rtl"
+            ]
+          },
+          "minItems": 1
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        }
+      },
+      "required": [
+        "kinds"
+      ]
+    },
+    "TaskGenerateNetlist": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "spice",
+            "cdl",
+            "verilog",
+            "vhdl",
+            "sax",
+            "json"
+          ]
+        },
+        "top": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        },
+        "hierarchical": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format"
+      ]
+    },
+    "TaskExportDesign": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "gds",
+            "oasis",
+            "lef",
+            "def",
+            "magic",
+            "xschem",
+            "spice",
+            "cdl",
+            "verilog",
+            "vhdl",
+            "project_bundle"
+          ]
+        },
+        "hierarchical": {
+          "type": "boolean"
+        },
+        "include_sources": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format"
+      ]
+    },
+    "TaskCompileModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+          },
+          "minItems": 0
+        },
+        "settings": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref",
+          "description": "Pinned saved settings asset; validated against the selected task and adapter schema. Native shell commands and argument vectors are forbidden."
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "osdi"
+          ]
+        },
+        "model_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": ""
+        }
+      },
+      "required": [
+        "source",
+        "format"
+      ]
+    }
+  }
+}

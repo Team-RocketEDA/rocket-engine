@@ -1,0 +1,8 @@
+# picorv32 test_ez file manifest (VALIDATE-D): vendored sources
+# relative to fixtures/upstream/picorv32, mirroring the vendor
+# Makefile testbench_ez.vvp build (testbench_ez.v + picorv32.v with
+# -DCOMPRESSED_ISA). Runners append the committed picorv32_monitor.v,
+# which is silent on good runs. Single source of truth shared by
+# rocket_engine.mutate staging and the hdl_picorv32 scenario backend.
+picorv32.v
+testbench_ez.v

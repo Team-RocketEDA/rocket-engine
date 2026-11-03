@@ -1,0 +1,7 @@
+name: picorv32 live pass on vendor test_ez
+engine: {project_id: digital_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-pico-1, operation: run_hdl_test, target: picorv32}
+  - run_live: {backend: hdl_picorv32}
+  - assert_verdict: PASS
+  - assert_event: job_queued

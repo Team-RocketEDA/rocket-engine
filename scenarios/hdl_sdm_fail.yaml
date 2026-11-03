@@ -1,0 +1,7 @@
+name: sdm_rx live fail on truncation mutant
+engine: {project_id: mixed_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-sdm-2, operation: run_hdl_test, target: sdm_rx}
+  - run_live: {backend: hdl_sdm, mutation: {operator: sdm_truncation, seed: 0}}
+  - assert_verdict: FAIL
+  - assert_event: job_queued

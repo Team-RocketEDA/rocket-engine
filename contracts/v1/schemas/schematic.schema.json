@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:schematic",
+  "title": "Engine v1 schematic schemas",
+  "$defs": {
+    "PortData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "port"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "electrical",
+            "optical",
+            "thermal"
+          ]
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "input",
+            "output",
+            "inout",
+            "passive"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "signal",
+            "power",
+            "ground",
+            "clock",
+            "thermal",
+            "optical"
+          ]
+        },
+        "width": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/PortWidth"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "domain",
+        "direction",
+        "width"
+      ],
+      "description": "Declared stable interface port. Parameter/expression widths are resolved by a qualified elaborator, never arbitrary eval or query-time project execution."
+    },
+    "SheetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "sheet"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "mm"
+          ]
+        },
+        "grid": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "unit",
+        "grid"
+      ]
+    },
+    "SymbolData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "symbol"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "mm"
+          ]
+        },
+        "grid": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Quantity"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner",
+        "unit",
+        "grid"
+      ]
+    },
+    "PinData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "pin"
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "view": {
+          "type": "string",
+          "enum": [
+            "symbol",
+            "layout"
+          ]
+        },
+        "position": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+        },
+        "orientation_deg": {
+          "type": "number"
+        },
+        "layer": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "shape": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "port_id",
+        "view",
+        "position"
+      ]
+    },
+    "PinMapData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "pin_map"
+        },
+        "owner": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "symbol_pin": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "physical_pins": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          },
+          "minItems": 1
+        },
+        "native_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "port_id",
+        "symbol_pin",
+        "physical_pins"
+      ]
+    },
+    "Endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instance_path": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "instance_path",
+        "port_id"
+      ],
+      "description": "Instance path relative to owning net/sheet parent. Canonical port identity plus explicit bit selection; no geometric contact inference or implicit parent traversal."
+    },
+    "NetData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "net"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "electrical",
+            "optical",
+            "thermal"
+          ]
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Endpoint"
+          }
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "domain",
+        "endpoints",
+        "width"
+      ]
+    },
+    "WireData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "wire"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "net": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+          },
+          "minItems": 2
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "net",
+        "points"
+      ]
+    },
+    "JunctionData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "junction"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "net": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "point": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "net",
+        "point"
+      ]
+    },
+    "AnnotationData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "annotation"
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "annotation_type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "line",
+            "polyline",
+            "arrow",
+            "image",
+            "plot",
+            "measurement",
+            "rectangle",
+            "ellipse"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/Point"
+          }
+        },
+        "text": {
+          "type": "string"
+        },
+        "artifact": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "type": "string",
+              "minLength": 1
+            },
+            "width": {
+              "type": "number"
+            },
+            "font_size": {
+              "type": "number"
+            },
+            "fill": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": []
+        },
+        "plot": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+            },
+            "signals": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "x_axis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "y_axis": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": []
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "annotation_type"
+      ],
+      "description": "Graphical-only: excluded from netlisting, ERC and fabricated circuit; plot links evidence without adding a device."
+    }
+  }
+}

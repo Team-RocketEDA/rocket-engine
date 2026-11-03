@@ -1,0 +1,41 @@
+diff --git a/src/composition.py b/src/composition.py
+index e341109..5be1ad4 100644
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -31,7 +31,7 @@ netgen; run_spice: ngspice;
+ run_post_layout: ngspice; run_syntax: slang; run_hdl_test: icarus;
+ run_synth: yosys; run_connectivity: connectgraph; run_erc: connectgraph;
+ run_formal: sby; run_view_sync: connectgraph;
+-generate_views: gdsfactory; run_cosim: cosim).
++generate_views: gdsfactory; run_cosim: cosim; run_timing: opensta).
+ Unregistered operations and unknown deck tools raise instead of
+ faking a verdict.
+ """
+@@ -55,6 +55,7 @@ from .adapters.postlayout.adapter import PostLayoutAdapter
+ from .adapters.sax import SaxAdapter
+ from .adapters.syntax import SyntaxAdapter
+ from .adapters.synth_yosys import YosysSynthAdapter
++from .adapters.timing_sta import OpenStaTimingAdapter
+ from .adapters.view_sync import ViewSyncAdapter
+ from .execution.apig_pool import (
+     ApigPool,
+@@ -286,6 +287,7 @@ class Engine:
+             "run_view_sync": {"connectgraph": ViewSyncAdapter()},
+             "generate_views": {"gdsfactory": GdsfactoryViewsAdapter()},
+             "run_cosim": {"cosim": CosimAdapter()},
++            "run_timing": {"opensta": OpenStaTimingAdapter()},
+         }
+         self._constraints = dict(constraints) if constraints is not None else None
+         self._logs = {}
+diff --git a/src/interfaces/setup.py b/src/interfaces/setup.py
+index e3673ed..afb6e93 100644
+--- a/src/interfaces/setup.py
++++ b/src/interfaces/setup.py
+@@ -69,6 +69,7 @@ SOLVER_DEPS = {
+     ("run_view_sync", "connectgraph"): {},
+     ("generate_views", "gdsfactory"): {"python": ["gdsfactory"]},
+     ("run_cosim", "cosim"): {"binaries": ["ngspice", "iverilog", "vvp"]},
++    ("run_timing", "opensta"): {"binaries": ["sta"]},
+ }
+ 
+ 

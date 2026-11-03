@@ -1,0 +1,945 @@
+diff --git a/src/composition.py b/src/composition.py
+index 39a103a..02bd1b3 100644
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -109,6 +109,10 @@ QUERY_METHODS = {
+     "list_projects": "list_projects",
+     "list_docs": "list_docs",
+     "read_doc": "read_doc",
++    "get_component": "get_component",
++    "components_of": "components_of",
++    "entities_with": "entities_with",
++    "get_world_snapshot": "world_snapshot",
+     "read_settings": "read_settings",
+     "get_resolved_config": "resolved_config",
+ }
+@@ -172,6 +176,11 @@ _CRUD_OPERATIONS = frozenset(
+         "delete_doc",
+         "apply_mutations",
+         "rewind",
++        "create_entity",
++        "set_component",
++        "attach_component",
++        "detach_component",
++        "delete_entity",
+         "write_settings",
+     }
+ )
+@@ -383,7 +392,13 @@ class Engine:
+                 kind or settings, an unknown settings kind, or
+                 settings that break the kind schema, future_format
+                 for a settings write over a newer on-disk file,
+-                or a layer query missing its pdk_id/name,
++                or a layer query missing its pdk_id/name, a
++                component verb missing entity, component, or
++                data, or a world snapshot with a non-bool
++                flag, unknown_entity or unknown_component for
++                a missing entity or component, component_exists
++                for a duplicate attach, backfill_readonly for a
++                write over a read-only backfilled id,
+                 resync_required when a get_events_since contiguity
+                 demand cannot be met, invalid_project
+                 for a bad project id,
+@@ -447,6 +462,36 @@ class Engine:
+                 session_id=arguments.get("session_id"),
+                 run_id=arguments.get("run_id"),
+             )
++        if name == "get_component":
++            if "entity" not in arguments or "component" not in arguments:
++                raise ProjectError(
++                    "invalid_command",
++                    "get_component needs entity and component arguments.",
++                )
++            return self._project.get_component(
++                arguments["entity"], arguments["component"]
++            )
++        if name == "components_of":
++            if "entity" not in arguments:
++                raise ProjectError(
++                    "invalid_command",
++                    "components_of needs an entity argument.",
++                )
++            return self._project.components_of(arguments["entity"])
++        if name == "entities_with":
++            if "component" not in arguments:
++                raise ProjectError(
++                    "invalid_command",
++                    "entities_with needs a component argument.",
++                )
++            return self._project.entities_with(
++                arguments["component"],
++                predicate=arguments.get("predicate"),
++            )
++        if name == "get_world_snapshot":
++            return self._project.world_snapshot(
++                include_backfill=arguments.get("include_backfill", True)
++            )
+         if name in _JOB_QUERIES:
+             return self._query_job(name, arguments)
+         if name in _APIG_QUERIES:
+@@ -610,6 +655,58 @@ class Engine:
+                 command_text,
+                 expected_revision=arguments.get("expected_revision"),
+             )
++        if name == "create_entity":
++            return self._project.create_entity(
++                request_id,
++                command_text,
++                kind=arguments.get("kind", ""),
++                components=arguments.get("components"),
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name in ("set_component", "attach_component"):
++            if (
++                "entity" not in arguments
++                or "component" not in arguments
++                or "data" not in arguments
++            ):
++                raise ProjectError(
++                    "invalid_command",
++                    f"{name} needs entity, component, and data arguments.",
++                )
++            method = getattr(self._project, name)
++            return method(
++                arguments["entity"],
++                arguments["component"],
++                arguments["data"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "detach_component":
++            if "entity" not in arguments or "component" not in arguments:
++                raise ProjectError(
++                    "invalid_command",
++                    "detach_component needs entity and component arguments.",
++                )
++            return self._project.detach_component(
++                arguments["entity"],
++                arguments["component"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "delete_entity":
++            if "entity" not in arguments:
++                raise ProjectError(
++                    "invalid_command",
++                    "delete_entity needs an entity argument.",
++                )
++            return self._project.delete_entity(
++                arguments["entity"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
+         if "mutations" not in arguments:
+             raise ProjectError(
+                 "invalid_command",
+diff --git a/src/interfaces/vocabulary.py b/src/interfaces/vocabulary.py
+index 78354be..63f4e0b 100644
+--- a/src/interfaces/vocabulary.py
++++ b/src/interfaces/vocabulary.py
+@@ -13,6 +13,8 @@ OPERATIONS = frozenset(
+         "run_view_sync", "run_job",
+         "create_project", "write_doc", "delete_doc", "apply_mutations",
+         "rewind", "place_cell", "write_settings",
++        "create_entity", "set_component", "attach_component",
++        "detach_component", "delete_entity",
+     }
+ )
+ QUERIES = frozenset(
+@@ -22,6 +24,8 @@ QUERIES = frozenset(
+         "plan_checks", "get_job_status", "get_check_results",
+         "get_events_since", "list_artifacts", "get_logs",
+         "list_projects", "list_docs", "read_doc",
++        "get_component", "components_of", "entities_with",
++        "get_world_snapshot",
+         "list_cells", "serve_asset", "list_assets",
+         "read_settings", "get_resolved_config",
+         "get_layer_stackup", "get_layer_rows", "list_layer_presets",
+diff --git a/src/project/service.py b/src/project/service.py
+index dfd6504..418035f 100644
+--- a/src/project/service.py
++++ b/src/project/service.py
+@@ -41,6 +41,7 @@ from pathlib import Path
+ 
+ from ruamel.yaml import YAML
+ 
++from ..interfaces import engine_ecs_store
+ from ..interfaces import settings_store
+ from ..interfaces.paths import join_contained, to_unix
+ from .errors import ProjectError
+@@ -1055,6 +1056,119 @@ class ProjectService:
+             found.append((rel, size))
+         return sorted(found)
+ 
++    def _entity_records(self):
++        """Decode every entity record into world-snapshot entries."""
++        records = []
++        for rel, _size in self._iter_doc_files():
++            entity = engine_ecs_store.entity_from_doc_path(rel)
++            if entity is None:
++                continue
++            text = self._read_doc_text(rel, rel)
++            if text is None:
++                raise ProjectError(
++                    "invalid_document",
++                    f"Entity record vanished mid-read: {rel}.",
++                )
++            try:
++                decoded = engine_ecs_store.decode_entity_doc(text, rel)
++            except engine_ecs_store.EcsError as exc:
++                raise ProjectError(exc.code, str(exc)) from exc
++            records.append(
++                {
++                    "components": decoded["components"],
++                    "id": decoded["entity"],
++                    "kind": decoded["kind"],
++                }
++            )
++        return records
++
++    def _backfill_records(self):
++        """Project every non-entity doc as a virtual entity."""
++        entries = [
++            {"bytes": size, "path": rel}
++            for rel, size in self._iter_doc_files()
++        ]
++        return engine_ecs_store.backfill_entities(entries)
++
++    def _find_backfill(self, entity):
++        """Return the virtual record for one backfilled id."""
++        for record in self._backfill_records():
++            if record["id"] == entity:
++                return record
++        raise ProjectError("unknown_entity", f"No such entity: {entity}.")
++
++    def _read_backfill_component(self, entity, component):
++        """Serve one projected doc component for a backfilled id."""
++        record = self._find_backfill(entity)
++        if component != engine_ecs_store.BACKFILL_COMPONENT:
++            raise ProjectError(
++                "unknown_component",
++                f"No component {component!r} on {entity}.",
++            )
++        data = record["components"][engine_ecs_store.BACKFILL_COMPONENT]
++        return {
++            "address": engine_ecs_store.format_address(entity, component),
++            "component": component,
++            "current_revision": self._current_revision,
++            "data": dict(data),
++            "entity": entity,
++            "path": data["path"],
++            "project_id": self._project_id,
++        }
++
++    def _read_entity_record(self, entity):
++        """Return (path, decoded) for one live entity id."""
++        path = engine_ecs_store.entity_doc_path(entity)
++        text = self._read_doc_text(path, path)
++        if text is None:
++            raise ProjectError(
++                "unknown_entity", f"No such entity: {entity}."
++            )
++        try:
++            decoded = engine_ecs_store.decode_entity_doc(text, path)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        if decoded["entity"] != entity:
++            raise ProjectError(
++                "invalid_document",
++                f"Entity record id drift at {path}.",
++            )
++        return path, decoded
++
++    def _store_entity_record(self, path, entity, kind, components):
++        """Encode and persist one entity record under its path."""
++        text = engine_ecs_store.encode_entity_doc(entity, kind, components)
++        if len(text.encode("utf-8")) > _MAX_DOC_BYTES:
++            raise ProjectError(
++                "invalid_command",
++                f"Entity record exceeds the size limit: {path}.",
++            )
++        self._write_doc_text(path, text, path)
++
++    def _ecs_response(self, request_id, previous, diff, record, extra):
++        """CRUD-shaped mutation mapping for one entity change."""
++        response = {
++            "project_id": self._project_id,
++            "previous_revision": previous,
++            "current_revision": self._current_revision,
++            "revision_transition": {
++                "from": previous,
++                "to": self._current_revision,
++            },
++            "actor": self._actor,
++            "diff_summary": diff,
++            "rewind_handle": {
++                "project_id": self._project_id,
++                "revision": previous,
++                "request_id": request_id,
++            },
++            "events": [record],
++            "event_cursor": self._cursor(),
++            "request_id": request_id,
++        }
++        response.update(extra)
++        return response
++
+     def list_projects(self):
+         """List projects under the engine root, bound always included.
+ 
+@@ -1399,6 +1513,174 @@ class ProjectService:
+         snapshot["current_revision"] = self._current_revision
+         return snapshot
+ 
++    def get_component(self, entity, component):
++        """Read one entity component payload at the current head.
++
++        Entities project over plain documents: the record lives at
++        entities/<entity>.json and reads through the same bytes
++        read_doc serves. Backfilled doc entities serve their
++        projected doc component here, so every world-snapshot
++        entry stays addressable.
++
++        Args:
++            entity: Entity id holding the component.
++            component: Component name to read.
++
++        Returns:
++            Mapping with project id, head revision, entity,
++            component, canonical address, storage path, and the
++            component data.
++
++        Raises:
++            ProjectError: invalid_entity or invalid_component for
++                malformed parts; unknown_entity for a missing
++                entity; unknown_component for a missing component;
++                invalid_document for a corrupt entity record.
++        """
++        self._refresh_durable()
++        try:
++            engine_ecs_store.validate_entity_id(entity)
++            engine_ecs_store.validate_component_name(component)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        if engine_ecs_store.is_backfill_id(entity):
++            return self._read_backfill_component(entity, component)
++        path, decoded = self._read_entity_record(entity)
++        if component not in decoded["components"]:
++            raise ProjectError(
++                "unknown_component",
++                f"No component {component!r} on {entity}.",
++            )
++        return {
++            "address": engine_ecs_store.format_address(entity, component),
++            "component": component,
++            "current_revision": self._current_revision,
++            "data": decoded["components"][component],
++            "entity": entity,
++            "path": path,
++            "project_id": self._project_id,
++        }
++
++    def components_of(self, entity):
++        """List the component names one entity carries.
++
++        Args:
++            entity: Entity id to inspect (backfilled ids serve
++                their projected doc component).
++
++        Returns:
++            Mapping with project id, head revision, entity,
++            storage path, and sorted component names.
++
++        Raises:
++            ProjectError: invalid_entity for a malformed id;
++                unknown_entity for a missing entity;
++                invalid_document for a corrupt entity record.
++        """
++        self._refresh_durable()
++        try:
++            engine_ecs_store.validate_entity_id(entity)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        if engine_ecs_store.is_backfill_id(entity):
++            record = self._find_backfill(entity)
++            return {
++                "components": sorted(record["components"]),
++                "current_revision": self._current_revision,
++                "entity": entity,
++                "path": record["components"][
++                    engine_ecs_store.BACKFILL_COMPONENT
++                ]["path"],
++                "project_id": self._project_id,
++            }
++        path, decoded = self._read_entity_record(entity)
++        return {
++            "components": sorted(decoded["components"]),
++            "current_revision": self._current_revision,
++            "entity": entity,
++            "path": path,
++            "project_id": self._project_id,
++        }
++
++    def entities_with(self, component, predicate=None):
++        """Filter entities to holders of one component.
++
++        Nets-of-block, pins-of-net, and open-problems become
++        filters here, not endpoints; backfilled docs answer the
++        doc component, so current project files stay filterable
++        without migration.
++
++        Args:
++            component: Component name holders must carry.
++            predicate: Exact-match mapping the component payload
++                must satisfy, or None for no filtering.
++
++        Returns:
++            Mapping with project id, head revision, component,
++            predicate, and sorted holder ids.
++
++        Raises:
++            ProjectError: invalid_component for a malformed
++                component name; invalid_predicate for a
++                non-mapping predicate; invalid_document for a
++                corrupt entity record.
++        """
++        self._refresh_durable()
++        try:
++            engine_ecs_store.validate_component_name(component)
++            engine_ecs_store.validate_predicate(predicate)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        records = self._entity_records()
++        if component == engine_ecs_store.BACKFILL_COMPONENT:
++            records.extend(self._backfill_records())
++        holders = engine_ecs_store.filter_entities(
++            records, component, predicate
++        )
++        return {
++            "component": component,
++            "current_revision": self._current_revision,
++            "entities": holders,
++            "predicate": predicate,
++            "project_id": self._project_id,
++        }
++
++    def world_snapshot(self, include_backfill=True):
++        """Bundle the miniplex-shaped world snapshot for mirrors.
++
++        A pure read: snapshotting never writes and never advances
++        the revision, so backfill cannot break any revision. Each
++        entry maps one-to-one onto a miniplex entity (id plus its
++        components), so mirrors load it directly.
++
++        Args:
++            include_backfill: Project current plain docs as
++                read-only virtual entities alongside engine
++                entities; engine entities only when False.
++
++        Returns:
++            Snapshot mapping with project id, head revision, and
++            entities sorted by id (each with id, kind, and
++            components).
++
++        Raises:
++            ProjectError: invalid_command for a non-bool flag;
++                invalid_document for a corrupt entity record.
++        """
++        self._refresh_durable()
++        if not isinstance(include_backfill, bool):
++            raise ProjectError(
++                "invalid_command",
++                "include_backfill must be a bool, "
++                f"got {include_backfill!r}.",
++            )
++        records = self._entity_records()
++        if include_backfill:
++            records.extend(self._backfill_records())
++        return engine_ecs_store.build_world_snapshot(
++            self._project_id, self._current_revision, records
++        )
++
+     def write_doc(self, path, content, request_id, command_text,
+                   expected_revision=None):
+         """Write one document: gate, store, advance, log.
+@@ -1629,6 +1911,477 @@ class ProjectService:
+         response["settings_version"] = version
+         return response
+ 
++    def create_entity(self, request_id, command_text, kind="",
++                      components=None, expected_revision=None):
++        """Create one entity with an engine-minted id.
++
++        The id is minted, never supplied: there is no id argument,
++        so callers cannot collide with, guess, or squat on engine
++        identity. The record persists as entities/<id>.json through
++        the same admission machinery as write_doc (idempotent
++        request ids, revision gate, one new revision, one event,
++        atomic persist, rewind snapshots).
++
++        A resubmitted envelope returns its stored response without
++        advancing.
++
++        Args:
++            request_id: Client envelope id; resubmitting the
++                identical text returns the identical response
++                without advancing.
++            command_text: YAML command text for identity comparison.
++            kind: Kind label carried beside the components.
++            components: Optional initial component mapping.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the minted entity, kind, storage
++            path, revision transition, new head, actor, diff
++            summary, rewind handle, the entity_created event,
++            cursor, request id, and initial component names.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; invalid_kind, invalid_component, or
++                invalid_data for malformed parts;
++                revision_conflict for a stale head; invalid_ledger
++                when the durable write fails.
++
++        Caution: Every accepted create advances the revision — a
++            second writer at the old head fails instead of
++            merging.
++        """
++        self._refresh_durable()
++        replay = self._check_replay(request_id, command_text)
++        if replay is not None:
++            return replay
++        try:
++            engine_ecs_store.validate_kind(kind)
++            if components is not None and not isinstance(
++                components, dict
++            ):
++                raise engine_ecs_store.EcsError(
++                    "invalid_data",
++                    "Initial components must be a mapping.",
++                )
++            initial = dict(components or {})
++            for name, data in initial.items():
++                engine_ecs_store.validate_component_name(name)
++                engine_ecs_store.validate_component_data(data)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        self._gate_revision(expected_revision)
++        previous = self._current_revision
++        self._ensure_snapshot(previous)
++        taken = set()
++        for rel, _size in self._iter_doc_files():
++            found = engine_ecs_store.entity_from_doc_path(rel)
++            if found is not None:
++                taken.add(found)
++        entity = engine_ecs_store.mint_entity_id(existing=taken)
++        path = engine_ecs_store.entity_doc_path(entity)
++        self._store_entity_record(path, entity, kind, initial)
++        advanced = _advance_revision(previous)
++        try:
++            self._capture_snapshot(advanced)
++        except ProjectError:
++            try:
++                self._delete_doc_path(path, path)
++            except Exception:
++                pass
++            raise
++        self._current_revision = advanced
++        diff = f"created entity {entity} ({path})"
++        record = self._append_event(
++            "entity_created",
++            request_id,
++            {
++                "components": sorted(initial),
++                "entity": entity,
++                "kind": kind,
++                "revision": self._current_revision,
++            },
++        )
++        response = self._ecs_response(
++            request_id, previous, diff, record,
++            {
++                "components": sorted(initial),
++                "entity": entity,
++                "kind": kind,
++                "path": path,
++            },
++        )
++        self._requests[request_id] = (command_text, response)
++        self._persist_after_mutation()
++        return response
++
++    def set_component(self, entity, component, data, request_id,
++                      command_text, expected_revision=None):
++        """Upsert one component payload (create or overwrite).
++
++        Persists through the entity record at entities/<entity>.json
++        with the same admission machinery as write_doc, and appends
++        component_changed with entity, component, and revision.
++
++        A resubmitted envelope returns its stored response without
++        advancing.
++
++        Args:
++            entity: Entity id holding the component.
++            component: Component name to write.
++            data: JSON payload to store.
++            request_id: Client envelope id; resubmitting the
++                identical text returns the identical response
++                without advancing.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with entity, component, canonical
++            address, storage path, revision transition, new head,
++            actor, diff summary, rewind handle, the
++            component_changed event, cursor, and request id.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; invalid_entity, invalid_component, or
++                invalid_data for malformed parts; unknown_entity
++                for a missing entity; backfill_readonly for a
++                backfilled id; invalid_document for a corrupt
++                entity record; revision_conflict for a stale head;
++                invalid_ledger when the durable write fails.
++
++        Caution: Every accepted write advances the revision — a
++            second writer at the old head fails instead of
++            merging.
++        """
++        self._refresh_durable()
++        replay = self._check_replay(request_id, command_text)
++        if replay is not None:
++            return replay
++        try:
++            engine_ecs_store.validate_entity_id(entity)
++            engine_ecs_store.validate_component_name(component)
++            engine_ecs_store.validate_component_data(data)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        if engine_ecs_store.is_backfill_id(entity):
++            raise ProjectError(
++                "backfill_readonly",
++                f"Backfilled entity is read-only: {entity}.",
++            )
++        path, decoded = self._read_entity_record(entity)
++        self._gate_revision(expected_revision)
++        previous = self._current_revision
++        self._ensure_snapshot(previous)
++        existed = component in decoded["components"]
++        merged = dict(decoded["components"])
++        merged[component] = data
++        old_text = self._read_doc_text(path, path)
++        self._store_entity_record(path, entity, decoded["kind"], merged)
++        advanced = _advance_revision(previous)
++        try:
++            self._capture_snapshot(advanced)
++        except ProjectError:
++            try:
++                self._write_doc_text(path, old_text, path)
++            except Exception:
++                pass
++            raise
++        self._current_revision = advanced
++        verb = "updated" if existed else "set"
++        address = engine_ecs_store.format_address(entity, component)
++        diff = f"{verb} {address} ({path})"
++        record = self._append_event(
++            "component_changed",
++            request_id,
++            engine_ecs_store.component_changed_data(
++                entity, component, self._current_revision
++            ),
++        )
++        response = self._ecs_response(
++            request_id, previous, diff, record,
++            {
++                "address": address,
++                "component": component,
++                "entity": entity,
++                "path": path,
++            },
++        )
++        self._requests[request_id] = (command_text, response)
++        self._persist_after_mutation()
++        return response
++
++    def attach_component(self, entity, component, data, request_id,
++                         command_text, expected_revision=None):
++        """Attach one new component (refuses overwrites).
++
++        Like set_component, but a component already living on the
++        entity fails instead of overwriting — attach means add.
++
++        A resubmitted envelope returns its stored response without
++        advancing.
++
++        Args:
++            entity: Entity id holding the component.
++            component: Component name to attach.
++            data: JSON payload to store.
++            request_id: Client envelope id; resubmitting the
++                identical text returns the identical response
++                without advancing.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with entity, component, canonical
++            address, storage path, revision transition, new head,
++            actor, diff summary, rewind handle, the
++            component_changed event, cursor, and request id.
++
++        Raises:
++            ProjectError: component_exists when the component
++                already lives on the entity; otherwise like
++                set_component.
++
++        Caution: Every accepted attach advances the revision — a
++            second writer at the old head fails instead of
++            merging.
++        """
++        self._refresh_durable()
++        replay = self._check_replay(request_id, command_text)
++        if replay is not None:
++            return replay
++        try:
++            engine_ecs_store.validate_entity_id(entity)
++            engine_ecs_store.validate_component_name(component)
++            engine_ecs_store.validate_component_data(data)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        if engine_ecs_store.is_backfill_id(entity):
++            raise ProjectError(
++                "backfill_readonly",
++                f"Backfilled entity is read-only: {entity}.",
++            )
++        path, decoded = self._read_entity_record(entity)
++        if component in decoded["components"]:
++            raise ProjectError(
++                "component_exists",
++                "Component already attached: "
++                f"{engine_ecs_store.format_address(entity, component)}.",
++            )
++        self._gate_revision(expected_revision)
++        previous = self._current_revision
++        self._ensure_snapshot(previous)
++        merged = dict(decoded["components"])
++        merged[component] = data
++        old_text = self._read_doc_text(path, path)
++        self._store_entity_record(path, entity, decoded["kind"], merged)
++        advanced = _advance_revision(previous)
++        try:
++            self._capture_snapshot(advanced)
++        except ProjectError:
++            try:
++                self._write_doc_text(path, old_text, path)
++            except Exception:
++                pass
++            raise
++        self._current_revision = advanced
++        address = engine_ecs_store.format_address(entity, component)
++        diff = f"attached {address} ({path})"
++        record = self._append_event(
++            "component_changed",
++            request_id,
++            engine_ecs_store.component_changed_data(
++                entity, component, self._current_revision
++            ),
++        )
++        response = self._ecs_response(
++            request_id, previous, diff, record,
++            {
++                "address": address,
++                "component": component,
++                "entity": entity,
++                "path": path,
++            },
++        )
++        self._requests[request_id] = (command_text, response)
++        self._persist_after_mutation()
++        return response
++
++    def detach_component(self, entity, component, request_id,
++                         command_text, expected_revision=None):
++        """Detach one component from its entity.
++
++        Persists through the entity record with the same admission
++        machinery as write_doc; the component_changed event carries
++        detached True.
++
++        A resubmitted envelope returns its stored response without
++        advancing.
++
++        Args:
++            entity: Entity id holding the component.
++            component: Component name to remove.
++            request_id: Client envelope id; resubmitting the
++                identical text returns the identical response
++                without advancing.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with entity, component, canonical
++            address, storage path, revision transition, new head,
++            actor, diff summary, rewind handle, the
++            component_changed event, cursor, and request id.
++
++        Raises:
++            ProjectError: unknown_component for a missing
++                component; otherwise like set_component without
++                the data errors.
++
++        Caution: Every accepted detach advances the revision — a
++            second writer at the old head fails instead of
++            merging.
++        """
++        self._refresh_durable()
++        replay = self._check_replay(request_id, command_text)
++        if replay is not None:
++            return replay
++        try:
++            engine_ecs_store.validate_entity_id(entity)
++            engine_ecs_store.validate_component_name(component)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        if engine_ecs_store.is_backfill_id(entity):
++            raise ProjectError(
++                "backfill_readonly",
++                f"Backfilled entity is read-only: {entity}.",
++            )
++        path, decoded = self._read_entity_record(entity)
++        if component not in decoded["components"]:
++            raise ProjectError(
++                "unknown_component",
++                f"No component {component!r} on {entity}.",
++            )
++        self._gate_revision(expected_revision)
++        previous = self._current_revision
++        self._ensure_snapshot(previous)
++        merged = dict(decoded["components"])
++        del merged[component]
++        old_text = self._read_doc_text(path, path)
++        self._store_entity_record(path, entity, decoded["kind"], merged)
++        advanced = _advance_revision(previous)
++        try:
++            self._capture_snapshot(advanced)
++        except ProjectError:
++            try:
++                self._write_doc_text(path, old_text, path)
++            except Exception:
++                pass
++            raise
++        self._current_revision = advanced
++        address = engine_ecs_store.format_address(entity, component)
++        diff = f"detached {address} ({path})"
++        record = self._append_event(
++            "component_changed",
++            request_id,
++            engine_ecs_store.component_changed_data(
++                entity, component, self._current_revision,
++                detached=True,
++            ),
++        )
++        response = self._ecs_response(
++            request_id, previous, diff, record,
++            {
++                "address": address,
++                "component": component,
++                "entity": entity,
++                "path": path,
++            },
++        )
++        self._requests[request_id] = (command_text, response)
++        self._persist_after_mutation()
++        return response
++
++    def delete_entity(self, entity, request_id, command_text,
++                      expected_revision=None):
++        """Delete one entity and its projected record.
++
++        Removes entities/<entity>.json through the same admission
++        machinery as delete_doc, and appends entity_deleted.
++
++        A resubmitted envelope returns its stored response without
++        advancing.
++
++        Args:
++            entity: Entity id to delete.
++            request_id: Client envelope id; resubmitting the
++                identical text returns the identical response
++                without advancing.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with entity, storage path, revision
++            transition, new head, actor, diff summary, rewind
++            handle, the entity_deleted event, cursor, and request
++            id.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; invalid_entity for a malformed id;
++                unknown_entity for a missing entity;
++                backfill_readonly for a backfilled id;
++                invalid_document for a corrupt entity record;
++                revision_conflict for a stale head; invalid_ledger
++                when the durable delete fails.
++
++        Caution: Deleting advances the revision like any mutation
++            — stale writers fail instead of merging.
++        """
++        self._refresh_durable()
++        replay = self._check_replay(request_id, command_text)
++        if replay is not None:
++            return replay
++        try:
++            engine_ecs_store.validate_entity_id(entity)
++        except engine_ecs_store.EcsError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        if engine_ecs_store.is_backfill_id(entity):
++            raise ProjectError(
++                "backfill_readonly",
++                f"Backfilled entity is read-only: {entity}.",
++            )
++        path, _decoded = self._read_entity_record(entity)
++        self._gate_revision(expected_revision)
++        previous = self._current_revision
++        self._ensure_snapshot(previous)
++        old_text = self._read_doc_text(path, path)
++        self._delete_doc_path(path, path)
++        advanced = _advance_revision(previous)
++        try:
++            self._capture_snapshot(advanced)
++        except ProjectError:
++            try:
++                self._write_doc_text(path, old_text, path)
++            except Exception:
++                pass
++            raise
++        self._current_revision = advanced
++        diff = f"deleted entity {entity} ({path})"
++        record = self._append_event(
++            "entity_deleted",
++            request_id,
++            {"entity": entity, "revision": self._current_revision},
++        )
++        response = self._ecs_response(
++            request_id, previous, diff, record,
++            {"entity": entity, "path": path},
++        )
++        self._requests[request_id] = (command_text, response)
++        self._persist_after_mutation()
++        return response
++
+     def delete_doc(self, path, request_id, command_text,
+                    expected_revision=None):
+         """Delete one document: gate, remove, advance, log.

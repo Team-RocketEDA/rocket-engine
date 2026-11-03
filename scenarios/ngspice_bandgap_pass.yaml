@@ -1,0 +1,7 @@
+name: ngspice bandgap pass on recorded snapshot netlist
+engine: {project_id: analog_demo, actor: {kind: user}, revision: "p12"}
+steps:
+  - submit: {request_id: scen-spice-1, operation: run_spice, target: bandgap_core}
+  - run_live: {backend: ngspice_bandgap}
+  - assert_verdict: PASS
+  - assert_event: job_queued

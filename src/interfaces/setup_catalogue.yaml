@@ -1,0 +1,243 @@
+# Provision catalogue (ENGINE-SETUP): the data the Vivado-style setup
+# menu renders. One entry per provisionable unit: what it provides,
+# how to detect it, and where the install recipe lives. Recipes cite
+# docs/provision-plan.md (PROV seed), scripts/install.sh modes
+# (B10/DEMO-PATH), or the owning ticket — never a bare "install X".
+# Load with rocket_engine.interfaces.setup.load_catalogue.
+# GTKWave is EXCLUDED from engine provisioning by the headless rule
+# (display-side, RocketIDE concern) — recorded, never installed.
+catalogue_version: 1
+entries:
+  - id: digital-bundle
+    kind: tool
+    label: Digital bundle (oss-cad-suite)
+    binaries: [iverilog, vvp, verilator, slang, yosys, ghdl, sby]
+    remedy: >-
+      Install the pinned oss-cad-suite bundle 20261025 (iverilog, vvp,
+      verilator, slang, yosys, ghdl, sby; run
+      scripts/provision_toolchain.sh --install); the scenario gate needs
+      dev-PATH with oss-cad-suite (see scenarios/README.md).
+    recipe: "scripts/provision_toolchain.sh: pinned tarball 20261025 + asserts (PROV phase 1)."
+  - id: librelane
+    kind: tool
+    label: LibreLane (RTL-to-GDS flow)
+    binaries: [librelane]
+    remedy: >-
+      Install the LibreLane 3.0.17 supported distribution (run
+      scripts/provision_toolchain.sh --install for the pinned AppImage
+      per the upstream install docs); inside a nix-shell env, `librelane
+      --version` must report 3.0.17.
+    recipe: "scripts/provision_toolchain.sh (PROV phase 1; upstream AppImage/Nix install docs)."
+  - id: opensta
+    kind: tool
+    label: OpenSTA (static timing)
+    binaries: [sta]
+    remedy: >-
+      Install the pinned OpenSTA build 857316f (run
+      scripts/provision_toolchain.sh --install for the CMake source
+      build per the upstream README); `sta` lands in
+      ~/tools/opensta-857316f/bin.
+    recipe: "scripts/provision_toolchain.sh (PROV phase 1; upstream OpenSTA README source build)."
+  - id: ngspice
+    kind: tool
+    label: ngspice (SPICE)
+    binaries: [ngspice]
+    remedy: >-
+      Provision ngspice (see docs/tickets/NGSPICE-LIVE.md).
+    recipe: "docs/provision-plan.md: apt pin or source build (B10)."
+  - id: netgen
+    kind: tool
+    label: Netgen (LVS)
+    binaries: [netgen]
+    banner: lvs
+    remedy: >-
+      Install opencircuitdesign netgen from source (see
+      docs/tickets/NGSPICE-LIVE.md); the `netgen` apt package is
+      the Schoeberl mesh-generator impostor, not the LVS tool.
+    recipe: "docs/tickets/NGSPICE-LIVE.md: opencircuitdesign source build (B10)."
+  - id: magic
+    kind: tool
+    label: Magic (DRC + extraction)
+    binaries: [magic]
+    remedy: >-
+      Install Magic from source per the rtimothyedwards docs (see
+      docs/provision-plan.md); ambient installs are kept and
+      version-asserted, never reinstalled.
+    recipe: "docs/provision-plan.md: source build with --prefix into the app-owned tools dir (B10)."
+  - id: klayout
+    kind: tool
+    label: KLayout (batch DRC)
+    binaries: [klayout]
+    remedy: >-
+      Install KLayout for batch DRC (see
+      docs/provision-plan.md); the engine uses `klayout -b`
+      batch only — GUI breakage never gates engine work.
+    recipe: "docs/provision-plan.md: ambient install kept and version-asserted (B10)."
+  - id: xyce
+    kind: tool
+    label: Xyce (parallel SPICE)
+    binaries: [Xyce]
+    remedy: >-
+      Install the pinned Xyce Release-7.10.0 build (Trilinos
+      trilinos-release-17-2-1 first; run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV phase 2; Xyce building guide recipe)."
+  - id: xschem
+    kind: tool
+    label: Xschem (schematic)
+    binaries: [xschem]
+    remedy: >-
+      Install Xschem from source at 7811010 (run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV phase 2; upstream xschem source build)."
+  - id: cace
+    kind: python
+    label: CACE (characterization)
+    python: [cace]
+    remedy: >-
+      Install cace==2.13.0 into the engine venv (run
+      scripts/provision_toolchain.sh --install; needs
+      xschem/magic/netgen/ngspice first).
+    recipe: "scripts/provision_toolchain.sh (PROV phase 2; pip into the engine venv)."
+  - id: bwrap
+    kind: tool
+    label: Bubblewrap (isolation)
+    binaries: [bwrap]
+    remedy: >-
+      B10 owns bwrap provenance (system vs bundled) and PATH
+      placement (see docs/probe-bwrap-isolation.md).
+    recipe: "docs/probe-bwrap-isolation.md (B10)."
+  - id: sax
+    kind: python
+    label: SAX (photonic sim)
+    python: [sax]
+    remedy: "sax not installed, uv sync --group photonic (B10-owned tooling)"
+    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+  - id: circulax
+    kind: python
+    label: Circulax (time-domain circuit sim)
+    python: [circulax]
+    remedy: "circulax not installed, uv sync --group photonic (B10-owned tooling)"
+    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+  - id: meow
+    kind: python
+    label: Meow (EME mode/field solver)
+    python: [meow]
+    remedy: "meow not installed, uv sync --group photonic (B10-owned tooling)"
+    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+  - id: gdsfactory
+    kind: python
+    label: gdsfactory (layout views)
+    python: [gdsfactory]
+    remedy: "gdsfactory not installed, uv sync --group layout (B10-owned tooling)"
+    recipe: "pyproject.toml [dependency-groups] layout: uv sync --group layout (B10)."
+  - id: cvc
+    kind: tool
+    label: cvc (SMT solvers)
+    binaries: [cvc4, cvc5]
+    remedy: >-
+      Install the pinned oss-cad-suite bundle 20261025 (ships
+      the cvc4/cvc5 SMT solvers; run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh: pinned tarball 20261025 ships cvc4/cvc5 (PROV phase 1)."
+  - id: openroad
+    kind: tool
+    label: OpenROAD
+    binaries: [openroad]
+    remedy: >-
+      Install the LibreLane 3.0.17 supported distribution (run
+      scripts/provision_toolchain.sh --install); openroad ships
+      in its tool closure (see docs/provision-sources.md §3-§4).
+    recipe: "scripts/provision_toolchain.sh (PROV phase 1; LibreLane closure ships openroad)."
+  - id: pymeep
+    kind: python
+    label: pymeep (FDTD)
+    python: [meep]
+    remedy: >-
+      Provision pymeep==1.35.0 via the miniforge conda env (run
+      scripts/provision_toolchain.sh --install); it lives in
+      the conda env, not the engine venv, so verify with the
+      env python (see docs/provision-sources.md §10).
+    recipe: "scripts/provision_toolchain.sh (PROV-DEFERRED; conda-forge pymeep env)."
+  - id: openems
+    kind: tool
+    label: openEMS (EC-FDTD)
+    binaries: [openEMS]
+    remedy: >-
+      Install openEMS v0.37.0 + CSXCAD v0.7.0 from source (run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV-DEFERRED; docs.openEMS.de recipe)."
+  - id: elmer
+    kind: tool
+    label: Elmer (thermal/FEM)
+    binaries: [ElmerSolver]
+    remedy: >-
+      Install elmerfem-csc via the CSC PPA (needs sudo; run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV-DEFERRED; CSC PPA apt route)."
+  - id: devsim
+    kind: python
+    label: DEVSIM (TCAD)
+    python: [devsim]
+    remedy: >-
+      Install devsim==2.11.2 into the engine venv (run
+      scripts/provision_toolchain.sh --install).
+    recipe: "scripts/provision_toolchain.sh (PROV-DEFERRED; pip into the engine venv)."
+  - id: palace
+    kind: tool
+    label: Palace (full-wave FEM)
+    binaries: [palace]
+    provisionable: false
+    remedy: >-
+      Palace is unsourced: its install docs are not read yet
+      (docs/provision-sources.md §12). No row action.
+    recipe: "docs/provision-sources.md §12 (unsourced — no recipe yet)."
+  - id: pdk-sky130A
+    kind: pdk
+    label: PDK sky130A
+    pdk_id: sky130A
+    source_default: ~/.local/share/pdk/sky130A
+    decks:
+      - libs.tech/klayout/drc/sky130A.lydrc
+      - libs.tech/magic/sky130A.tech
+      - libs.tech/combined/sky130.lib.spice
+      - libs.tech/netgen/sky130A_setup.tcl
+    remedy: >-
+      Register the PDK into ROCKETEDA_HOME (run
+      scripts/install.sh --pdk-only with PDK_SOURCE set to the
+      sky130A tree).
+    recipe: "scripts/install.sh --pdk-only (PDK_SOURCE/PDK_ID/PDK_REVISION; see docs/demo-runbook.md)."
+  - id: pdk-ihp
+    kind: pdk
+    label: PDK ihp (IHP SG13G2 BiCMOS + RF)
+    pdk_id: ihp
+    source_default: ~/.local/share/pdk/ihp
+    decks:
+      - ihp/klayout/tech/drc/ihp-sg13g2.drc
+    remedy: >-
+      Provision ihp-gdsfactory 2.0.1 per docs/pdk/ihp/recipe.md
+      (pip pin + KLayout tech link + verify probe), then register
+      the tree via scripts/install.sh --pdk-only with PDK_ID=ihp.
+      The PDK deck needs KLayout newer than 0.30.7 (euclidean
+      metric; recipe §4).
+    recipe: "docs/pdk/ihp/recipe.md (PDK-IHP lane)."
+  - id: cloud-tidy3d
+    kind: cloud
+    label: Tidy3D web (cloud)
+    service: tidy3d web
+    remedy: >-
+      BYOC opt-in only (F12/I32): tidy3d web needs a
+      user-supplied key from the CLOUD-AUTH secure store (see
+      docs/tickets/CLOUD-AUTH.md); cloud never activates
+      without an explicit opt-in.
+    recipe: "CLOUD-AUTH (Backlog): OS keyring preferred, encrypted file fallback."
+  - id: cloud-gdsfactory-plus
+    kind: cloud
+    label: GDSFactory+ (cloud)
+    service: gdsfactory+
+    remedy: >-
+      BYOC opt-in only (F12/I32): gdsfactory+ needs a
+      user-supplied key from the CLOUD-AUTH secure store (see
+      docs/tickets/CLOUD-AUTH.md); cloud never activates
+      without an explicit opt-in.
+    recipe: "CLOUD-AUTH (Backlog): OS keyring preferred, encrypted file fallback."

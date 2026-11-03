@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rocketeda:engine:v1:schemas:bench",
+  "title": "Engine v1 bench schemas",
+  "$defs": {
+    "BenchTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sibling": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "descendants": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        }
+      },
+      "required": [
+        "sibling",
+        "descendants"
+      ],
+      "description": "Resolved relative to bench parent occurrence. First ID is a sibling circuit instance; remaining IDs descend inside it. No self, parent, ancestor, unrelated scope or annotation."
+    },
+    "TestbenchData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "testbench"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "bench_type": {
+          "type": "string",
+          "enum": [
+            "spice",
+            "hdl",
+            "cocotb"
+          ]
+        },
+        "target": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/BenchTarget"
+        },
+        "additional_targets": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/BenchTarget"
+          }
+        },
+        "source": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "template": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Ref"
+        },
+        "interface_digest": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+        },
+        "template_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "analysis": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/SpiceAnalysis"
+        },
+        "hdl_language": {
+          "const": "inherit"
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/BenchProbe"
+          }
+        },
+        "schematic_transform": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/Transform"
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/HarnessBinding"
+          }
+        },
+        "binding_state": {
+          "type": "string",
+          "enum": [
+            "resolved",
+            "stale",
+            "missing"
+          ]
+        },
+        "generated_from": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "template": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/PinnedRef"
+            },
+            "target_interface_hash": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+            },
+            "source_hash": {
+              "$ref": "urn:rocketeda:engine:v1#/$defs/Hash"
+            }
+          },
+          "required": [
+            "template",
+            "target_interface_hash",
+            "source_hash"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "parent",
+        "bench_type",
+        "target"
+      ],
+      "description": "Creating without source generates a persisted editable template from placement, target interface and bench_type. Regeneration is explicit into a new source asset. Benches are harness objects excluded from manufactured circuit. Template provenance is retained for generated sources; target/interface changes mark binding stale and block execution. Production targets cannot overlap; harness wiring is explicit.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "bench_type": {
+                "const": "spice"
+              }
+            },
+            "required": [
+              "bench_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "analysis"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "bench_type": {
+                "const": "hdl"
+              }
+            },
+            "required": [
+              "bench_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "hdl_language"
+            ]
+          }
+        }
+      ]
+    },
+    "BenchProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "descendants": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+          }
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "target",
+        "descendants",
+        "port_id"
+      ],
+      "description": "Target index 0 is primary, 1..N are declared additional targets. Descendants resolve only within selected DUT subtree; probes never add duplicate DUT instances."
+    },
+    "HarnessBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "port_id": {
+          "$ref": "urn:rocketeda:engine:v1#/$defs/OpaqueId"
+        },
+        "signal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bits": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "target",
+        "port_id",
+        "signal"
+      ],
+      "description": "Explicit generated/editable harness terminal or signal to canonical target port binding, including extra DUTs; excluded from production netlist."
+    }
+  }
+}

@@ -1,0 +1,1112 @@
+diff --git a/src/composition.py b/src/composition.py
+index 02bd1b3..5fc9429 100644
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -168,7 +168,9 @@ _LOG_PAGE_MAX = 200
+ # CRUD mutations + rewind execute immediately inside submit()
+ # (run_job precedent): revision gate + idempotency + event logging,
+ # no queue, no solver. Engine.run delegates them back to submit so
+-# the CLI `run` path shares the one implementation.
++# the CLI `run` path shares the one implementation. Wire ops
++# (WIRE-PLACE) ride the same immediate path once the ENGINE-ECS
++# store lands; without it they report unsupported.
+ _CRUD_OPERATIONS = frozenset(
+     {
+         "create_project",
+@@ -182,6 +184,14 @@ _CRUD_OPERATIONS = frozenset(
+         "detach_component",
+         "delete_entity",
+         "write_settings",
++        "place_wire",
++        "place_junction",
++        "connect_endpoint",
++        "move_wire",
++        "split_wire",
++        "delete_wire",
++        "delete_junction",
++        "materialize_nets",
+     }
+ )
+ 
+@@ -707,6 +717,119 @@ class Engine:
+                 command_text,
+                 expected_revision=arguments.get("expected_revision"),
+             )
++        if name == "place_wire":
++            for key in ("segments", "layer", "endpoints"):
++                if key not in arguments:
++                    raise ProjectError(
++                        "invalid_command",
++                        f"place_wire needs a {key} argument.",
++                    )
++            return self._project.place_wire(
++                arguments["segments"],
++                arguments["layer"],
++                arguments["endpoints"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "place_junction":
++            for key in ("xy", "layer"):
++                if key not in arguments:
++                    raise ProjectError(
++                        "invalid_command",
++                        f"place_junction needs a {key} argument.",
++                    )
++            return self._project.place_junction(
++                arguments["xy"],
++                arguments["layer"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "connect_endpoint":
++            for key in ("wire_id", "end", "ref"):
++                if key not in arguments:
++                    raise ProjectError(
++                        "invalid_command",
++                        f"connect_endpoint needs a {key} argument.",
++                    )
++            return self._project.connect_endpoint(
++                arguments["wire_id"],
++                arguments["end"],
++                arguments["ref"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "move_wire":
++            for key in ("wire_id", "dx", "dy"):
++                if key not in arguments:
++                    raise ProjectError(
++                        "invalid_command",
++                        f"move_wire needs a {key} argument.",
++                    )
++            return self._project.move_wire(
++                arguments["wire_id"],
++                arguments["dx"],
++                arguments["dy"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "split_wire":
++            for key in ("wire_id", "at"):
++                if key not in arguments:
++                    raise ProjectError(
++                        "invalid_command",
++                        f"split_wire needs a {key} argument.",
++                    )
++            return self._project.split_wire(
++                arguments["wire_id"],
++                arguments["at"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "delete_wire":
++            if "wire_id" not in arguments:
++                raise ProjectError(
++                    "invalid_command",
++                    "delete_wire needs a wire_id argument.",
++                )
++            return self._project.delete_wire(
++                arguments["wire_id"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "delete_junction":
++            if "junction_id" not in arguments:
++                raise ProjectError(
++                    "invalid_command",
++                    "delete_junction needs a junction_id argument.",
++                )
++            return self._project.delete_junction(
++                arguments["junction_id"],
++                request_id,
++                command_text,
++                expected_revision=arguments.get("expected_revision"),
++            )
++        if name == "materialize_nets":
++            if "pins" not in arguments:
++                raise ProjectError(
++                    "invalid_command",
++                    "materialize_nets needs a pins argument.",
++                )
++            return self._project.materialize_nets(
++                arguments["pins"],
++                request_id,
++                command_text,
++                labels=arguments.get("labels"),
++                ports=arguments.get("ports"),
++                cell=arguments.get("cell", "top"),
++                named_refs=arguments.get("named_refs"),
++                expected_revision=arguments.get("expected_revision"),
++            )
+         if "mutations" not in arguments:
+             raise ProjectError(
+                 "invalid_command",
+diff --git a/src/interfaces/__init__.py b/src/interfaces/__init__.py
+index cbcdcae..4400116 100644
+--- a/src/interfaces/__init__.py
++++ b/src/interfaces/__init__.py
+@@ -27,6 +27,21 @@ from .runparams import (
+     parse_run_request,
+     validate_run_request,
+ )
++from .wireplace import (
++    collect_wire_erc,
++    connect_endpoint,
++    delete_junction,
++    delete_wire,
++    materialize_nets,
++    move_wire,
++    place_junction,
++    place_wire,
++    split_wire,
++    validate_junction,
++    validate_net,
++    validate_wire,
++    world_schematic,
++)
+ 
+ __all__ = [
+     "NETLIST_TYPES",
+@@ -41,17 +56,30 @@ __all__ = [
+     "asset_manifest",
+     "check_connection",
+     "collect_erc",
++    "collect_wire_erc",
++    "connect_endpoint",
++    "delete_junction",
++    "delete_wire",
+     "freeze_run_request",
+     "list_assets",
+     "match_cell_filters",
++    "materialize_nets",
++    "move_wire",
+     "parse_run_request",
++    "place_junction",
++    "place_wire",
+     "resolve_cell",
+     "resolve_link",
+     "resolve_pin",
+     "resolve_reference",
+     "resolve_run",
+     "serve_asset",
++    "split_wire",
+     "validate_celllink",
+     "validate_document",
++    "validate_junction",
++    "validate_net",
+     "validate_run_request",
++    "validate_wire",
++    "world_schematic",
+ ]
+diff --git a/src/interfaces/vocabulary.py b/src/interfaces/vocabulary.py
+index 63f4e0b..a69750b 100644
+--- a/src/interfaces/vocabulary.py
++++ b/src/interfaces/vocabulary.py
+@@ -15,6 +15,8 @@ OPERATIONS = frozenset(
+         "rewind", "place_cell", "write_settings",
+         "create_entity", "set_component", "attach_component",
+         "detach_component", "delete_entity",
++        "place_wire", "place_junction", "connect_endpoint", "move_wire",
++        "split_wire", "delete_wire", "delete_junction", "materialize_nets",
+     }
+ )
+ QUERIES = frozenset(
+diff --git a/src/project/service.py b/src/project/service.py
+index 418035f..bd2b82c 100644
+--- a/src/project/service.py
++++ b/src/project/service.py
+@@ -30,6 +30,7 @@ untouched: only engine-tracked bytes restore, and files outside
+ `.rocket/` are reported, never written.
+ """
+ 
++import copy
+ import hashlib
+ import io
+ import os
+@@ -43,6 +44,8 @@ from ruamel.yaml import YAML
+ 
+ from ..interfaces import engine_ecs_store
+ from ..interfaces import settings_store
++from ..interfaces import wireplace
++from ..interfaces.errors import ContractError
+ from ..interfaces.paths import join_contained, to_unix
+ from .errors import ProjectError
+ 
+@@ -209,6 +212,410 @@ def _canonical_prefix(prefix):
+     return "/".join(parts)
+ 
+ 
++class _WireEntityStore:
++    """WIRE-PLACE seam over the ENGINE-ECS ProjectService verbs.
++
++    The wire ops take a store serving the seam in
++    docs/work/WIRE-PLACE/report.md: reads return deep copies and
++    raise LookupError for missing entities/components, and
++    transact threads aliases through one call list. ENGINE-ECS
++    landed as per-verb service methods with admission envelopes
++    instead of a bound store, so this adapter binds those verbs
++    to the seam: reads delegate with unknown/invalid entity and
++    component codes mapped to LookupError, and transact runs its
++    calls sequentially with alias resolution, one ledger
++    revision per verb.
++
++    Inner envelopes derive deterministically from the outer wire
++    request id, so a retried envelope replays the verbs that
++    already landed instead of minting duplicates. Sequential, not
++    atomic: a mid-transact refusal leaves the earlier verbs
++    applied (wire ops pre-validate, so a refusal after the first
++    verb implies a concurrent writer, and the outer revision gate
++    already serialized this op against those).
++    """
++
++    _READS = ("components_of", "get_component", "entities_with")
++    _WRITES = (
++        "create_entity", "set_component", "attach_component",
++        "detach_component", "delete_entity",
++    )
++    _LOOKUP_CODES = frozenset({
++        "unknown_entity", "unknown_component",
++        "invalid_entity", "invalid_component",
++    })
++
++    def __init__(self, service, request_id):
++        self._service = service
++        self._request_id = request_id
++        self._seq = 0
++
++    def _envelope(self, verb):
++        self._seq += 1
++        sub_id = f"{self._request_id}:wire-ecs:{self._seq}"
++        return sub_id, f"{verb} {sub_id}"
++
++    def _lookup(self, entity, component=None):
++        if component is None:
++            return LookupError(f"Unknown entity: {entity!r}.")
++        return LookupError(
++            f"Unknown component {component!r} on {entity!r}."
++        )
++
++    def components_of(self, entity):
++        """Return a deep copy of one entity's component mapping.
++
++        Args:
++            entity: Entity id to inspect.
++
++        Returns:
++            Mapping of component name to payload copy.
++
++        Raises:
++            LookupError: Unknown or malformed entity id.
++        """
++        try:
++            names = self._service.components_of(entity)["components"]
++        except ProjectError as exc:
++            if exc.code in self._LOOKUP_CODES:
++                raise self._lookup(entity) from None
++            raise
++        return {
++            name: self.get_component(entity, name) for name in names
++        }
++
++    def get_component(self, entity, component):
++        """Return a deep copy of one component payload.
++
++        Args:
++            entity: Entity id holding the component.
++            component: Component name to read.
++
++        Returns:
++            Deep copy of the component payload.
++
++        Raises:
++            LookupError: Unknown or malformed entity id or
++                component name.
++        """
++        try:
++            data = self._service.get_component(
++                entity, component
++            )["data"]
++        except ProjectError as exc:
++            if exc.code in self._LOOKUP_CODES:
++                raise self._lookup(entity, component) from None
++            raise
++        return copy.deepcopy(data)
++
++    def entities_with(self, component, predicate=None):
++        """List holder ids in id order, filtered by a callable.
++
++        Args:
++            component: Component name holders must carry.
++            predicate: Callable over the payload copy, or None
++                for no filtering.
++
++        Returns:
++            Sorted holder entity ids.
++        """
++        found = []
++        for entity in self._service.entities_with(
++            component
++        )["entities"]:
++            if predicate is None:
++                found.append(entity)
++            elif predicate(self.get_component(entity, component)):
++                found.append(entity)
++        return found
++
++    def create_entity(self, actor, description):
++        """Mint one entity; return its id and the new head.
++
++        Args:
++            actor: Attribution (the service actor applies).
++            description: Human note (carried on inner envelopes).
++
++        Returns:
++            Mapping with the minted id and the new head revision.
++        """
++        del actor, description
++        request_id, command_text = self._envelope("create_entity")
++        response = self._service.create_entity(
++            request_id, command_text,
++            expected_revision=self._service._current_revision,
++        )
++        return {
++            "id": response["entity"],
++            "revision": response["current_revision"],
++        }
++
++    def set_component(self, actor, entity, component, value,
++                      description):
++        """Overwrite one component; refuse a missing target.
++
++        Args:
++            actor: Attribution (the service actor applies).
++            entity: Entity id holding the component.
++            component: Component name to overwrite.
++            value: JSON payload to store.
++            description: Human note (carried on inner envelopes).
++
++        Returns:
++            Mapping with the new head revision.
++
++        Raises:
++            ProjectError: unknown_entity or unknown_component
++                for a missing target.
++        """
++        del actor, description
++        try:
++            names = self._service.components_of(entity)["components"]
++        except ProjectError as exc:
++            if exc.code in self._LOOKUP_CODES:
++                raise ProjectError(
++                    "unknown_entity",
++                    f"Unknown entity: {entity!r}.",
++                ) from None
++            raise
++        if component not in names:
++            raise ProjectError(
++                "unknown_component",
++                f"Unknown component {component!r} on {entity!r}.",
++            )
++        request_id, command_text = self._envelope("set_component")
++        response = self._service.set_component(
++            entity, component, value, request_id, command_text,
++            expected_revision=self._service._current_revision,
++        )
++        return {"revision": response["current_revision"]}
++
++    def attach_component(self, actor, entity, component, value,
++                         description):
++        """Attach one new component to its entity.
++
++        Args:
++            actor: Attribution (the service actor applies).
++            entity: Entity id gaining the component.
++            component: Component name to attach.
++            value: JSON payload to store.
++            description: Human note (carried on inner envelopes).
++
++        Returns:
++            Mapping with the new head revision.
++
++        Raises:
++            ProjectError: component_exists for a duplicate;
++                unknown_entity for a missing entity.
++        """
++        del actor, description
++        request_id, command_text = self._envelope(
++            "attach_component"
++        )
++        response = self._service.attach_component(
++            entity, component, value, request_id, command_text,
++            expected_revision=self._service._current_revision,
++        )
++        return {"revision": response["current_revision"]}
++
++    def detach_component(self, actor, entity, component, description):
++        """Detach one component from its entity.
++
++        Args:
++            actor: Attribution (the service actor applies).
++            entity: Entity id losing the component.
++            component: Component name to detach.
++            description: Human note (carried on inner envelopes).
++
++        Returns:
++            Mapping with the new head revision.
++
++        Raises:
++            ProjectError: unknown_entity or unknown_component
++                for a missing target.
++        """
++        del actor, description
++        request_id, command_text = self._envelope(
++            "detach_component"
++        )
++        response = self._service.detach_component(
++            entity, component, request_id, command_text,
++            expected_revision=self._service._current_revision,
++        )
++        return {"revision": response["current_revision"]}
++
++    def delete_entity(self, actor, entity, description):
++        """Delete one entity and its projected record.
++
++        Args:
++            actor: Attribution (the service actor applies).
++            entity: Entity id to delete.
++            description: Human note (carried on inner envelopes).
++
++        Returns:
++            Mapping with the new head revision.
++
++        Raises:
++            ProjectError: unknown_entity for a missing entity.
++        """
++        del actor, description
++        request_id, command_text = self._envelope("delete_entity")
++        response = self._service.delete_entity(
++            entity, request_id, command_text,
++            expected_revision=self._service._current_revision,
++        )
++        return {"revision": response["current_revision"]}
++
++    def _resolve(self, node, aliases):
++        if isinstance(node, dict) and set(node) == {"alias"}:
++            try:
++                return aliases[node["alias"]]
++            except KeyError:
++                raise ProjectError(
++                    "invalid_command",
++                    f"Unknown transact alias: {node['alias']!r}.",
++                ) from None
++        if isinstance(node, dict):
++            return {
++                key: self._resolve(val, aliases)
++                for key, val in node.items()
++            }
++        if isinstance(node, list):
++            return [self._resolve(val, aliases) for val in node]
++        return node
++
++    def transact(self, actor, description, calls):
++        """Run calls sequentially with alias threading.
++
++        Each call is {"verb", "args"?, "alias"?}; {"alias": name}
++        values resolve at any depth to ids created earlier in the
++        same call list.
++
++        Args:
++            actor: Attribution stamped on the seam events.
++            description: Human note for the call list.
++            calls: Verb calls with optional args and aliases.
++
++        Returns:
++            Mapping with the new head, the alias map, and the
++            stamped seam events.
++
++        Raises:
++            ProjectError: invalid_command for an unknown verb,
++                alias, or missing arg; the ECS refusal code
++                (unknown_entity, component_exists, ...) for a
++                refused verb.
++        """
++        aliases = {}
++        events = []
++        for call in calls:
++            verb = call["verb"]
++            try:
++                args = self._resolve(
++                    dict(call.get("args", {})), aliases
++                )
++            except KeyError as exc:
++                raise ProjectError(
++                    "invalid_command",
++                    f"Malformed transact call: {call!r}.",
++                ) from exc
++            need = {
++                "create_entity": (),
++                "set_component": ("entity", "component", "value"),
++                "attach_component": ("entity", "component", "value"),
++                "detach_component": ("entity", "component"),
++                "delete_entity": ("entity",),
++            }
++            if verb not in need:
++                raise ProjectError(
++                    "invalid_command",
++                    f"Unknown transact verb: {verb!r}.",
++                )
++            missing = [k for k in need[verb] if k not in args]
++            if missing:
++                raise ProjectError(
++                    "invalid_command",
++                    f"transact {verb} misses {missing!r}.",
++                )
++            if verb == "create_entity":
++                made = self.create_entity(actor, description)
++                events.append({
++                    "event": "entity_created",
++                    "entity": made["id"],
++                })
++                if "alias" in call:
++                    aliases[call["alias"]] = made["id"]
++            elif verb in ("set_component", "attach_component"):
++                method = getattr(self, verb)
++                method(
++                    actor, args["entity"], args["component"],
++                    args["value"], description,
++                )
++                events.append({
++                    "event": "component_changed",
++                    "entity": args["entity"],
++                    "component": args["component"],
++                })
++            elif verb == "detach_component":
++                self.detach_component(
++                    actor, args["entity"], args["component"],
++                    description,
++                )
++                events.append({
++                    "event": "component_changed",
++                    "entity": args["entity"],
++                    "component": args["component"],
++                })
++            else:
++                self.delete_entity(
++                    actor, args["entity"], description
++                )
++                events.append({
++                    "event": "entity_deleted",
++                    "entity": args["entity"],
++                })
++        revision = self._service._current_revision
++        for event in events:
++            event["revision"] = revision
++            event["actor"] = actor
++        return {
++            "revision": revision,
++            "aliases": aliases,
++            "events": events,
++        }
++
++    def events_since(self, cursor):
++        """List entity events past a ledger sequence cursor.
++
++        Args:
++            cursor: Ledger sequence; only later events return.
++
++        Returns:
++            Seam-shaped entity events in ledger order.
++        """
++        self._service._refresh_durable()
++        found = []
++        for record in self._service._events:
++            if record["seq"] <= cursor:
++                continue
++            if record["event"] not in (
++                "entity_created", "component_changed",
++                "entity_deleted",
++            ):
++                continue
++            data = record.get("data", {})
++            event = {
++                "event": record["event"],
++                "entity": data.get("entity"),
++                "revision": data.get("revision"),
++                "actor": record.get("actor"),
++            }
++            if "component" in data:
++                event["component"] = data["component"]
++            found.append(event)
++        return found
++
++
+ class ProjectService:
+     """Revision-gated ledger with idempotent requests and cursored events.
+ 
+@@ -2701,6 +3108,459 @@ class ProjectService:
+         self._persist_after_mutation()
+         return response
+ 
++    def _entity_store(self, request_id):
++        """Return the ENGINE-ECS entity store seam for one wire op.
++
++        WIRE-PLACE/ENGINE-ECS seam: ENGINE-ECS owns the durable
++        store as per-verb service methods, so this binds the
++        _WireEntityStore adapter over those verbs for the given
++        outer request id (inner envelopes derive from it).
++
++        Args:
++            request_id: Outer wire envelope id; inner ECS
++                envelopes derive deterministically from it.
++
++        Returns:
++            Entity store serving the wireplace seam.
++
++        Raises:
++            ProjectError: unsupported_operation when the
++                ENGINE-ECS verbs are not present.
++        """
++        for name in (
++            _WireEntityStore._READS + _WireEntityStore._WRITES
++        ):
++            if not callable(getattr(self, name, None)):
++                raise ProjectError(
++                    "unsupported_operation",
++                    "Wire ops need the ENGINE-ECS entity store, "
++                    "which is not wired yet.",
++                )
++        return _WireEntityStore(self, request_id)
++
++    def _wire_mutation(self, operation, request_id, command_text,
++                       expected_revision, run, describe):
++        """Admit one wire op through the ledger admission machinery.
++
++        A resubmitted envelope returns its stored response; a new
++        envelope gates its expected_revision, snapshots the
++        previous head, runs the entity transact (one ledger
++        revision per verb), then advances once more for the wire
++        event and logs. A noop receipt returns the head
++        unadvanced with an empty event list.
++
++        Args:
++            operation: Wire operation name for the event data.
++            request_id: Client envelope id for idempotent replay.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++            run: Callable (store) -> wireplace receipt.
++            describe: Callable (receipt) -> diff summary text.
++
++        Returns:
++            Mutation mapping with the entity receipt, revision
++            transition, actor, diff summary, rewind handle,
++            appended event, cursor, and request id — or the
++            unadvanced noop mapping when the receipt is a noop.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                unsupported_operation without the ENGINE-ECS
++                store; the wire contract code (unknown_wire,
++                unknown_ref, ...) for a refused op.
++        """
++        self._refresh_durable()
++        replay = self._check_replay(request_id, command_text)
++        if replay is not None:
++            return replay
++        self._gate_revision(expected_revision)
++        store = self._entity_store(request_id)
++        previous = self._current_revision
++        self._ensure_snapshot(previous)
++        try:
++            receipt = run(store)
++        except ContractError as exc:
++            raise ProjectError(exc.code, str(exc)) from exc
++        if receipt.get("noop"):
++            response = {
++                "project_id": self._project_id,
++                "previous_revision": previous,
++                "current_revision": previous,
++                "revision_transition": {"from": previous, "to": previous},
++                "actor": self._actor,
++                "diff_summary": f"{operation} changed nothing",
++                "rewind_handle": {
++                    "project_id": self._project_id,
++                    "revision": previous,
++                    "request_id": request_id,
++                },
++                "noop": True,
++                "receipt": receipt,
++                "events": [],
++                "event_cursor": self._cursor(),
++                "request_id": request_id,
++            }
++            self._requests[request_id] = (command_text, response)
++            self._persist_after_mutation()
++            return response
++        # Chain from the live head: the transact's verbs already
++        # advanced past `previous`, so advancing from `previous`
++        # would fork the revision line backwards.
++        advanced = _advance_revision(self._current_revision)
++        self._capture_snapshot(advanced)
++        self._current_revision = advanced
++        diff = describe(receipt)
++        record = self._append_event(
++            operation,
++            request_id,
++            {
++                "revision": self._current_revision,
++                "operation": operation,
++                "diff_summary": diff,
++                "receipt": receipt,
++            },
++        )
++        response = {
++            "project_id": self._project_id,
++            "previous_revision": previous,
++            "current_revision": self._current_revision,
++            "revision_transition": {
++                "from": previous,
++                "to": self._current_revision,
++            },
++            "actor": self._actor,
++            "diff_summary": diff,
++            "rewind_handle": {
++                "project_id": self._project_id,
++                "revision": previous,
++                "request_id": request_id,
++            },
++            "receipt": receipt,
++            "events": [record],
++            "event_cursor": self._cursor(),
++            "request_id": request_id,
++        }
++        self._requests[request_id] = (command_text, response)
++        self._persist_after_mutation()
++        return response
++
++    def place_wire(self, segments, layer, endpoints, request_id,
++                   command_text, expected_revision=None):
++        """Place one wire: gate, transact, advance, log.
++
++        A resubmitted envelope returns its stored response without
++        advancing; a new envelope gates its expected_revision, and
++        only an accepted placement advances the revision and
++        appends the place_wire event carrying the entity receipt.
++
++        Args:
++            segments: Non-empty list of integer polylines.
++            layer: Layer name for every segment.
++            endpoints: [a, b] endpoint mappings; each ref is a
++                pin/port/junction/net entity ID or null when
++                dangling.
++            request_id: Client envelope id; resubmitting the
++                identical text returns the identical response
++                without advancing.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the wire receipt, revision
++            transition, new head, actor, diff summary, rewind
++            handle, the appended event, cursor, and request id.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                unknown_ref for a ref naming no entity;
++                invalid_ref for a wire ref; invalid_wire for a
++                malformed wire; unsupported_operation without the
++                ENGINE-ECS entity store.
++
++        Caution: Every accepted placement advances the revision —
++            a second writer at the old head fails instead of
++            merging.
++        """
++        return self._wire_mutation(
++            "place_wire", request_id, command_text, expected_revision,
++            lambda store: wireplace.place_wire(
++                store, self._actor, segments, layer, endpoints
++            ),
++            lambda receipt: f"placed wire {receipt['wire']} on {layer}",
++        )
++
++    def place_junction(self, xy, layer, request_id, command_text,
++                       expected_revision=None):
++        """Place one junction dot: gate, transact, advance, log.
++
++        Args:
++            xy: Integer [x, y] dot position.
++            layer: Layer name for the dot.
++            request_id: Client envelope id for idempotent replay.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the junction receipt, revision
++            transition, new head, actor, diff summary, rewind
++            handle, the appended event, cursor, and request id.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                invalid_junction for a malformed dot;
++                unsupported_operation without the ENGINE-ECS
++                entity store.
++
++        Caution: Every accepted placement advances the revision —
++            a second writer at the old head fails instead of
++            merging.
++        """
++        return self._wire_mutation(
++            "place_junction", request_id, command_text, expected_revision,
++            lambda store: wireplace.place_junction(
++                store, self._actor, xy, layer
++            ),
++            lambda receipt: f"placed junction {receipt['junction']}",
++        )
++
++    def connect_endpoint(self, wire_id, end, ref, request_id,
++                         command_text, expected_revision=None):
++        """Point one wire endpoint at a new terminus: gate, run, log.
++
++        Geometry never moves — only the ref changes — and a
++        no-change call returns the head unadvanced with an empty
++        event list instead of logging a phantom revision.
++
++        Args:
++            wire_id: Wire entity to rewire.
++            end: "a" or "b" selecting the endpoint.
++            ref: Pin/port/junction/net entity ID, or null to
++                dangle the endpoint.
++            request_id: Client envelope id for idempotent replay.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the connect receipt, revision
++            transition, actor, diff summary, rewind handle, the
++            appended event, cursor, and request id — or the
++            unadvanced noop mapping when the ref is already set.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                unknown_wire for a missing wire; invalid_endpoint
++                for a bad selector; unknown_ref for a missing
++                entity; invalid_ref for a wire/self ref;
++                unsupported_operation without the ENGINE-ECS
++                entity store.
++        """
++        return self._wire_mutation(
++            "connect_endpoint", request_id, command_text,
++            expected_revision,
++            lambda store: wireplace.connect_endpoint(
++                store, self._actor, wire_id, end, ref
++            ),
++            lambda receipt: (
++                f"connected wire {wire_id} end {end} to {ref!r}"
++            ),
++        )
++
++    def move_wire(self, wire_id, dx, dy, request_id, command_text,
++                  expected_revision=None):
++        """Translate one wire: gate, transact, advance, log.
++
++        Refs survive the move; a zero move returns the head
++        unadvanced with an empty event list.
++
++        Args:
++            wire_id: Wire entity to move.
++            dx: Integer x translation.
++            dy: Integer y translation.
++            request_id: Client envelope id for idempotent replay.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the move receipt, revision
++            transition, actor, diff summary, rewind handle, the
++            appended event, cursor, and request id — or the
++            unadvanced noop mapping for a zero move.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                unknown_wire for a missing wire; invalid_geometry
++                for non-integer deltas; unsupported_operation
++                without the ENGINE-ECS entity store.
++        """
++        return self._wire_mutation(
++            "move_wire", request_id, command_text, expected_revision,
++            lambda store: wireplace.move_wire(
++                store, self._actor, wire_id, dx, dy
++            ),
++            lambda receipt: f"moved wire {wire_id} by ({dx}, {dy})",
++        )
++
++    def split_wire(self, wire_id, at, request_id, command_text,
++                   expected_revision=None):
++        """Split one wire at an interior point: gate, run, log.
++
++        The junction dot, the head rewrite, and the new tail wire
++        land in one revision under one event.
++
++        Args:
++            wire_id: Wire entity to split.
++            at: Integer [x, y] point on the polyline interior.
++            request_id: Client envelope id for idempotent replay.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the split receipt (wire,
++            junction, new_wire), revision transition, new head,
++            actor, diff summary, rewind handle, the appended
++            event, cursor, and request id.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                unknown_wire for a missing wire; invalid_split for
++                a point off the interior or a multi-polyline wire;
++                unsupported_operation without the ENGINE-ECS
++                entity store.
++        """
++        return self._wire_mutation(
++            "split_wire", request_id, command_text, expected_revision,
++            lambda store: wireplace.split_wire(
++                store, self._actor, wire_id, at
++            ),
++            lambda receipt: (
++                f"split wire {wire_id} at {at} "
++                f"(junction {receipt['junction']}, "
++                f"tail {receipt['new_wire']})"
++            ),
++        )
++
++    def delete_wire(self, wire_id, request_id, command_text,
++                    expected_revision=None):
++        """Delete one wire: gate, remove, advance, log.
++
++        Referenced junctions persist; Net entities rematerialize
++        on the next materialize_nets call.
++
++        Args:
++            wire_id: Wire entity to delete.
++            request_id: Client envelope id for idempotent replay.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the delete receipt, revision
++            transition, new head, actor, diff summary, rewind
++            handle, the appended event, cursor, and request id.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                unknown_wire for a missing wire;
++                unsupported_operation without the ENGINE-ECS
++                entity store.
++        """
++        return self._wire_mutation(
++            "delete_wire", request_id, command_text, expected_revision,
++            lambda store: wireplace.delete_wire(
++                store, self._actor, wire_id
++            ),
++            lambda receipt: f"deleted wire {wire_id}",
++        )
++
++    def delete_junction(self, junction_id, request_id, command_text,
++                        expected_revision=None):
++        """Delete one unreferenced junction: gate, remove, log.
++
++        Args:
++            junction_id: Junction entity to delete.
++            request_id: Client envelope id for idempotent replay.
++            command_text: YAML command text for identity comparison.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the delete receipt, revision
++            transition, new head, actor, diff summary, rewind
++            handle, the appended event, cursor, and request id.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                unknown_junction for a missing junction;
++                junction_in_use naming the referencing wires;
++                unsupported_operation without the ENGINE-ECS
++                entity store.
++        """
++        return self._wire_mutation(
++            "delete_junction", request_id, command_text,
++            expected_revision,
++            lambda store: wireplace.delete_junction(
++                store, self._actor, junction_id
++            ),
++            lambda receipt: f"deleted junction {junction_id}",
++        )
++
++    def materialize_nets(self, pins, request_id, command_text,
++                         labels=None, ports=None, cell="top",
++                         named_refs=None, expected_revision=None):
++        """Extract connectivity, upsert Net entities: gate, run, log.
++
++        Extraction always rebuilds from the stored wires; Nets
++        keyed by canonical name are created or refreshed, vanished
++        names pruned, all in one revision. An unchanged world
++        returns the head unadvanced with an empty event list.
++
++        Args:
++            pins: Caller pin records [{entity, instance, pin, xy}].
++            request_id: Client envelope id for idempotent replay.
++            command_text: YAML command text for identity comparison.
++            labels: Caller label records [{name, xy}].
++            ports: Caller port records [{name, direction}].
++            cell: Top cell name.
++            named_refs: {entity ID: net name} for port-style refs.
++            expected_revision: Revision the writer read.
++
++        Returns:
++            Mutation mapping with the materialize receipt (nets,
++            created/updated/pruned, unresolved), revision
++            transition, actor, diff summary, rewind handle, the
++            appended event, cursor, and request id — or the
++            unadvanced noop mapping when every Net matches.
++
++        Raises:
++            ProjectError: request_conflict for a reused id with
++                new text; revision_conflict for a stale head;
++                invalid_pin / invalid_label / invalid_port /
++                invalid_cell / invalid_ref for malformed inputs;
++                extraction_failed when extraction refuses the
++                world; unsupported_operation without the
++                ENGINE-ECS entity store.
++        """
++        return self._wire_mutation(
++            "materialize_nets", request_id, command_text,
++            expected_revision,
++            lambda store: wireplace.materialize_nets(
++                store, self._actor, pins, labels=labels or (),
++                ports=ports or (), cell=cell, named_refs=named_refs,
++            ),
++            lambda receipt: (
++                f"materialized {len(receipt['nets'])} nets "
++                f"({len(receipt['created'])} created, "
++                f"{len(receipt['updated'])} updated, "
++                f"{len(receipt['pruned'])} pruned)"
++            ),
++        )
++
+     def rewind(self, target_revision, request_id, command_text,
+                expected_revision=None):
+         """Restore managed bytes to a prior revision under a new head.

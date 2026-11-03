@@ -1,0 +1,51 @@
+diff --git a/src/composition.py b/src/composition.py
+--- a/src/composition.py
++++ b/src/composition.py
+@@ -28,7 +28,7 @@
+ first registered (run_drc: magic, then klayout; run_optical: sax;
+ run_extraction: magic; run_lvs: netgen; run_spice: ngspice;
+ run_syntax: slang; run_hdl_test: icarus; run_connectivity:
+-connectgraph; run_erc: connectgraph).
++connectgraph; run_erc: connectgraph; run_cosim: cosim).
+ Unregistered operations and unknown deck tools raise instead of
+ faking a verdict.
+ """
+@@ -39,6 +39,7 @@
+ from ruamel.yaml import YAML
+ 
+ from .adapters.connectivity import ConnectivityAdapter
++from .adapters.cosim import CosimAdapter
+ from .adapters.drc import MagicDrcAdapter
+ from .adapters.drc_kl import KlayoutDrcAdapter
+ from .adapters.errors import AdapterError
+@@ -270,6 +271,7 @@
+             "run_syntax": {"slang": SyntaxAdapter()},
+             "run_connectivity": {"connectgraph": ConnectivityAdapter()},
+             "run_erc": {"connectgraph": ConnectivityAdapter()},
++            "run_cosim": {"cosim": CosimAdapter()},
+         }
+         self._yaml = YAML(typ="safe")
+         self._constraints = dict(constraints) if constraints is not None else None
+diff --git a/src/interfaces/setup.py b/src/interfaces/setup.py
+--- a/src/interfaces/setup.py
++++ b/src/interfaces/setup.py
+@@ -61,6 +61,7 @@
+     ("run_syntax", "slang"): {"binaries": ["slang"]},
+     ("run_connectivity", "connectgraph"): {},
+     ("run_erc", "connectgraph"): {},
++    ("run_cosim", "cosim"): {"binaries": ["ngspice", "iverilog", "vvp"]},
+ }
+ 
+ 
+diff --git a/src/interfaces/vocabulary.py b/src/interfaces/vocabulary.py
+--- a/src/interfaces/vocabulary.py
++++ b/src/interfaces/vocabulary.py
+@@ -10,7 +10,7 @@
+         "run_connectivity", "run_drc", "run_lvs", "run_erc", "run_spice",
+         "run_optical", "run_digital_flow", "run_timing", "run_extraction",
+         "run_post_layout", "run_em", "run_thermal", "python_execute",
+-        "run_view_sync", "run_job",
++        "run_view_sync", "run_cosim", "run_job",
+         "resume_run", "discard_run", "resume_all_retryable",
+         "create_project", "write_doc", "delete_doc", "apply_mutations",
+         "rewind", "place_cell", "write_settings",
