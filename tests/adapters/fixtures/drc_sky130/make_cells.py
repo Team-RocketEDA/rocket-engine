@@ -25,7 +25,7 @@ CELLS = {
 for name, boxes in CELLS.items():
     layout = pya.Layout()
     layout.dbu = 0.001
-    top = layout.create_cell("TOP")
+    top = layout.create_cell(name)
     layer = layout.layer(68, 20)
     for x0, y0, x1, y1 in boxes:
         top.shapes(layer).insert(pya.Box(x0, y0, x1, y1))
