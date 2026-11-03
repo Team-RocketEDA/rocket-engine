@@ -20,6 +20,8 @@ results/engine-runs for IDE and agent alike.
 import argparse
 import asyncio
 import json
+import math
+import shutil
 import subprocess
 import uuid
 from datetime import datetime, timezone
@@ -62,6 +64,11 @@ TRUST_NOTE = (
 _TOOL_SCHEMAS = {
     "python_execute": MCP_INPUT_SCHEMA,
 }
+
+
+#: Arguments that are lists. The generated schemas carry only descriptions, so
+#: a model can't tell, and often sends them as text.
+_LIST_ARGUMENTS = ("sources", "analyses", "measurements")
 
 
 _API_SCHEMAS = None
@@ -268,6 +275,31 @@ def tool_definitions():
     return tools
 
 
+def _decode_list_arguments(arguments):
+    """Accept a list argument sent as JSON text or as one bare string.
+
+    Models often send lists this way, and iterating the string would read
+    it one character at a time.
+
+    Args:
+        arguments: Tool call arguments.
+
+    Returns:
+        The arguments with each known list argument as a list.
+    """
+    decoded = dict(arguments)
+    for key in _LIST_ARGUMENTS:
+        value = decoded.get(key)
+        if not isinstance(value, str):
+            continue
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            parsed = value
+        decoded[key] = parsed if isinstance(parsed, list) else [parsed]
+    return decoded
+
+
 def _error(code, message, fields=None):
     payload = {"ok": False, "code": code, "message": message}
     if fields:
@@ -320,8 +352,62 @@ def _source_state(root):
     return head.stdout.strip(), bool(status.stdout.strip())
 
 
+def _finite(value):
+    """Replace NaN and infinities with None so a reply is valid JSON.
+
+    A perfect optical null is -inf dB; JSON has no infinity and browsers
+    reject Python's `-Infinity`, so it travels as null.
+
+    Args:
+        value: Any JSON-shaped value.
+
+    Returns:
+        The same value with every non-finite float replaced by None.
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _finite(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_finite(item) for item in value]
+    return value
+
+
+def _keep_datasets(root, folder, engine, run_id):
+    """Keep a run's waveforms and spectra next to its record.
+
+    Args:
+        root: Resolved project folder.
+        folder: Evidence folder inside the project.
+        engine: Engine the run executed on.
+        run_id: Run whose datasets to keep.
+
+    Returns:
+        List of {analysis, path} mappings relative to the project.
+    """
+    kept = []
+    # Under the run id, so the next run can't overwrite them. A second fetch
+    # of the run finds them already moved.
+    for dataset in engine.datasets(run_id) if hasattr(engine, "datasets") else []:
+        target = folder / f"{run_id}-{dataset['analysis']}.raw"
+        source = Path(dataset["path"])
+        if source.is_file():
+            shutil.move(str(source), target)
+        if target.is_file():
+            kept.append({"analysis": dataset["analysis"], "path": str(target.relative_to(root))})
+    spectra = engine.spectra(run_id) if hasattr(engine, "spectra") else []
+    if spectra:
+        target = folder / f"{run_id}-optical.json"
+        target.write_text(json.dumps(_finite(spectra), allow_nan=False), encoding="utf-8")
+        kept.append({"analysis": "optical", "path": str(target.relative_to(root))})
+    return kept
+
+
 def write_evidence(project_dir, engine, outcomes, arguments):
     """Persist finished runs under results/engine-runs/<run_id>.json.
+
+    Waveform datasets (ngspice ASCII rawfiles) are kept as
+    <run_id>-<analysis>.raw, optical spectra as <run_id>-optical.json.
 
     Args:
         project_dir: Project folder the evidence is written into.
@@ -350,9 +436,10 @@ def write_evidence(project_dir, engine, outcomes, arguments):
             "sources": [str(Path(s).relative_to(root)) if Path(s).is_relative_to(root) else s
                         for s in arguments.get("sources") or []],
             "log": engine.log_text(outcome["run_id"]) if hasattr(engine, "log_text") else "",
+            "datasets": _keep_datasets(root, folder, engine, outcome["run_id"]),
         }
         (folder / f"{outcome['run_id']}.json").write_text(
-            json.dumps(record, indent=2), encoding="utf-8"
+            json.dumps(_finite(record), indent=2, allow_nan=False), encoding="utf-8"
         )
 
 
@@ -390,7 +477,7 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
         return ListToolsResult(tools=tool_definitions())
 
     async def _call_tool(ctx, params):
-        arguments = dict(params.arguments or {})
+        arguments = _decode_list_arguments(params.arguments or {})
         if project_scope is not None:
             arguments.setdefault("project_id", project_scope)
         project_id = arguments.get("project_id")
@@ -424,22 +511,25 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
                 and "run_id" in result
             ):
                 submitted_arguments[result["run_id"]] = arguments
+            # Recorded as soon as a run finishes: submit runs inline, and a
+            # model that never fetches it must not leave the IDE with no record.
             if (
                 project_dir is not None
-                and params.name == "run_job"
+                and params.name.startswith("run_")
                 and isinstance(result, dict)
                 and result.get("state") == "completed"
+                and "verdict" in result
                 and "run_id" in result
             ):
                 write_evidence(
                     project_dir, engine, [result],
-                    submitted_arguments.pop(result["run_id"], {}),
+                    submitted_arguments.get(result["run_id"], {}),
                 )
         except _ENGINE_ERRORS as exc:
             return _error(exc.code, str(exc),
                            getattr(exc, "fields", None))
         return CallToolResult(content=[TextContent(
-            type="text", text=json.dumps(result))])
+            type="text", text=json.dumps(_finite(result), allow_nan=False))])
 
     return _list_tools, _call_tool
 

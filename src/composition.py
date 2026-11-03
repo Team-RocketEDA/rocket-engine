@@ -426,6 +426,8 @@ class Engine(
         }
         self._constraints = dict(constraints) if constraints is not None else None
         self._logs = {}
+        self._datasets = {}
+        self._spectra = {}
         self._latest = {}
         self._run_jobs = {}
         self._pool = ApigPool(
@@ -1667,6 +1669,33 @@ class Engine(
             Captured log text, or "" when the run logged nothing.
         """
         return self._logs.get(run_id, "")
+
+    def datasets(self, run_id):
+        """List the waveform files a run wrote (e.g. ngspice rawfiles).
+
+        Args:
+            run_id: Run whose waveform files to list.
+
+        Returns:
+            List of {analysis, path} mappings; empty when the solver
+            wrote none.
+
+        Caution: Paths point into the solver workdir, which the next
+            run there overwrites; move them to keep them.
+        """
+        return list(self._datasets.get(run_id, []))
+
+    def spectra(self, run_id):
+        """Return the transmission spectra an optical run computed.
+
+        Args:
+            run_id: Run whose spectra to read.
+
+        Returns:
+            List of {from, to, wavelength_nm[], transmission_db[]}
+            mappings, one per target port pair; empty for other runs.
+        """
+        return list(self._spectra.get(run_id, []))
 
     @staticmethod
     def confine_spice_arguments(arguments, project_dir):
