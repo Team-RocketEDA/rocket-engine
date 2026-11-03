@@ -16,3 +16,4 @@
 | [012](012-always-editable-layer-catalog-and-process-bindings.md) | Always-editable layer catalog with separate process bindings | accepted; partially superseded | 2026-11-01 |
 | [013](013-magic-aligned-technology-driven-layout.md) | Magic-aligned, technology-driven layout editing | accepted | 2026-11-01 |
 | [014](014-contract-first-editor-and-tool-api.md) | Contract-first editor, component, tool and testbench API | accepted design; migration pending | 2026-11-01 |
+| [016](016-console-apply-context.md) | Atomic session apply-context replaces per-verb console exfiltration | accepted | 2026-11-03 |

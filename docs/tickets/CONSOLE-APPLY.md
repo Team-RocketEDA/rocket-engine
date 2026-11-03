@@ -1,0 +1,1 @@
+CONSOLE-APPLY work ticket for the atomic session apply-context (ADR-016): explicit with-block, atomic exit, scratch outside, shared per (console, generation). Strategic pivot — do first. Replaces ConsoleTools/ConsoleNamespace exfil matrix.
