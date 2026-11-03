@@ -28,3 +28,40 @@ Engine-wiring seam (NOT edited here): wire the five
 (submit-immediate for register/instantiate/promote, queries
 for search/get); the behavior-invariants.yaml formalization
 rides with the surface lane.
+
+## Agent verdict (Step 8 surface lane, 2026-11-03)
+
+Done, TDD RED->GREEN (8 RED surface failures -> green; catalogue
+contract 9 RED -> green; suites: 25 IP + 32 contracts green):
+
+- `ip_instantiate` / `ip_promote` are OPERATIONS (vocabulary,
+  _CRUD_OPERATIONS, _EDITOR_OPS) riding submit-immediate through
+  `_submit_editor` to new `ProjectService` verbs, which admit
+  through the standard editor mutation (revision gate, idempotent
+  replay, I28 pins) down to the lifecycle lane. Cross-PDK
+  instantiate of a per-PDK block is refused loudly
+  (`unknown_ip`/`pdk_mismatch` tolerance, matching the lane
+  tests); promoting an unknown version fails `unknown_ip`.
+  MCP/HTTP/CLI inherit via Engine.submit composition.
+- `behavior-invariants.yaml` (repo root) formalizes RULING-01:
+  per-PDK ownership, shared-scope exception, IpLink linkage.
+- `src/project/ip/blocks.py::resolve_block_ref` resolves
+  (pdk, name[, version]) into `<root>/<pdk>/<entry>/` with the
+  `rocket/meta.yaml` contract verified at runtime against the
+  in-package copy of `contracts/v1/schemas/ip-entry.schema.json`
+  (byte-sync test pins the copy to the single source; bundle
+  manifest + generated TS/Python artifacts updated).
+- Catalogue rules for all future entries: closed top-level
+  meta (name+version required, slug folders), name/version
+  agreement, entry_repo/ requires upstream provenance; registry
+  names stay free-text, catalogue resolution requires slugs.
+- Forced the first REFACTOR-SERVICE slice: IP verbs moved to
+  `src/project/ip/verbs.py::_IpMixin` (service.py 3046 -> 2941,
+  back under the 3000-line guard); api_spec resolves their
+  contract text via _SERVICE_DOC_HOME, handlers stay bound on
+  ProjectService. Regenerated docs/api-*, docs/contract.json,
+  contracts/generated via their --write paths; all freshness
+  gates pass.
+- Known pre-existing failures (not Step 8, attributed on
+  pristine tree): docstring guard (15 hits in untouched
+  adapters), completion thermal-gate test, both unrelated.
