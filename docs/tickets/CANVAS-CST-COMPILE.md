@@ -30,3 +30,13 @@ with no silent drops.
 - Per-PDK generator output validates clean for every supported PDK; wizard
   path creates a project with a filled canvas.toml (tests pin).
 - Contract + api_spec regen if surfaces change; suite green.
+
+## Verdict (adapt lane, 2026-11-03) — compiler Done, live legs gated
+
+`src/project/canvas/compile.py` lands canvas→SDC (create_clock from
+the clock target), →run_spice bounds (analog targets), →librelane
+fragments (density/effort/corners). Tests pin all three shapes plus
+the fuel-migration shape (bounds mapping). sta/librelane absent on
+this host: yosys+opensta SDC acceptance and end-to-end run_spice
+legs stay BLOCKED-needs-host; unit legs pin the emitted text.
+Note `docs/tool-outputs/canvas-compile.md`.

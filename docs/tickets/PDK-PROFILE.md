@@ -86,3 +86,18 @@ follow-ups (no big-bang).
   `tests/interfaces/test_pdk_store.py::test_engine_root_resolution_chain`
   still asserts the legacy default and needs its owner's
   one-line update to the new default (surfaced, not edited here).
+
+## Verdict (adapt lane, 2026-11-03) — follow-ups scoped, not migrated
+
+cosim/postlayout/LVS/DRC migration to profile-driven resolution
+is documented but NOT implemented in this lane: postlayout
+`adapter.py` and cosim carry their own sky130 `_MODEL_REL` copies
+and LVS/DRC/magic decks keep per-PDK relpaths in code (other
+agents/lanes own those files; this lane touches
+`src/adapters/postlayout/` translation only and
+`src/adapters/drc/klayout.py` LVS path only). No
+`docs/pdk/*/profile.yaml` lane file was added or rewritten here —
+existing 8 lanes already cover the PDKs this lane's templates
+generate for, and the ONLY-to-add constraint forbids rewriting
+them. New adapters in this lane read no PDK literals (profile +
+tests only), consistent with the hexagonal direction.

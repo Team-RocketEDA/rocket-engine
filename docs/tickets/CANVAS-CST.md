@@ -96,3 +96,14 @@ CANVAS-CST-CORE delivered the foundation (schema tables, validate,
 closure, loader, UI descriptor — Done). Remain: canvas integration
 into project/submit/I28 paths + per-PDK templates (Wave-3 lanes
 ticket) + SDC/deck compiler (CANVAS-CST-COMPILE, Wave-4 terminal).
+
+## Verdict (adapt lane, 2026-11-03) — integration + templates Done
+
+`src/project/canvas/integrate.py` (wizard_create, canvas_run_closure,
+validate_submit_canvas) plus `templates.py` (generate for 9 lanes,
+all validate clean) land the Wave-3 lanes slice. Tests
+`tests/test_canvas_compile.py` pin generator-per-PDK validation and
+the wizard path (RED 6 failed, GREEN 75 passed / 2 skipped across
+the lane). Composition/submit call-site wiring stays with the
+owning surface (seam recorded, not touched here). Fuel 1:1 probe
+and UI schema rendering remain open.

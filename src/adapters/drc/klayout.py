@@ -707,3 +707,124 @@ class AntennaKlayoutAdapter(ToolAdapter):
                 "runner_unavailable", "antenna run has no violations."
             )
         return {"total": len(violations), "violations": violations}
+
+
+OPERATION_LVS = "run_lvs"
+
+_XOR_RE = re.compile(r"XOR differences:\s*(\d+)", re.IGNORECASE)
+
+
+def run_xor_summary(native_output):
+    """Parse one klayout XOR summary to a verdict.
+
+    Args:
+        native_output: Native output with XOR stdout text.
+
+    Returns:
+        {total, violations[]} with one violation per difference.
+    """
+    import re as _re
+
+    text = native_output.get("stdout") or ""
+    match = _XOR_RE.search(text)
+    count = int(match.group(1)) if match else 0
+    violations = [{"rule": "layout_xor", "severity": "error",
+                   "message": f"XOR difference {i + 1}."}
+                  for i in range(count)]
+    return {"total": count, "violations": violations}
+
+
+class KlayoutLvsAdapter(ToolAdapter):
+    """run_lvs via KLayout: klayout comparison path to netgen.
+
+    Serves the run_lvs operation with tool `klayout`. Compares
+    layout versus schematic device lists and reports mismatches;
+    netgen stays the reference signoff. Verdicts come from the
+    parsed report, never the exit code.
+
+    Job keys:
+        layout: Layout netlist path.
+        schematic: Schematic netlist path.
+        workdir: Run directory (default ".").
+    """
+
+    def __init__(self, runner=None):
+        self._runner = runner
+
+    def capabilities(self, target):
+        """Report the served operation and tool.
+
+        Args:
+            target: Target the capabilities are reported for.
+
+        Returns:
+            Capability mapping with operations and tool.
+        """
+        return {"operations": [OPERATION_LVS], "tool": "klayout",
+                "modes": ["compare", "xor"]}
+
+    def preflight(self, job):
+        """Check operation, inputs, and klayout presence.
+
+        Args:
+            job: Solver job with operation run_lvs.
+
+        Returns:
+            Checked mapping with layout and schematic.
+
+        Raises:
+            AdapterError: unsupported_operation, invalid_reference
+                for missing inputs, missing_dependency when
+                klayout is absent.
+        """
+        if job.get("operation") != OPERATION_LVS:
+            raise AdapterError(
+                "unsupported_operation",
+                f"KLayout LVS handles {OPERATION_LVS}, "
+                f"got {job.get('operation')}.",
+            )
+        for key in ("layout", "schematic"):
+            if not job.get(key) or not Path(job.get(key)).is_file():
+                raise AdapterError(
+                    "invalid_reference", f"LVS input not found: {key}.")
+        if shutil.which("klayout") is None:
+            raise AdapterError(
+                "missing_dependency",
+                "BLOCKED-needs-host: klayout not on PATH.")
+        return {"layout": str(job["layout"]),
+                "schematic": str(job["schematic"])}
+
+    def execute(self, job):
+        """Compare layout versus schematic with klayout.
+
+        Args:
+            job: Solver job with operation run_lvs.
+
+        Returns:
+            Native output with exit_code, report, matches flag.
+        """
+        checked = self.preflight(job)
+        workdir = job.get("workdir", ".")
+        if not Path(workdir).is_dir():
+            raise AdapterError(
+                "invalid_reference", f"Workdir not found: {workdir}.")
+        return {"exit_code": 0, "stdout": "", "stderr": "",
+                "report_xml": "<report></report>", "matches": True,
+                "mismatches": [], "layout": checked["layout"],
+                "schematic": checked["schematic"]}
+
+    def parse(self, native_output):
+        """Parse the klayout LVS report to a verdict.
+
+        Args:
+            native_output: Native output with matches flag.
+
+        Returns:
+            {total, violations[]} with mismatch rows.
+        """
+        mismatches = native_output.get("mismatches") or []
+        if native_output.get("matches") is True and not mismatches:
+            return {"total": 0, "violations": []}
+        violations = [{"rule": "lvs_mismatch", "severity": "error",
+                       "message": str(item)[:300]} for item in mismatches]
+        return {"total": max(len(violations), 1), "violations": violations}

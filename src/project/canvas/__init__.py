@@ -28,6 +28,9 @@ from .validate import (
     load_project_canvas,
     validate_canvas,
 )
+from . import compile as compile_mod
+from . import integrate as integrate_mod
+from . import templates as templates_mod
 
 __all__ = [
     "CANVAS_FILENAME",
@@ -43,7 +46,10 @@ __all__ = [
     "TOOL_KNOBS",
     "CanvasError",
     "canvas_closure",
+    "compile_mod",
     "dump_canvas_toml",
+    "integrate_mod",
     "load_project_canvas",
+    "templates_mod",
     "validate_canvas",
 ]

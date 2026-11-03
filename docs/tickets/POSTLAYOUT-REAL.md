@@ -25,3 +25,15 @@ claiming post-layout coverage.
 - Real extracted netlist sims with pre/post delta, or
   a named blocker; no silent sim_fail.
 - Contract + api_spec regen; full suite + gate green.
+
+## Verdict (adapt lane, 2026-11-03) — translate-or-refuse Done
+
+`src/adapters/postlayout/translate.py` lands klt→vendor mapping
+(known classes translate with provenance rows; unknown classes
+raise `unsupported_operation` naming the device and the vendor
+gap — loud refusal, never silent sim_fail). Tests
+`tests/adapters/test_postlayout_translate.py` pin map, refusal,
+and detection. Note `docs/tool-outputs/postlayout-klt.md`. The
+sim-path call site (adapter.py staging) belongs to the owning
+surface and is untouched here; the bandgap real-PEX leg needs a
+live gate-host run to go green or be loudly refused.
