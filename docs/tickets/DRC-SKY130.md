@@ -21,3 +21,7 @@ can run the user's actual PDK.
 - RED-first: good cell PASS, bad cell FAIL with expected rules
   named; unknown deck/tool raises (no silent substitute).
 - New scenarios green in CLI 8/8+; suite green both configs.
+
+*Verify 2026-11-03: Wave-2 strict cell check exposed a generator bug
+(make_cells.py hardcoded TOP while the check expects the file-stem
+cell); fixed generator to per-file name, 8 passed current tree.*

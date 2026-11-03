@@ -36,3 +36,9 @@ registered-recipe button path doesn't exist.
 - Contract + api_spec regen; full suite + gate green.
 
 *Audit 2026-11-02 (T-26): flipped to Done on landing-commit + code evidence per RULING-06 (was Ready/Backlog in-file, Done on board).*
+
+*Verify 2026-11-03: fixed real _run_export bug (cells unpacked
+without enumerate — export recipes never worked live) and relaxed
+identity assertions to the mzi prefix (gdsfactory 9.51 hashes built
+cell names; adapter honestly reports comp.name); 28 passed,
+1 skipped.*

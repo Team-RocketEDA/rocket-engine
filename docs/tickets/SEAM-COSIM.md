@@ -39,3 +39,8 @@ it silently.
 - VALIDATE-M seam tests updated to assert the closed loop (the
   honest-gap probes retire, the handoff test stays as the
   recorded-vector regression).
+
+*Verify 2026-11-03: RUN-PARAMS migration — tier-1 engine test moved
+budget into run.request (was smuggled root timeout_s, refused at
+admission); engine test green, tier-1 set 15 passed / 7 skipped
+(pex matrix absent on host).*
