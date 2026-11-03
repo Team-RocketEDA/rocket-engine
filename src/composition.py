@@ -292,7 +292,7 @@ _CRUD_OPERATIONS = frozenset(
         "create_symbol",
         "create_cell",
         "map_pins",
-        "ip_register",
+        "ip_register", "ip_instantiate", "ip_promote",
         "bind_layers",
         "annotate",
         "create_testbench",

@@ -49,7 +49,7 @@ from .edit import cas as _cas
 from .edit import transactions as _transactions
 from .errors import ProjectError
 from .geometry import ops as _geometry
-from .ip import lifecycle as _ip
+from .ip.verbs import _IpMixin
 from .layers import bindings as _layer_bindings
 from .layers import catalog as _layer_catalog
 from .process import model as _process
@@ -83,7 +83,7 @@ from .ledger.shared import (
     _dump_yaml,
 )
 
-class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotMixin, _WireMixin):
+class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _IpMixin, _RunMixin, _SnapshotMixin, _WireMixin):
     """Revision-gated ledger with idempotent requests and cursored events.
 
     Args:
@@ -2570,42 +2570,6 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
             lambda store, _rid, _rt, _live: _linkage.map_pins(
                 store, self._actor, symbol, cell, pin_map),
             lambda receipt: f"mapped {symbol} to {cell}",
-        )
-
-    def ip_register(self, pdk, name, version, symbol, cell,
-                    request_id, command_text, pin_map=None,
-                    scope="pdk", reason="",
-                    expected_revision=None):
-        """Register one prebuilt IP block revision under its PDK.
-
-        Args:
-            pdk: Owning PDK id (the per-PDK invariant key).
-            name: Block name within the PDK registry.
-            version: Revision label ("" forbidden).
-            symbol: Linked schematic symbol reference.
-            cell: Linked footprint cell reference.
-            request_id: Client envelope id for idempotent replay.
-            command_text: YAML command text for identity comparison.
-            pin_map: Explicit [{symPin, cellPin}] entries.
-            scope: "pdk" (default) or "shared" with a reason.
-            reason: Recorded justification for shared scope.
-            expected_revision: Revision the writer read.
-
-        Returns:
-            Mutation mapping with receipt, events, and cursor.
-
-        Raises:
-            ProjectError: request_conflict, revision_conflict,
-                invalid_pdk, ip_exists, invalid_ip, invalid_scope.
-        """
-        return _editors.editor_mutation(self,
-            "ip_register", request_id, command_text,
-            expected_revision,
-            lambda store, _rid, _rt, _live: _ip.ip_register(
-                store, self._actor, pdk, name, version, symbol,
-                cell, pin_map=pin_map or [], scope=scope,
-                reason=reason),
-            lambda receipt: f"registered IP {pdk}/{name}@{version}",
         )
 
     def bind_layers(self, profile, layers, request_id,

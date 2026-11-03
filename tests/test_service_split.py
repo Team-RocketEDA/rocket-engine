@@ -37,7 +37,8 @@ WAVE3_OPS = [
     "apply_transaction", "create_shape",
     "create_sheet", "place_instance", "bind_block",
     "create_symbol", "create_cell", "map_pins",
-    "ip_register", "bind_layers", "annotate",
+    "ip_register", "ip_instantiate", "ip_promote",
+    "bind_layers", "annotate",
     "create_testbench", "regenerate_testbench",
 ]
 

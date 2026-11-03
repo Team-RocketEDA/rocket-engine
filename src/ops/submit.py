@@ -17,6 +17,8 @@ _EDITOR_OPS = {
     "create_cell": ("name", "ports"),
     "map_pins": ("symbol", "cell", "pin_map"),
     "ip_register": ("pdk", "name", "version", "symbol", "cell"),
+    "ip_instantiate": ("pdk", "name", "sheet", "x", "y"),
+    "ip_promote": ("pdk", "name", "version"),
     "bind_layers": ("profile", "layers"),
     "annotate": (),
     "create_testbench": ("name", "kind", "targets"),
@@ -369,6 +371,21 @@ class _SubmitMixin:
                 pin_map=arguments.get("pin_map"),
                 scope=arguments.get("scope", "pdk"),
                 reason=arguments.get("reason", ""),
+                expected_revision=head)
+        if name == "ip_instantiate":
+            return project.ip_instantiate(
+                arguments["pdk"], arguments["name"],
+                arguments["sheet"], arguments["x"],
+                arguments["y"], request_id, command_text,
+                version=arguments.get("version"),
+                rotation=arguments.get("rotation", 0),
+                mirror=arguments.get("mirror", False),
+                properties=arguments.get("properties"),
+                expected_revision=head)
+        if name == "ip_promote":
+            return project.ip_promote(
+                arguments["pdk"], arguments["name"],
+                arguments["version"], request_id, command_text,
                 expected_revision=head)
         if name == "bind_layers":
             return project.bind_layers(
