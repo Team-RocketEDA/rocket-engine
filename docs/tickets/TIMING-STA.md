@@ -43,6 +43,20 @@ vocabulary, contract all list run_timing) with loud skips intact;
 no code change needed. Live demonstration waits on sta on a
 networked host (UPSTREAM-RECIPE source build infeasible here).
 
+## Verdict (Wave-4, 2026-11-03) — Done: proved live, host-built STA
+
+Provision recipe fixed first (CUDD aclocal-1.14 fail-fast prereqs,
+libtool+libtool-bin remedy, retry-safe CUDD/build gates), then
+OpenSTA 857316f built into `.tools/` and version-asserted
+(PROV-PHASE1 OK 4/4). First live run exposed four real-tool
+corrections, all fixed RED→GREEN: bare-number `sta -version`,
+`report_check_types` for the missing `report_constraint`,
+`check_setup -verbose` for named pins, real `wns max <v>` margin
+lines, and a grammar-honest fixture SPEF (DESIGN_FLOW,
+BUS_DELIMITER, bare PORTS, *END per D_NET per SpefParse.yy).
+Full timing file 32 passed (live margins/paths/unconstrained +
+mixed serv/SPEF); api_spec + contract checks clean.
+
 *Note 2026-11-03: host now has every OpenSTA build prereq
 (git/cmake/make/g++/swig/bison/flex/tcl/eigen all present; only
 the earlier "missing swig" remedy is stale) and the opensta-857316f
