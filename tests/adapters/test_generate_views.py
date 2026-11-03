@@ -604,7 +604,10 @@ def test_generate_views_live_cspdk_mzi_identity(tmp_path):
     assert got["gdsfactory_version"] == GF_PIN
     assert got["diagnostics"]["cspdk_version"] == CSPDK_PIN
     mapping = got["mappings"][0]
-    assert (mapping["source"], mapping["component"]) == ("mzi", "mzi")
+    assert mapping["source"] == "mzi"
+    # gdsfactory names built cells <cell>_<settings>_<hash>; the
+    # adapter reports the real name, so pin the prefix, not equality.
+    assert mapping["component"].startswith("mzi")
     assert sorted(mapping["ports"]) == ["o1", "o2", "o3"]
     assert mapping["n_polygons"] > 0
 
@@ -631,7 +634,7 @@ def test_generate_views_live_export_then_import_roundtrip(tmp_path):
         "cspdk_path": str(VENDORED_CSPDK),
     }))
     assert reimport["total"] == 0
-    assert reimport["mappings"][0]["component"] == "mzi"
+    assert reimport["mappings"][0]["component"].startswith("mzi")
     assert sorted(reimport["mappings"][0]["ports"]) == ["o1", "o2", "o3"]
     assert reimport["mappings"][0]["n_polygons"] > 0
     assert exported["diagnostics"]["roundtrip_match"] is True

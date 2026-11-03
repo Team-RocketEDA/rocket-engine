@@ -302,7 +302,7 @@ def _run_export(gf, doc, extension, writer):
     notes = []
     matches = []
     exports = doc.get("exports") or []
-    for index, entry in doc["cells"]:
+    for index, entry in enumerate(doc["cells"]):
         comp = _build_cell(gf, entry)
         mappings.append(_mapping(entry["cell"], comp))
         _publish(comp, None, artifacts, _BUILT_FALLBACK)
