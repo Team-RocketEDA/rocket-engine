@@ -20,6 +20,8 @@ results/engine-runs for IDE and agent alike.
 import argparse
 import asyncio
 import json
+import math
+import shutil
 import subprocess
 import uuid
 from datetime import datetime, timezone
@@ -320,8 +322,62 @@ def _source_state(root):
     return head.stdout.strip(), bool(status.stdout.strip())
 
 
+def _finite(value):
+    """Replace NaN and infinities with None so a reply is valid JSON.
+
+    A perfect optical null is -inf dB; JSON has no infinity and browsers
+    reject Python's `-Infinity`, so it travels as null.
+
+    Args:
+        value: Any JSON-shaped value.
+
+    Returns:
+        The same value with every non-finite float replaced by None.
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _finite(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_finite(item) for item in value]
+    return value
+
+
+def _keep_datasets(root, folder, engine, run_id):
+    """Keep a run's waveforms and spectra next to its record.
+
+    Args:
+        root: Resolved project folder.
+        folder: Evidence folder inside the project.
+        engine: Engine the run executed on.
+        run_id: Run whose datasets to keep.
+
+    Returns:
+        List of {analysis, path} mappings relative to the project.
+    """
+    kept = []
+    # Under the run id, so the next run can't overwrite them. A second fetch
+    # of the run finds them already moved.
+    for dataset in engine.datasets(run_id) if hasattr(engine, "datasets") else []:
+        target = folder / f"{run_id}-{dataset['analysis']}.raw"
+        source = Path(dataset["path"])
+        if source.is_file():
+            shutil.move(str(source), target)
+        if target.is_file():
+            kept.append({"analysis": dataset["analysis"], "path": str(target.relative_to(root))})
+    spectra = engine.spectra(run_id) if hasattr(engine, "spectra") else []
+    if spectra:
+        target = folder / f"{run_id}-optical.json"
+        target.write_text(json.dumps(_finite(spectra), allow_nan=False), encoding="utf-8")
+        kept.append({"analysis": "optical", "path": str(target.relative_to(root))})
+    return kept
+
+
 def write_evidence(project_dir, engine, outcomes, arguments):
     """Persist finished runs under results/engine-runs/<run_id>.json.
+
+    Waveform datasets (ngspice ASCII rawfiles) are kept as
+    <run_id>-<analysis>.raw, optical spectra as <run_id>-optical.json.
 
     Args:
         project_dir: Project folder the evidence is written into.
@@ -350,9 +406,10 @@ def write_evidence(project_dir, engine, outcomes, arguments):
             "sources": [str(Path(s).relative_to(root)) if Path(s).is_relative_to(root) else s
                         for s in arguments.get("sources") or []],
             "log": engine.log_text(outcome["run_id"]) if hasattr(engine, "log_text") else "",
+            "datasets": _keep_datasets(root, folder, engine, outcome["run_id"]),
         }
         (folder / f"{outcome['run_id']}.json").write_text(
-            json.dumps(record, indent=2), encoding="utf-8"
+            json.dumps(_finite(record), indent=2, allow_nan=False), encoding="utf-8"
         )
 
 
@@ -439,7 +496,7 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
             return _error(exc.code, str(exc),
                            getattr(exc, "fields", None))
         return CallToolResult(content=[TextContent(
-            type="text", text=json.dumps(result))])
+            type="text", text=json.dumps(_finite(result), allow_nan=False))])
 
     return _list_tools, _call_tool
 

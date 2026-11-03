@@ -498,6 +498,8 @@ class _RunMixin:
         self._logs[run_id] = native.get("log") or "\n".join(
             part for part in (native.get("stdout"), native.get("stderr")) if part
         )
+        self._datasets[run_id] = list(native.get("waveforms") or [])
+        self._spectra[run_id] = list(result.get("spectra") or [])
         # Solver convention (see ToolAdapter.parse): violations carry
         # rule/severity/message plus flat location keys, nested here.
         findings = []

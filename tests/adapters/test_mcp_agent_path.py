@@ -455,3 +455,89 @@ def test_one_shot_call_runs_a_job_and_writes_evidence(tmp_path, capsys):
     status = json.loads(capsys.readouterr().out)
     assert status["state"] == "completed" and status["verdict"]["status"] == "FAIL"
     assert (tmp_path / "results" / "engine-runs" / f"{status['run_id']}.json").is_file()
+    evidence = json.loads((tmp_path / "results" / "engine-runs" / f"{status['run_id']}.json").read_text())
+    assert evidence["datasets"] == [
+        {"analysis": "ac", "path": f"results/engine-runs/{status['run_id']}-ac.raw"}
+    ]
+    raw = (tmp_path / evidence["datasets"][0]["path"]).read_text()
+    assert "Plotname: AC Analysis" in raw and "v(out)" in raw
+    assert not list((tmp_path / "results" / "engine-runs").glob("waveforms-*.raw"))
+
+
+class _EvidenceEngine:
+    """Engine stand-in for write_evidence: one waveform, one spectrum."""
+
+    def __init__(self, raw):
+        self.raw = raw
+
+    def log_text(self, run_id):
+        return ""
+
+    def datasets(self, run_id):
+        return [{"analysis": "ac", "path": str(self.raw)}]
+
+    def spectra(self, run_id):
+        return [{"from": "in0", "to": "out1", "wavelength_nm": [1550.0], "transmission_db": [float("-inf")]}]
+
+
+def _strict_json(text):
+    def refuse(constant):
+        raise AssertionError(f"not valid JSON: {constant}")
+
+    return json.loads(text, parse_constant=refuse)
+
+
+def test_evidence_keeps_waveforms_and_spectra_and_survives_a_second_fetch(tmp_path):
+    from rocket_engine.adapters.mcp.server import write_evidence
+
+    workdir = tmp_path / "results" / "engine-runs"
+    workdir.mkdir(parents=True)
+    raw = workdir / "waveforms-1-ac.raw"
+    raw.write_text("Plotname: AC Analysis\n")
+    engine = _EvidenceEngine(raw)
+    outcome = {"run_id": "r1", "operation": "run_optical",
+               "verdict": {"status": "PASS", "measurements": [{"name": "null_db", "value": float("-inf")}]}}
+
+    # run_job is an idempotent fetch, so evidence can be written twice for one run.
+    for _ in range(2):
+        write_evidence(tmp_path, engine, [outcome], {})
+        record = _strict_json((workdir / "r1.json").read_text())
+        assert record["datasets"] == [
+            {"analysis": "ac", "path": "results/engine-runs/r1-ac.raw"},
+            {"analysis": "optical", "path": "results/engine-runs/r1-optical.json"},
+        ]
+    assert record["verdict"]["measurements"][0]["value"] is None
+    assert (workdir / "r1-ac.raw").read_text() == "Plotname: AC Analysis\n"
+    assert not raw.exists()
+    spectra = _strict_json((workdir / "r1-optical.json").read_text())
+    assert spectra[0]["transmission_db"] == [None]
+
+
+def test_tool_replies_stay_valid_json_for_a_perfect_null(tmp_path):
+    # The IDE parses the --call reply with JSON.parse, which refuses -Infinity.
+    from rocket_engine.adapters.mcp.server import _finite
+
+    assert _finite({"value": float("-inf"), "points": [1.0, float("nan")], "ok": True}) == {
+        "value": None, "points": [1.0, None], "ok": True,
+    }
+    _strict_json(json.dumps(_finite({"a": [float("inf")]}), allow_nan=False))
+
+
+def test_one_shot_optical_run_keeps_its_spectrum(tmp_path, capsys):
+    pytest.importorskip("sax")
+    from rocket_engine.adapters.mcp.server import main
+
+    (tmp_path / "design").mkdir()
+    spec = Path(__file__).parent / "fixtures" / "sax" / "mzi.yml"
+    (tmp_path / "design" / "mzi.yml").write_text(spec.read_text())
+    code = main(["--project", PROJECT, "--project-dir", str(tmp_path), "--call", "run_optical", "--args",
+                 json.dumps({"sources": ["design/mzi.yml"]})])
+    assert code == 0
+    status = json.loads(capsys.readouterr().out)
+    assert status["verdict"]["status"] == "PASS"
+    evidence = json.loads((tmp_path / "results" / "engine-runs" / f"{status['run_id']}.json").read_text())
+    assert evidence["datasets"] == [
+        {"analysis": "optical", "path": f"results/engine-runs/{status['run_id']}-optical.json"}
+    ]
+    spectra = json.loads((tmp_path / evidence["datasets"][0]["path"]).read_text())
+    assert spectra[0]["wavelength_nm"]

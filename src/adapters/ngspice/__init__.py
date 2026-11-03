@@ -40,6 +40,8 @@ OPERATION = "run_spice"
 _TIMEOUT_S = 120
 _DECK_NAME = "ngspice_deck.spice"
 _LOG_NAME = "ngspice.log"
+_WAVEFORM_PREFIX = "waveforms-"
+_SWEEPS = ("ac", "dc", "tran", "noise")
 _SPICEINIT_NAME = ".spiceinit"
 
 # Mirrors corner-run.py MEAS_RE (leading whitespace tolerated).
@@ -202,8 +204,16 @@ def build_deck(title, corner, temp_c, params, options, model_lib, bodies,
     head.append(f".temp {temp_c}")
     if model_lib is not None:
         head.append(f'.lib "{model_lib}" {corner}')
-    control = [".control", "save all"]
-    control.extend(analyses or ["op"])
+    control = [".control", "save all", "set filetype=ascii"]
+    # Each sweep's vectors go to an ASCII rawfile right after it runs: the
+    # dataset behind the verdict, for clients to plot.
+    sweeps = 0
+    for line in analyses or ["op"]:
+        control.append(line)
+        kind = line.split()[0].lower() if line.split() else ""
+        if kind in _SWEEPS:
+            sweeps += 1
+            control.append(f"write {_WAVEFORM_PREFIX}{sweeps}-{kind}.raw")
     for item in measurements:
         control.append(f"let meas_{item['name']} = {item['expr']}")
     for item in measurements:
@@ -382,6 +392,9 @@ class NgspiceAdapter(ToolAdapter):
             checked["analyses"],
             checked["measurements"],
         )
+        # Rawfiles from an earlier run in this workdir must not pass as this run's data.
+        for stale in workdir_path.glob(f"{_WAVEFORM_PREFIX}*.raw"):
+            stale.unlink()
         (workdir_path / _DECK_NAME).write_text(deck, encoding="utf-8")
         pdk_pin = job.get("pdk")
         pdk_id = pdk_pin.get("id") if isinstance(pdk_pin, dict) else None
@@ -406,6 +419,10 @@ class NgspiceAdapter(ToolAdapter):
             "stderr": proc.stderr,
             "log": log_text,
             "deck": deck,
+            "waveforms": [
+                {"analysis": path.stem.rsplit("-", 1)[-1], "path": str(path)}
+                for path in sorted(workdir_path.glob(f"{_WAVEFORM_PREFIX}*.raw"))
+            ],
             "sources": checked["sources"],
             "measurements": checked["measurements"],
         }
