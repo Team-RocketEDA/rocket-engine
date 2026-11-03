@@ -22,18 +22,8 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 
-- [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 
-- [TESTBENCH-COMPONENT] Scoped SPICE, HDL and cocotb testbench blocks with editable templates
-- [API-V1-TOOLS] Bind complete v1 task catalog, workflow gates and tool qualification
-- [API-V1-CLIENTS] Generate and migrate MCP, stdio, HTTP and Python clients to v1
-- [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
-- [SHAPE-HARDEN] Harden the 7 weak + 2 missing tool output shapes
-- [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
-- [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
 - [DIGITAL-FLOW-URANIUM] Rewrite digital_flow on machine files
-- [ESCAPE-HARDEN] Structured escapes + shape conformance batch
-- [DECOMP-CORE] Decompose composition/service, stores behind ports
 ## Doing
 
 
@@ -195,3 +185,13 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
 - [CANVAS-CST-COMPILE] Canvas compiler
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
+- [DECOMP-CORE] Decompose composition/service, stores behind ports
+- [TESTBENCH-COMPONENT] Scoped SPICE, HDL and cocotb testbench blocks with editable templates
+- [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
+- [SHAPE-HARDEN] Harden the 7 weak + 2 missing tool output shapes
+- [ESCAPE-HARDEN] Structured escapes + shape conformance batch
+- [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
+- [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
+- [API-V1-TOOLS] Bind complete v1 task catalog, workflow gates and tool qualification
+- [API-V1-CLIENTS] Generate and migrate MCP, stdio, HTTP and Python clients to v1
+- [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
