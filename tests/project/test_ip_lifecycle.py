@@ -1,4 +1,4 @@
-"""IP-LIFECYCLE RED: ip_* ops lane does not exist yet.
+"""IP-LIFECYCLE GREEN: ip_* ops lane (lifecycle domain side).
 
 IP blocks are prebuilt HIERARCHICAL schematic blocks (KiCad
 catalogue model): each ships a schematic symbol AND a footprint

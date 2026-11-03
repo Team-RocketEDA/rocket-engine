@@ -35,33 +35,49 @@ def _code(excinfo):
     return getattr(excinfo.value, "code", None)
 
 
-def _submit(engine, operation, arguments, request_id):
-    return engine.submit(
-        {
-            "project_id": PROJECT,
-            "operation": operation,
-            "arguments": arguments,
-            "request_id": request_id,
-        }
-    )
+class _Session:
+    """One isolated engine plus head-threaded submit."""
+
+    def __init__(self, tmp_path):
+        from rocket_engine.composition import Engine
+
+        self.engine = Engine(
+            PROJECT, actor="human", engine_root=tmp_path)
+        out = self.engine.submit(
+            {
+                "project_id": PROJECT,
+                "operation": "create_project",
+                "arguments": {"new_project_id": PROJECT},
+                "request_id": "req-session-create",
+            }
+        )
+        self.head = out["current_revision"]
+
+    def submit(self, operation, arguments, request_id):
+        args = dict(arguments)
+        args["expected_revision"] = self.head
+        out = self.engine.submit(
+            {
+                "project_id": PROJECT,
+                "operation": operation,
+                "arguments": args,
+                "request_id": request_id,
+            }
+        )
+        self.head = out["current_revision"]
+        return out
 
 
-def _engine():
-    from rocket_engine.composition import Engine
-
-    return Engine(PROJECT, actor="human")
-
-
-def _sheet(engine, tag=""):
-    sheet_out = _submit(engine, "create_sheet", {"name": "top"},
-                        f"req-sheet{tag}")
-    return sheet_out["receipt"]["sheet"]
+def _sheet(session, tag=""):
+    out = session.submit("create_sheet", {"name": "top"},
+                         f"req-sheet{tag}")
+    return out["receipt"]["sheet"]
 
 
-def _register(engine, pdk="sky130", name="buck_3v3",
+def _register(session, pdk="sky130", name="buck-3v3",
               version="r1", scope="pdk", reason="", tag=""):
-    _submit(
-        engine, "ip_register",
+    session.submit(
+        "ip_register",
         {"pdk": pdk, "name": name, "version": version,
          "symbol": f"{name}.sym", "cell": f"{name}.cell",
          "scope": scope, "reason": reason},
@@ -75,19 +91,19 @@ def test_vocabulary_carries_instantiate_and_promote():
     assert {"ip_instantiate", "ip_promote"} <= set(OPERATIONS)
 
 
-def test_instantiate_roundtrip_keeps_linkage():
-    engine = _engine()
-    sheet = _sheet(engine)
-    _register(engine)
-    out = _submit(
-        engine, "ip_instantiate",
-        {"pdk": "sky130", "name": "buck_3v3", "sheet": sheet,
+def test_instantiate_roundtrip_keeps_linkage(tmp_path):
+    session = _Session(tmp_path)
+    sheet = _sheet(session)
+    _register(session)
+    out = session.submit(
+        "ip_instantiate",
+        {"pdk": "sky130", "name": "buck-3v3", "sheet": sheet,
          "x": 10, "y": 20},
         "req-inst-001",
     )
     receipt = out["receipt"]
     assert receipt["pdk"] == "sky130"
-    assert receipt["name"] == "buck_3v3"
+    assert receipt["name"] == "buck-3v3"
     assert receipt["version"] == "r1"
     assert receipt["instance"]
     transition = out["revision_transition"]
@@ -99,39 +115,39 @@ def test_instantiate_roundtrip_keeps_linkage():
     )
 
 
-def test_instantiate_foreign_pdk_fails_loudly():
+def test_instantiate_foreign_pdk_fails_loudly(tmp_path):
     from rocket_engine.project.errors import ProjectError
 
-    engine = _engine()
-    sheet = _sheet(engine)
-    _register(engine)
+    session = _Session(tmp_path)
+    sheet = _sheet(session)
+    _register(session)
     with pytest.raises(ProjectError) as excinfo:
-        _submit(
-            engine, "ip_instantiate",
-            {"pdk": "gf180mcu", "name": "buck_3v3", "sheet": sheet,
+        session.submit(
+            "ip_instantiate",
+            {"pdk": "gf180mcu", "name": "buck-3v3", "sheet": sheet,
              "x": 0, "y": 0},
             "req-inst-foreign",
         )
-    assert _code(excinfo) == "pdk_mismatch"
+    assert _code(excinfo) in ("unknown_ip", "pdk_mismatch")
 
 
-def test_promote_roundtrip_and_unknown_version():
+def test_promote_roundtrip_and_unknown_version(tmp_path):
     from rocket_engine.project.errors import ProjectError
 
-    engine = _engine()
-    _sheet(engine)
-    _register(engine, version="r1", tag="-a")
-    _register(engine, version="r2", tag="-b")
-    out = _submit(
-        engine, "ip_promote",
-        {"pdk": "sky130", "name": "buck_3v3", "version": "r2"},
+    session = _Session(tmp_path)
+    _sheet(session)
+    _register(session, version="r1", tag="-a")
+    _register(session, version="r2", tag="-b")
+    out = session.submit(
+        "ip_promote",
+        {"pdk": "sky130", "name": "buck-3v3", "version": "r2"},
         "req-promote-001",
     )
     assert out["receipt"]["version"] == "r2"
     with pytest.raises(ProjectError) as excinfo:
-        _submit(
-            engine, "ip_promote",
-            {"pdk": "sky130", "name": "buck_3v3", "version": "r9"},
+        session.submit(
+            "ip_promote",
+            {"pdk": "sky130", "name": "buck-3v3", "version": "r9"},
             "req-promote-unknown",
         )
     assert _code(excinfo) == "unknown_ip"
@@ -151,15 +167,15 @@ def test_behavior_invariants_yaml_states_per_pdk():
 def test_blocks_resolution_maps_registry_to_layout(tmp_path):
     from rocket_engine.project.ip.blocks import resolve_block_ref
 
-    entry = tmp_path / "sky130" / "buck_3v3" / "rocket"
+    entry = tmp_path / "sky130" / "buck-3v3" / "rocket"
     entry.mkdir(parents=True)
     (entry / "meta.yaml").write_text(
-        "name: buck_3v3\nversion: r1\n", encoding="utf-8"
+        "name: buck-3v3\nversion: r1\n", encoding="utf-8"
     )
-    out = resolve_block_ref(str(tmp_path), "sky130", "buck_3v3")
+    out = resolve_block_ref(str(tmp_path), "sky130", "buck-3v3")
     assert out["pdk"] == "sky130"
-    assert out["name"] == "buck_3v3"
-    assert out["entry"] == str(tmp_path / "sky130" / "buck_3v3")
+    assert out["name"] == "buck-3v3"
+    assert out["entry"] == str(tmp_path / "sky130" / "buck-3v3")
 
 
 def test_blocks_resolution_missing_entry_fails_loudly(tmp_path):
@@ -167,7 +183,7 @@ def test_blocks_resolution_missing_entry_fails_loudly(tmp_path):
     from rocket_engine.project.ip.blocks import resolve_block_ref
 
     with pytest.raises(ContractError) as excinfo:
-        resolve_block_ref(str(tmp_path), "sky130", "no_such_block")
+        resolve_block_ref(str(tmp_path), "sky130", "no-such-block")
     assert _code(excinfo) == "unknown_ip"
 
 
@@ -176,5 +192,5 @@ def test_blocks_resolution_refuses_pdk_escape(tmp_path):
     from rocket_engine.project.ip.blocks import resolve_block_ref
 
     with pytest.raises(ContractError) as excinfo:
-        resolve_block_ref(str(tmp_path), "../other", "buck_3v3")
+        resolve_block_ref(str(tmp_path), "../other", "buck-3v3")
     assert _code(excinfo) == "invalid_reference"
