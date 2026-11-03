@@ -119,6 +119,10 @@
       "id": "urn:rocketeda:engine:v1:schemas:execution"
     },
     {
+      "path": "v1/schemas/ip-entry.schema.json",
+      "id": "urn:rocketeda:engine:v1:schemas:ip-entry"
+    },
+    {
       "path": "v1/schemas/layout.schema.json",
       "id": "urn:rocketeda:engine:v1:schemas:layout"
     },
@@ -942,6 +946,15 @@
     },
     "TreeView": {
       "$ref": "urn:rocketeda:engine:v1:schemas:views#/$defs/TreeView"
+    },
+    "IpEntry": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:ip-entry#/$defs/IpEntry"
+    },
+    "IpEntryPort": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:ip-entry#/$defs/IpEntryPort"
+    },
+    "IpEntryUpstream": {
+      "$ref": "urn:rocketeda:engine:v1:schemas:ip-entry#/$defs/IpEntryUpstream"
     }
   }
 }
