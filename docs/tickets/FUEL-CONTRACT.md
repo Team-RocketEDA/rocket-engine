@@ -91,3 +91,16 @@ log `{request_id, run_id}` per engine tool call in
 stub→engine calls (GAP-1), add the CI check line. Engine
 follow-up: PR3-MERGE integration flips GAP-2/3/5 and extends
 the overlap map with a re-pin.
+
+
+---
+
+*Appended 2026-11-04.*
+
+## D7 pull-model amendment (ADR-017, 2026-11-03)
+
+The MCP port is pull-by-default over the cursor event log, never
+push; push is a per-port opt-in. Wake-up hooks or observers live
+fuel-side, not engine-side. Contract the pull path (poll from
+cursor, position-check-then-apply dedupe) rather than server push;
+redelivery of a fact re-renders the same state.

@@ -41,3 +41,16 @@ reach the wire.
   schema with no MCP-server edit (test pins this).
 
 *T-23: verified code-DONE 2026-11-02 — wire schemas = api-schema.json verbatim + loud unwired fallback + python_execute override, tests/adapters/test_mcp_schema.py 5 passed.*
+
+
+---
+
+*Appended 2026-11-04.*
+
+## D7 pull-model amendment (ADR-017, 2026-11-03)
+
+The MCP port is pull-by-default over the cursor event log, never
+push; push is a per-port opt-in. Wake-up hooks or observers live
+fuel-side, not engine-side. Contract the pull path (poll from
+cursor, position-check-then-apply dedupe) rather than server push;
+redelivery of a fact re-renders the same state.
