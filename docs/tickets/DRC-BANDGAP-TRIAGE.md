@@ -27,6 +27,42 @@ or the deck/adapter disagrees with the reference flow
   the report; regression pinned.
 - Contract + api_spec regen; full suite + gate green.
 
+## Verdict (2026-11-03, Wave-4 — reproduced, classified, DRC-path seam landed)
+
+Reproduced fresh through the tree `KlayoutDrcAdapter` (KLayout
+0.28.16, store deck `sky130A@5f09001e`, routed GDS): FAIL,
+total 740 = 672 OFFGRID (240 licon, 240 ct, 132 m1, 24 li, 20
+via, 16 m2) + 68 li.5. Classification stands: OFFGRID is a
+setup/parity gap (1 nm generator grid vs the foundry 5 nm
+manufacturing grid), li.5 is REAL (0.17x0.17 li stubs, zero
+licon enclosure, in `bandgap_core_bus`).
+
+Landed in this lane (owned `src/adapters/drc/`, tests):
+
+- `waive_rules` opt-in on `KlayoutDrcAdapter` (exact rule
+  names; validated loudly, threaded execute→parse, applied by
+  pure `apply_waivers` with a `waived` tally). Default parse
+  behavior unchanged.
+- `tests/adapters/test_drc_bandgap_triage.py`: live legs pin
+  the 740 split and the waiver run (68, all li.5, waived 672);
+  unit legs pin the tally and the loud refusal. Live legs
+  loud-skip where klayout/deck are absent.
+- Waiver run leaves the 68 real defects standing alone — the
+  report names the root cause instead of drowning it.
+
+BLOCKED-needs-fixture-flow (loud-skipped, not faked): the
+fixture geometry fix (regen the bus cell with enclosed li
+stubs) needs the upstream `klt` flow — no `klt`/`ciel`,
+no `layout/.venv`, no `$KLT_ARTIFACT_BROKER` on this host.
+No vendored-tree bytes were hand-edited (regen notes: rerun
+`layout/bin/run-bandgap-routed-flow.sh` at the pinned PDK
+once the flow is provisioned, then re-run the waiver leg and
+expect total 0). `scripts/api_spec.py --check` /
+`scripts/contract.py --check` run again (no crash) and report
+stale generated output — regen (run_drc gains `waive_rules`,
+plus the sibling lane's vocabulary changes) belongs to the
+core lane.
+
 ## Verdict (2026-11-03, triaged — fix belongs to fixture + DRC-path owners)
 
 Reproduced with the current deck and adapter recipe: KLayout

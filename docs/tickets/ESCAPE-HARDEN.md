@@ -22,3 +22,29 @@ landed normalizers compensate without touching behavior:
 klayout synthetic-mode violations without messages fall back to
 rule-plus-geometry, and every severity-less violation fails as
 an error finding. Carrying the parse-side remainder unchanged.
+
+## Verdict (Wave-4, 2026-11-03) — Parse-side remainder landed in-lane
+
+This wave owns `src/adapters/drc/` + `*/parse*` for exactly
+this scope (bbox grammar, extract total, conformance; no
+behavior change beyond the ticket):
+
+- Bbox grammar pinned (`klayout.py::_bbox_from_value`): a box
+  needs ≥2 `x,y` pairs in a `;`/`(`-structured value
+  (`polygon:`/`edge-pair:` paren groups, `shape` bare pairs).
+  Stray numbers in unstructured prose yield no bbox (message
+  keeps the full text). Verified zero behavior change on the
+  live sky130A deck output (740/740 keep bboxes) and the
+  committed `m4.5ab` shape; new
+  `tests/adapters/test_drc_bbox_grammar.py` pins all three
+  shapes plus the pollution rejection.
+- Extract `total` (`extract_magic` parse gains
+  `total == device_count`); pinned by
+  `tests/adapters/test_extract_total.py`; extract neighbors green.
+- Full DRC neighbor sweep green (52 passed, 5 loud-skipped).
+
+Still out of lane: severity/message conformance inside other
+adapters' `parse()` bodies and `ports.py` measurements tightening
+(not owned). `waive_rules` is a DRC-BANDGAP-TRIAGE seam, not an
+escape change: default parse output gains only the additive
+`waived` tally (empty when unused).

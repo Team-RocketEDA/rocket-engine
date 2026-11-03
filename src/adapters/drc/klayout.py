@@ -155,6 +155,17 @@ _VIOL_RE = re.compile(
     re.M,
 )
 _NUM_RE = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+# Lyrdb value geometry grammar (ESCAPE-HARDEN MC-44): `x,y` vertex
+# pairs after a geometry head (`polygon:`, `edge-pair:`, `shape`),
+# pairs separated by `;`, groups wrapped in parens and separated
+# by `/` or `|`. A box needs at least two pairs in a
+# semicolon/paren-structured value — bare numbers in unstructured
+# prose (spacing notes, area remarks) never form one.
+_PAIR_RE = re.compile(
+    r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+    r"\s*,\s*"
+    r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+)
 
 _CHECK_SCRIPT = """import json
 import pya
@@ -179,6 +190,61 @@ for rule, dim_um in checks:
         print("VIOL rule=%s_%s bbox_um=%s,%s,%s,%s" % ((name, rule) + coords))
 print("TOTAL %d" % total)
 """
+
+
+def _waive_or_raise(job):
+    """Waive list for a deck run: exact rule names, or None.
+
+    Args:
+        job: Solver job, maybe with a `waive_rules` list.
+
+    Returns:
+        Sorted waive list, or None when the job names none.
+
+    Raises:
+        AdapterError: invalid_command for a non-list or a
+            non-string entry.
+    """
+    waive = job.get("waive_rules")
+    if waive is None:
+        return None
+    if not isinstance(waive, list) or any(
+        not isinstance(rule, str) or not rule for rule in waive
+    ):
+        raise AdapterError(
+            "invalid_command", f"Bad DRC waive_rules: {waive!r}."
+        )
+    return sorted(set(waive))
+
+
+def apply_waivers(parsed, waive_rules):
+    """Drop waived rules from a deck parse with a tally.
+
+    Pure helper (DRC-BANDGAP-TRIAGE): the OFFGRID manufacturing-grid
+    bucket is a setup/parity gap on generator-grid layouts, so a
+    deck run can waive those rules by exact name and leave the real
+    defects standing alone. No waivers means the parse unchanged.
+
+    Args:
+        parsed: Parse mapping with total plus violations[].
+        waive_rules: Exact rule names to drop; None or empty
+            returns the parse unchanged.
+
+    Returns:
+        Parse mapping with the surviving violations, the
+            recomputed total, and a waived tally (rules plus
+            dropped count).
+    """
+    waived = sorted(set(waive_rules or ()))
+    if not waived:
+        return {"total": parsed.get("total", 0),
+                "violations": list(parsed.get("violations") or []),
+                "waived": {"rules": [], "count": 0}}
+    drop = set(waived)
+    before = parsed.get("violations") or []
+    kept = [v for v in before if v.get("rule") not in drop]
+    return {"total": len(kept), "violations": kept,
+            "waived": {"rules": waived, "count": len(before) - len(kept)}}
 
 
 def _rules_or_raise(rules):
@@ -224,11 +290,33 @@ def _deck_file_or_raise(job):
 
 
 def _bbox_from_value(text):
-    nums = [float(v) for v in _NUM_RE.findall(text or "")]
-    if len(nums) < 4 or len(nums) % 2:
+    """Box one lyrdb value text under the geometry grammar.
+
+    Args:
+        text: Joined lyrdb `<value>` text for one item.
+
+    Returns:
+        [x0, y0, x1, y1] over the `x,y` vertex pairs, or None
+            when the text carries fewer than two pairs outside
+            a semicolon/paren-structured value (stray numbers in
+            unstructured prose never form a box).
+    """
+    text = text or ""
+    if ";" not in text and "(" not in text:
         return None
-    xs = nums[0::2]
-    ys = nums[1::2]
+    pairs = []
+    for hit in _PAIR_RE.findall(text):
+        halves = [h.strip() for h in hit.split(",")]
+        if len(halves) != 2:
+            continue
+        try:
+            pairs.append((float(halves[0]), float(halves[1])))
+        except ValueError:
+            continue
+    if len(pairs) < 2:
+        return None
+    xs = [p[0] for p in pairs]
+    ys = [p[1] for p in pairs]
     return [min(xs), min(ys), max(xs), max(ys)]
 
 
@@ -295,6 +383,10 @@ class KlayoutDrcAdapter(ToolAdapter):
         cell: Optional top-cell claim, honored in both modes:
             must name an existing top cell (multi-top GDS
             without a cell refuses loudly).
+        waive_rules: Optional exact rule names to waive
+            (DRC-BANDGAP-TRIAGE: the OFFGRID manufacturing-grid
+            bucket on generator-grid layouts); waived violations
+            drop from the parse with a `waived` tally.
         workdir: Run directory (default ".").
 
     Args:
@@ -357,18 +449,23 @@ class KlayoutDrcAdapter(ToolAdapter):
             )
         top = _resolve_cell_or_raise(gds_file, job.get("cell"))
         deck_file = _deck_file_or_raise(job)
+        waive_rules = _waive_or_raise(job)
         if deck_file is not None:
             checked = {
                 "gds_file": gds_file,
                 "deck_file": deck_file,
                 "timeout_s": timeout,
             }
+            if waive_rules is not None:
+                checked["waive_rules"] = waive_rules
         else:
             checked = {
                 "gds_file": gds_file,
                 "rules": _rules_or_raise(job.get("rules")),
                 "timeout_s": timeout,
             }
+            if waive_rules is not None:
+                checked["waive_rules"] = waive_rules
         if job.get("cell") is not None:
             checked["cell"] = top
         return checked
@@ -416,7 +513,7 @@ class KlayoutDrcAdapter(ToolAdapter):
                     "runner_unavailable",
                     f"klayout produced no report: {proc.stderr[:500]}.",
                 )
-            return {
+            native: dict = {
                 "exit_code": proc.returncode,
                 "stdout": proc.stdout,
                 "stderr": proc.stderr,
@@ -425,6 +522,9 @@ class KlayoutDrcAdapter(ToolAdapter):
                 "deck_file": checked["deck_file"],
                 "gds_file": checked["gds_file"],
             }
+            if checked.get("waive_rules") is not None:
+                native["waive_rules"] = checked["waive_rules"]
+            return native
         spec = json.dumps(
             {"gds_file": checked["gds_file"], "rules": checked["rules"]}
         )
@@ -436,24 +536,33 @@ class KlayoutDrcAdapter(ToolAdapter):
             workdir,
             timeout=checked["timeout_s"],
         )
-        return {
+        native = {
             "exit_code": proc.returncode,
             "stdout": proc.stdout,
             "stderr": proc.stderr,
             "rules": checked["rules"],
             "gds_file": checked["gds_file"],
         }
+        if checked.get("waive_rules") is not None:
+            native["waive_rules"] = checked["waive_rules"]
+        return native
 
     def parse(self, native_output):
         """Parse the lyrdb report or the synthetic TOTAL/VIOL lines.
 
+        A `waive_rules` entry in the native output (threaded by
+        `execute` from the job) drops those exact rules via
+        `apply_waivers`, with a `waived` tally; native output
+        without it parses exactly as before.
+
         Args:
             native_output: Native output with the report XML/file
-                (deck mode) or klayout stdout (synthetic mode).
+                (deck mode) or klayout stdout (synthetic mode),
+                plus optional waive_rules.
 
         Returns:
-            {total, violations[]} with rule, message, and metric
-                bbox_um where the deck reports geometry.
+            {total, violations[], waived} with rule, message, and
+                metric bbox_um where the deck reports geometry.
 
         Raises:
             AdapterError: runner_unavailable when the deck run has
@@ -469,7 +578,8 @@ class KlayoutDrcAdapter(ToolAdapter):
                         "runner_unavailable", "klayout deck run has no report."
                     )
                 xml_text = Path(report_file).read_text()
-            return _parse_lyrdb(xml_text)
+            return apply_waivers(
+                _parse_lyrdb(xml_text), native_output.get("waive_rules"))
         stdout = native_output.get("stdout", "")
         match = _TOTAL_RE.search(stdout)
         if match is None:
@@ -480,7 +590,9 @@ class KlayoutDrcAdapter(ToolAdapter):
             {"rule": rule, "bbox_um": [float(c) for c in coords]}
             for rule, *coords in _VIOL_RE.findall(stdout)
         ]
-        return {"total": int(match.group(1)), "violations": violations}
+        return apply_waivers(
+            {"total": int(match.group(1)), "violations": violations},
+            native_output.get("waive_rules"))
 
     def _run(self, argv, workdir, timeout=_TIMEOUT_S):
         if self._runner is not None:

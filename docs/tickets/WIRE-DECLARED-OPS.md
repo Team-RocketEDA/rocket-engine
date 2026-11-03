@@ -30,3 +30,42 @@ search/paging/coverage in the cell/store layers,
 per-run findings routing beyond the existing
 `Engine.findings`/`resolve_celllinks` in transports. No owned
 file can close them; carrying to the sibling lanes unchanged.
+
+## Verdict (Wave-4, 2026-11-03) — Owned-set leftovers landed
+
+This wave owns `references.py`, `completion.py`+`gates.py`
+(plan_checks target+canvas ONLY), `stores*` (findings/celllink
+routing ONLY), and the no-store no-ops:
+
+- `plan_checks` target+canvas: new `src/workflows/gates.py`
+  (`gate_plan_for_target` — pure join of deck tools, canvas
+  tool settings, and project-top metric budgets per stage;
+  target-scoped constraints surface plan-level for the run to
+  scope) + additive `plan_checks_report(flow, available,
+  target, canvas)` kwargs (defaults return the backend-only
+  plan; canvas-without-target refuses). Pinned by
+  `tests/workflows/test_plan_gates.py` (green). `test_completion.py`
+  neighbors that build an `Engine` currently fail on the
+  sibling lane's in-flight `project/service.py`+`testbench/`
+  edit (`ModuleNotFoundError: rocket_engine.project.interfaces`
+  at composition import; unrelated to this change — pure
+  `plan_checks_report` paths import clean). Engine-side wiring
+  (passing target/canvas from `plan_checks`) stays core lane.
+- `parse_report`/`get_status` resolve as documented no-ops
+  (no store invented): pinned by
+  `tests/test_wire_declared_ops_noops.py` — both absent from
+  vocabulary while `get_job_status`/`get_check_results`/
+  `get_events_since` and the `Engine` readers stay wired.
+- `check_connection` (references.py) needs no change:
+  implemented, `tests/interfaces/test_references.py` green;
+  only its vocab/MCP routing is core lane.
+
+Still core/sibling lane (verified, not owned here):
+`check_view_sync` compat (no `tooling-operations.yaml` in
+repo; `run_view_sync` lives in vocabulary+composition),
+PDK search/paging/coverage (`src/library/`,
+`interfaces/apig_assets.py` — only list/get exist, no query
+surface), per-run findings routing (`Engine.findings` /
+`resolve_celllinks` already route in composition; no store
+change needed or made). api-schema regen (run_drc gains
+`waive_rules`, sibling vocabulary deltas) belongs to core lane.

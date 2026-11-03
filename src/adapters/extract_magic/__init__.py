@@ -322,7 +322,8 @@ class MagicExtractAdapter(ToolAdapter):
                 spice text or file.
 
         Returns:
-            Result with cell, artifact paths, device_count,
+            Result with cell, artifact paths, total and
+                device_count (both the device inventory size),
                 devices, and no violations.
 
         Raises:
@@ -369,6 +370,7 @@ class MagicExtractAdapter(ToolAdapter):
             "cell": native_output.get("cell"),
             "ext_file": native_output.get("ext_file"),
             "spice_file": native_output.get("spice_file"),
+            "total": len(devices),
             "device_count": len(devices),
             "devices": devices,
             "violations": [],

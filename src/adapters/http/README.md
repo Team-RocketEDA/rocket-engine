@@ -1,6 +1,6 @@
 # HTTP JSON command transport
 
-HttpTransport.handle parses one JSON object containing project_id, operation, optional arguments, and optional request_id. It enforces an optional bound project and delegates to Engine.submit. `serve_http` wraps the same transport in a FastAPI app on uvicorn: POST a JSON envelope to `/` for an admission ack or query result, GET `/health` for a liveness probe. SSE event streams are not implemented; clients query get_events_since through the shared operation surface.
+HttpTransport.handle parses one JSON object containing project_id, operation, optional arguments, and optional request_id. It enforces an optional bound project and delegates to Engine.submit. `serve_http` wraps the same transport in a FastAPI app on uvicorn: POST a JSON envelope to `/` for an admission ack or query result, GET `/health` for a liveness probe, GET `/events` for the runtime lifecycle log as Server-Sent Events (PUSH-EVENTS; pass a runtime to `serve_http`/`create_server`/`create_app` to bind it — replay since `cursor`, then live frames with heartbeat comments). Without a bound runtime `/events` refuses loudly with `runner_unavailable` (503); polling get_events_since stays the watch path there.
 
 ## Listener hardening
 

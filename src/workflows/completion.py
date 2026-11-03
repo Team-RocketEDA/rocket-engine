@@ -11,6 +11,7 @@ report refuses the fully-verified claim while any stand, and only
 an all-satisfied plan claims with per-operation evidence run ids.
 """
 
+from .gates import gate_plan_for_target
 from .stages import applicable_stages
 
 # Scripted entrypoints need no backend (mirrors stages._SCRIPTED).
@@ -48,26 +49,35 @@ def _run_id(record):
     return None
 
 
-def plan_checks_report(flow, available_backends):
+def plan_checks_report(flow, available_backends, target=None, canvas=None):
     """Plan one flow against installed backends with named blockers.
 
     Thin report over `applicable_stages`: every planned stage keeps
     its required flag and gains its readiness plus the exact missing
     operations, so a caller can name required-but-blocked stages
     (mixed M14 cites run_thermal) instead of silently dropping them.
+    With a target (plus an optional canvas) the plan is additionally
+    gated per `gates.gate_plan_for_target`, joining deck tools,
+    canvas settings, and metric budgets to every stage.
 
     Args:
         flow: Flow inventory to plan (digital/analog/photonic/mixed).
         available_backends: Installed backend entrypoint names.
+        target: v1 target the plan serves (kind required); None
+            skips gating and returns the backend-only plan.
+        canvas: Canvas mapping with targets/tools; None means an
+            empty canvas (a canvas without a target refuses).
 
     Returns:
         Mapping with the flow, per-stage plans (each carrying
             readiness plus missing_operations), blocked_stages and
-            ready_stages id lists in stage order, and the sorted
-            unique missing_operations across blocked stages.
+            ready_stages id lists in stage order, the sorted
+            unique missing_operations across blocked stages, and —
+            when gated — the target/canvas join.
 
     Raises:
-        ValueError: Unknown flow name.
+        ValueError: Unknown flow name, a canvas without a target,
+            or a bad target/canvas shape.
     """
     available = set() if available_backends is None else set(available_backends)
     planned = applicable_stages(flow, available)
@@ -77,13 +87,18 @@ def plan_checks_report(flow, available_backends):
     blocked = [s["id"] for s in stages if s["readiness"] == "blocked"]
     ready = [s["id"] for s in stages if s["readiness"] == "ready"]
     missing = sorted({op for stage in stages for op in stage["missing_operations"]})
-    return {
+    plan = {
         "flow": flow,
         "stages": stages,
         "blocked_stages": blocked,
         "ready_stages": ready,
         "missing_operations": missing,
     }
+    if target is None and canvas is None:
+        return plan
+    if target is None:
+        raise ValueError("plan_checks canvas needs a target.")
+    return gate_plan_for_target(plan, target, canvas)
 
 
 def design_completion_report(flow, available_backends, checks, current_revision=None):

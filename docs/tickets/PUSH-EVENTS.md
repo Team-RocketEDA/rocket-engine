@@ -9,6 +9,24 @@ MCP and IPC push are implemented; HTTP SSE is out of this
 slice's owned set and stays outstanding (polling remains the
 HTTP watch path — no docstring claims otherwise were added).
 
+## Verdict (Wave-4, 2026-11-03) — HTTP SSE landed (append-only)
+
+`GET /events` on the loopback HTTP app streams the runtime
+lifecycle log as Server-Sent Events: replay since `cursor`
+(`Last-Event-ID` honored), then live frames (`id`/`event`
+/`data`) with heartbeat comments. New `src/adapters/http/events.py`
+(`format_frame` + `EventSource`, mirroring the IPC `EventStream`
+seam); `create_app`/`create_server`/`serve_http` take an
+optional `runtime` (default None). No-runtime `/events`
+refuses loudly (`runner_unavailable`, 503 — polling stays the
+path); foreign Origin refused (403) like POST. POST `/` and
+GET `/health` byte-identical in behavior. Covered by new
+`tests/adapters/test_http_sse.py` (5 tests: frame shape,
+replay, loud refusal, Origin guard, live subscribe) plus the
+untouched `test_http_localhost.py` neighbors green; README
+SSE line updated (was "not implemented"). Core-lane follow-up:
+pass the runtime at serve time to bind the stream.
+
 MCP (`src/adapters/mcp/server.py`, append-only):
 `build_lifecycle_notification` maps runtime events to
 `notifications/<kind>` (`notifications/progress` for

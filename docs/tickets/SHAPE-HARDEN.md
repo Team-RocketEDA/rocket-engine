@@ -29,3 +29,25 @@ normalizers are pure functions of recorded outputs and must not
 invent grammars — can close them. The 11 landed normalizers map
 only the verified v0 shapes; nothing prose-based was staffed.
 Carrying unchanged.
+
+## Verdict (Wave-4, 2026-11-03) — In-parse-scope remainder landed
+
+This wave owns the parse side only (bbox grammar, extract
+total, conformance); the grammar/shape items are closed from
+live evidence, the rest stay BLOCKED-needs-host with loud
+skips, never faked green:
+
+- drc_kl deck-mode bbox: pinned to the observed lyrdb value
+  grammar (`polygon:`/`edge-pair:`/`shape`, `;`-separated
+  pairs) against KLayout 0.28.16 + sky130A@5f09001e
+  (`tests/adapters/test_drc_bbox_grammar.py`).
+- Binary-gated acceptances verified loud-skipping on this
+  host: `test_timing_sta.py` (28 passed, 4 skipped — sta /
+  liberty absent), `test_digital_flow.py` (librelane / PDK
+  root / serv-fixture probes skip with remedies).
+- Still out of lane (unchanged): openroad SDC/SDF/STA writers
+  (empty src/sta), cace re-verify at pin 2.13.0, openvaf OSDI
+  reader, xschem per-type EBNF at pin 7811010c, yosys_slang
+  submodule formats, xyce .fftN/-rsf/.csd, cocotb+gmsh —
+  each needs a non-owned surface (submodule, tool flag, or
+  sibling adapter). No prose-based adapter was staffed.
