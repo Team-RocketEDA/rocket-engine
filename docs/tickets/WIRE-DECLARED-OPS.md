@@ -69,3 +69,29 @@ surface), per-run findings routing (`Engine.findings` /
 `resolve_celllinks` already route in composition; no store
 change needed or made). api-schema regen (run_drc gains
 `waive_rules`, sibling vocabulary deltas) belongs to core lane.
+
+## Verdict (Step 11, 2026-11-03) — get_findings wired, remainder delisted
+
+- `get_findings` wired: `Engine.findings()` was public but
+  unrouted; now a QUERIES name through `_query_job`
+  (run_id + limit/cursor), rendered in api_spec/MCP with
+  generated schemas. TDD RED->GREEN
+  (`tests/test_findings_query.py`, 4 tests: vocab, unknown_run,
+  page content, limit). Oracle holds: zero
+  advertised-but-failing tools.
+- Delisted from Engine routing (not advertised, no new surface
+  invented in a wiring step):
+  - `check_connection`: pure library helper
+    (`src/interfaces/references.py`, covered by
+    `tests/interfaces/test_references.py`, green); no store,
+    no transport.
+  - `resolve_celllinks`: flow-internal compute used by
+    completion flows (covered by
+    `tests/interfaces/test_celllink_wiring.py`, green); stays
+    library-level, no query.
+  - PDK search/paging/coverage: no query surface invented
+    here; list/get primitives stay. A search API is new
+    surface, not wiring — future ticket if asked.
+  - `plan_checks` target/canvas: signature change on a
+    core-lane flow method with sibling in-flight edits;
+    deferred. Flow-only plan stands and is oracle-green.
