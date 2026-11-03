@@ -1,0 +1,1 @@
+Pre-existing, unrelated to Step 8. tests/workflows/test_completion_wiring.py::test_wired_unblocked_claims_with_fake_thermal fails with ProjectError run_post_layout needs latest run_spice PASS before dispatch. Proven on pristine tree via stash -u + reinstall. Needs own triage (gate ordering vs fixture).

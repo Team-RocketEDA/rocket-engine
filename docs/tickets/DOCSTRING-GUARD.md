@@ -1,0 +1,1 @@
+Pre-existing, unrelated to Step 8. test_enforced_files_have_google_docstrings fails with 15 hits in untouched adapters (e.g. src/adapters/cace/__init__.py CaceAdapter.execute missing Raises, src/adapters/hdl_sim/ghdl.py GhdlAdapter.execute missing Raises). Proven on pristine tree via stash -u + reinstall. Do not fix inside feature slices; fix as own unit.
