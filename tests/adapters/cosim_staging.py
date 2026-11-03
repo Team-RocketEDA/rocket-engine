@@ -304,7 +304,7 @@ def tier1_job(workdir, analog_body, digital):
         "digital_sources": digital["sources"],
         "workdir": str(workdir),
         "defines": digital["defines"],
-        "timeout_s": 300,
+        "request": {"timeout_s": 300},
         "analog": {
             "clock_hz": FS_HZ,
             "nbits": TIER1_NBITS,
