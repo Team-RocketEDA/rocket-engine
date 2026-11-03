@@ -20,6 +20,13 @@ OPERATIONS = frozenset(
         "detach_component", "delete_entity",
         "place_wire", "place_junction", "connect_endpoint", "move_wire",
         "split_wire", "delete_wire", "delete_junction", "materialize_nets",
+        "apply_transaction",
+        "create_shape",
+        "create_sheet", "place_instance", "bind_block",
+        "create_symbol", "create_cell", "map_pins",
+        "ip_register",
+        "bind_layers", "annotate",
+        "create_testbench", "regenerate_testbench",
     }
 )
 QUERIES = frozenset(
@@ -37,5 +44,13 @@ QUERIES = frozenset(
         "get_layer_stackup", "get_layer_rows", "list_layer_presets",
         "save_layer_preset", "delete_layer_preset", "apply_layer_preset",
         "list_survivors",
+        "read_entity_revision",
+        "list_sheets", "get_sheet", "get_instance", "instances_on_sheet",
+        "list_symbols", "get_symbol", "get_cell",
+        "list_layers", "check_capability",
+        "ip_search", "ip_get",
+        "connection_graph", "net_occurrences", "xprobe", "resolve_pin",
+        "plot_export", "erc_check", "write_netlist", "update_netlist",
+        "list_testbenches", "describe_testbench",
     }
 )

@@ -37,12 +37,29 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
-from ..stores import ecs
-from ..stores import settings as settings_store
-from ..stores import wireplace
+from ..ops import editors as _editors
+from ..ops.ports import ecs
+from ..ops.ports import settings as settings_store
+from ..ops.ports import wireplace
 from ..interfaces.paths import join_contained
+from ..interfaces.refs import pin_closure
 
+from . import frontend13 as _frontend13
+from .edit import cas as _cas
+from .edit import transactions as _transactions
 from .errors import ProjectError
+from .geometry import ops as _geometry
+from .ip import lifecycle as _ip
+from .layers import bindings as _layer_bindings
+from .layers import catalog as _layer_catalog
+from .process import model as _process
+from .schematic import hierarchy as _hierarchy
+from .schematic import instances as _instances
+from .schematic import sheets as _sheets
+from .symbols import cells as _cells
+from .symbols import linkage as _linkage
+from .symbols import symbols as _symbols
+from .testbench import blocks as _testbench
 from .ledger.docs import _DocMixin
 from .ledger.entities import _EntityMixin
 from .ledger.events import _EventMixin
@@ -2307,3 +2324,654 @@ class ProjectService(_DocMixin, _EntityMixin, _EventMixin, _RunMixin, _SnapshotM
         self._requests[request_id] = (command_text, response)
         self._persist_after_mutation()
         return response
+
+    def apply_transaction(self, changes, request_id, command_text,
+                          expected_revision=None):
+        """Apply one atomic batch of entity changes (API-V1-EDITORS).
+
+        Alias creation resolves LocalRef before persistence; every
+        change gates CAS, and a failed late change rolls back.
+
+        Args:
+            changes: Change mappings with an op each.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                invalid_command, or the CAS refusal code.
+        """
+        return _editors.editor_mutation(self,
+            "apply_transaction", request_id, command_text,
+            expected_revision,
+            lambda _store, rid, rtext, live: (
+                _transactions.apply_transaction(
+                    self, rid, rtext, changes, live)),
+            lambda receipt: (
+                f"applied {receipt.get('applied', len(changes))} "
+                "changes"),
+        )
+
+    def create_shape(self, shape_type, layer, data, request_id,
+                     command_text, units="nm", profile=None,
+                     anchor=None, expected_revision=None):
+        """Create one layout shape entity with provenance.
+
+        Args:
+            shape_type: One of rect, polygon, path, label.
+            layer: Stable layer lid the shape is drawn on.
+            data: Shape payload for the type.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            units: Coordinate units label.
+            profile: Technology profile pin for provenance.
+            anchor: Optional cell-port anchor.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                invalid_command for a malformed payload.
+        """
+        return _editors.editor_mutation(self,
+            "create_shape", request_id, command_text,
+            expected_revision,
+            lambda _store, rid, rtext, live: _geometry.create_shape(
+                self, rid, rtext, shape_type, layer, data,
+                units=units, profile=profile, anchor=anchor,
+                expected_revision=live),
+            lambda receipt: (
+                f"created {shape_type} shape "
+                f"({receipt.get('entity')})"),
+        )
+
+    def create_sheet(self, name, request_id, command_text, title="",
+                     expected_revision=None):
+        """Create one schematic sheet.
+
+        Args:
+            name: Unique sheet name.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            title: Human title shown on the sheet frame.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                invalid_sheet, sheet_exists.
+        """
+        return _editors.editor_mutation(self,
+            "create_sheet", request_id, command_text,
+            expected_revision,
+            lambda store, _rid, _rtext, _live: _sheets.create_sheet(
+                store, self._actor, name, title=title),
+            lambda receipt: (
+                f"created sheet {name} ({receipt.get('sheet')})"),
+        )
+
+    def place_instance(self, sheet, symbol, x, y, request_id,
+                       command_text, rotation=0, mirror=False,
+                       properties=None, ref="",
+                       expected_revision=None):
+        """Place one symbol instance on a sheet.
+
+        Args:
+            sheet: Sheet entity id hosting the instance.
+            symbol: Bare project symbol name or scoped upstream ref.
+            x: X position in schematic units.
+            y: Y position in schematic units.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            rotation: Rotation in degrees (0/90/180/270).
+            mirror: Mirror flag.
+            properties: Text-to-text instance properties.
+            ref: Annotation reference ("" means unannotated).
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                unknown_sheet, unknown_symbol, invalid_instance.
+        """
+        return _editors.editor_mutation(self,
+            "place_instance", request_id, command_text,
+            expected_revision,
+            lambda store, _rid, _rt, _live: _instances.place_instance(
+                store, self._actor, sheet, symbol, x, y,
+                rotation=rotation, mirror=mirror,
+                properties=properties or {}, ref=ref),
+            lambda receipt: (
+                f"placed {symbol} ({receipt.get('instance')})"),
+        )
+
+    def bind_block(self, parent_sheet, child_sheet, instance,
+                   request_id, command_text, expected_revision=None):
+        """Bind a child sheet under a parent through a block instance.
+
+        Args:
+            parent_sheet: Parent sheet entity id.
+            child_sheet: Child sheet entity id.
+            instance: Block instance entity id in the parent.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                unknown_sheet, unknown_instance, binding_conflict,
+                invalid_hierarchy.
+        """
+        return _editors.editor_mutation(self,
+            "bind_block", request_id, command_text,
+            expected_revision,
+            lambda store, _rid, _rt, _live: _hierarchy.bind_block(
+                store, self._actor, parent_sheet, child_sheet,
+                instance),
+            lambda receipt: (
+                f"bound {child_sheet} under {parent_sheet}"),
+        )
+
+    def create_symbol(self, name, pins, request_id, command_text,
+                      graphics=None, properties=None,
+                      expected_revision=None):
+        """Create one project-owned symbol definition.
+
+        Args:
+            name: Unique symbol name.
+            pins: Pin records with name, pin_type, x, and y.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            graphics: Editable graphics items.
+            properties: Text-to-text symbol properties.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                invalid_symbol, symbol_exists.
+        """
+        return _editors.editor_mutation(self,
+            "create_symbol", request_id, command_text,
+            expected_revision,
+            lambda store, _rid, _rt, _live: _symbols.create_symbol(
+                store, self._actor, name, pins, graphics=graphics,
+                properties=properties),
+            lambda receipt: (
+                f"created symbol {name} ({receipt.get('symbol')})"),
+        )
+
+    def create_cell(self, name, ports, request_id, command_text,
+                    properties=None, expected_revision=None):
+        """Create one physical cell definition.
+
+        Args:
+            name: Unique cell name.
+            ports: Port records for the cell.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            properties: Text-to-text cell properties.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                invalid_cell, cell_exists.
+        """
+        return _editors.editor_mutation(self,
+            "create_cell", request_id, command_text,
+            expected_revision,
+            lambda store, _rid, _rt, _live: _cells.create_cell(
+                store, self._actor, name, ports,
+                properties=properties),
+            lambda receipt: (
+                f"created cell {name} ({receipt.get('cell')})"),
+        )
+
+    def map_pins(self, symbol, cell, pin_map, request_id,
+                 command_text, expected_revision=None):
+        """Create or remap the pin map for one symbol-cell pair.
+
+        Args:
+            symbol: Project symbol name being linked.
+            cell: Project cell name (or scoped upstream ref).
+            pin_map: Explicit [{symPin, cellPin}] entries.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                unknown_symbol, unknown_cell, invalid_linkage.
+        """
+        return _editors.editor_mutation(self,
+            "map_pins", request_id, command_text,
+            expected_revision,
+            lambda store, _rid, _rt, _live: _linkage.map_pins(
+                store, self._actor, symbol, cell, pin_map),
+            lambda receipt: f"mapped {symbol} to {cell}",
+        )
+
+    def ip_register(self, pdk, name, version, symbol, cell,
+                    request_id, command_text, pin_map=None,
+                    scope="pdk", reason="",
+                    expected_revision=None):
+        """Register one prebuilt IP block revision under its PDK.
+
+        Args:
+            pdk: Owning PDK id (the per-PDK invariant key).
+            name: Block name within the PDK registry.
+            version: Revision label ("" forbidden).
+            symbol: Linked schematic symbol reference.
+            cell: Linked footprint cell reference.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            pin_map: Explicit [{symPin, cellPin}] entries.
+            scope: "pdk" (default) or "shared" with a reason.
+            reason: Recorded justification for shared scope.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                invalid_pdk, ip_exists, invalid_ip, invalid_scope.
+        """
+        return _editors.editor_mutation(self,
+            "ip_register", request_id, command_text,
+            expected_revision,
+            lambda store, _rid, _rt, _live: _ip.ip_register(
+                store, self._actor, pdk, name, version, symbol,
+                cell, pin_map=pin_map or [], scope=scope,
+                reason=reason),
+            lambda receipt: f"registered IP {pdk}/{name}@{version}",
+        )
+
+    def bind_layers(self, profile, layers, request_id,
+                    command_text, source="profile",
+                    version="unknown", expected_revision=None):
+        """Bind project layers to a technology profile and save.
+
+        Builds the catalog from the given layers, binds it, and
+        saves the report as `layers/bindings.yaml`. A missing
+        binding never reinterprets geometry.
+
+        Args:
+            profile: Technology profile mapping (name, version).
+            layers: Layer entries with display attributes.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            source: Provenance label for the profile source.
+            version: Profile version pinned into the report.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                invalid_command for a malformed catalog.
+        """
+        def _run(_store, rid, rtext, live):
+            catalog = _layer_catalog.LayerCatalog(
+                profile=dict(profile or {}))
+            for entry in layers or []:
+                catalog.add_layer(
+                    entry.get("name"), purpose=entry.get(
+                        "purpose", "drawing"),
+                    color=entry.get("color", "#ffffff"),
+                    order=entry.get("order", 0),
+                    visible=entry.get("visible", True))
+            report = _layer_bindings.bind_layers(
+                catalog, (profile or {}).get("layers", []),
+                source=source, version=version)
+            self.write_doc(
+                "layers/bindings.yaml",
+                _dump_yaml(report),
+                f"{rid}:bindings", f"{rtext}\n#inner bindings",
+                expected_revision=live,
+            )
+            return {
+                "op": "bind_layers",
+                "profile": report["profile"],
+                "profile_version": report["profile_version"],
+                "entries": report["entries"],
+                "i28": {"profile": {
+                    "name": report["profile"],
+                    "version": report["profile_version"]}},
+            }
+        return _editors.editor_mutation(self,
+            "bind_layers", request_id, command_text,
+            expected_revision, _run,
+            lambda receipt: (
+                f"bound {len(receipt.get('entries', []))} layers "
+                f"to {receipt.get('profile')}"),
+        )
+
+    def annotate(self, request_id, command_text, prefixes=None,
+                 sheet=None, expected_revision=None):
+        """Assign reference designators to unannotated instances.
+
+        Counters continue past the highest numeric suffix already
+        on the sheet set; annotated instances keep their refs.
+
+        Args:
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            prefixes: Optional per-symbol prefix overrides.
+            sheet: Sheet entity id to scope to, or None for all.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict.
+        """
+        return _editors.editor_mutation(self,
+            "annotate", request_id, command_text,
+            expected_revision,
+            lambda store, _rid, _rt, _live: _frontend13.annotate(
+                store, self._actor, prefixes=prefixes,
+                sheet=sheet),
+            lambda receipt: (
+                f"annotated {len(receipt.get('annotated', []))} "
+                "instances"),
+        )
+
+    def create_testbench(self, name, kind, targets, request_id,
+                         command_text, probes=None, harness=None,
+                         template=None, expected_revision=None):
+        """Create one scoped testbench block with editable source.
+
+        Validates the DUT scope, materializes the interface, renders
+        the template source, stores the record, and saves the source.
+
+        Args:
+            name: Block name (source saved as testbench/<name>).
+            kind: Template kind (spice, hdl, or cocotb).
+            targets: DUT target set (primary plus additional).
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            probes: Probe mappings inside the DUT closure.
+            harness: Explicit harness binding mapping.
+            template: Reserved template override (unused).
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                invalid_kind, invalid_target, overlapping_targets,
+                illegal_scope.
+        """
+        return _editors.editor_mutation(self,
+            "create_testbench", request_id, command_text,
+            expected_revision,
+            lambda _store, rid, rtext, live: _testbench.create_block(
+                self, rid, rtext, name, kind, targets,
+                probes or [], harness or {}, template=template,
+                expected_revision=live),
+            lambda receipt: (
+                f"created {kind} testbench {name} "
+                f"({receipt.get('testbench')})"),
+        )
+
+    def regenerate_testbench(self, testbench, request_id,
+                             command_text, expected_revision=None):
+        """Regenerate one block to a candidate without overwriting.
+
+        A fresh link returns a noop receipt; a drifted link renders
+        the candidate beside the edited live source for adoption.
+
+        Args:
+            testbench: Testbench entity id.
+            request_id: Client envelope id for idempotent replay.
+            command_text: YAML command text for identity comparison.
+            expected_revision: Revision the writer read.
+
+        Returns:
+            Mutation mapping with receipt, events, and cursor.
+
+        Raises:
+            ProjectError: request_conflict, revision_conflict,
+                unknown_entity.
+        """
+        return _editors.editor_mutation(self,
+            "regenerate_testbench", request_id, command_text,
+            expected_revision,
+            lambda _store, rid, rtext, live: (
+                _testbench.regenerate_block(
+                    self, rid, rtext, testbench,
+                    expected_revision=live)),
+            lambda receipt: (
+                "testbench fresh" if receipt.get("noop")
+                else f"regenerated {testbench}"),
+        )
+
+    def entity_revision(self, entity):
+        """Read the live per-entity revision of one entity.
+
+        Args:
+            entity: Engine-minted entity id to inspect.
+
+        Returns:
+            Mapping with entity, head revision, and the live
+            entity revision plus the I28 closure pin.
+
+        Raises:
+            ProjectError: unknown_entity for a missing id.
+        """
+        revision = _cas.read_entity_revision(self, entity)
+        return {
+            "entity": entity,
+            "entity_revision": revision,
+            "current_revision": self._current_revision,
+            "i28": pin_closure(
+                self._current_revision,
+                entities={entity: revision}),
+        }
+
+    def erc_report(self, severities=None, pin_conflict=None,
+                   net_pins=None):
+        """Run the ERC_TESTER rule set over the schematic.
+
+        Args:
+            severities: Rule-to-severity overrides.
+            pin_conflict: Pin-conflict severity overrides.
+            net_pins: Materialized rows for the pin-conflict rule.
+
+        Returns:
+            Findings with verdict plus revision and I28 pin.
+
+        Raises:
+            ProjectError: invalid_command for a malformed config.
+        """
+        check = lambda store: _frontend13.erc_check(  # noqa: E731
+            store, severities=severities, pin_conflict=pin_conflict,
+            net_pins=net_pins)
+        return _editors.editor_read(self, "erc_check", check)
+
+    def graph_report(self, sheet=None, net=None, net_pins=None):
+        """Report the connection graph or one net's occurrences.
+
+        Args:
+            sheet: Sheet entity id to scope to, or None for all.
+            net: Net name to collect, or None for the graph.
+            net_pins: Materialized rows net collection needs.
+
+        Returns:
+            Graph nodes/edges (or occurrence rows) with I28 pin.
+
+        Raises:
+            ProjectError: invalid_command for a missing net.
+        """
+        if net is not None:
+            if not isinstance(net_pins, list):
+                raise ProjectError(
+                    "invalid_command",
+                    "net_occurrences needs net_pins rows.")
+            return {
+                "net": net,
+                "occurrences": _frontend13.net_occurrences(
+                    net_pins, net),
+                "current_revision": self._current_revision,
+                "i28": pin_closure(self._current_revision),
+            }
+        graph = lambda store: _frontend13.connection_graph(  # noqa: E731
+            store, sheet=sheet)
+        return _editors.editor_read(self, "connection_graph", graph)
+
+    def probe_report(self, instance, pin, net_pins=None):
+        """Cross-probe one pin: symbol, cell, cell pin, net.
+
+        Without extracted net_pins the probe reports net_known
+        False instead of guessing.
+
+        Args:
+            instance: Instance entity id to probe.
+            pin: Symbol pin to probe.
+            net_pins: Materialized rows, or None when none ran.
+
+        Returns:
+            Probe mapping with I28 pin.
+
+        Raises:
+            ProjectError: unknown_instance, unknown_pin.
+        """
+        probe = lambda store: _frontend13.xprobe(  # noqa: E731
+            store, instance, pin, net_pins=net_pins)
+        return _editors.editor_read(self, "xprobe", probe)
+
+    def plot_report(self, format="svg", sheet=None):
+        """Export the schematic drawing (plot/export op).
+
+        Args:
+            format: Drawing format (svg or json).
+            sheet: Sheet entity id to scope to, or None for all.
+
+        Returns:
+            Drawing with I28 pin.
+
+        Raises:
+            ProjectError: invalid_format for an unknown format.
+        """
+        plot = lambda store: _frontend13.plot_export(  # noqa: E731
+            store, format=format, sheet=sheet)
+        return _editors.editor_read(self, "plot_export", plot)
+
+    def netlist_report(self, language, sheet=None, title="top",
+                       net_pins=None, prior_text=None,
+                       adopted=False):
+        """Write (or rewrite and diff) a netlist for the schematic.
+
+        Harness-owned instances stay excluded unless the design
+        adopted the block. Dangling pins emit explicit stubs.
+
+        Args:
+            language: Netlist language (spice or verilog).
+            sheet: Sheet entity id to scope to, or None for all.
+            title: Netlist/circuit title.
+            net_pins: Materialized rows (required).
+            prior_text: Previously emitted text for rewrites.
+            adopted: True includes adopted harness instances.
+
+        Returns:
+            Netlist text, counts, and I28 pin.
+
+        Raises:
+            ProjectError: invalid_language, invalid_command.
+        """
+        if not isinstance(net_pins, list):
+            raise ProjectError(
+                "invalid_command",
+                "Netlist emission needs net_pins rows.")
+        rows = list(net_pins)
+        if not adopted:
+            excluded = _testbench.excluded_harness_instances(self)
+            rows = [row for row in rows
+                    if row.get("instance") not in excluded]
+        if prior_text is None:
+            emit = lambda store: _frontend13.write_netlist(  # noqa: E731
+                store, language=language, sheet=sheet,
+                title=title, net_pins=rows)
+        else:
+            emit = lambda store: _frontend13.update_netlist(  # noqa: E731
+                store, language, prior_text, sheet=sheet,
+                title=title, net_pins=rows)
+        return _editors.editor_read(self, "netlist", emit)
+
+    def capability_report(self, profile, operation, bindings=None):
+        """Check whether one operation may run under a profile.
+
+        Args:
+            profile: Technology profile mapping with name,
+                version, source hash, and capabilities.
+            operation: Operation name to check.
+            bindings: Layer bindings the design needs.
+
+        Returns:
+            Capability verdict with profile pin and I28 pin.
+
+        Raises:
+            ProjectError: invalid_command for a malformed profile.
+        """
+        for key in ("name", "version", "source_hash"):
+            if not isinstance(profile, dict) or not profile.get(key):
+                raise ProjectError(
+                    "invalid_command",
+                    f"capability_report needs profile {key}.")
+        tech = _process.TechProfile(
+            profile["name"], profile["version"],
+            profile["source_hash"],
+            units=profile.get("units", "nm"),
+            grid=profile.get("grid", 1),
+            deck=profile.get("deck"),
+            capabilities=profile.get("capabilities"),
+        )
+        result = _editors.editor_value_error(
+            lambda: _process.check_capability(
+                tech, operation, bindings or []))
+        return {
+            **result, "current_revision": self._current_revision,
+            "i28": pin_closure(
+                self._current_revision, profile=tech.pin()),
+        }
+
+    def testbench_report(self, testbench):
+        """Describe one testbench block with freshness and pins.
+
+        Args:
+            testbench: Testbench entity id.
+
+        Returns:
+            Record with freshness, pins, digest, and I28 pin.
+
+        Raises:
+            ProjectError: unknown_entity for a missing block.
+        """
+        record = _testbench.describe_block(self, testbench)
+        record["current_revision"] = self._current_revision
+        return record

@@ -2,7 +2,9 @@
 
 from ..execution.apig.pool import stored_completion_from_events
 from ..execution.errors import ExecutionError
+from ..execution.python_exec import PythonExecService
 from ..project.errors import ProjectError
+from ..project.service import ProjectService
 
 #: Severity order for ledger-backed findings pages, mirroring the
 #: execution record's errors-first paging.
@@ -66,6 +68,94 @@ def findings_page_for(data, limit=50, cursor=None):
 
 class _QueryMixin:
     """Wired query handlers (events, apig, jobs, layers, logs)."""
+
+    def _describe_op(self, name):
+        """Resolve one cataloged name to its live serving handler.
+
+        The live twin of the MCP server's describe_tool over engine
+        objects, so api_search/api_info/api_help report the same
+        summaries the generated docs and MCP descriptions serve.
+
+        Args:
+            name: Cataloged operation or query name.
+
+        Returns:
+            (kind, wired, summary, handlers) with the handler
+                refs in generated-spec form.
+        """
+        from ..composition import (
+            ENGINE_OP_METHODS,
+            QUERY_ENGINE_METHODS,
+            QUERY_METHODS,
+            _CRUD_OPERATIONS,
+        )
+        from ..interfaces.vocabulary import OPERATIONS
+
+        solvers = self._solvers.get(name) or {}
+        if solvers:
+            adapter = next(iter(solvers.values()))
+            cls = type(adapter)
+            doc = cls.__doc__ or ""
+            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
+            return (
+                "operation", True, summary,
+                [f"{cls.__module__}.{cls.__qualname__}"],
+            )
+        if name == "run_job":
+            from ..composition import Engine as _Engine
+
+            return (
+                "operation", True,
+                (_Engine._run_queued.__doc__ or "").splitlines()[0].strip(),
+                [
+                    "rocket_engine.composition.Engine.run",
+                    "rocket_engine.composition.Engine._run_queued",
+                ],
+            )
+        if name == "python_execute":
+            return (
+                "operation", True,
+                (PythonExecService.request_execution.__doc__ or ""
+                 ).splitlines()[0].strip(),
+                [
+                    "rocket_engine.composition.Engine.submit",
+                    "rocket_engine.execution.python_exec."
+                    "PythonExecService.request_execution",
+                ],
+            )
+        if name in _CRUD_OPERATIONS and hasattr(ProjectService, name):
+            target = getattr(ProjectService, name)
+            doc = target.__doc__ or ""
+            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
+            return (
+                "operation", True, summary,
+                [f"rocket_engine.project.service.ProjectService.{name}"],
+            )
+        method = QUERY_METHODS.get(name)
+        if method is not None:
+            target = getattr(ProjectService, method)
+            doc = target.__doc__ or ""
+            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
+            return (
+                "query", True, summary,
+                [f"rocket_engine.project.service.ProjectService.{method}"],
+            )
+        emethod = QUERY_ENGINE_METHODS.get(name)
+        if emethod is not None:
+            from ..composition import Engine as _Engine
+
+            target = getattr(_Engine, emethod)
+            doc = target.__doc__ or ""
+            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
+            return (
+                "query", True, summary,
+                [f"rocket_engine.composition.Engine.{emethod}"],
+            )
+        kind = "operation" if name in OPERATIONS else "query"
+        return (
+            kind, False,
+            f"Declared {kind} `{name}`; no handler wired yet.", [],
+        )
 
     def _query_events_since(self, arguments):
         """Serve the wired get_events_since query (cursor + resync)."""

@@ -1,6 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "operations": {
+    "annotate": {
+      "description": "Assign reference designators to unannotated instances.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.annotate"
+      ],
+      "kind": "operation",
+      "name": "annotate",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "prefixes": {
+          "description": "Optional per-symbol prefix overrides."
+        },
+        "sheet": {
+          "description": "Sheet entity id to scope to, or None for all."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict.",
+      "required": [],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
     "apply_mutations": {
       "description": "Apply a batch atomically under one new revision (I31).",
       "handlers": [
@@ -21,6 +45,29 @@
         "mutations"
       ],
       "returns": "Mutation mapping with revision transition, new head, actor, joined diff summary, rewind handle, the single appended event, per-mutation results, cursor, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "apply_transaction": {
+      "description": "Apply one atomic batch of entity changes (API-V1-EDITORS).",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.apply_transaction"
+      ],
+      "kind": "operation",
+      "name": "apply_transaction",
+      "properties": {
+        "changes": {
+          "description": "Change mappings with an op each."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, invalid_command, or the CAS refusal code.",
+      "required": [
+        "changes"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
       "type": "object",
       "wired": true
     },
@@ -55,6 +102,70 @@
         "data"
       ],
       "returns": "Mutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, request id, and the bumped entity_revision.",
+      "type": "object",
+      "wired": true
+    },
+    "bind_block": {
+      "description": "Bind a child sheet under a parent through a block instance.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.bind_block"
+      ],
+      "kind": "operation",
+      "name": "bind_block",
+      "properties": {
+        "child_sheet": {
+          "description": "Child sheet entity id."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "instance": {
+          "description": "Block instance entity id in the parent."
+        },
+        "parent_sheet": {
+          "description": "Parent sheet entity id."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, unknown_sheet, unknown_instance, binding_conflict, invalid_hierarchy.",
+      "required": [
+        "parent_sheet",
+        "child_sheet",
+        "instance"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
+    "bind_layers": {
+      "description": "Bind project layers to a technology profile and save.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.bind_layers"
+      ],
+      "kind": "operation",
+      "name": "bind_layers",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "layers": {
+          "description": "Layer entries with display attributes."
+        },
+        "profile": {
+          "description": "Technology profile mapping (name, version)."
+        },
+        "source": {
+          "description": "Provenance label for the profile source."
+        },
+        "version": {
+          "description": "Profile version pinned into the report."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, invalid_command for a malformed catalog.",
+      "required": [
+        "profile",
+        "layers"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
       "type": "object",
       "wired": true
     },
@@ -109,6 +220,36 @@
       "type": "object",
       "wired": true
     },
+    "create_cell": {
+      "description": "Create one physical cell definition.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.create_cell"
+      ],
+      "kind": "operation",
+      "name": "create_cell",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "name": {
+          "description": "Unique cell name."
+        },
+        "ports": {
+          "description": "Port records for the cell."
+        },
+        "properties": {
+          "description": "Text-to-text cell properties."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, invalid_cell, cell_exists.",
+      "required": [
+        "name",
+        "ports"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
     "create_entity": {
       "description": "Create one entity with an engine-minted id.",
       "handlers": [
@@ -150,6 +291,145 @@
         "new_project_id"
       ],
       "returns": "Creation mapping with the new project id, p12 head, actor, diff summary, revision transition, rewind handle, empty events, and request id.",
+      "type": "object",
+      "wired": true
+    },
+    "create_shape": {
+      "description": "Create one layout shape entity with provenance.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.create_shape"
+      ],
+      "kind": "operation",
+      "name": "create_shape",
+      "properties": {
+        "anchor": {
+          "description": "Optional cell-port anchor."
+        },
+        "data": {
+          "description": "Shape payload for the type."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "layer": {
+          "description": "Stable layer lid the shape is drawn on."
+        },
+        "profile": {
+          "description": "Technology profile pin for provenance."
+        },
+        "shape_type": {
+          "description": "One of rect, polygon, path, label."
+        },
+        "units": {
+          "description": "Coordinate units label."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, invalid_command for a malformed payload.",
+      "required": [
+        "shape_type",
+        "layer",
+        "data"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
+    "create_sheet": {
+      "description": "Create one schematic sheet.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.create_sheet"
+      ],
+      "kind": "operation",
+      "name": "create_sheet",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "name": {
+          "description": "Unique sheet name."
+        },
+        "title": {
+          "description": "Human title shown on the sheet frame."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, invalid_sheet, sheet_exists.",
+      "required": [
+        "name"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
+    "create_symbol": {
+      "description": "Create one project-owned symbol definition.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.create_symbol"
+      ],
+      "kind": "operation",
+      "name": "create_symbol",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "graphics": {
+          "description": "Editable graphics items."
+        },
+        "name": {
+          "description": "Unique symbol name."
+        },
+        "pins": {
+          "description": "Pin records with name, pin_type, x, and y."
+        },
+        "properties": {
+          "description": "Text-to-text symbol properties."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, invalid_symbol, symbol_exists.",
+      "required": [
+        "name",
+        "pins"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
+    "create_testbench": {
+      "description": "Create one scoped testbench block with editable source.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.create_testbench"
+      ],
+      "kind": "operation",
+      "name": "create_testbench",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "harness": {
+          "description": "Explicit harness binding mapping."
+        },
+        "kind": {
+          "description": "Template kind (spice, hdl, or cocotb)."
+        },
+        "name": {
+          "description": "Block name (source saved as testbench/<name>)."
+        },
+        "probes": {
+          "description": "Probe mappings inside the DUT closure."
+        },
+        "targets": {
+          "description": "DUT target set (primary plus additional)."
+        },
+        "template": {
+          "description": "Reserved template override (unused)."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, invalid_kind, invalid_target, overlapping_targets, illegal_scope.",
+      "required": [
+        "name",
+        "kind",
+        "targets"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
       "type": "object",
       "wired": true
     },
@@ -472,6 +752,85 @@
       "type": "object",
       "wired": true
     },
+    "ip_register": {
+      "description": "Register one prebuilt IP block revision under its PDK.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.ip_register"
+      ],
+      "kind": "operation",
+      "name": "ip_register",
+      "properties": {
+        "cell": {
+          "description": "Linked footprint cell reference."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "name": {
+          "description": "Block name within the PDK registry."
+        },
+        "pdk": {
+          "description": "Owning PDK id (the per-PDK invariant key)."
+        },
+        "pin_map": {
+          "description": "Explicit [{symPin, cellPin}] entries."
+        },
+        "reason": {
+          "description": "Recorded justification for shared scope."
+        },
+        "scope": {
+          "description": "\"pdk\" (default) or \"shared\" with a reason."
+        },
+        "symbol": {
+          "description": "Linked schematic symbol reference."
+        },
+        "version": {
+          "description": "Revision label (\"\" forbidden)."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, invalid_pdk, ip_exists, invalid_ip, invalid_scope.",
+      "required": [
+        "pdk",
+        "name",
+        "version",
+        "symbol",
+        "cell"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
+    "map_pins": {
+      "description": "Create or remap the pin map for one symbol-cell pair.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.map_pins"
+      ],
+      "kind": "operation",
+      "name": "map_pins",
+      "properties": {
+        "cell": {
+          "description": "Project cell name (or scoped upstream ref)."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "pin_map": {
+          "description": "Explicit [{symPin, cellPin}] entries."
+        },
+        "symbol": {
+          "description": "Project symbol name being linked."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, unknown_symbol, unknown_cell, invalid_linkage.",
+      "required": [
+        "symbol",
+        "cell",
+        "pin_map"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
     "materialize_nets": {
       "description": "Extract connectivity, upsert Net entities: gate, run, log.",
       "handlers": [
@@ -548,6 +907,53 @@
       "returns": "",
       "type": "object",
       "wired": false
+    },
+    "place_instance": {
+      "description": "Place one symbol instance on a sheet.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.place_instance"
+      ],
+      "kind": "operation",
+      "name": "place_instance",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "mirror": {
+          "description": "Mirror flag."
+        },
+        "properties": {
+          "description": "Text-to-text instance properties."
+        },
+        "ref": {
+          "description": "Annotation reference (\"\" means unannotated)."
+        },
+        "rotation": {
+          "description": "Rotation in degrees (0/90/180/270)."
+        },
+        "sheet": {
+          "description": "Sheet entity id hosting the instance."
+        },
+        "symbol": {
+          "description": "Bare project symbol name or scoped upstream ref."
+        },
+        "x": {
+          "description": "X position in schematic units."
+        },
+        "y": {
+          "description": "Y position in schematic units."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, unknown_sheet, unknown_symbol, invalid_instance.",
+      "required": [
+        "sheet",
+        "symbol",
+        "x",
+        "y"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
     },
     "place_junction": {
       "description": "Place one junction dot: gate, transact, advance, log.",
@@ -640,6 +1046,29 @@
         "mode"
       ],
       "returns": "Approval handle with execution_id, approval_id, pending_approval state, code hash, and the run_id only when the caller prescribed one.",
+      "type": "object",
+      "wired": true
+    },
+    "regenerate_testbench": {
+      "description": "Regenerate one block to a candidate without overwriting.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.regenerate_testbench"
+      ],
+      "kind": "operation",
+      "name": "regenerate_testbench",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "testbench": {
+          "description": "Testbench entity id."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, unknown_entity.",
+      "required": [
+        "testbench"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
       "type": "object",
       "wired": true
     },
@@ -1555,6 +1984,9 @@
             "rules": {
               "description": "Synthetic check {layer [l, d], width_um, space_um, name?} \u2014 one check form is required (rules or a deck file)."
             },
+            "waive_rules": {
+              "description": "Optional exact rule names to waive (DRC-BANDGAP-TRIAGE: the OFFGRID manufacturing-grid bucket on generator-grid layouts); waived violations drop from the parse with a `waived` tally."
+            },
             "workdir": {
               "description": "Run directory (default \".\")."
             }
@@ -2028,7 +2460,7 @@
         "cell",
         "tech"
       ],
-      "returns": "Result with cell, artifact paths, device_count, devices, and no violations.",
+      "returns": "Result with cell, artifact paths, total and device_count (both the device inventory size), devices, and no violations.",
       "tools": {
         "magic": {
           "adapter": "rocket_engine.adapters.extract_magic.MagicExtractAdapter",
@@ -4380,6 +4812,33 @@
       "type": "object",
       "wired": true
     },
+    "check_capability": {
+      "description": "Check whether one operation may run under a profile.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.capability_report"
+      ],
+      "kind": "query",
+      "name": "check_capability",
+      "properties": {
+        "bindings": {
+          "description": "Layer bindings the design needs."
+        },
+        "operation": {
+          "description": "Operation name to check."
+        },
+        "profile": {
+          "description": "Technology profile mapping with name, version, source hash, and capabilities."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a malformed profile.",
+      "required": [
+        "profile",
+        "operation"
+      ],
+      "returns": "Capability verdict with profile pin and I28 pin.",
+      "type": "object",
+      "wired": true
+    },
     "components_of": {
       "description": "List the component names one entity carries.",
       "handlers": [
@@ -4400,6 +4859,30 @@
       "type": "object",
       "wired": true
     },
+    "connection_graph": {
+      "description": "Report the connection graph or one net's occurrences.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.graph_report"
+      ],
+      "kind": "query",
+      "name": "connection_graph",
+      "properties": {
+        "net": {
+          "description": "Net name to collect, or None for the graph."
+        },
+        "net_pins": {
+          "description": "Materialized rows net collection needs."
+        },
+        "sheet": {
+          "description": "Sheet entity id to scope to, or None for all."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing net.",
+      "required": [],
+      "returns": "Graph nodes/edges (or occurrence rows) with I28 pin.",
+      "type": "object",
+      "wired": true
+    },
     "delete_layer_preset": {
       "description": "Delete one user layer preset (built-ins are undeletable).",
       "handlers": [
@@ -4417,6 +4900,26 @@
         "name"
       ],
       "returns": "Deletion record with the deleted name.",
+      "type": "object",
+      "wired": true
+    },
+    "describe_testbench": {
+      "description": "Describe one testbench block with freshness and pins.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.testbench_report"
+      ],
+      "kind": "query",
+      "name": "describe_testbench",
+      "properties": {
+        "testbench": {
+          "description": "Testbench entity id."
+        }
+      },
+      "raises": "ProjectError: unknown_entity for a missing block.",
+      "required": [
+        "testbench"
+      ],
+      "returns": "Record with freshness, pins, digest, and I28 pin.",
       "type": "object",
       "wired": true
     },
@@ -4443,6 +4946,30 @@
       "type": "object",
       "wired": true
     },
+    "erc_check": {
+      "description": "Run the ERC_TESTER rule set over the schematic.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.erc_report"
+      ],
+      "kind": "query",
+      "name": "erc_check",
+      "properties": {
+        "net_pins": {
+          "description": "Materialized rows for the pin-conflict rule."
+        },
+        "pin_conflict": {
+          "description": "Pin-conflict severity overrides."
+        },
+        "severities": {
+          "description": "Rule-to-severity overrides."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a malformed config.",
+      "required": [],
+      "returns": "Findings with verdict plus revision and I28 pin.",
+      "type": "object",
+      "wired": true
+    },
     "get_capabilities": {
       "description": "Report per-solver availability, store state, and the provision menu.",
       "handlers": [
@@ -4461,6 +4988,30 @@
       "raises": "SetupError: unknown_solver when a registered (operation, tool) has no detection spec \u2014 the report fails instead of misreporting a solver it cannot probe.",
       "required": [],
       "returns": "Capability mapping with operations, store, pdks, decks, cloud, and catalogue sections.",
+      "type": "object",
+      "wired": true
+    },
+    "get_cell": {
+      "description": "Read one entity component payload at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.get_component"
+      ],
+      "kind": "query",
+      "name": "get_cell",
+      "properties": {
+        "component": {
+          "description": "Component name to read."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        }
+      },
+      "raises": "ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.",
+      "required": [
+        "entity",
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.",
       "type": "object",
       "wired": true
     },
@@ -4544,6 +5095,30 @@
       "raises": "ProjectError: resync_required when the contiguity demand cannot be met \u2014 the reader must re-read the snapshot plus the full retained log and reset its cursor.",
       "required": [],
       "returns": "Retained events after the cursor, seq-ordered.",
+      "type": "object",
+      "wired": true
+    },
+    "get_instance": {
+      "description": "Read one entity component payload at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.get_component"
+      ],
+      "kind": "query",
+      "name": "get_instance",
+      "properties": {
+        "component": {
+          "description": "Component name to read."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        }
+      },
+      "raises": "ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.",
+      "required": [
+        "entity",
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.",
       "type": "object",
       "wired": true
     },
@@ -4702,6 +5277,54 @@
       "type": "object",
       "wired": true
     },
+    "get_sheet": {
+      "description": "Read one entity component payload at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.get_component"
+      ],
+      "kind": "query",
+      "name": "get_sheet",
+      "properties": {
+        "component": {
+          "description": "Component name to read."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        }
+      },
+      "raises": "ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.",
+      "required": [
+        "entity",
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.",
+      "type": "object",
+      "wired": true
+    },
+    "get_symbol": {
+      "description": "Read one entity component payload at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.get_component"
+      ],
+      "kind": "query",
+      "name": "get_symbol",
+      "properties": {
+        "component": {
+          "description": "Component name to read."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        }
+      },
+      "raises": "ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.",
+      "required": [
+        "entity",
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.",
+      "type": "object",
+      "wired": true
+    },
     "get_world_snapshot": {
       "description": "Bundle the miniplex-shaped world snapshot for mirrors.",
       "handlers": [
@@ -4717,6 +5340,76 @@
       "raises": "ProjectError: invalid_command for a non-bool flag; invalid_document for a corrupt entity record.",
       "required": [],
       "returns": "Snapshot mapping with project id, head revision, and entities sorted by id (each with id, kind, and components).",
+      "type": "object",
+      "wired": true
+    },
+    "instances_on_sheet": {
+      "description": "Filter entities to holders of one component.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.entities_with"
+      ],
+      "kind": "query",
+      "name": "instances_on_sheet",
+      "properties": {
+        "component": {
+          "description": "Component name holders must carry."
+        },
+        "predicate": {
+          "description": "Exact-match mapping the component payload must satisfy, or None for no filtering."
+        }
+      },
+      "raises": "ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.",
+      "required": [
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, component, predicate, and sorted holder ids.",
+      "type": "object",
+      "wired": true
+    },
+    "ip_get": {
+      "description": "Read one entity component payload at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.get_component"
+      ],
+      "kind": "query",
+      "name": "ip_get",
+      "properties": {
+        "component": {
+          "description": "Component name to read."
+        },
+        "entity": {
+          "description": "Entity id holding the component."
+        }
+      },
+      "raises": "ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.",
+      "required": [
+        "entity",
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.",
+      "type": "object",
+      "wired": true
+    },
+    "ip_search": {
+      "description": "Filter entities to holders of one component.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.entities_with"
+      ],
+      "kind": "query",
+      "name": "ip_search",
+      "properties": {
+        "component": {
+          "description": "Component name holders must carry."
+        },
+        "predicate": {
+          "description": "Exact-match mapping the component payload must satisfy, or None for no filtering."
+        }
+      },
+      "raises": "ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.",
+      "required": [
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, component, predicate, and sorted holder ids.",
       "type": "object",
       "wired": true
     },
@@ -4825,6 +5518,26 @@
       "type": "object",
       "wired": true
     },
+    "list_layers": {
+      "description": "Read one document as text at the current head.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.read_doc"
+      ],
+      "kind": "query",
+      "name": "list_layers",
+      "properties": {
+        "path": {
+          "description": "Document path to read."
+        }
+      },
+      "raises": "ProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.",
+      "required": [
+        "path"
+      ],
+      "returns": "Mapping with project id, head revision, canonical path, content text, and byte size.",
+      "type": "object",
+      "wired": true
+    },
     "list_projects": {
       "description": "List projects under the engine root, bound always included.",
       "handlers": [
@@ -4839,6 +5552,29 @@
       "type": "object",
       "wired": true
     },
+    "list_sheets": {
+      "description": "Filter entities to holders of one component.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.entities_with"
+      ],
+      "kind": "query",
+      "name": "list_sheets",
+      "properties": {
+        "component": {
+          "description": "Component name holders must carry."
+        },
+        "predicate": {
+          "description": "Exact-match mapping the component payload must satisfy, or None for no filtering."
+        }
+      },
+      "raises": "ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.",
+      "required": [
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, component, predicate, and sorted holder ids.",
+      "type": "object",
+      "wired": true
+    },
     "list_survivors": {
       "description": "Report crash survivors without executing anything (boot report).",
       "handlers": [
@@ -4850,6 +5586,76 @@
       "raises": "",
       "required": [],
       "returns": "Report with the session-ended message, the unfinished count, survivors in admit order, quarantined run ids, and unresolved entries.",
+      "type": "object",
+      "wired": true
+    },
+    "list_symbols": {
+      "description": "Filter entities to holders of one component.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.entities_with"
+      ],
+      "kind": "query",
+      "name": "list_symbols",
+      "properties": {
+        "component": {
+          "description": "Component name holders must carry."
+        },
+        "predicate": {
+          "description": "Exact-match mapping the component payload must satisfy, or None for no filtering."
+        }
+      },
+      "raises": "ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.",
+      "required": [
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, component, predicate, and sorted holder ids.",
+      "type": "object",
+      "wired": true
+    },
+    "list_testbenches": {
+      "description": "Filter entities to holders of one component.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.entities_with"
+      ],
+      "kind": "query",
+      "name": "list_testbenches",
+      "properties": {
+        "component": {
+          "description": "Component name holders must carry."
+        },
+        "predicate": {
+          "description": "Exact-match mapping the component payload must satisfy, or None for no filtering."
+        }
+      },
+      "raises": "ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.",
+      "required": [
+        "component"
+      ],
+      "returns": "Mapping with project id, head revision, component, predicate, and sorted holder ids.",
+      "type": "object",
+      "wired": true
+    },
+    "net_occurrences": {
+      "description": "Report the connection graph or one net's occurrences.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.graph_report"
+      ],
+      "kind": "query",
+      "name": "net_occurrences",
+      "properties": {
+        "net": {
+          "description": "Net name to collect, or None for the graph."
+        },
+        "net_pins": {
+          "description": "Materialized rows net collection needs."
+        },
+        "sheet": {
+          "description": "Sheet entity id to scope to, or None for all."
+        }
+      },
+      "raises": "ProjectError: invalid_command for a missing net.",
+      "required": [],
+      "returns": "Graph nodes/edges (or occurrence rows) with I28 pin.",
       "type": "object",
       "wired": true
     },
@@ -4873,6 +5679,27 @@
       "type": "object",
       "wired": true
     },
+    "plot_export": {
+      "description": "Export the schematic drawing (plot/export op).",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.plot_report"
+      ],
+      "kind": "query",
+      "name": "plot_export",
+      "properties": {
+        "format": {
+          "description": "Drawing format (svg or json)."
+        },
+        "sheet": {
+          "description": "Sheet entity id to scope to, or None for all."
+        }
+      },
+      "raises": "ProjectError: invalid_format for an unknown format.",
+      "required": [],
+      "returns": "Drawing with I28 pin.",
+      "type": "object",
+      "wired": true
+    },
     "read_doc": {
       "description": "Read one document as text at the current head.",
       "handlers": [
@@ -4893,6 +5720,26 @@
       "type": "object",
       "wired": true
     },
+    "read_entity_revision": {
+      "description": "Read the live per-entity revision of one entity.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.entity_revision"
+      ],
+      "kind": "query",
+      "name": "read_entity_revision",
+      "properties": {
+        "entity": {
+          "description": "Engine-minted entity id to inspect."
+        }
+      },
+      "raises": "ProjectError: unknown_entity for a missing id.",
+      "required": [
+        "entity"
+      ],
+      "returns": "Mapping with entity, head revision, and the live entity revision plus the I28 closure pin.",
+      "type": "object",
+      "wired": true
+    },
     "read_settings": {
       "description": "Read one settings kind at the current head.",
       "handlers": [
@@ -4910,6 +5757,33 @@
         "kind"
       ],
       "returns": "Mapping with project id, head revision, kind, stored flag, version, and the settings mapping.",
+      "type": "object",
+      "wired": true
+    },
+    "resolve_pin": {
+      "description": "Cross-probe one pin: symbol, cell, cell pin, net.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.probe_report"
+      ],
+      "kind": "query",
+      "name": "resolve_pin",
+      "properties": {
+        "instance": {
+          "description": "Instance entity id to probe."
+        },
+        "net_pins": {
+          "description": "Materialized rows, or None when none ran."
+        },
+        "pin": {
+          "description": "Symbol pin to probe."
+        }
+      },
+      "raises": "ProjectError: unknown_instance, unknown_pin.",
+      "required": [
+        "instance",
+        "pin"
+      ],
+      "returns": "Probe mapping with I28 pin.",
       "type": "object",
       "wired": true
     },
@@ -4983,6 +5857,103 @@
       "raises": "ProjectError: invalid_command when pdk id, revision, or path is missing; invalid_reference for an unknown PDK, a missing file, or an escaping path.",
       "required": [],
       "returns": "Mapping with asset_version, pdk_id, display_id, revision, canonical path, size, sha256, and the verbatim bytes base64-encoded.",
+      "type": "object",
+      "wired": true
+    },
+    "update_netlist": {
+      "description": "Write (or rewrite and diff) a netlist for the schematic.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.netlist_report"
+      ],
+      "kind": "query",
+      "name": "update_netlist",
+      "properties": {
+        "adopted": {
+          "description": "True includes adopted harness instances."
+        },
+        "language": {
+          "description": "Netlist language (spice or verilog)."
+        },
+        "net_pins": {
+          "description": "Materialized rows (required)."
+        },
+        "prior_text": {
+          "description": "Previously emitted text for rewrites."
+        },
+        "sheet": {
+          "description": "Sheet entity id to scope to, or None for all."
+        },
+        "title": {
+          "description": "Netlist/circuit title."
+        }
+      },
+      "raises": "ProjectError: invalid_language, invalid_command.",
+      "required": [
+        "language"
+      ],
+      "returns": "Netlist text, counts, and I28 pin.",
+      "type": "object",
+      "wired": true
+    },
+    "write_netlist": {
+      "description": "Write (or rewrite and diff) a netlist for the schematic.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.netlist_report"
+      ],
+      "kind": "query",
+      "name": "write_netlist",
+      "properties": {
+        "adopted": {
+          "description": "True includes adopted harness instances."
+        },
+        "language": {
+          "description": "Netlist language (spice or verilog)."
+        },
+        "net_pins": {
+          "description": "Materialized rows (required)."
+        },
+        "prior_text": {
+          "description": "Previously emitted text for rewrites."
+        },
+        "sheet": {
+          "description": "Sheet entity id to scope to, or None for all."
+        },
+        "title": {
+          "description": "Netlist/circuit title."
+        }
+      },
+      "raises": "ProjectError: invalid_language, invalid_command.",
+      "required": [
+        "language"
+      ],
+      "returns": "Netlist text, counts, and I28 pin.",
+      "type": "object",
+      "wired": true
+    },
+    "xprobe": {
+      "description": "Cross-probe one pin: symbol, cell, cell pin, net.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.probe_report"
+      ],
+      "kind": "query",
+      "name": "xprobe",
+      "properties": {
+        "instance": {
+          "description": "Instance entity id to probe."
+        },
+        "net_pins": {
+          "description": "Materialized rows, or None when none ran."
+        },
+        "pin": {
+          "description": "Symbol pin to probe."
+        }
+      },
+      "raises": "ProjectError: unknown_instance, unknown_pin.",
+      "required": [
+        "instance",
+        "pin"
+      ],
+      "returns": "Probe mapping with I28 pin.",
       "type": "object",
       "wired": true
     }

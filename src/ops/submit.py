@@ -1,4 +1,4 @@
-"""Engine ops mixin: Submit-immediate admission paths (CRUD, place-cell, pyexec)."""
+"""Engine ops mixin: Submit-immediate admission paths (CRUD, editors, place-cell, pyexec)."""
 
 import uuid
 from ..interfaces.yaml_dump import dump_yaml_text
@@ -6,11 +6,31 @@ from ..library.errors import LibraryError
 from ..project.errors import ProjectError
 
 
+#: Wave-3 editor operation -> required argument names.
+_EDITOR_OPS = {
+    "apply_transaction": ("changes",),
+    "create_shape": ("shape_type", "layer", "data"),
+    "create_sheet": ("name",),
+    "place_instance": ("sheet", "symbol", "x", "y"),
+    "bind_block": ("parent_sheet", "child_sheet", "instance"),
+    "create_symbol": ("name", "pins"),
+    "create_cell": ("name", "ports"),
+    "map_pins": ("symbol", "cell", "pin_map"),
+    "ip_register": ("pdk", "name", "version", "symbol", "cell"),
+    "bind_layers": ("profile", "layers"),
+    "annotate": (),
+    "create_testbench": ("name", "kind", "targets"),
+    "regenerate_testbench": ("testbench",),
+}
+
+
 class _SubmitMixin:
-    """Submit-immediate admission paths (CRUD, place-cell, pyexec)."""
+    """Submit-immediate admission paths (CRUD, editors, place-cell, pyexec)."""
 
     def _submit_crud(self, name, arguments, command):
-        """Execute one CRUD/rewind mutation immediately (no queue)."""
+        """Execute one CRUD/rewind/editor mutation immediately (no queue)."""
+        if name in _EDITOR_OPS:
+            return self._submit_editor(name, arguments, command)
         command_text = dump_yaml_text(
             {"operation": name, "arguments": arguments}
         )
@@ -258,6 +278,122 @@ class _SubmitMixin:
             command_text,
             expected_revision=arguments.get("expected_revision"),
         )
+
+    def _submit_editor(self, name, arguments, command):
+        """Execute one Wave-3 editor/testbench op immediately.
+
+        Required arguments are refused loudly before anything is
+        admitted; the ProjectService verb owns revision gating,
+        idempotent replay, and I28 pins.
+
+        Args:
+            name: Wave-3 editor operation name.
+            arguments: Operation arguments mapping.
+            command: Envelope carrying request_id.
+
+        Returns:
+            Mutation mapping for the editor verb.
+
+        Raises:
+            ProjectError: invalid_command for missing arguments.
+        """
+        missing = [
+            key for key in _EDITOR_OPS[name] if key not in arguments
+        ]
+        if missing:
+            raise ProjectError(
+                "invalid_command",
+                f"{name} needs {', '.join(sorted(missing))}.",
+            )
+        request_id = str(command.get("request_id") or uuid.uuid4().hex)
+        command_text = dump_yaml_text(
+            {"operation": name, "arguments": arguments}
+        )
+        head = arguments.get("expected_revision")
+        project = self._project
+        if name == "apply_transaction":
+            return project.apply_transaction(
+                arguments["changes"], request_id, command_text,
+                expected_revision=head)
+        if name == "create_shape":
+            return project.create_shape(
+                arguments["shape_type"], arguments["layer"],
+                arguments["data"], request_id, command_text,
+                units=arguments.get("units", "nm"),
+                profile=arguments.get("profile"),
+                anchor=arguments.get("anchor"),
+                expected_revision=head)
+        if name == "create_sheet":
+            return project.create_sheet(
+                arguments["name"], request_id, command_text,
+                title=arguments.get("title", ""),
+                expected_revision=head)
+        if name == "place_instance":
+            return project.place_instance(
+                arguments["sheet"], arguments["symbol"],
+                arguments["x"], arguments["y"], request_id,
+                command_text,
+                rotation=arguments.get("rotation", 0),
+                mirror=arguments.get("mirror", False),
+                properties=arguments.get("properties"),
+                ref=arguments.get("ref", ""),
+                expected_revision=head)
+        if name == "bind_block":
+            return project.bind_block(
+                arguments["parent_sheet"],
+                arguments["child_sheet"], arguments["instance"],
+                request_id, command_text,
+                expected_revision=head)
+        if name == "create_symbol":
+            return project.create_symbol(
+                arguments["name"], arguments["pins"], request_id,
+                command_text, graphics=arguments.get("graphics"),
+                properties=arguments.get("properties"),
+                expected_revision=head)
+        if name == "create_cell":
+            return project.create_cell(
+                arguments["name"], arguments["ports"], request_id,
+                command_text,
+                properties=arguments.get("properties"),
+                expected_revision=head)
+        if name == "map_pins":
+            return project.map_pins(
+                arguments["symbol"], arguments["cell"],
+                arguments["pin_map"], request_id, command_text,
+                expected_revision=head)
+        if name == "ip_register":
+            return project.ip_register(
+                arguments["pdk"], arguments["name"],
+                arguments["version"], arguments["symbol"],
+                arguments["cell"], request_id, command_text,
+                pin_map=arguments.get("pin_map"),
+                scope=arguments.get("scope", "pdk"),
+                reason=arguments.get("reason", ""),
+                expected_revision=head)
+        if name == "bind_layers":
+            return project.bind_layers(
+                arguments["profile"], arguments["layers"],
+                request_id, command_text,
+                source=arguments.get("source", "profile"),
+                version=arguments.get("version", "unknown"),
+                expected_revision=head)
+        if name == "annotate":
+            return project.annotate(
+                request_id, command_text,
+                prefixes=arguments.get("prefixes"),
+                sheet=arguments.get("sheet"),
+                expected_revision=head)
+        if name == "create_testbench":
+            return project.create_testbench(
+                arguments["name"], arguments["kind"],
+                arguments["targets"], request_id, command_text,
+                probes=arguments.get("probes"),
+                harness=arguments.get("harness"),
+                template=arguments.get("template"),
+                expected_revision=head)
+        return project.regenerate_testbench(
+            arguments["testbench"], request_id, command_text,
+            expected_revision=head)
 
     def _submit_place_cell(self, arguments, command):
         """Place a catalogue cell immediately (no queue, no solver).

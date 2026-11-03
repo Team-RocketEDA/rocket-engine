@@ -1,4 +1,10 @@
 {
+  "annotate": {
+    "kind": "operation",
+    "summary": "Assign reference designators to unannotated instances.",
+    "text": "Assign reference designators to unannotated instances.\n\nHandler: `rocket_engine.project.service.ProjectService.annotate`.\n\nCounters continue past the highest numeric suffix already\non the sheet set; annotated instances keep their refs.\n\nArguments:\n\n- `prefixes`: Optional per-symbol prefix overrides.\n- `sheet`: Sheet entity id to scope to, or None for all.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict.\n",
+    "wired": true
+  },
   "api_help": {
     "kind": "query",
     "summary": "Explain one cataloged name, or outline the whole catalog.",
@@ -29,16 +35,40 @@
     "text": "Apply a batch atomically under one new revision (I31).\n\nHandler: `rocket_engine.project.service.ProjectService.apply_mutations`.\n\nEvery mutation is validated before anything lands: any\nfailure names its document and leaves the revision, the\nfiles, and the log untouched. Only a fully valid batch at\nthe live head advances once and appends a single\nmutations_applied event.\n\nArguments:\n\n- `mutations` (required): Non-empty list of {op, path, content?} mappings; op is write (needs text content) or delete (takes none).\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with revision transition, new head, actor, joined diff summary, rewind handle, the single appended event, per-mutation results, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_command for a malformed batch (names the document when one is addressable); invalid_path or path_escape for a bad path; unknown_document for a delete of a missing document; revision_conflict for a stale head; invalid_ledger when a durable write fails (best effort rollback already attempted).\n\nCaution: All-or-nothing means one revision for the whole batch \u2014 a half-landed batch is a bug, never a state.\n",
     "wired": true
   },
+  "apply_transaction": {
+    "kind": "operation",
+    "summary": "Apply one atomic batch of entity changes (API-V1-EDITORS).",
+    "text": "Apply one atomic batch of entity changes (API-V1-EDITORS).\n\nHandler: `rocket_engine.project.service.ProjectService.apply_transaction`.\n\nAlias creation resolves LocalRef before persistence; every\nchange gates CAS, and a failed late change rolls back.\n\nArguments:\n\n- `changes` (required): Change mappings with an op each.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_command, or the CAS refusal code.\n",
+    "wired": true
+  },
   "attach_component": {
     "kind": "operation",
     "summary": "Attach one new component (refuses overwrites).",
     "text": "Attach one new component (refuses overwrites).\n\nHandler: `rocket_engine.project.service.ProjectService.attach_component`.\n\nLike set_component, but a component already living on the\nentity fails instead of overwriting \u2014 attach means add.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to attach.\n- `data` (required): JSON payload to store.\n- `expected_revision`: Revision the writer read.\n- `expected_entity_revision`: Entity revision the writer read (ENTITY-CAS); naming a current one skips the global head gate even beside a stale head.\n\nReturns:\n\nMutation mapping with entity, component, canonical address, storage path, revision transition, new head, actor, diff summary, rewind handle, the component_changed event, cursor, request id, and the bumped entity_revision.\n\nRaises:\n\nProjectError: component_exists when the component already lives on the entity; otherwise like set_component.\n\nCaution: Every accepted attach advances the revision \u2014 a second writer at the old head fails instead of merging, unless it names a current entity revision.\n",
     "wired": true
   },
+  "bind_block": {
+    "kind": "operation",
+    "summary": "Bind a child sheet under a parent through a block instance.",
+    "text": "Bind a child sheet under a parent through a block instance.\n\nHandler: `rocket_engine.project.service.ProjectService.bind_block`.\n\nArguments:\n\n- `parent_sheet` (required): Parent sheet entity id.\n- `child_sheet` (required): Child sheet entity id.\n- `instance` (required): Block instance entity id in the parent.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, unknown_sheet, unknown_instance, binding_conflict, invalid_hierarchy.\n",
+    "wired": true
+  },
+  "bind_layers": {
+    "kind": "operation",
+    "summary": "Bind project layers to a technology profile and save.",
+    "text": "Bind project layers to a technology profile and save.\n\nHandler: `rocket_engine.project.service.ProjectService.bind_layers`.\n\nBuilds the catalog from the given layers, binds it, and\nsaves the report as `layers/bindings.yaml`. A missing\nbinding never reinterprets geometry.\n\nArguments:\n\n- `profile` (required): Technology profile mapping (name, version).\n- `layers` (required): Layer entries with display attributes.\n- `source`: Provenance label for the profile source.\n- `version`: Profile version pinned into the report.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_command for a malformed catalog.\n",
+    "wired": true
+  },
   "cancel_job": {
     "kind": "operation",
     "summary": "Cancel a queued or running job through the job surface.",
     "text": "Cancel a queued or running job through the job surface.\n\nHandler: `rocket_engine.composition.Engine.cancel_job`.\n\npython_execute cells route to the cell runner (a live worker\ntree is killed promptly); solver-lane runs route to the\nexecution record plus the pool backlog, so a queued batch\nitem never executes after cancel. Finished runs keep their\nterminal state, truthfully.\n\nArguments:\n\n- `run_id` (required): Admitted execution id to cancel.\n\nReturns:\n\nMapping with run_id and state.\n\nRaises:\n\nProjectError: invalid_command without a run_id. ExecutionError: unknown_run for an id never admitted.\n",
+    "wired": true
+  },
+  "check_capability": {
+    "kind": "query",
+    "summary": "Check whether one operation may run under a profile.",
+    "text": "Check whether one operation may run under a profile.\n\nHandler: `rocket_engine.project.service.ProjectService.capability_report`.\n\nArguments:\n\n- `profile` (required): Technology profile mapping with name, version, source hash, and capabilities.\n- `operation` (required): Operation name to check.\n- `bindings`: Layer bindings the design needs.\n\nReturns:\n\nCapability verdict with profile pin and I28 pin.\n\nRaises:\n\nProjectError: invalid_command for a malformed profile.\n",
     "wired": true
   },
   "components_of": {
@@ -53,6 +83,18 @@
     "text": "Point one wire endpoint at a new terminus: gate, run, log.\n\nHandler: `rocket_engine.project.service.ProjectService.connect_endpoint`.\n\nGeometry never moves \u2014 only the ref changes \u2014 and a\nno-change call returns the head unadvanced with an empty\nevent list instead of logging a phantom revision.\n\nArguments:\n\n- `wire_id` (required): Wire entity to rewire.\n- `end` (required): \"a\" or \"b\" selecting the endpoint.\n- `ref` (required): Pin/port/junction/net entity ID, or null to dangle the endpoint.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with the connect receipt, revision transition, actor, diff summary, rewind handle, the appended event, cursor, and request id \u2014 or the unadvanced noop mapping when the ref is already set.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_endpoint for a bad selector; unknown_ref for a missing entity; invalid_ref for a wire/self ref; unsupported_operation without the ENGINE-ECS entity store.\n",
     "wired": true
   },
+  "connection_graph": {
+    "kind": "query",
+    "summary": "Report the connection graph or one net's occurrences.",
+    "text": "Report the connection graph or one net's occurrences.\n\nHandler: `rocket_engine.project.service.ProjectService.graph_report`.\n\nArguments:\n\n- `sheet`: Sheet entity id to scope to, or None for all.\n- `net`: Net name to collect, or None for the graph.\n- `net_pins`: Materialized rows net collection needs.\n\nReturns:\n\nGraph nodes/edges (or occurrence rows) with I28 pin.\n\nRaises:\n\nProjectError: invalid_command for a missing net.\n",
+    "wired": true
+  },
+  "create_cell": {
+    "kind": "operation",
+    "summary": "Create one physical cell definition.",
+    "text": "Create one physical cell definition.\n\nHandler: `rocket_engine.project.service.ProjectService.create_cell`.\n\nArguments:\n\n- `name` (required): Unique cell name.\n- `ports` (required): Port records for the cell.\n- `properties`: Text-to-text cell properties.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_cell, cell_exists.\n",
+    "wired": true
+  },
   "create_entity": {
     "kind": "operation",
     "summary": "Create one entity with an engine-minted id.",
@@ -63,6 +105,30 @@
     "kind": "operation",
     "summary": "Create one managed project at revision p12.",
     "text": "Create one managed project at revision p12.\n\nHandler: `rocket_engine.project.service.ProjectService.create_project`.\n\nThe new ledger starts clean (no events); the response still\ncarries the approval-UI fields with a None prior revision.\nIdempotent replays return the stored response instead of\nfailing as duplicates.\n\nArguments:\n\n- `new_project_id` (required): Slug for the project to create.\n\nReturns:\n\nCreation mapping with the new project id, p12 head, actor, diff summary, revision transition, rewind handle, empty events, and request id.\n\nRaises:\n\nProjectError: invalid_command without an engine root; invalid_project for a non-slug id; project_exists for a duplicate; request_conflict for a reused id with new text; invalid_ledger when the project dir cannot be written.\n\nCaution: Creating the bound project itself is a duplicate once its dir exists \u2014 create-then-list, never assume.\n",
+    "wired": true
+  },
+  "create_shape": {
+    "kind": "operation",
+    "summary": "Create one layout shape entity with provenance.",
+    "text": "Create one layout shape entity with provenance.\n\nHandler: `rocket_engine.project.service.ProjectService.create_shape`.\n\nArguments:\n\n- `shape_type` (required): One of rect, polygon, path, label.\n- `layer` (required): Stable layer lid the shape is drawn on.\n- `data` (required): Shape payload for the type.\n- `units`: Coordinate units label.\n- `profile`: Technology profile pin for provenance.\n- `anchor`: Optional cell-port anchor.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_command for a malformed payload.\n",
+    "wired": true
+  },
+  "create_sheet": {
+    "kind": "operation",
+    "summary": "Create one schematic sheet.",
+    "text": "Create one schematic sheet.\n\nHandler: `rocket_engine.project.service.ProjectService.create_sheet`.\n\nArguments:\n\n- `name` (required): Unique sheet name.\n- `title`: Human title shown on the sheet frame.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_sheet, sheet_exists.\n",
+    "wired": true
+  },
+  "create_symbol": {
+    "kind": "operation",
+    "summary": "Create one project-owned symbol definition.",
+    "text": "Create one project-owned symbol definition.\n\nHandler: `rocket_engine.project.service.ProjectService.create_symbol`.\n\nArguments:\n\n- `name` (required): Unique symbol name.\n- `pins` (required): Pin records with name, pin_type, x, and y.\n- `graphics`: Editable graphics items.\n- `properties`: Text-to-text symbol properties.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_symbol, symbol_exists.\n",
+    "wired": true
+  },
+  "create_testbench": {
+    "kind": "operation",
+    "summary": "Create one scoped testbench block with editable source.",
+    "text": "Create one scoped testbench block with editable source.\n\nHandler: `rocket_engine.project.service.ProjectService.create_testbench`.\n\nValidates the DUT scope, materializes the interface, renders\nthe template source, stores the record, and saves the source.\n\nArguments:\n\n- `name` (required): Block name (source saved as testbench/<name>).\n- `kind` (required): Template kind (spice, hdl, or cocotb).\n- `targets` (required): DUT target set (primary plus additional).\n- `probes`: Probe mappings inside the DUT closure.\n- `harness`: Explicit harness binding mapping.\n- `template`: Reserved template override (unused).\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_kind, invalid_target, overlapping_targets, illegal_scope.\n",
     "wired": true
   },
   "delete_doc": {
@@ -95,6 +161,12 @@
     "text": "Delete one wire: gate, remove, advance, log.\n\nHandler: `rocket_engine.project.service.ProjectService.delete_wire`.\n\nReferenced junctions persist; Net entities rematerialize\non the next materialize_nets call.\n\nArguments:\n\n- `wire_id` (required): Wire entity to delete.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with the delete receipt, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; unsupported_operation without the ENGINE-ECS entity store.\n",
     "wired": true
   },
+  "describe_testbench": {
+    "kind": "query",
+    "summary": "Describe one testbench block with freshness and pins.",
+    "text": "Describe one testbench block with freshness and pins.\n\nHandler: `rocket_engine.project.service.ProjectService.testbench_report`.\n\nArguments:\n\n- `testbench` (required): Testbench entity id.\n\nReturns:\n\nRecord with freshness, pins, digest, and I28 pin.\n\nRaises:\n\nProjectError: unknown_entity for a missing block.\n",
+    "wired": true
+  },
   "detach_component": {
     "kind": "operation",
     "summary": "Detach one component from its entity.",
@@ -113,6 +185,12 @@
     "text": "Filter entities to holders of one component.\n\nHandler: `rocket_engine.project.service.ProjectService.entities_with`.\n\nNets-of-block, pins-of-net, and open-problems become\nfilters here, not endpoints; backfilled docs answer the\ndoc component, so current project files stay filterable\nwithout migration.\n\nArguments:\n\n- `component` (required): Component name holders must carry.\n- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.\n\nReturns:\n\nMapping with project id, head revision, component, predicate, and sorted holder ids.\n\nRaises:\n\nProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
+  "erc_check": {
+    "kind": "query",
+    "summary": "Run the ERC_TESTER rule set over the schematic.",
+    "text": "Run the ERC_TESTER rule set over the schematic.\n\nHandler: `rocket_engine.project.service.ProjectService.erc_report`.\n\nArguments:\n\n- `severities`: Rule-to-severity overrides.\n- `pin_conflict`: Pin-conflict severity overrides.\n- `net_pins`: Materialized rows for the pin-conflict rule.\n\nReturns:\n\nFindings with verdict plus revision and I28 pin.\n\nRaises:\n\nProjectError: invalid_command for a malformed config.\n",
+    "wired": true
+  },
   "generate_views": {
     "kind": "operation",
     "summary": "generate_views via gdsfactory: registered layout recipes.",
@@ -123,6 +201,12 @@
     "kind": "query",
     "summary": "Report per-solver availability, store state, and the provision menu.",
     "text": "Report per-solver availability, store state, and the provision menu.\n\nHandler: `rocket_engine.composition.Engine.capabilities`.\n\nThe engine side of the Vivado-style setup surface: every\ncataloged operation with readiness (ready when some\nregistered tool resolves, or when the Engine serves the\noperation directly; blocked with reason + missing items\n+ remedy when no tool resolves; unsupported when no\nsolver is registered), each tool's availability from its\nown detection probe plus its adapter capabilities(),\nPDK/deck install state from the store, BYOC-gated cloud\nrows, and the checkbox provision catalogue with live\ninstall state.\n\nArguments:\n\n- `target`: Target passed to each adapter's capabilities().\n- `engine_root`: Explicit store root; ROCKETEDA_HOME resolution when omitted.\n\nReturns:\n\nCapability mapping with operations, store, pdks, decks, cloud, and catalogue sections.\n\nRaises:\n\nSetupError: unknown_solver when a registered (operation, tool) has no detection spec \u2014 the report fails instead of misreporting a solver it cannot probe.\n\nCaution: Read-only: never creates the store skeleton and never attempts network \u2014 cloud rows report gated with key_state missing until CLOUD-AUTH supplies keys plus an explicit opt-in (F12/I32 BYOC).\n",
+    "wired": true
+  },
+  "get_cell": {
+    "kind": "query",
+    "summary": "Read one entity component payload at the current head.",
+    "text": "Read one entity component payload at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.get_component`.\n\nEntities project over plain documents: the record lives at\nentities/<entity>.json and reads through the same bytes\nread_doc serves. Backfilled doc entities serve their\nprojected doc component here, so every world-snapshot\nentry stays addressable.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to read.\n\nReturns:\n\nMapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.\n\nRaises:\n\nProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
   "get_check_results": {
@@ -147,6 +231,12 @@
     "kind": "query",
     "summary": "Read retained events after a cursor, oldest first.",
     "text": "Read retained events after a cursor, oldest first.\n\nHandler: `rocket_engine.project.service.ProjectService.events_since`.\n\nArguments:\n\n- `cursor`: Only events with a higher seq are returned.\n- `require_contiguous_from`: Assert the reader holds contiguous history from this seq; fails when the history aged out of retention or runs ahead of the live cursor.\n\nReturns:\n\nRetained events after the cursor, seq-ordered.\n\nRaises:\n\nProjectError: resync_required when the contiguity demand cannot be met \u2014 the reader must re-read the snapshot plus the full retained log and reset its cursor.\n\nCaution: The log is retention-bounded, not infinite \u2014 a reader gone longer than the bound must resync, never assume the gap is empty.\n",
+    "wired": true
+  },
+  "get_instance": {
+    "kind": "query",
+    "summary": "Read one entity component payload at the current head.",
+    "text": "Read one entity component payload at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.get_component`.\n\nEntities project over plain documents: the record lives at\nentities/<entity>.json and reads through the same bytes\nread_doc serves. Backfilled doc entities serve their\nprojected doc component here, so every world-snapshot\nentry stays addressable.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to read.\n\nReturns:\n\nMapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.\n\nRaises:\n\nProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
   "get_job_status": {
@@ -191,10 +281,46 @@
     "text": "Bundle the resolved config for one session/run fetch.\n\nHandler: `rocket_engine.project.service.ProjectService.resolved_config`.\n\nAll five kinds in one call \u2014 clients render from this\nsnapshot instead of per-event round-trips. Absent files\nresolve to defaults; library refs stay unresolved here\n(callers resolve lib.tables refs against their own roots).\n\nArguments:\n\n- `session_id`: Client session this snapshot serves.\n- `run_id`: Run this snapshot was resolved for, if any.\n\nReturns:\n\nSnapshot mapping with project id, head revision, session/run ids, per-kind versions, all five settings mappings, and library refs.\n\nRaises:\n\nProjectError: future_format when any stored file is newer than the head; missing_migration when no link covers a stored version; invalid_document for stored settings that do not parse.\n",
     "wired": true
   },
+  "get_sheet": {
+    "kind": "query",
+    "summary": "Read one entity component payload at the current head.",
+    "text": "Read one entity component payload at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.get_component`.\n\nEntities project over plain documents: the record lives at\nentities/<entity>.json and reads through the same bytes\nread_doc serves. Backfilled doc entities serve their\nprojected doc component here, so every world-snapshot\nentry stays addressable.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to read.\n\nReturns:\n\nMapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.\n\nRaises:\n\nProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
+  "get_symbol": {
+    "kind": "query",
+    "summary": "Read one entity component payload at the current head.",
+    "text": "Read one entity component payload at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.get_component`.\n\nEntities project over plain documents: the record lives at\nentities/<entity>.json and reads through the same bytes\nread_doc serves. Backfilled doc entities serve their\nprojected doc component here, so every world-snapshot\nentry stays addressable.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to read.\n\nReturns:\n\nMapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.\n\nRaises:\n\nProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
   "get_world_snapshot": {
     "kind": "query",
     "summary": "Bundle the miniplex-shaped world snapshot for mirrors.",
     "text": "Bundle the miniplex-shaped world snapshot for mirrors.\n\nHandler: `rocket_engine.project.service.ProjectService.world_snapshot`.\n\nA pure read: snapshotting never writes and never advances\nthe revision, so backfill cannot break any revision. Each\nentry maps one-to-one onto a miniplex entity (id plus its\ncomponents), so mirrors load it directly.\n\nArguments:\n\n- `include_backfill`: Project current plain docs as read-only virtual entities alongside engine entities; engine entities only when False.\n\nReturns:\n\nSnapshot mapping with project id, head revision, and entities sorted by id (each with id, kind, and components).\n\nRaises:\n\nProjectError: invalid_command for a non-bool flag; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
+  "instances_on_sheet": {
+    "kind": "query",
+    "summary": "Filter entities to holders of one component.",
+    "text": "Filter entities to holders of one component.\n\nHandler: `rocket_engine.project.service.ProjectService.entities_with`.\n\nNets-of-block, pins-of-net, and open-problems become\nfilters here, not endpoints; backfilled docs answer the\ndoc component, so current project files stay filterable\nwithout migration.\n\nArguments:\n\n- `component` (required): Component name holders must carry.\n- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.\n\nReturns:\n\nMapping with project id, head revision, component, predicate, and sorted holder ids.\n\nRaises:\n\nProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
+  "ip_get": {
+    "kind": "query",
+    "summary": "Read one entity component payload at the current head.",
+    "text": "Read one entity component payload at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.get_component`.\n\nEntities project over plain documents: the record lives at\nentities/<entity>.json and reads through the same bytes\nread_doc serves. Backfilled doc entities serve their\nprojected doc component here, so every world-snapshot\nentry stays addressable.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to read.\n\nReturns:\n\nMapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.\n\nRaises:\n\nProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
+  "ip_register": {
+    "kind": "operation",
+    "summary": "Register one prebuilt IP block revision under its PDK.",
+    "text": "Register one prebuilt IP block revision under its PDK.\n\nHandler: `rocket_engine.project.service.ProjectService.ip_register`.\n\nArguments:\n\n- `pdk` (required): Owning PDK id (the per-PDK invariant key).\n- `name` (required): Block name within the PDK registry.\n- `version` (required): Revision label (\"\" forbidden).\n- `symbol` (required): Linked schematic symbol reference.\n- `cell` (required): Linked footprint cell reference.\n- `pin_map`: Explicit [{symPin, cellPin}] entries.\n- `scope`: \"pdk\" (default) or \"shared\" with a reason.\n- `reason`: Recorded justification for shared scope.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_pdk, ip_exists, invalid_ip, invalid_scope.\n",
+    "wired": true
+  },
+  "ip_search": {
+    "kind": "query",
+    "summary": "Filter entities to holders of one component.",
+    "text": "Filter entities to holders of one component.\n\nHandler: `rocket_engine.project.service.ProjectService.entities_with`.\n\nNets-of-block, pins-of-net, and open-problems become\nfilters here, not endpoints; backfilled docs answer the\ndoc component, so current project files stay filterable\nwithout migration.\n\nArguments:\n\n- `component` (required): Component name holders must carry.\n- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.\n\nReturns:\n\nMapping with project id, head revision, component, predicate, and sorted holder ids.\n\nRaises:\n\nProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
   "list_artifacts": {
@@ -233,16 +359,46 @@
     "text": "List built-in plus user layer preset names.\n\nHandler: `rocket_engine.composition.Engine.layer_presets`.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping with preset name records (name + builtin), built-ins first in pinned order.\n",
     "wired": true
   },
+  "list_layers": {
+    "kind": "query",
+    "summary": "Read one document as text at the current head.",
+    "text": "Read one document as text at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.read_doc`.\n\nArguments:\n\n- `path` (required): Document path to read.\n\nReturns:\n\nMapping with project id, head revision, canonical path, content text, and byte size.\n\nRaises:\n\nProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.\n",
+    "wired": true
+  },
   "list_projects": {
     "kind": "query",
     "summary": "List projects under the engine root, bound always included.",
     "text": "List projects under the engine root, bound always included.\n\nHandler: `rocket_engine.project.service.ProjectService.list_projects`.\n\nWithout an engine root the bound in-memory project is the\nwhole list; with one, every managed project dir plus the\nbound project is reported with its head revision.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nMapping with the bound project id and the sorted project entries (project_id + current_revision).\n\nRaises:\n\nProjectError: invalid_ledger when a sibling ledger head is unreadable or corrupt.\n\nCaution: A corrupt sibling ledger fails the whole list loudly instead of being skipped.\n",
     "wired": true
   },
+  "list_sheets": {
+    "kind": "query",
+    "summary": "Filter entities to holders of one component.",
+    "text": "Filter entities to holders of one component.\n\nHandler: `rocket_engine.project.service.ProjectService.entities_with`.\n\nNets-of-block, pins-of-net, and open-problems become\nfilters here, not endpoints; backfilled docs answer the\ndoc component, so current project files stay filterable\nwithout migration.\n\nArguments:\n\n- `component` (required): Component name holders must carry.\n- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.\n\nReturns:\n\nMapping with project id, head revision, component, predicate, and sorted holder ids.\n\nRaises:\n\nProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
   "list_survivors": {
     "kind": "query",
     "summary": "Report crash survivors without executing anything (boot report).",
     "text": "Report crash survivors without executing anything (boot report).\n\nHandler: `rocket_engine.composition.Engine.boot_report`.\n\nSurvivors are ledger admissions without a run event \u2014\ntypically a kill between admit and drain. Each carries its\ntaxonomy kind (retryable, ambiguous, poison), quarantine\nstate, and per-run Resume/Discard actions.\n\nArguments:\n\n- _(none)_\n\nReturns:\n\nReport with the session-ended message, the unfinished count, survivors in admit order, quarantined run ids, and unresolved entries.\n\nCaution: Report-only by construction: nothing executes here \u2014 every replay surface needs an explicit resume decision (resume_run, discard_run, resume_all_retryable).\n",
+    "wired": true
+  },
+  "list_symbols": {
+    "kind": "query",
+    "summary": "Filter entities to holders of one component.",
+    "text": "Filter entities to holders of one component.\n\nHandler: `rocket_engine.project.service.ProjectService.entities_with`.\n\nNets-of-block, pins-of-net, and open-problems become\nfilters here, not endpoints; backfilled docs answer the\ndoc component, so current project files stay filterable\nwithout migration.\n\nArguments:\n\n- `component` (required): Component name holders must carry.\n- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.\n\nReturns:\n\nMapping with project id, head revision, component, predicate, and sorted holder ids.\n\nRaises:\n\nProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
+  "list_testbenches": {
+    "kind": "query",
+    "summary": "Filter entities to holders of one component.",
+    "text": "Filter entities to holders of one component.\n\nHandler: `rocket_engine.project.service.ProjectService.entities_with`.\n\nNets-of-block, pins-of-net, and open-problems become\nfilters here, not endpoints; backfilled docs answer the\ndoc component, so current project files stay filterable\nwithout migration.\n\nArguments:\n\n- `component` (required): Component name holders must carry.\n- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.\n\nReturns:\n\nMapping with project id, head revision, component, predicate, and sorted holder ids.\n\nRaises:\n\nProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.\n",
+    "wired": true
+  },
+  "map_pins": {
+    "kind": "operation",
+    "summary": "Create or remap the pin map for one symbol-cell pair.",
+    "text": "Create or remap the pin map for one symbol-cell pair.\n\nHandler: `rocket_engine.project.service.ProjectService.map_pins`.\n\nArguments:\n\n- `symbol` (required): Project symbol name being linked.\n- `cell` (required): Project cell name (or scoped upstream ref).\n- `pin_map` (required): Explicit [{symPin, cellPin}] entries.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, unknown_symbol, unknown_cell, invalid_linkage.\n",
     "wired": true
   },
   "materialize_nets": {
@@ -257,11 +413,23 @@
     "text": "Translate one wire: gate, transact, advance, log.\n\nHandler: `rocket_engine.project.service.ProjectService.move_wire`.\n\nRefs survive the move; a zero move returns the head\nunadvanced with an empty event list.\n\nArguments:\n\n- `wire_id` (required): Wire entity to move.\n- `dx` (required): Integer x translation.\n- `dy` (required): Integer y translation.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with the move receipt, revision transition, actor, diff summary, rewind handle, the appended event, cursor, and request id \u2014 or the unadvanced noop mapping for a zero move.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_geometry for non-integer deltas; unsupported_operation without the ENGINE-ECS entity store.\n",
     "wired": true
   },
+  "net_occurrences": {
+    "kind": "query",
+    "summary": "Report the connection graph or one net's occurrences.",
+    "text": "Report the connection graph or one net's occurrences.\n\nHandler: `rocket_engine.project.service.ProjectService.graph_report`.\n\nArguments:\n\n- `sheet`: Sheet entity id to scope to, or None for all.\n- `net`: Net name to collect, or None for the graph.\n- `net_pins`: Materialized rows net collection needs.\n\nReturns:\n\nGraph nodes/edges (or occurrence rows) with I28 pin.\n\nRaises:\n\nProjectError: invalid_command for a missing net.\n",
+    "wired": true
+  },
   "place_cell": {
     "kind": "operation",
     "summary": "Declared operation `place_cell`; no handler wired yet.",
     "text": "Declared operation `place_cell`; no handler wired yet.\n\n`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.\n",
     "wired": false
+  },
+  "place_instance": {
+    "kind": "operation",
+    "summary": "Place one symbol instance on a sheet.",
+    "text": "Place one symbol instance on a sheet.\n\nHandler: `rocket_engine.project.service.ProjectService.place_instance`.\n\nArguments:\n\n- `sheet` (required): Sheet entity id hosting the instance.\n- `symbol` (required): Bare project symbol name or scoped upstream ref.\n- `x` (required): X position in schematic units.\n- `y` (required): Y position in schematic units.\n- `rotation`: Rotation in degrees (0/90/180/270).\n- `mirror`: Mirror flag.\n- `properties`: Text-to-text instance properties.\n- `ref`: Annotation reference (\"\" means unannotated).\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, unknown_sheet, unknown_symbol, invalid_instance.\n",
+    "wired": true
   },
   "place_junction": {
     "kind": "operation",
@@ -281,6 +449,12 @@
     "text": "Plan one flow's checks against the registered solvers.\n\nHandler: `rocket_engine.composition.Engine.plan_checks`.\n\nThe stage plan behind the check-plan display: every required\nstage with its readiness (ready when all tool entrypoints are\nregistered, otherwise required-but-blocked with the missing\noperations named), so a blocked M14 cites run_thermal instead\nof vanishing.\n\nArguments:\n\n- `flow` (required): Flow inventory to plan (digital/analog/photonic/mixed).\n\nReturns:\n\nPlan mapping with the flow, per-stage readiness plus missing operations, blocked/ready id lists, the sorted missing operations, and the current revision.\n\nRaises:\n\nProjectError: invalid_command for a missing or unknown flow.\n",
     "wired": true
   },
+  "plot_export": {
+    "kind": "query",
+    "summary": "Export the schematic drawing (plot/export op).",
+    "text": "Export the schematic drawing (plot/export op).\n\nHandler: `rocket_engine.project.service.ProjectService.plot_report`.\n\nArguments:\n\n- `format`: Drawing format (svg or json).\n- `sheet`: Sheet entity id to scope to, or None for all.\n\nReturns:\n\nDrawing with I28 pin.\n\nRaises:\n\nProjectError: invalid_format for an unknown format.\n",
+    "wired": true
+  },
   "python_execute": {
     "kind": "operation",
     "summary": "Request one execution: persist the cell, open an approval.",
@@ -293,10 +467,28 @@
     "text": "Read one document as text at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.read_doc`.\n\nArguments:\n\n- `path` (required): Document path to read.\n\nReturns:\n\nMapping with project id, head revision, canonical path, content text, and byte size.\n\nRaises:\n\nProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.\n",
     "wired": true
   },
+  "read_entity_revision": {
+    "kind": "query",
+    "summary": "Read the live per-entity revision of one entity.",
+    "text": "Read the live per-entity revision of one entity.\n\nHandler: `rocket_engine.project.service.ProjectService.entity_revision`.\n\nArguments:\n\n- `entity` (required): Engine-minted entity id to inspect.\n\nReturns:\n\nMapping with entity, head revision, and the live entity revision plus the I28 closure pin.\n\nRaises:\n\nProjectError: unknown_entity for a missing id.\n",
+    "wired": true
+  },
   "read_settings": {
     "kind": "query",
     "summary": "Read one settings kind at the current head.",
     "text": "Read one settings kind at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.read_settings`.\n\nAbsent files read as defaults (absent-default-is-clean):\na fresh project needs no seeding write. Stored files\nmigrate in memory to the known head; future files fail\ninstead of serving truth this engine cannot validate.\n\nArguments:\n\n- `kind` (required): Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables).\n\nReturns:\n\nMapping with project id, head revision, kind, stored flag, version, and the settings mapping.\n\nRaises:\n\nProjectError: invalid_command for an unknown kind or stored settings that break the kind schema; invalid_document for stored settings that do not parse; future_format for a file newer than the head; missing_migration when no link covers the stored version.\n",
+    "wired": true
+  },
+  "regenerate_testbench": {
+    "kind": "operation",
+    "summary": "Regenerate one block to a candidate without overwriting.",
+    "text": "Regenerate one block to a candidate without overwriting.\n\nHandler: `rocket_engine.project.service.ProjectService.regenerate_testbench`.\n\nA fresh link returns a noop receipt; a drifted link renders\nthe candidate beside the edited live source for adoption.\n\nArguments:\n\n- `testbench` (required): Testbench entity id.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, unknown_entity.\n",
+    "wired": true
+  },
+  "resolve_pin": {
+    "kind": "query",
+    "summary": "Cross-probe one pin: symbol, cell, cell pin, net.",
+    "text": "Cross-probe one pin: symbol, cell, cell pin, net.\n\nHandler: `rocket_engine.project.service.ProjectService.probe_report`.\n\nWithout extracted net_pins the probe reports net_known\nFalse instead of guessing.\n\nArguments:\n\n- `instance` (required): Instance entity id to probe.\n- `pin` (required): Symbol pin to probe.\n- `net_pins`: Materialized rows, or None when none ran.\n\nReturns:\n\nProbe mapping with I28 pin.\n\nRaises:\n\nProjectError: unknown_instance, unknown_pin.\n",
     "wired": true
   },
   "resume_all_retryable": {
@@ -344,7 +536,7 @@
   "run_drc": {
     "kind": "operation",
     "summary": "run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.",
-    "text": "run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.\n\nTools: `magic` (default), `klayout` \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.drc.magic.MagicDrcAdapter`, `rocket_engine.adapters.drc.klayout.KlayoutDrcAdapter`.\n\n#### Tool `magic`\n\nrun_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.\n\nServes the run_drc operation with deck.tool `magic` (the\noperation default). Tcl over stdin against a loaded cell; the\nresult is {total, violations[]} with rule/message plus\nlambda-unit bbox areas.\n\nArguments:\n\n- `cell` (required): Cell name loaded inside magic.\n- `cell_file` (required): Path to the .mag cell file.\n- `tech`: Magic tech name (default scmos).\n- `deck`: Optional mapping; deck.tool selects the solver (magic here, klayout for the KLayout path).\n- `workdir`: Run directory (default \".\").\n- `timeout_s`: Sim budget in seconds (default 120).\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\n{total, violations[]} with rule plus lambda-unit bbox areas.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell file.\n\n(execute) AdapterError: missing_dependency when the tech fails to load mid-run, runner_unavailable when magic output carries no DRC total line, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no DRC total line.\n\nCaution: Magic exits 0 even for broken cells and unknown techs \u2014 the verdict always comes from parsed output, never the exit code. Timeout rides the job budget.\n\n#### Tool `klayout`\n\nrun_drc via KLayout: synthetic checks or foundry .lydrc decks.\n\nServes the run_drc operation with deck.tool `klayout`. Two\nmodes: synthetic width/space checks over one layer from\n`rules`, or a foundry .lydrc deck over `gds_file` with\nviolations parsed from the report database. Locations are\nmetric bbox_um.\n\nArguments:\n\n- `gds_file` (required): GDS layout under check.\n- `rules`: Synthetic check {layer [l, d], width_um, space_um, name?} \u2014 one check form is required (rules or a deck file).\n- `deck_file`: Foundry .lydrc deck path (deck mode).\n- `deck`: Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode.\n- `cell`: Optional top-cell claim, honored in both modes: must name an existing top cell (multi-top GDS without a cell refuses loudly).\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\n{total, violations[]} with rule, message, and metric bbox_um where the deck reports geometry.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, missing_dependency for a missing klayout binary, invalid_reference for a missing GDS or deck file, invalid_command for a malformed rules mapping.\n\n(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable when klayout produces no report, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the deck run has no report, the report is not valid XML, or the synthetic output has no TOTAL line.\n\nCaution: KLayout exits 0 regardless \u2014 the verdict always comes from parsed output, never the exit code.\n",
+    "text": "run_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.\n\nTools: `magic` (default), `klayout` \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.drc.magic.MagicDrcAdapter`, `rocket_engine.adapters.drc.klayout.KlayoutDrcAdapter`.\n\n#### Tool `magic`\n\nrun_drc via Magic: batch DRC over .mag cells, lambda-unit boxes.\n\nServes the run_drc operation with deck.tool `magic` (the\noperation default). Tcl over stdin against a loaded cell; the\nresult is {total, violations[]} with rule/message plus\nlambda-unit bbox areas.\n\nArguments:\n\n- `cell` (required): Cell name loaded inside magic.\n- `cell_file` (required): Path to the .mag cell file.\n- `tech`: Magic tech name (default scmos).\n- `deck`: Optional mapping; deck.tool selects the solver (magic here, klayout for the KLayout path).\n- `workdir`: Run directory (default \".\").\n- `timeout_s`: Sim budget in seconds (default 120).\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\n{total, violations[]} with rule plus lambda-unit bbox areas.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell file.\n\n(execute) AdapterError: missing_dependency when the tech fails to load mid-run, runner_unavailable when magic output carries no DRC total line, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no DRC total line.\n\nCaution: Magic exits 0 even for broken cells and unknown techs \u2014 the verdict always comes from parsed output, never the exit code. Timeout rides the job budget.\n\n#### Tool `klayout`\n\nrun_drc via KLayout: synthetic checks or foundry .lydrc decks.\n\nServes the run_drc operation with deck.tool `klayout`. Two\nmodes: synthetic width/space checks over one layer from\n`rules`, or a foundry .lydrc deck over `gds_file` with\nviolations parsed from the report database. Locations are\nmetric bbox_um.\n\nArguments:\n\n- `gds_file` (required): GDS layout under check.\n- `rules`: Synthetic check {layer [l, d], width_um, space_um, name?} \u2014 one check form is required (rules or a deck file).\n- `deck_file`: Foundry .lydrc deck path (deck mode).\n- `deck`: Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode.\n- `cell`: Optional top-cell claim, honored in both modes: must name an existing top cell (multi-top GDS without a cell refuses loudly).\n- `waive_rules`: Optional exact rule names to waive (DRC-BANDGAP-TRIAGE: the OFFGRID manufacturing-grid bucket on generator-grid layouts); waived violations drop from the parse with a `waived` tally.\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\n{total, violations[], waived} with rule, message, and metric bbox_um where the deck reports geometry.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, missing_dependency for a missing klayout binary, invalid_reference for a missing GDS or deck file, invalid_command for a malformed rules mapping.\n\n(execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable when klayout produces no report, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the deck run has no report, the report is not valid XML, or the synthetic output has no TOTAL line.\n\nCaution: KLayout exits 0 regardless \u2014 the verdict always comes from parsed output, never the exit code.\n",
     "wired": true
   },
   "run_em": {
@@ -362,7 +554,7 @@
   "run_extraction": {
     "kind": "operation",
     "summary": "run_extraction via Magic: .mag cells to .ext/.spice netlists.",
-    "text": "run_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nTools: `magic` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.extract_magic.MagicExtractAdapter`.\n\n#### Tool `magic`\n\nrun_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nServes the run_extraction operation with deck.tool `magic` (the\nonly tool). Loads the cell, extracts all, and converts with\next2spice; the result carries the netlist artifact paths plus\ndevice counts.\n\nArguments:\n\n- `cell` (required): Cell name loaded and extracted.\n- `cell_file`: Path to the .mag cell file \u2014 one source is required (cell_file or gds_file, never both).\n- `gds_file`: Path to a GDSII layout file; the adapter runs `gds read` before `load`, then extracts as usual.\n- `tech` (required): Magic tech name \u2014 one tech form is required (tech, tech_file, or deck.path/tech_file/file).\n- `tech_file`: Magic tech file path (a hash-checked store deck by the caller).\n- `deck`: Optional mapping naming the tech file (deck.path/tech_file/file).\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\nResult with cell, artifact paths, device_count, devices, and no violations.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a missing cell, a Tcl-unsafe cell name, no tech form, both sources, or a Tcl-unsafe GDS path, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell, GDS, or tech file.\n\n(execute) AdapterError: invalid_reference for a missing workdir, missing_dependency when the tech fails to load mid-run, runner_unavailable when the output has no ext2spice marker or no .ext/.spice pair, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no ext2spice marker, no spice text, or no subckt block.\n\nCaution: Magic exits 0 even for broken cells \u2014 the verdict always comes from parsed output, never the exit code.\n",
+    "text": "run_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nTools: `magic` (default) \u2014 `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.\n\nHandlers: `rocket_engine.adapters.extract_magic.MagicExtractAdapter`.\n\n#### Tool `magic`\n\nrun_extraction via Magic: .mag cells to .ext/.spice netlists.\n\nServes the run_extraction operation with deck.tool `magic` (the\nonly tool). Loads the cell, extracts all, and converts with\next2spice; the result carries the netlist artifact paths plus\ndevice counts.\n\nArguments:\n\n- `cell` (required): Cell name loaded and extracted.\n- `cell_file`: Path to the .mag cell file \u2014 one source is required (cell_file or gds_file, never both).\n- `gds_file`: Path to a GDSII layout file; the adapter runs `gds read` before `load`, then extracts as usual.\n- `tech` (required): Magic tech name \u2014 one tech form is required (tech, tech_file, or deck.path/tech_file/file).\n- `tech_file`: Magic tech file path (a hash-checked store deck by the caller).\n- `deck`: Optional mapping naming the tech file (deck.path/tech_file/file).\n- `workdir`: Run directory (default \".\").\n- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.\n- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.\n\nReturns:\n\nResult with cell, artifact paths, total and device_count (both the device inventory size), devices, and no violations.\n\nRaises:\n\n(preflight) AdapterError: unsupported_operation for another operation, invalid_command for a missing cell, a Tcl-unsafe cell name, no tech form, both sources, or a Tcl-unsafe GDS path, missing_dependency for a missing magic binary or unloadable tech, invalid_reference for a missing cell, GDS, or tech file.\n\n(execute) AdapterError: invalid_reference for a missing workdir, missing_dependency when the tech fails to load mid-run, runner_unavailable when the output has no ext2spice marker or no .ext/.spice pair, plus the preflight codes (execute re-checks first).\n\n(parse) AdapterError: runner_unavailable when the output has no ext2spice marker, no spice text, or no subckt block.\n\nCaution: Magic exits 0 even for broken cells \u2014 the verdict always comes from parsed output, never the exit code.\n",
     "wired": true
   },
   "run_formal": {
@@ -467,16 +659,34 @@
     "text": "Split one wire at an interior point: gate, run, log.\n\nHandler: `rocket_engine.project.service.ProjectService.split_wire`.\n\nThe junction dot, the head rewrite, and the new tail wire\nland in one revision under one event.\n\nArguments:\n\n- `wire_id` (required): Wire entity to split.\n- `at` (required): Integer [x, y] point on the polyline interior.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with the split receipt (wire, junction, new_wire), revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_split for a point off the interior or a multi-polyline wire; unsupported_operation without the ENGINE-ECS entity store.\n",
     "wired": true
   },
+  "update_netlist": {
+    "kind": "query",
+    "summary": "Write (or rewrite and diff) a netlist for the schematic.",
+    "text": "Write (or rewrite and diff) a netlist for the schematic.\n\nHandler: `rocket_engine.project.service.ProjectService.netlist_report`.\n\nHarness-owned instances stay excluded unless the design\nadopted the block. Dangling pins emit explicit stubs.\n\nArguments:\n\n- `language` (required): Netlist language (spice or verilog).\n- `sheet`: Sheet entity id to scope to, or None for all.\n- `title`: Netlist/circuit title.\n- `net_pins`: Materialized rows (required).\n- `prior_text`: Previously emitted text for rewrites.\n- `adopted`: True includes adopted harness instances.\n\nReturns:\n\nNetlist text, counts, and I28 pin.\n\nRaises:\n\nProjectError: invalid_language, invalid_command.\n",
+    "wired": true
+  },
   "write_doc": {
     "kind": "operation",
     "summary": "Write one document: gate, store, advance, log.",
     "text": "Write one document: gate, store, advance, log.\n\nHandler: `rocket_engine.project.service.ProjectService.write_doc`.\n\nA resubmitted envelope returns its stored response without\nadvancing; a new envelope gates its expected_revision, and\nonly an accepted write advances the revision and appends\nthe doc_written event.\n\nArguments:\n\n- `path` (required): Document path to create or overwrite.\n- `content` (required): UTF-8 text to store (1 MB limit).\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, and request id.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_path or path_escape for a bad path; invalid_command for non-text or oversize content or a directory path; revision_conflict for a stale head; invalid_ledger when the durable write fails.\n\nCaution: Every accepted write advances the revision \u2014 a second writer at the old head fails instead of merging.\n",
     "wired": true
   },
+  "write_netlist": {
+    "kind": "query",
+    "summary": "Write (or rewrite and diff) a netlist for the schematic.",
+    "text": "Write (or rewrite and diff) a netlist for the schematic.\n\nHandler: `rocket_engine.project.service.ProjectService.netlist_report`.\n\nHarness-owned instances stay excluded unless the design\nadopted the block. Dangling pins emit explicit stubs.\n\nArguments:\n\n- `language` (required): Netlist language (spice or verilog).\n- `sheet`: Sheet entity id to scope to, or None for all.\n- `title`: Netlist/circuit title.\n- `net_pins`: Materialized rows (required).\n- `prior_text`: Previously emitted text for rewrites.\n- `adopted`: True includes adopted harness instances.\n\nReturns:\n\nNetlist text, counts, and I28 pin.\n\nRaises:\n\nProjectError: invalid_language, invalid_command.\n",
+    "wired": true
+  },
   "write_settings": {
     "kind": "operation",
     "summary": "Write one settings kind: validate, gate, merge, log.",
     "text": "Write one settings kind: validate, gate, merge, log.\n\nHandler: `rocket_engine.project.service.ProjectService.write_settings`.\n\nFull replacement of the kind's truth, persisted as the\nsettings/<kind>.yaml document through the same admission\nmachinery as write_doc (idempotent request ids, revision\ngate, one new revision, one event, atomic persist, rewind\nsnapshots). The write merges onto the stored bytes so\nunknown keys survive; data maps replace wholesale, so\ntext.vars deletes propagate. Unchanged bytes skip the\nwrite: no new revision, no event.\n\nA resubmitted envelope returns its stored response without\nadvancing.\n\nArguments:\n\n- `kind` (required): Settings kind (chip.manifest, design.rules, net.classes, text.vars, lib.tables).\n- `settings` (required): Complete settings mapping at the head version.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with path, revision transition, new head, actor, diff summary, rewind handle, the appended event, cursor, request id, written flag, and settings version.\n\nRaises:\n\nProjectError: request_conflict for a reused id with new text; invalid_command for an unknown kind or settings that break the kind schema; revision_conflict for a stale head; future_format when the stored file is newer than the head; invalid_document for stored settings that do not parse; invalid_ledger when the durable write fails.\n\nCaution: Every accepted write advances the revision \u2014 a second writer at the old head fails instead of merging \u2014 and text.vars writes delete vars the new map omits.\n",
+    "wired": true
+  },
+  "xprobe": {
+    "kind": "query",
+    "summary": "Cross-probe one pin: symbol, cell, cell pin, net.",
+    "text": "Cross-probe one pin: symbol, cell, cell pin, net.\n\nHandler: `rocket_engine.project.service.ProjectService.probe_report`.\n\nWithout extracted net_pins the probe reports net_known\nFalse instead of guessing.\n\nArguments:\n\n- `instance` (required): Instance entity id to probe.\n- `pin` (required): Symbol pin to probe.\n- `net_pins`: Materialized rows, or None when none ran.\n\nReturns:\n\nProbe mapping with I28 pin.\n\nRaises:\n\nProjectError: unknown_instance, unknown_pin.\n",
     "wired": true
   }
 }

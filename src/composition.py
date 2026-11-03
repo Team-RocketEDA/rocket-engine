@@ -107,9 +107,12 @@ from .library.apig_catalog import (
 )
 from .library.catalog import Catalog
 from .library.errors import LibraryError
+from .execution.runtime import EngineRuntime
 from .project.errors import ProjectError
 from .project.service import ProjectService
 from .workflows.completion import design_completion_report, plan_checks_report
+from .ops.deferred import _DeferredMixin
+from .ops.editors import _EditorMixin
 from .ops.submit import _SubmitMixin
 from .ops.queries import _QueryMixin
 from .ops.runs import _RunMixin, refuse_smuggled_budget
@@ -154,6 +157,28 @@ QUERY_METHODS = {
     "get_world_snapshot": "world_snapshot",
     "read_settings": "read_settings",
     "get_resolved_config": "resolved_config",
+    "read_entity_revision": "entity_revision",
+    "list_sheets": "entities_with",
+    "get_sheet": "get_component",
+    "get_instance": "get_component",
+    "instances_on_sheet": "entities_with",
+    "list_symbols": "entities_with",
+    "get_symbol": "get_component",
+    "get_cell": "get_component",
+    "list_layers": "read_doc",
+    "check_capability": "capability_report",
+    "ip_search": "entities_with",
+    "ip_get": "get_component",
+    "connection_graph": "graph_report",
+    "net_occurrences": "graph_report",
+    "xprobe": "probe_report",
+    "resolve_pin": "probe_report",
+    "plot_export": "plot_report",
+    "erc_check": "erc_report",
+    "write_netlist": "netlist_report",
+    "update_netlist": "netlist_report",
+    "list_testbenches": "entities_with",
+    "describe_testbench": "testbench_report",
 }
 
 # Wired query -> Engine method serving it. Same docs/help seam as
@@ -259,6 +284,50 @@ _CRUD_OPERATIONS = frozenset(
         "delete_wire",
         "delete_junction",
         "materialize_nets",
+        "apply_transaction",
+        "create_shape",
+        "create_sheet",
+        "place_instance",
+        "bind_block",
+        "create_symbol",
+        "create_cell",
+        "map_pins",
+        "ip_register",
+        "bind_layers",
+        "annotate",
+        "create_testbench",
+        "regenerate_testbench",
+    }
+)
+
+# Wave-3 reads needing typed Engine dispatch (argument defaults
+# and assembly the generic component seams do not provide). The
+# docs seam stays QUERY_METHODS; this set only routes submit to
+# the _EditorMixin handler.
+_EDITOR_READS = frozenset(
+    {
+        "read_entity_revision",
+        "list_sheets",
+        "get_sheet",
+        "get_instance",
+        "instances_on_sheet",
+        "list_symbols",
+        "get_symbol",
+        "get_cell",
+        "list_layers",
+        "check_capability",
+        "ip_search",
+        "ip_get",
+        "connection_graph",
+        "net_occurrences",
+        "xprobe",
+        "resolve_pin",
+        "plot_export",
+        "erc_check",
+        "write_netlist",
+        "update_netlist",
+        "list_testbenches",
+        "describe_testbench",
     }
 )
 
@@ -275,7 +344,14 @@ _LOCATION_KEYS = (
 )
 
 
-class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
+class Engine(
+    _SubmitMixin,
+    _QueryMixin,
+    _RunMixin,
+    _GateMixin,
+    _EditorMixin,
+    _DeferredMixin,
+):
     """Composition root: one bound project plus its solvers and services.
 
     Args:
@@ -364,6 +440,11 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             project_root=project_dir,
             dispatcher=OpDispatcher(
                 self, project_id=project_id, actor=actor),
+        )
+        self._deferred_receipts = {}
+        self._deferred = EngineRuntime(
+            project_id, runner=self._deferred_runner,
+            auto_dispatch=False,
         )
 
     def snapshot(self):
@@ -617,6 +698,8 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             return self._project.world_snapshot(
                 include_backfill=arguments.get("include_backfill", True)
             )
+        if name in _EDITOR_READS:
+            return self._query_editor(name, arguments)
         if name in _JOB_QUERIES:
             return self._query_job(name, arguments)
         if name == "list_artifacts":
@@ -665,11 +748,17 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             # (no ledger admit, no revision gate — it names a live run).
             return self.cancel_job(arguments.get("run_id"))
         if name in _CRUD_OPERATIONS:
-            return self._submit_crud(name, arguments, command)
+            out = self._submit_crud(name, arguments, command)
+            self._deferred.apply_edit()
+            return out
         if name == "place_cell":
-            return self._submit_place_cell(arguments, command)
+            out = self._submit_place_cell(arguments, command)
+            self._deferred.apply_edit()
+            return out
         if name == "python_execute":
-            return self._submit_pyexec(arguments, command)
+            out = self._submit_pyexec(arguments, command)
+            self._deferred.apply_edit()
+            return out
         if not self._solvers.get(name):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
@@ -758,6 +847,7 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             raise
         if not force:
             self._coalescer.complete(ack["run_id"], completion)
+        self._deferred.apply_edit()
         self._maybe_record_evidence(name, completion, arguments)
         return merge_ack_completion(ack, completion)
 
@@ -994,26 +1084,6 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
         """
         return self._replay.resume_all_retryable()
 
-    def replay_pending(self):
-        """Resume crash-surviving RETRYABLE admissions, oldest first.
-
-        Explicit-call compat over the gated batch: same survivor
-        set as the boot report, but only RETRYABLE runs execute —
-        ambiguous and poison survivors are skipped loudly in the
-        report instead of re-running.
-
-        Returns:
-            Report with replayed run ids (the resumed set, seq
-                order), their completions, and skipped entries.
-        """
-        batch = self._replay.resume_all_retryable()
-        return {
-            "replayed": batch["resumed"],
-            "completions": batch["completions"],
-            "skipped": batch["skipped"],
-        }
-
-
     def resolve_python_approval(self, approval_id, decision, actor=None):
         """Resolve a python_execute approval via the human UI route.
 
@@ -1055,82 +1125,6 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             resolves anything.
         """
         return self._pyexec.console_view()
-
-    def _describe_op(self, name):
-        """Resolve one cataloged name to its live serving handler.
-
-        The live twin of the MCP server's describe_tool over engine
-        objects, so api_search/api_info/api_help report the same
-        summaries the generated docs and MCP descriptions serve.
-
-        Args:
-            name: Cataloged operation or query name.
-
-        Returns:
-            (kind, wired, summary, handlers) with the handler
-                refs in generated-spec form.
-        """
-        solvers = self._solvers.get(name) or {}
-        if solvers:
-            adapter = next(iter(solvers.values()))
-            cls = type(adapter)
-            doc = cls.__doc__ or ""
-            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
-            return (
-                "operation", True, summary,
-                [f"{cls.__module__}.{cls.__qualname__}"],
-            )
-        if name == "run_job":
-            return (
-                "operation", True,
-                (Engine._run_queued.__doc__ or "").splitlines()[0].strip(),
-                [
-                    "rocket_engine.composition.Engine.run",
-                    "rocket_engine.composition.Engine._run_queued",
-                ],
-            )
-        if name == "python_execute":
-            return (
-                "operation", True,
-                (PythonExecService.request_execution.__doc__ or ""
-                 ).splitlines()[0].strip(),
-                [
-                    "rocket_engine.composition.Engine.submit",
-                    "rocket_engine.execution.python_exec."
-                    "PythonExecService.request_execution",
-                ],
-            )
-        if name in _CRUD_OPERATIONS and hasattr(ProjectService, name):
-            target = getattr(ProjectService, name)
-            doc = target.__doc__ or ""
-            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
-            return (
-                "operation", True, summary,
-                [f"rocket_engine.project.service.ProjectService.{name}"],
-            )
-        method = QUERY_METHODS.get(name)
-        if method is not None:
-            target = getattr(ProjectService, method)
-            doc = target.__doc__ or ""
-            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
-            return (
-                "query", True, summary,
-                [f"rocket_engine.project.service.ProjectService.{method}"],
-            )
-        emethod = QUERY_ENGINE_METHODS.get(name)
-        if emethod is not None:
-            target = getattr(Engine, emethod)
-            doc = target.__doc__ or ""
-            summary = doc.splitlines()[0].strip() if doc.splitlines() else ""
-            return (
-                "query", True, summary,
-                [f"rocket_engine.composition.Engine.{emethod}"],
-            )
-        kind = "operation" if name in OPERATIONS else "query"
-        return (
-            kind, False,
-            f"Declared {kind} `{name}`; no handler wired yet.", [],
-        )
 
     def api_search(self, query=None):
         """Search cataloged operations and queries by name or summary.

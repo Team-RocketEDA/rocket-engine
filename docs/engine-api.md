@@ -25,12 +25,21 @@ text, identical to the section bodies below.
 
 | Operation | Wired | Tools | Summary |
 |---|---|---|---|
+| `annotate` | yes | — | Assign reference designators to unannotated instances. |
 | `apply_mutations` | yes | — | Apply a batch atomically under one new revision (I31). |
+| `apply_transaction` | yes | — | Apply one atomic batch of entity changes (API-V1-EDITORS). |
 | `attach_component` | yes | — | Attach one new component (refuses overwrites). |
+| `bind_block` | yes | — | Bind a child sheet under a parent through a block instance. |
+| `bind_layers` | yes | — | Bind project layers to a technology profile and save. |
 | `cancel_job` | yes | — | Cancel a queued or running job through the job surface. |
 | `connect_endpoint` | yes | — | Point one wire endpoint at a new terminus: gate, run, log. |
+| `create_cell` | yes | — | Create one physical cell definition. |
 | `create_entity` | yes | — | Create one entity with an engine-minted id. |
 | `create_project` | yes | — | Create one managed project at revision p12. |
+| `create_shape` | yes | — | Create one layout shape entity with provenance. |
+| `create_sheet` | yes | — | Create one schematic sheet. |
+| `create_symbol` | yes | — | Create one project-owned symbol definition. |
+| `create_testbench` | yes | — | Create one scoped testbench block with editable source. |
 | `delete_doc` | yes | — | Delete one document: gate, remove, advance, log. |
 | `delete_entity` | yes | — | Delete one entity and its projected record. |
 | `delete_junction` | yes | — | Delete one unreferenced junction: gate, remove, log. |
@@ -38,12 +47,16 @@ text, identical to the section bodies below.
 | `detach_component` | yes | — | Detach one component from its entity. |
 | `discard_run` | yes | — | Explicitly discard one crash survivor, never executing it. |
 | `generate_views` | yes | `gdsfactory` (default) | generate_views via gdsfactory: registered layout recipes. |
+| `ip_register` | yes | — | Register one prebuilt IP block revision under its PDK. |
+| `map_pins` | yes | — | Create or remap the pin map for one symbol-cell pair. |
 | `materialize_nets` | yes | — | Extract connectivity, upsert Net entities: gate, run, log. |
 | `move_wire` | yes | — | Translate one wire: gate, transact, advance, log. |
 | `place_cell` | no | — | Declared operation `place_cell`; no handler wired yet. |
+| `place_instance` | yes | — | Place one symbol instance on a sheet. |
 | `place_junction` | yes | — | Place one junction dot: gate, transact, advance, log. |
 | `place_wire` | yes | — | Place one wire: gate, transact, advance, log. |
 | `python_execute` | yes | — | Request one execution: persist the cell, open an approval. |
+| `regenerate_testbench` | yes | — | Regenerate one block to a candidate without overwriting. |
 | `resume_all_retryable` | yes | — | Resume every RETRYABLE survivor, oldest first (gated). |
 | `resume_run` | yes | — | Explicitly resume one crash survivor through its solver. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
@@ -81,14 +94,20 @@ text, identical to the section bodies below.
 | `api_info` | yes | `rocket_engine.composition.Engine.api_info` | Describe one cataloged operation or query. |
 | `api_search` | yes | `rocket_engine.composition.Engine.api_search` | Search cataloged operations and queries by name or summary. |
 | `apply_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_apply` | Explicitly apply one layer preset to a Stackup. |
+| `check_capability` | yes | `rocket_engine.project.service.ProjectService.capability_report` | Check whether one operation may run under a profile. |
 | `components_of` | yes | `rocket_engine.project.service.ProjectService.components_of` | List the component names one entity carries. |
+| `connection_graph` | yes | `rocket_engine.project.service.ProjectService.graph_report` | Report the connection graph or one net's occurrences. |
 | `delete_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_delete` | Delete one user layer preset (built-ins are undeletable). |
+| `describe_testbench` | yes | `rocket_engine.project.service.ProjectService.testbench_report` | Describe one testbench block with freshness and pins. |
 | `entities_with` | yes | `rocket_engine.project.service.ProjectService.entities_with` | Filter entities to holders of one component. |
+| `erc_check` | yes | `rocket_engine.project.service.ProjectService.erc_report` | Run the ERC_TESTER rule set over the schematic. |
 | `get_capabilities` | yes | `rocket_engine.composition.Engine.capabilities` | Report per-solver availability, store state, and the provision menu. |
+| `get_cell` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
 | `get_check_results` | yes | `rocket_engine.composition.Engine.check_results` | Read the latest check verdict per operation. |
 | `get_component` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
 | `get_design_completion` | yes | `rocket_engine.composition.Engine.design_completion` | Judge one flow's completion; refuse while blockers stand. |
 | `get_events_since` | yes | `rocket_engine.project.service.ProjectService.events_since` | Read retained events after a cursor, oldest first. |
+| `get_instance` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
 | `get_job_status` | yes | `rocket_engine.composition.Engine.job_status` | Read one run's state, verdict, and evidence links. |
 | `get_layer_rows` | yes | `rocket_engine.composition.Engine.layer_rows` | Render viewer rows for one PDK's stackup. |
 | `get_layer_stackup` | yes | `rocket_engine.composition.Engine.layer_stackup` | Serve one PDK's read-only layer stackup. |
@@ -96,22 +115,61 @@ text, identical to the section bodies below.
 | `get_project_snapshot` | yes | `rocket_engine.project.service.ProjectService.snapshot` | Read the ledger head: project, revision, and event cursor. |
 | `get_python_console` | yes | `rocket_engine.composition.Engine.python_console` | Read the python_execute console view. |
 | `get_resolved_config` | yes | `rocket_engine.project.service.ProjectService.resolved_config` | Bundle the resolved config for one session/run fetch. |
+| `get_sheet` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
+| `get_symbol` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
 | `get_world_snapshot` | yes | `rocket_engine.project.service.ProjectService.world_snapshot` | Bundle the miniplex-shaped world snapshot for mirrors. |
+| `instances_on_sheet` | yes | `rocket_engine.project.service.ProjectService.entities_with` | Filter entities to holders of one component. |
+| `ip_get` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
+| `ip_search` | yes | `rocket_engine.project.service.ProjectService.entities_with` | Filter entities to holders of one component. |
 | `list_artifacts` | yes | `rocket_engine.composition.Engine.list_artifacts` | List recorded run-evidence files, newest first. |
 | `list_assets` | yes | `rocket_engine.composition.Engine.list_assets` | List PDK file metadata with per-file hash identity. |
 | `list_cells` | yes | `rocket_engine.composition.Engine.catalog_cells` | List versioned component cells, optionally for one PDK. |
 | `list_docs` | yes | `rocket_engine.project.service.ProjectService.list_docs` | List documents, optionally filtered by a path prefix. |
 | `list_job_kinds` | yes | `rocket_engine.composition.Engine.job_kinds` | List registered operations with their deck tools. |
 | `list_layer_presets` | yes | `rocket_engine.composition.Engine.layer_presets` | List built-in plus user layer preset names. |
+| `list_layers` | yes | `rocket_engine.project.service.ProjectService.read_doc` | Read one document as text at the current head. |
 | `list_projects` | yes | `rocket_engine.project.service.ProjectService.list_projects` | List projects under the engine root, bound always included. |
+| `list_sheets` | yes | `rocket_engine.project.service.ProjectService.entities_with` | Filter entities to holders of one component. |
 | `list_survivors` | yes | `rocket_engine.composition.Engine.boot_report` | Report crash survivors without executing anything (boot report). |
+| `list_symbols` | yes | `rocket_engine.project.service.ProjectService.entities_with` | Filter entities to holders of one component. |
+| `list_testbenches` | yes | `rocket_engine.project.service.ProjectService.entities_with` | Filter entities to holders of one component. |
+| `net_occurrences` | yes | `rocket_engine.project.service.ProjectService.graph_report` | Report the connection graph or one net's occurrences. |
 | `plan_checks` | yes | `rocket_engine.composition.Engine.plan_checks` | Plan one flow's checks against the registered solvers. |
+| `plot_export` | yes | `rocket_engine.project.service.ProjectService.plot_report` | Export the schematic drawing (plot/export op). |
 | `read_doc` | yes | `rocket_engine.project.service.ProjectService.read_doc` | Read one document as text at the current head. |
+| `read_entity_revision` | yes | `rocket_engine.project.service.ProjectService.entity_revision` | Read the live per-entity revision of one entity. |
 | `read_settings` | yes | `rocket_engine.project.service.ProjectService.read_settings` | Read one settings kind at the current head. |
+| `resolve_pin` | yes | `rocket_engine.project.service.ProjectService.probe_report` | Cross-probe one pin: symbol, cell, cell pin, net. |
 | `save_layer_preset` | yes | `rocket_engine.composition.Engine.layer_preset_save` | Save a user layer preset against one PDK's stackup. |
 | `serve_asset` | yes | `rocket_engine.composition.Engine.serve_asset` | Serve one PDK file's bytes verbatim with hash identity. |
+| `update_netlist` | yes | `rocket_engine.project.service.ProjectService.netlist_report` | Write (or rewrite and diff) a netlist for the schematic. |
+| `write_netlist` | yes | `rocket_engine.project.service.ProjectService.netlist_report` | Write (or rewrite and diff) a netlist for the schematic. |
+| `xprobe` | yes | `rocket_engine.project.service.ProjectService.probe_report` | Cross-probe one pin: symbol, cell, cell pin, net. |
 
 ## Operation reference
+
+### annotate
+
+Assign reference designators to unannotated instances.
+
+Handler: `rocket_engine.project.service.ProjectService.annotate`.
+
+Counters continue past the highest numeric suffix already
+on the sheet set; annotated instances keep their refs.
+
+Arguments:
+
+- `prefixes`: Optional per-symbol prefix overrides.
+- `sheet`: Sheet entity id to scope to, or None for all.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict.
 
 ### apply_mutations
 
@@ -139,6 +197,28 @@ Raises:
 ProjectError: request_conflict for a reused id with new text; invalid_command for a malformed batch (names the document when one is addressable); invalid_path or path_escape for a bad path; unknown_document for a delete of a missing document; revision_conflict for a stale head; invalid_ledger when a durable write fails (best effort rollback already attempted).
 
 Caution: All-or-nothing means one revision for the whole batch — a half-landed batch is a bug, never a state.
+
+### apply_transaction
+
+Apply one atomic batch of entity changes (API-V1-EDITORS).
+
+Handler: `rocket_engine.project.service.ProjectService.apply_transaction`.
+
+Alias creation resolves LocalRef before persistence; every
+change gates CAS, and a failed late change rolls back.
+
+Arguments:
+
+- `changes` (required): Change mappings with an op each.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, invalid_command, or the CAS refusal code.
 
 ### attach_component
 
@@ -169,6 +249,53 @@ Raises:
 ProjectError: component_exists when the component already lives on the entity; otherwise like set_component.
 
 Caution: Every accepted attach advances the revision — a second writer at the old head fails instead of merging, unless it names a current entity revision.
+
+### bind_block
+
+Bind a child sheet under a parent through a block instance.
+
+Handler: `rocket_engine.project.service.ProjectService.bind_block`.
+
+Arguments:
+
+- `parent_sheet` (required): Parent sheet entity id.
+- `child_sheet` (required): Child sheet entity id.
+- `instance` (required): Block instance entity id in the parent.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, unknown_sheet, unknown_instance, binding_conflict, invalid_hierarchy.
+
+### bind_layers
+
+Bind project layers to a technology profile and save.
+
+Handler: `rocket_engine.project.service.ProjectService.bind_layers`.
+
+Builds the catalog from the given layers, binds it, and
+saves the report as `layers/bindings.yaml`. A missing
+binding never reinterprets geometry.
+
+Arguments:
+
+- `profile` (required): Technology profile mapping (name, version).
+- `layers` (required): Layer entries with display attributes.
+- `source`: Provenance label for the profile source.
+- `version`: Profile version pinned into the report.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, invalid_command for a malformed catalog.
 
 ### cancel_job
 
@@ -218,6 +345,27 @@ Mutation mapping with the connect receipt, revision transition, actor, diff summ
 Raises:
 
 ProjectError: request_conflict for a reused id with new text; revision_conflict for a stale head; unknown_wire for a missing wire; invalid_endpoint for a bad selector; unknown_ref for a missing entity; invalid_ref for a wire/self ref; unsupported_operation without the ENGINE-ECS entity store.
+
+### create_cell
+
+Create one physical cell definition.
+
+Handler: `rocket_engine.project.service.ProjectService.create_cell`.
+
+Arguments:
+
+- `name` (required): Unique cell name.
+- `ports` (required): Port records for the cell.
+- `properties`: Text-to-text cell properties.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, invalid_cell, cell_exists.
 
 ### create_entity
 
@@ -275,6 +423,99 @@ Raises:
 ProjectError: invalid_command without an engine root; invalid_project for a non-slug id; project_exists for a duplicate; request_conflict for a reused id with new text; invalid_ledger when the project dir cannot be written.
 
 Caution: Creating the bound project itself is a duplicate once its dir exists — create-then-list, never assume.
+
+### create_shape
+
+Create one layout shape entity with provenance.
+
+Handler: `rocket_engine.project.service.ProjectService.create_shape`.
+
+Arguments:
+
+- `shape_type` (required): One of rect, polygon, path, label.
+- `layer` (required): Stable layer lid the shape is drawn on.
+- `data` (required): Shape payload for the type.
+- `units`: Coordinate units label.
+- `profile`: Technology profile pin for provenance.
+- `anchor`: Optional cell-port anchor.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, invalid_command for a malformed payload.
+
+### create_sheet
+
+Create one schematic sheet.
+
+Handler: `rocket_engine.project.service.ProjectService.create_sheet`.
+
+Arguments:
+
+- `name` (required): Unique sheet name.
+- `title`: Human title shown on the sheet frame.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, invalid_sheet, sheet_exists.
+
+### create_symbol
+
+Create one project-owned symbol definition.
+
+Handler: `rocket_engine.project.service.ProjectService.create_symbol`.
+
+Arguments:
+
+- `name` (required): Unique symbol name.
+- `pins` (required): Pin records with name, pin_type, x, and y.
+- `graphics`: Editable graphics items.
+- `properties`: Text-to-text symbol properties.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, invalid_symbol, symbol_exists.
+
+### create_testbench
+
+Create one scoped testbench block with editable source.
+
+Handler: `rocket_engine.project.service.ProjectService.create_testbench`.
+
+Validates the DUT scope, materializes the interface, renders
+the template source, stores the record, and saves the source.
+
+Arguments:
+
+- `name` (required): Block name (source saved as testbench/<name>).
+- `kind` (required): Template kind (spice, hdl, or cocotb).
+- `targets` (required): DUT target set (primary plus additional).
+- `probes`: Probe mappings inside the DUT closure.
+- `harness`: Explicit harness binding mapping.
+- `template`: Reserved template override (unused).
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, invalid_kind, invalid_target, overlapping_targets, illegal_scope.
 
 ### delete_doc
 
@@ -460,6 +701,53 @@ Raises:
 
 Caution: Unknown cells and unreadable GDS synthesize error violations with file/line — the verdict always comes from parsed output, never the exit code. GDS roundtrip readback is a diagnostic, never the verdict.
 
+### ip_register
+
+Register one prebuilt IP block revision under its PDK.
+
+Handler: `rocket_engine.project.service.ProjectService.ip_register`.
+
+Arguments:
+
+- `pdk` (required): Owning PDK id (the per-PDK invariant key).
+- `name` (required): Block name within the PDK registry.
+- `version` (required): Revision label ("" forbidden).
+- `symbol` (required): Linked schematic symbol reference.
+- `cell` (required): Linked footprint cell reference.
+- `pin_map`: Explicit [{symPin, cellPin}] entries.
+- `scope`: "pdk" (default) or "shared" with a reason.
+- `reason`: Recorded justification for shared scope.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, invalid_pdk, ip_exists, invalid_ip, invalid_scope.
+
+### map_pins
+
+Create or remap the pin map for one symbol-cell pair.
+
+Handler: `rocket_engine.project.service.ProjectService.map_pins`.
+
+Arguments:
+
+- `symbol` (required): Project symbol name being linked.
+- `cell` (required): Project cell name (or scoped upstream ref).
+- `pin_map` (required): Explicit [{symPin, cellPin}] entries.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, unknown_symbol, unknown_cell, invalid_linkage.
+
 ### materialize_nets
 
 Extract connectivity, upsert Net entities: gate, run, log.
@@ -517,6 +805,32 @@ ProjectError: request_conflict for a reused id with new text; revision_conflict 
 Declared operation `place_cell`; no handler wired yet.
 
 `Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+
+### place_instance
+
+Place one symbol instance on a sheet.
+
+Handler: `rocket_engine.project.service.ProjectService.place_instance`.
+
+Arguments:
+
+- `sheet` (required): Sheet entity id hosting the instance.
+- `symbol` (required): Bare project symbol name or scoped upstream ref.
+- `x` (required): X position in schematic units.
+- `y` (required): Y position in schematic units.
+- `rotation`: Rotation in degrees (0/90/180/270).
+- `mirror`: Mirror flag.
+- `properties`: Text-to-text instance properties.
+- `ref`: Annotation reference ("" means unannotated).
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, unknown_sheet, unknown_symbol, invalid_instance.
 
 ### place_junction
 
@@ -590,6 +904,28 @@ Approval handle with execution_id, approval_id, pending_approval state, code has
 Raises:
 
 ExecutionError: invalid_command for a bad mode, a mode/field mismatch, oversize input, or a malformed timeout, invalid_cell/empty_cell for bad script text, path_escape/invalid_path/cell_unreadable for bad project files, request_conflict for a reused request id with new code.
+
+### regenerate_testbench
+
+Regenerate one block to a candidate without overwriting.
+
+Handler: `rocket_engine.project.service.ProjectService.regenerate_testbench`.
+
+A fresh link returns a noop receipt; a drifted link renders
+the candidate beside the edited live source for adoption.
+
+Arguments:
+
+- `testbench` (required): Testbench entity id.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, unknown_entity.
 
 ### resume_all_retryable
 
@@ -906,13 +1242,14 @@ Arguments:
 - `deck_file`: Foundry .lydrc deck path (deck mode).
 - `deck`: Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode.
 - `cell`: Optional top-cell claim, honored in both modes: must name an existing top cell (multi-top GDS without a cell refuses loudly).
+- `waive_rules`: Optional exact rule names to waive (DRC-BANDGAP-TRIAGE: the OFFGRID manufacturing-grid bucket on generator-grid layouts); waived violations drop from the parse with a `waived` tally.
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
 - `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
 
 Returns:
 
-{total, violations[]} with rule, message, and metric bbox_um where the deck reports geometry.
+{total, violations[], waived} with rule, message, and metric bbox_um where the deck reports geometry.
 
 Raises:
 
@@ -1036,7 +1373,7 @@ Arguments:
 
 Returns:
 
-Result with cell, artifact paths, device_count, devices, and no violations.
+Result with cell, artifact paths, total and device_count (both the device inventory size), devices, and no violations.
 
 Raises:
 
@@ -1803,6 +2140,26 @@ Raises:
 
 ProjectError: invalid_command for a missing pdk_id or name. PdkError: unknown_pdk for a missing store/id/revision. LayerServingError: unknown_stackup for an unmapped PDK, unknown_preset for a missing preset, invalid_preset for a stale user preset.
 
+### check_capability
+
+Check whether one operation may run under a profile.
+
+Handler: `rocket_engine.project.service.ProjectService.capability_report`.
+
+Arguments:
+
+- `profile` (required): Technology profile mapping with name, version, source hash, and capabilities.
+- `operation` (required): Operation name to check.
+- `bindings`: Layer bindings the design needs.
+
+Returns:
+
+Capability verdict with profile pin and I28 pin.
+
+Raises:
+
+ProjectError: invalid_command for a malformed profile.
+
 ### components_of
 
 List the component names one entity carries.
@@ -1820,6 +2177,26 @@ Mapping with project id, head revision, entity, storage path, and sorted compone
 Raises:
 
 ProjectError: invalid_entity for a malformed id; unknown_entity for a missing entity; invalid_document for a corrupt entity record.
+
+### connection_graph
+
+Report the connection graph or one net's occurrences.
+
+Handler: `rocket_engine.project.service.ProjectService.graph_report`.
+
+Arguments:
+
+- `sheet`: Sheet entity id to scope to, or None for all.
+- `net`: Net name to collect, or None for the graph.
+- `net_pins`: Materialized rows net collection needs.
+
+Returns:
+
+Graph nodes/edges (or occurrence rows) with I28 pin.
+
+Raises:
+
+ProjectError: invalid_command for a missing net.
 
 ### delete_layer_preset
 
@@ -1840,6 +2217,24 @@ Raises:
 ProjectError: invalid_command for a missing name. LayerServingError: preset_conflict for a built-in name; unknown_preset for a missing user preset.
 
 Caution: In-memory only: deletes the Engine-memory preset, no revision advance, no ledger event.
+
+### describe_testbench
+
+Describe one testbench block with freshness and pins.
+
+Handler: `rocket_engine.project.service.ProjectService.testbench_report`.
+
+Arguments:
+
+- `testbench` (required): Testbench entity id.
+
+Returns:
+
+Record with freshness, pins, digest, and I28 pin.
+
+Raises:
+
+ProjectError: unknown_entity for a missing block.
 
 ### entities_with
 
@@ -1864,6 +2259,26 @@ Mapping with project id, head revision, component, predicate, and sorted holder 
 Raises:
 
 ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.
+
+### erc_check
+
+Run the ERC_TESTER rule set over the schematic.
+
+Handler: `rocket_engine.project.service.ProjectService.erc_report`.
+
+Arguments:
+
+- `severities`: Rule-to-severity overrides.
+- `pin_conflict`: Pin-conflict severity overrides.
+- `net_pins`: Materialized rows for the pin-conflict rule.
+
+Returns:
+
+Findings with verdict plus revision and I28 pin.
+
+Raises:
+
+ProjectError: invalid_command for a malformed config.
 
 ### get_capabilities
 
@@ -1896,6 +2311,31 @@ Raises:
 SetupError: unknown_solver when a registered (operation, tool) has no detection spec — the report fails instead of misreporting a solver it cannot probe.
 
 Caution: Read-only: never creates the store skeleton and never attempts network — cloud rows report gated with key_state missing until CLOUD-AUTH supplies keys plus an explicit opt-in (F12/I32 BYOC).
+
+### get_cell
+
+Read one entity component payload at the current head.
+
+Handler: `rocket_engine.project.service.ProjectService.get_component`.
+
+Entities project over plain documents: the record lives at
+entities/<entity>.json and reads through the same bytes
+read_doc serves. Backfilled doc entities serve their
+projected doc component here, so every world-snapshot
+entry stays addressable.
+
+Arguments:
+
+- `entity` (required): Entity id holding the component.
+- `component` (required): Component name to read.
+
+Returns:
+
+Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.
+
+Raises:
+
+ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.
 
 ### get_check_results
 
@@ -1982,6 +2422,31 @@ Raises:
 ProjectError: resync_required when the contiguity demand cannot be met — the reader must re-read the snapshot plus the full retained log and reset its cursor.
 
 Caution: The log is retention-bounded, not infinite — a reader gone longer than the bound must resync, never assume the gap is empty.
+
+### get_instance
+
+Read one entity component payload at the current head.
+
+Handler: `rocket_engine.project.service.ProjectService.get_component`.
+
+Entities project over plain documents: the record lives at
+entities/<entity>.json and reads through the same bytes
+read_doc serves. Backfilled doc entities serve their
+projected doc component here, so every world-snapshot
+entry stays addressable.
+
+Arguments:
+
+- `entity` (required): Entity id holding the component.
+- `component` (required): Component name to read.
+
+Returns:
+
+Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.
+
+Raises:
+
+ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.
 
 ### get_job_status
 
@@ -2128,6 +2593,56 @@ Raises:
 
 ProjectError: future_format when any stored file is newer than the head; missing_migration when no link covers a stored version; invalid_document for stored settings that do not parse.
 
+### get_sheet
+
+Read one entity component payload at the current head.
+
+Handler: `rocket_engine.project.service.ProjectService.get_component`.
+
+Entities project over plain documents: the record lives at
+entities/<entity>.json and reads through the same bytes
+read_doc serves. Backfilled doc entities serve their
+projected doc component here, so every world-snapshot
+entry stays addressable.
+
+Arguments:
+
+- `entity` (required): Entity id holding the component.
+- `component` (required): Component name to read.
+
+Returns:
+
+Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.
+
+Raises:
+
+ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.
+
+### get_symbol
+
+Read one entity component payload at the current head.
+
+Handler: `rocket_engine.project.service.ProjectService.get_component`.
+
+Entities project over plain documents: the record lives at
+entities/<entity>.json and reads through the same bytes
+read_doc serves. Backfilled doc entities serve their
+projected doc component here, so every world-snapshot
+entry stays addressable.
+
+Arguments:
+
+- `entity` (required): Entity id holding the component.
+- `component` (required): Component name to read.
+
+Returns:
+
+Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.
+
+Raises:
+
+ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.
+
 ### get_world_snapshot
 
 Bundle the miniplex-shaped world snapshot for mirrors.
@@ -2150,6 +2665,79 @@ Snapshot mapping with project id, head revision, and entities sorted by id (each
 Raises:
 
 ProjectError: invalid_command for a non-bool flag; invalid_document for a corrupt entity record.
+
+### instances_on_sheet
+
+Filter entities to holders of one component.
+
+Handler: `rocket_engine.project.service.ProjectService.entities_with`.
+
+Nets-of-block, pins-of-net, and open-problems become
+filters here, not endpoints; backfilled docs answer the
+doc component, so current project files stay filterable
+without migration.
+
+Arguments:
+
+- `component` (required): Component name holders must carry.
+- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.
+
+Returns:
+
+Mapping with project id, head revision, component, predicate, and sorted holder ids.
+
+Raises:
+
+ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.
+
+### ip_get
+
+Read one entity component payload at the current head.
+
+Handler: `rocket_engine.project.service.ProjectService.get_component`.
+
+Entities project over plain documents: the record lives at
+entities/<entity>.json and reads through the same bytes
+read_doc serves. Backfilled doc entities serve their
+projected doc component here, so every world-snapshot
+entry stays addressable.
+
+Arguments:
+
+- `entity` (required): Entity id holding the component.
+- `component` (required): Component name to read.
+
+Returns:
+
+Mapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.
+
+Raises:
+
+ProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.
+
+### ip_search
+
+Filter entities to holders of one component.
+
+Handler: `rocket_engine.project.service.ProjectService.entities_with`.
+
+Nets-of-block, pins-of-net, and open-problems become
+filters here, not endpoints; backfilled docs answer the
+doc component, so current project files stay filterable
+without migration.
+
+Arguments:
+
+- `component` (required): Component name holders must carry.
+- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.
+
+Returns:
+
+Mapping with project id, head revision, component, predicate, and sorted holder ids.
+
+Raises:
+
+ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.
 
 ### list_artifacts
 
@@ -2260,6 +2848,24 @@ Returns:
 
 Mapping with preset name records (name + builtin), built-ins first in pinned order.
 
+### list_layers
+
+Read one document as text at the current head.
+
+Handler: `rocket_engine.project.service.ProjectService.read_doc`.
+
+Arguments:
+
+- `path` (required): Document path to read.
+
+Returns:
+
+Mapping with project id, head revision, canonical path, content text, and byte size.
+
+Raises:
+
+ProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.
+
 ### list_projects
 
 List projects under the engine root, bound always included.
@@ -2284,6 +2890,30 @@ ProjectError: invalid_ledger when a sibling ledger head is unreadable or corrupt
 
 Caution: A corrupt sibling ledger fails the whole list loudly instead of being skipped.
 
+### list_sheets
+
+Filter entities to holders of one component.
+
+Handler: `rocket_engine.project.service.ProjectService.entities_with`.
+
+Nets-of-block, pins-of-net, and open-problems become
+filters here, not endpoints; backfilled docs answer the
+doc component, so current project files stay filterable
+without migration.
+
+Arguments:
+
+- `component` (required): Component name holders must carry.
+- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.
+
+Returns:
+
+Mapping with project id, head revision, component, predicate, and sorted holder ids.
+
+Raises:
+
+ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.
+
 ### list_survivors
 
 Report crash survivors without executing anything (boot report).
@@ -2304,6 +2934,74 @@ Returns:
 Report with the session-ended message, the unfinished count, survivors in admit order, quarantined run ids, and unresolved entries.
 
 Caution: Report-only by construction: nothing executes here — every replay surface needs an explicit resume decision (resume_run, discard_run, resume_all_retryable).
+
+### list_symbols
+
+Filter entities to holders of one component.
+
+Handler: `rocket_engine.project.service.ProjectService.entities_with`.
+
+Nets-of-block, pins-of-net, and open-problems become
+filters here, not endpoints; backfilled docs answer the
+doc component, so current project files stay filterable
+without migration.
+
+Arguments:
+
+- `component` (required): Component name holders must carry.
+- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.
+
+Returns:
+
+Mapping with project id, head revision, component, predicate, and sorted holder ids.
+
+Raises:
+
+ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.
+
+### list_testbenches
+
+Filter entities to holders of one component.
+
+Handler: `rocket_engine.project.service.ProjectService.entities_with`.
+
+Nets-of-block, pins-of-net, and open-problems become
+filters here, not endpoints; backfilled docs answer the
+doc component, so current project files stay filterable
+without migration.
+
+Arguments:
+
+- `component` (required): Component name holders must carry.
+- `predicate`: Exact-match mapping the component payload must satisfy, or None for no filtering.
+
+Returns:
+
+Mapping with project id, head revision, component, predicate, and sorted holder ids.
+
+Raises:
+
+ProjectError: invalid_component for a malformed component name; invalid_predicate for a non-mapping predicate; invalid_document for a corrupt entity record.
+
+### net_occurrences
+
+Report the connection graph or one net's occurrences.
+
+Handler: `rocket_engine.project.service.ProjectService.graph_report`.
+
+Arguments:
+
+- `sheet`: Sheet entity id to scope to, or None for all.
+- `net`: Net name to collect, or None for the graph.
+- `net_pins`: Materialized rows net collection needs.
+
+Returns:
+
+Graph nodes/edges (or occurrence rows) with I28 pin.
+
+Raises:
+
+ProjectError: invalid_command for a missing net.
 
 ### plan_checks
 
@@ -2329,6 +3027,25 @@ Raises:
 
 ProjectError: invalid_command for a missing or unknown flow.
 
+### plot_export
+
+Export the schematic drawing (plot/export op).
+
+Handler: `rocket_engine.project.service.ProjectService.plot_report`.
+
+Arguments:
+
+- `format`: Drawing format (svg or json).
+- `sheet`: Sheet entity id to scope to, or None for all.
+
+Returns:
+
+Drawing with I28 pin.
+
+Raises:
+
+ProjectError: invalid_format for an unknown format.
+
 ### read_doc
 
 Read one document as text at the current head.
@@ -2346,6 +3063,24 @@ Mapping with project id, head revision, canonical path, content text, and byte s
 Raises:
 
 ProjectError: invalid_path or path_escape for a bad path; unknown_document for a missing document; invalid_command when the path names a directory; invalid_document when durable bytes are not text.
+
+### read_entity_revision
+
+Read the live per-entity revision of one entity.
+
+Handler: `rocket_engine.project.service.ProjectService.entity_revision`.
+
+Arguments:
+
+- `entity` (required): Engine-minted entity id to inspect.
+
+Returns:
+
+Mapping with entity, head revision, and the live entity revision plus the I28 closure pin.
+
+Raises:
+
+ProjectError: unknown_entity for a missing id.
 
 ### read_settings
 
@@ -2369,6 +3104,29 @@ Mapping with project id, head revision, kind, stored flag, version, and the sett
 Raises:
 
 ProjectError: invalid_command for an unknown kind or stored settings that break the kind schema; invalid_document for stored settings that do not parse; future_format for a file newer than the head; missing_migration when no link covers the stored version.
+
+### resolve_pin
+
+Cross-probe one pin: symbol, cell, cell pin, net.
+
+Handler: `rocket_engine.project.service.ProjectService.probe_report`.
+
+Without extracted net_pins the probe reports net_known
+False instead of guessing.
+
+Arguments:
+
+- `instance` (required): Instance entity id to probe.
+- `pin` (required): Symbol pin to probe.
+- `net_pins`: Materialized rows, or None when none ran.
+
+Returns:
+
+Probe mapping with I28 pin.
+
+Raises:
+
+ProjectError: unknown_instance, unknown_pin.
 
 ### save_layer_preset
 
@@ -2426,6 +3184,81 @@ Raises:
 ProjectError: invalid_command when pdk id, revision, or path is missing; invalid_reference for an unknown PDK, a missing file, or an escaping path.
 
 Caution: No size cap — bulk reads belong to list_assets plus selective serve_asset calls, never a blind loop.
+
+### update_netlist
+
+Write (or rewrite and diff) a netlist for the schematic.
+
+Handler: `rocket_engine.project.service.ProjectService.netlist_report`.
+
+Harness-owned instances stay excluded unless the design
+adopted the block. Dangling pins emit explicit stubs.
+
+Arguments:
+
+- `language` (required): Netlist language (spice or verilog).
+- `sheet`: Sheet entity id to scope to, or None for all.
+- `title`: Netlist/circuit title.
+- `net_pins`: Materialized rows (required).
+- `prior_text`: Previously emitted text for rewrites.
+- `adopted`: True includes adopted harness instances.
+
+Returns:
+
+Netlist text, counts, and I28 pin.
+
+Raises:
+
+ProjectError: invalid_language, invalid_command.
+
+### write_netlist
+
+Write (or rewrite and diff) a netlist for the schematic.
+
+Handler: `rocket_engine.project.service.ProjectService.netlist_report`.
+
+Harness-owned instances stay excluded unless the design
+adopted the block. Dangling pins emit explicit stubs.
+
+Arguments:
+
+- `language` (required): Netlist language (spice or verilog).
+- `sheet`: Sheet entity id to scope to, or None for all.
+- `title`: Netlist/circuit title.
+- `net_pins`: Materialized rows (required).
+- `prior_text`: Previously emitted text for rewrites.
+- `adopted`: True includes adopted harness instances.
+
+Returns:
+
+Netlist text, counts, and I28 pin.
+
+Raises:
+
+ProjectError: invalid_language, invalid_command.
+
+### xprobe
+
+Cross-probe one pin: symbol, cell, cell pin, net.
+
+Handler: `rocket_engine.project.service.ProjectService.probe_report`.
+
+Without extracted net_pins the probe reports net_known
+False instead of guessing.
+
+Arguments:
+
+- `instance` (required): Instance entity id to probe.
+- `pin` (required): Symbol pin to probe.
+- `net_pins`: Materialized rows, or None when none ran.
+
+Returns:
+
+Probe mapping with I28 pin.
+
+Raises:
+
+ProjectError: unknown_instance, unknown_pin.
 
 ## Appendix: envelopes, states, shapes, errors, transports
 
