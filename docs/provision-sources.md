@@ -162,13 +162,22 @@ deps.
   serial-first, MPI as an option.
 - Pinned (single source: `scripts/provision_toolchain.sh`):
   Xyce `Release-7.10.0` (https://github.com/Xyce/Xyce),
-  Trilinos `trilinos-release-17-2-1`
+  Trilinos `trilinos-release-14-4-0`
   (https://github.com/trilinos/Trilinos). Recipe
   cross-checked against the live Xyce building guide
-  (https://xyce.sandia.gov/) at provision time: Trilinos
-  first (serial, MPI OFF, ShyLU OFF, gtest TPL OFF), then
-  `./bootstrap` for GitHub checkouts, then the Xyce
-  autotools build against the Trilinos prefix.
+  (https://xyce.sandia.gov/) and Xyce 7.10's own
+  `INSTALL.md` + `cmake/trilinos/trilinos-base.cmake` at
+  provision time: Trilinos 14.4 is Xyce 7.10's documented
+  minimum ("versions after 14.4 not rigorously tested");
+  17.x deleted the Epetra stack outright, so the old
+  17-2-1 pin could never satisfy Xyce configure
+  (EpetraExt headers, libtriutils). Trilinos first
+  (serial, MPI OFF, ShyLU OFF, gtest TPL OFF, package
+  set mirroring trilinos-base.cmake), SuiteSparse dev
+  files up front (`libsuitesparse-dev`: Xyce defaults
+  AMD on), then `./bootstrap` for GitHub checkouts,
+  then the Xyce autotools build against the Trilinos
+  prefix.
 
 ## 9. Xschem + CACE (schematic, characterization)
 

@@ -93,7 +93,7 @@ NGSPICE_TGZ="https://sourceforge.net/projects/ngspice/files/ng-spice-rework/47/n
 NGSPICE_EXPECT="ngspice-4"
 XYCE_REF="Release-7.10.0"
 XYCE_REPO="https://github.com/Xyce/Xyce"
-TRILINOS_REF="trilinos-release-17-2-1"
+TRILINOS_REF="trilinos-release-14-4-0"
 TRILINOS_REPO="https://github.com/trilinos/Trilinos"
 XYCE_EXPECT="Xyce"
 XSCHEM_REPO="https://github.com/StefanSchippers/xschem"
@@ -1179,10 +1179,18 @@ install_xyce() {
         note "install xyce: stale Trilinos build dir (no epetra package dir); wiping for a clean reconfigure"
         rm -rf "$tsrc/build"
     fi
+    # Package set mirrors Xyce's own cmake/trilinos/trilinos-base.cmake
+    # (Xyce 7.10 INSTALL.md: Trilinos 14.4 minimum; later versions
+    # "not rigorously tested and may not work" — 17.x deleted the
+    # Epetra stack outright). Epetra + Triutils stay explicit:
+    # EpetraExt pulls Epetra as a required dep, but Xyce configure
+    # hard-requires both EpetraExt headers and libtriutils, so pin
+    # them loudly instead of trusting auto-enable.
     note "install xyce: building Trilinos (long; per the Xyce building guide)"
     (mkdir -p "$tsrc/build" && cd "$tsrc/build" \
         && cmake -DCMAKE_INSTALL_PREFIX="$tpref" \
             -DTrilinos_ENABLE_ALL_PACKAGES=OFF \
+            -DTrilinos_ENABLE_ALL_OPTIONAL_PACKAGES=OFF \
             -DTrilinos_ENABLE_Teuchos=ON -DTrilinos_ENABLE_Epetra=ON \
             -DTrilinos_ENABLE_EpetraExt=ON -DTrilinos_ENABLE_Ifpack=ON \
             -DTrilinos_ENABLE_Amesos=ON -DTrilinos_ENABLE_AztecOO=ON \
@@ -1190,8 +1198,20 @@ install_xyce() {
             -DTrilinos_ENABLE_Triutils=ON \
             -DTrilinos_ENABLE_Sacado=ON -DTrilinos_ENABLE_Stokhos=ON \
             -DTrilinos_ENABLE_NOX=ON -DTrilinos_ENABLE_Zoltan=ON \
+            -DTrilinos_ENABLE_ROL=ON \
+            -DTrilinos_ENABLE_TrilinosCouplings=ON \
+            -DTrilinos_ENABLE_COMPLEX_DOUBLE=ON \
+            -DNOX_ENABLE_LOCA=ON \
+            -DEpetraExt_BUILD_BTF=ON \
+            -DEpetraExt_BUILD_EXPERIMENTAL=ON \
+            -DEpetraExt_BUILD_GRAPH_REORDERINGS=ON \
+            -DAmesos_ENABLE_KLU=ON \
+            -DAmesos2_ENABLE_KLU2=ON -DAmesos2_ENABLE_Basker=ON \
+            -DTPL_ENABLE_AMD=ON \
+            -DTPL_ENABLE_BLAS=ON -DTPL_ENABLE_LAPACK=ON \
             -DTPL_ENABLE_MPI=OFF \
             -DTPL_ENABLE_gtest=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
             -DCMAKE_BUILD_TYPE=Release .. \
         && make -j"$(nproc)" && make install) || {
         remedy "xyce" "Trilinos build failed" \
