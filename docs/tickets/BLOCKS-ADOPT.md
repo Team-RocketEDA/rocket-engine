@@ -1,0 +1,1 @@
+Point each rocket-blocks PDK README at the engine entry contract (contracts/v1/schemas/ip-entry.schema.json) and replace the v0 entry-anatomy sketch once seeding starts; engine side already validates.
