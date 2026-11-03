@@ -20,7 +20,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-TOOLS-DEFERRED] Bind deferred FPGA/physics tasks (post-MVP)
 ## Ready
 
-- [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 
 
 - [DIGITAL-FLOW-URANIUM] Rewrite digital_flow on machine files
@@ -195,3 +194,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
 - [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
 - [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
+- [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
