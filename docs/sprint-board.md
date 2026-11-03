@@ -26,8 +26,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DECK-XSCHEM] Schematic to netlist to sim execution deck
 - [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
-- [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
-- [MIXED-TOP-TRIAGE] m4.5ab DRC, deck-mode cell arg, xschem top-LVS
 
 - [LAYER-CATALOG] Technology-resolved editable layer catalog
 - [LAYOUT-EDIT] Shared geometry create/edit operations for the layout editor
@@ -42,14 +40,11 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
 - [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
 - [API-V1-ADAPTERS] Migrate every solver adapter to emit v1 ResultBundles
-- [TOOL-OUTPUTS] Research pinned tool output shapes for v1 normalization
 - [SHAPE-HARDEN] Harden the 7 weak + 2 missing tool output shapes
 - [ADAPT-GROUPC] Staff group-C adapters: meow proof, devsim, meep, elmer
-- [MIGRATE-STDIO-FILE] Migrate top-5 stdio parses to file channels
 - [ASYNC-SUBMIT] Async submit: prompt ack + deferred handle + lifecycle events
 - [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
 - [IP-LIFECYCLE] IP lifecycle ops with per-PDK invariant
-- [CONSOLE-LIFECYCLE] Console lifecycle + envelope convergence
 - [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
 - [EQY-MCY-ADAPTERS] Staff check.equivalence + check.mutation adapters
 - [ANTENNA-KLAYOUT] Staff check.antenna via KLayout-DB path
@@ -57,11 +52,8 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [ESCAPE-HARDEN] Structured escapes + shape conformance batch
 - [HDL-PROVIDERS] MVP provider coverage batch
 - [DECOMP-CORE] Decompose composition/service, stores behind ports
-- [I29-OWNER] Own verbatim PDK serving end-to-end
 - [FRONTEND-13] Frontend section-13 touchpoints batch
-- [CANVAS-CST-CORE] Canvas TOML core
 - [CANVAS-CST-COMPILE] Canvas compiler
-- [I29-SERVING] Own verbatim PDK serving end to end with PRD-name aliases
 ## Doing
 
 
@@ -195,3 +187,11 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [VIEWS-IMPORT-NO-PDK] generate_views import_gds never activates a PDK
 - [BWRAP-STUDY] Comparative console sandbox study
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
+- [TOOL-OUTPUTS] Research pinned tool output shapes for v1 normalization
+- [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
+- [MIXED-TOP-TRIAGE] m4.5ab DRC, deck-mode cell arg, xschem top-LVS
+- [MIGRATE-STDIO-FILE] Migrate top-5 stdio parses to file channels
+- [I29-OWNER] Own verbatim PDK serving end-to-end
+- [I29-SERVING] Own verbatim PDK serving end to end with PRD-name aliases
+- [CONSOLE-LIFECYCLE] Console lifecycle + envelope convergence
+- [CANVAS-CST-CORE] Canvas TOML core
