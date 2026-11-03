@@ -177,7 +177,10 @@ deps.
   files up front (`libsuitesparse-dev`: Xyce defaults
   AMD on), then `./bootstrap` for GitHub checkouts,
   then the Xyce autotools build against the Trilinos
-  prefix.
+  prefix. TriBITS' AMD finder does not search Debian's
+  `/usr/include/suitesparse` subdir, so the recipe passes
+  `AMD_INCLUDE_DIRS`/`AMD_LIBRARY_DIRS` explicitly
+  (TriBITS' own documented TPL escape).
 
 ## 9. Xschem + CACE (schematic, characterization)
 

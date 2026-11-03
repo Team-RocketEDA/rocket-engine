@@ -1139,6 +1139,13 @@ install_xyce() {
             "https://xyce.sandia.gov/"
         return 1
     fi
+    # TriBITS' FindTPLAMD does not search Debian's
+    # /usr/include/suitesparse subdir, so pass the distro
+    # locations explicitly (TriBITS' own documented escape:
+    # "-DTPL_<name>_LIBRARIES=..."). Same paths the gate
+    # above just verified; Ubuntu 24.04 layout.
+    AMD_INC="/usr/include/suitesparse"
+    AMD_LIB="/usr/lib/x86_64-linux-gnu"
     ATTEMPTED=1
     local tsrc="$TOOLS_DIR/src/trilinos-$TRILINOS_REF"
     local tpref="$TOOLS_DIR/trilinos-$TRILINOS_REF"
@@ -1153,10 +1160,8 @@ install_xyce() {
         }
     fi
     # ShyLU deliberately NOT enabled: the Xyce building guide
-    # requires it only for Parallel Xyce, this build is serial
-    # (MPI OFF), and forcing ShyLU=ON against Trilinos 17
-    # breaks configure — ShyLU requires the disabled
-    # ShyLU_DD chain (trilinos/trilinos#6255, same error).
+    # requires it only for Parallel Xyce, and this build is
+    # serial (MPI OFF).
     # gtest TPL likewise OFF: pulled in by ShyLU_NodeTacho
     # tests, and Xyce needs no Trilinos test infra. TriBITS
     # itself names this flag as the escape when gtest is
@@ -1208,6 +1213,8 @@ install_xyce() {
             -DAmesos_ENABLE_KLU=ON \
             -DAmesos2_ENABLE_KLU2=ON -DAmesos2_ENABLE_Basker=ON \
             -DTPL_ENABLE_AMD=ON \
+            -DAMD_INCLUDE_DIRS="$AMD_INC" \
+            -DAMD_LIBRARY_DIRS="$AMD_LIB" \
             -DTPL_ENABLE_BLAS=ON -DTPL_ENABLE_LAPACK=ON \
             -DTPL_ENABLE_MPI=OFF \
             -DTPL_ENABLE_gtest=OFF \
