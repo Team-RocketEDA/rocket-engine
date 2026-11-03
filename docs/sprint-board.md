@@ -32,8 +32,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 - [PR-RED] RED-tests PR under user review (external)
 
-- [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
-- [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
 ## Done
 
 - [S1] Slice 1 GREEN (interfaces I01-I02, project I05-I07)
@@ -195,3 +193,5 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-TOOLS] Bind complete v1 task catalog, workflow gates and tool qualification
 - [API-V1-CLIENTS] Generate and migrate MCP, stdio, HTTP and Python clients to v1
 - [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
+- [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
+- [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
