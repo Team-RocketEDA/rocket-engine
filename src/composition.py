@@ -196,6 +196,7 @@ QUERY_ENGINE_METHODS = {
     "get_job_status": "job_status",
     "get_check_results": "check_results",
     "get_logs": "run_logs",
+    "get_findings": "findings",
     "list_job_kinds": "job_kinds",
     "get_python_console": "python_console",
     "list_cells": "catalog_cells",
@@ -215,7 +216,8 @@ QUERY_ENGINE_METHODS = {
 
 # Job-result queries served from execution state (plus the captured run log).
 _JOB_QUERIES = frozenset(
-    {"get_job_status", "get_check_results", "get_logs", "list_job_kinds"}
+    {"get_job_status", "get_check_results", "get_logs", "get_findings",
+     "list_job_kinds"}
 )
 
 # Catalogue + raw-asset queries served from engine state (the cell
