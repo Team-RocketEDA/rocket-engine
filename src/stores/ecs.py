@@ -701,7 +701,10 @@ def _frozen_identity(operation, arguments):
         default=str,
     )
 
-
+# TODO: No need to handroll this. bro just get an ECS library
+# Utilize the ESPER lib context and modify the context of esper to seet the default context for the runtime to world context
+# WIth esper's ECS, a lot of the tools can just move to their own dedicated tools/ module outside of ports, for the simple reason that ports will be used for communicating with the engine
+# While tools are tools the engine uses to power its services, and the result of said tools needs to propagate to all adapter ports to fan out the results, while port-specific formatting remains the responsibility of the adapter itself, it just needs to know what the tool sends back out; pydantic dataclass
 class EntityStore:
     """In-memory entity store: the reference ECS implementation.
 

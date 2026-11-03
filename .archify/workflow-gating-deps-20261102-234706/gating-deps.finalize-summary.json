@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "skipped",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/alrida-ismail/github/rocketEDA/rocket-engine/.archify/workflow-gating-deps-20261102-234706/candidate.json",
+    "sha256": "4e8e32a280b2ca5cf96e93de6a8cfa426ec8135febc61fcfbd9c4354244e80db",
+    "bytes": 4915
+  },
+  "artifact": {
+    "path": "/home/alrida-ismail/github/rocketEDA/rocket-engine/.archify/workflow-gating-deps-20261102-234706/gating-deps.html",
+    "sha256": "364c7728e96c4c5333e2c8d55b1e2599161b4960d3dba9883199be2e646a7ebb",
+    "bytes": 849809
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "skipped"
+  },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/chrome-unavailable",
+      "severity": "warning",
+      "message": "No supported browser found. Install Chrome/Chromium (or Microsoft Edge), or set ARCHIFY_CHROME to its executable path.",
+      "subject": {
+        "artifact": "/home/alrida-ismail/github/rocketEDA/rocket-engine/.archify/workflow-gating-deps-20261102-234706/gating-deps.html"
+      },
+      "evidence": {
+        "executable": null
+      },
+      "supportedFixes": [
+        "set ARCHIFY_CHROME to a Chrome/Chromium executable (or Microsoft Edge) and rerun browser-check"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/alrida-ismail/github/rocketEDA/rocket-engine/.archify/workflow-gating-deps-20261102-234706/gating-deps.finalize.json",
+    "summaryReceipt": "/home/alrida-ismail/github/rocketEDA/rocket-engine/.archify/workflow-gating-deps-20261102-234706/gating-deps.finalize-summary.json",
+    "browserCheckReceipt": "/home/alrida-ismail/github/rocketEDA/rocket-engine/.archify/workflow-gating-deps-20261102-234706/gating-deps.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 692,
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  }
+}

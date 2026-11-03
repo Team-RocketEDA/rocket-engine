@@ -73,6 +73,7 @@ def _fail(code, message, token, line):
 
 
 def main(argv):
+    # TODO: why is the output stdout??!!!! reserve the json, pass the python object as is back to the adapter level, and it will fanout from there to any active adapter who is responsible for formatting said outputs!!!!
     """Run one staged circulax transient: job JSON in, envelope on stdout.
 
     Args:

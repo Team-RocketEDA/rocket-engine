@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "cee415ce-c505-4117-9093-16dd4dfc8beb",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/home/alrida-ismail/github/rocketEDA/rocket-engine/.archify/workflow-gating-deps-20261102-234706/candidate.json",
+  "output": "/home/alrida-ismail/github/rocketEDA/rocket-engine/.archify/workflow-gating-deps-20261102-234706/gating-deps.html",
+  "specification": {
+    "sha256": "4e8e32a280b2ca5cf96e93de6a8cfa426ec8135febc61fcfbd9c4354244e80db",
+    "bytes": 4915
+  },
+  "artifact": {
+    "sha256": "364c7728e96c4c5333e2c8d55b1e2599161b4960d3dba9883199be2e646a7ebb",
+    "bytes": 849809
+  }
+}
