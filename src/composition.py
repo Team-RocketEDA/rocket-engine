@@ -38,9 +38,7 @@ faking a verdict.
 """
 
 import json
-import subprocess
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 from .adapters.circulax.adapter import CirculaxAdapter
@@ -49,7 +47,6 @@ from .adapters.cosim import CosimAdapter
 from .adapters.digital_flow import LibrelaneFlowAdapter
 from .adapters.drc.magic import MagicDrcAdapter
 from .adapters.drc.klayout import KlayoutDrcAdapter
-from .adapters.errors import AdapterError
 from .adapters.extract_magic import MagicExtractAdapter
 from .adapters.formal_sby import FormalSbyAdapter
 from .adapters.gdsfactory.adapter import GdsfactoryViewsAdapter
@@ -116,6 +113,18 @@ from .ops.submit import _SubmitMixin
 from .ops.queries import _QueryMixin
 from .ops.runs import _RunMixin, refuse_smuggled_budget
 from .ops.gates import _GateMixin, check_submit_gates
+from .ops.evidence import (
+    confine_spice_arguments as _confine_spice_arguments,
+)
+from .ops.evidence import (
+    evidence_source_state as _evidence_source_state,
+)
+from .ops.evidence import (
+    maybe_record_evidence as _maybe_record_evidence,
+)
+from .ops.evidence import (
+    record_run_evidence as _record_run_evidence,
+)
 
 _WIRED_QUERIES = frozenset(
     {
@@ -165,6 +174,7 @@ QUERY_ENGINE_METHODS = {
     "list_cells": "catalog_cells",
     "serve_asset": "serve_asset",
     "list_assets": "list_assets",
+    "list_artifacts": "list_artifacts",
     "get_layer_stackup": "layer_stackup",
     "get_layer_rows": "layer_rows",
     "list_layer_presets": "layer_presets",
@@ -452,6 +462,7 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             the job-result queries, the stage plan or completion
             report for the completion queries, the cell listing
             or asset bytes for the catalogue/asset queries, the
+            evidence listing for list_artifacts, the
             stackup/rows/presets for the layer-serving queries,
             the stored-or-fresh completion for run_job, the
             boot survivor report for list_survivors, the resume
@@ -605,6 +616,8 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             )
         if name in _JOB_QUERIES:
             return self._query_job(name, arguments)
+        if name == "list_artifacts":
+            return self.list_artifacts()
         if name in _APIG_QUERIES:
             return self._query_apig(name, arguments)
         if name in _LAYER_QUERIES:
@@ -848,6 +861,52 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             )
         except ContractError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
+
+    def list_artifacts(self):
+        """List recorded run-evidence files, newest first.
+
+        The WIRE-DECLARED-OPS wiring for the declared
+        `list_artifacts` query: every transport shares the one
+        `results/engine-runs` evidence trail the engine records
+        itself, so this lists run ids with their operation,
+        verdict, finish time, and evidence path. Unreadable
+        files are skipped, never fatal — the trail is evidence,
+        not a ledger.
+
+        Returns:
+            Mapping with the artifact count plus entries sorted
+                by path (each with run_id, operation, verdict,
+                finished_at, and path). Empty when the engine is
+                unbound or no run has been recorded yet.
+
+        Caution: Read-only: reports recorded evidence, never
+            executes anything and never replays the backlog.
+        """
+        folder = None
+        if self._project_dir is not None:
+            folder = Path(self._project_dir).resolve() / "results" / "engine-runs"
+        entries = []
+        if folder is not None and folder.is_dir():
+            for path in sorted(folder.glob("*.json")):
+                try:
+                    record = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+                if not isinstance(record, dict):
+                    continue
+                entries.append(
+                    {
+                        "run_id": record.get("run_id", path.stem),
+                        "operation": record.get("operation", ""),
+                        "verdict": record.get("verdict", "UNKNOWN"),
+                        "finished_at": record.get("finished_at"),
+                        "path": str(path),
+                    }
+                )
+        entries.sort(
+            key=lambda e: (e["finished_at"] or "", e["path"]), reverse=True
+        )
+        return {"artifacts": entries, "count": len(entries)}
 
 
     def boot_report(self):
@@ -1562,114 +1621,40 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
 
     @staticmethod
     def confine_spice_arguments(arguments, project_dir):
-        """Resolve run_spice sources inside the project; fix the workdir.
-
-        The engine-side confinement every transport shares
-        (TRANSPORT-PARITY): sources resolve inside the project dir,
-        a caller workdir is refused, and the workdir is the
-        results/engine-runs folder the evidence trail records
-        into. Unbound engines (no project dir) pass arguments
-        through untouched.
+        """Confine run_spice arguments (TRANSPORT-PARITY seam).
 
         Args:
             arguments: Submitted run_spice arguments.
-            project_dir: Project folder sources resolve inside, or
-                None for an unbound engine.
+            project_dir: Project folder, or None when unbound.
 
         Returns:
-            Arguments with absolute confined sources and the
-                engine-chosen workdir (unchanged when unbound).
+            Confined arguments (unchanged when unbound).
 
         Raises:
-            AdapterError: invalid_reference for a source outside
-                the project, invalid_command for a caller workdir.
+            AdapterError: Invalid source or caller workdir.
         """
-        if project_dir is None:
-            return arguments
-        root = Path(project_dir).resolve()
-        confined = dict(arguments)
-        workdir = root / "results" / "engine-runs"
-        sources = confined.get("sources")
-        if isinstance(sources, list):
-            resolved = []
-            for source in sources:
-                path = (root / str(source)).resolve()
-                if not path.is_relative_to(root):
-                    raise AdapterError(
-                        "invalid_reference",
-                        f"Source outside the project: {source}.",
-                    )
-                resolved.append(str(path))
-            confined["sources"] = resolved
-        if "workdir" in confined and confined["workdir"] != str(workdir):
-            raise AdapterError(
-                "invalid_command",
-                "workdir is chosen by the engine, not the caller.",
-            )
-        workdir.mkdir(parents=True, exist_ok=True)
-        confined["workdir"] = str(workdir)
-        return confined
+        return _confine_spice_arguments(arguments, project_dir)
 
     def record_run_evidence(self, outcome, arguments, project_dir=None):
-        """Persist one finished run under results/engine-runs.
-
-        The same record shape the MCP server writes, recorded by
-        the engine itself so every transport leaves the identical
-        evidence file (TRANSPORT-PARITY): IDE buttons and agent
-        calls share one evidence trail whoever submitted.
+        """Persist one finished run (TRANSPORT-PARITY seam).
 
         Args:
             outcome: Completion mapping with run_id, operation,
                 and verdict.
-            arguments: Submitted arguments (for the run's source
-                list).
-            project_dir: Project folder; the engine's own project
-                dir when omitted.
+            arguments: Submitted arguments for the source list.
+            project_dir: Project folder; engine default when
+                omitted.
 
         Returns:
-            Evidence file path string, or None when the engine is
-                unbound (no project dir anywhere).
+            Evidence path string, or None when unbound.
         """
         root = project_dir if project_dir is not None else self._project_dir
-        if root is None:
-            return None
-        folder = Path(root).resolve() / "results" / "engine-runs"
-        folder.mkdir(parents=True, exist_ok=True)
-        commit, dirty = self._evidence_source_state(Path(root).resolve())
-        sources = []
-        for source in arguments.get("sources") or []:
-            path = Path(str(source))
-            if path.is_absolute():
-                try:
-                    sources.append(str(path.relative_to(
-                        Path(root).resolve())))
-                    continue
-                except ValueError:
-                    pass
-            sources.append(str(source))
-        record = {
-            "producer": "rocket-engine",
-            "run_id": outcome["run_id"],
-            "operation": outcome["operation"],
-            "verdict": outcome["verdict"],
-            "finished_at": datetime.now(timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"),
-            "source_commit": commit,
-            "source_dirty": dirty,
-            "sources": sources,
-            "log": self.log_text(outcome["run_id"]),
-        }
-        path = folder / f"{outcome['run_id']}.json"
-        path.write_text(json.dumps(record, indent=2), encoding="utf-8")
-        return str(path)
+        return _record_run_evidence(
+            outcome, arguments, root, self.log_text)
 
     @staticmethod
     def _evidence_source_state(root):
-        """Probe (short commit, dirty) of the project tree.
-
-        Twin of the MCP server's source probe (kept local so the
-        composition root never imports an adapter): git metadata
-        when readable, (None, None) otherwise.
+        """Probe (commit, dirty) of the project tree.
 
         Args:
             root: Project folder to probe.
@@ -1677,55 +1662,25 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
         Returns:
             (commit, dirty) pair, (None, None) outside git.
         """
-        git = ["git", "-C", str(root)]
-        head = subprocess.run(
-            [*git, "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True,
-        )
-        if head.returncode != 0:
-            return None, None
-        status = subprocess.run(
-            [*git, "status", "--porcelain", "--",
-             "design", "tests", "constraints.yaml"],
-            capture_output=True, text=True,
-        )
-        return head.stdout.strip(), bool(status.stdout.strip())
+        return _evidence_source_state(root)
 
     def _maybe_record_evidence(self, operation, completion, arguments):
-        """Record one completion when the engine is project-bound.
-
-        No-op for unbound engines, non-completions, and
-        verdict-less payloads (acks, batch mappings, queries).
-        run_job fetches resolve sources from the admitted
-        arguments, never the fetch envelope.
+        """Record one completion when project-bound (seam).
 
         Args:
-            operation: Operation hint when the completion omits it.
-            completion: Completion mapping, batch mapping, or ack.
-            arguments: Submitted arguments for the source list.
+            operation: Operation hint when the completion
+                omits it.
+            completion: Completion mapping, batch mapping,
+                or ack.
+            arguments: Submitted arguments for the source
+                list.
 
         Returns:
-            Evidence file path string, or None when skipped.
+            Evidence path string, or None when skipped.
         """
-        if self._project_dir is None:
-            return None
-        if not isinstance(completion, dict):
-            return None
-        run_id = completion.get("run_id")
-        verdict = completion.get("verdict")
-        if run_id is None or verdict is None:
-            return None
-        pending = self._run_jobs.get(run_id, {})
-        sources = pending.get("arguments", arguments)
-        if not isinstance(sources, dict):
-            sources = arguments
-        return self.record_run_evidence(
-            {
-                "run_id": run_id,
-                "operation": completion.get("operation", operation),
-                "verdict": verdict,
-            },
-            sources,
+        return _maybe_record_evidence(
+            self._project_dir, self._run_jobs, self.log_text,
+            operation, completion, arguments,
         )
 
     def register_solver(self, operation, adapter, tool=None):

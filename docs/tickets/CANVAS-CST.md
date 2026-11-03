@@ -89,3 +89,10 @@ bytes and are not rewritten. Pin source/model/tool/port-map/testbench/technology
 closure along with this file. Source/geometry stay outside TOML as managed assets.
 Test selected language migration, generated backend HDL, conflicting filenames,
 inline/delegated knob validation, contained refs and historical ingredient reads.
+
+## Verdict (Wave-2, 2026-11-03) — Ready, to Wave-3 lanes
+
+CANVAS-CST-CORE delivered the foundation (schema tables, validate,
+closure, loader, UI descriptor — Done). Remain: canvas integration
+into project/submit/I28 paths + per-PDK templates (Wave-3 lanes
+ticket) + SDC/deck compiler (CANVAS-CST-COMPILE, Wave-4 terminal).
