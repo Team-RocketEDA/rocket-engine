@@ -231,6 +231,33 @@ class CommittedEffect(ContractModel):
     entities: list[OpaqueId]
     event_cursor: str
 
+class IpEntryUpstream(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/IpEntryUpstream'
+    url: str
+    rev: str
+    license: Optional[str] = Field(default=None)
+
+class IpEntryPort(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/IpEntryPort'
+    name: str
+
+class IpEntry_links(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/IpEntry/properties/links'
+
+class IpEntry(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/IpEntry'
+    name: str
+    version: str
+    kind: Optional[str] = Field(default=None)
+    ports: Optional[list[IpEntryPort]] = Field(default=None)
+    links: Optional[IpEntry_links] = Field(default=None)
+    license: Optional[str] = Field(default=None)
+    upstream: Optional[IpEntryUpstream] = Field(default=None)
+
 class CellData(ContractModel):
     """Schema-derived boundary value; see canonical descriptions."""
     __schema_pointer__: ClassVar[str] = '#/$defs/CellData'
@@ -612,38 +639,3 @@ class PinData(ContractModel):
     orientation_deg: Optional[float] = Field(default=None)
     layer: Optional[Ref] = Field(default=None)
     shape: Optional[OpaqueId] = Field(default=None)
-
-class PinMapData(ContractModel):
-    """Schema-derived boundary value; see canonical descriptions."""
-    __schema_pointer__: ClassVar[str] = '#/$defs/PinMapData'
-    kind: Literal['pin_map']
-    owner: OpaqueId
-    port_id: OpaqueId
-    symbol_pin: OpaqueId
-    physical_pins: list[OpaqueId]
-    native_paths: Optional[list[str]] = Field(default=None)
-
-class Endpoint(ContractModel):
-    """Schema-derived boundary value; see canonical descriptions."""
-    __schema_pointer__: ClassVar[str] = '#/$defs/Endpoint'
-    instance_path: list[OpaqueId]
-    port_id: OpaqueId
-    bits: Optional[list[int]] = Field(default=None)
-
-class NetData(ContractModel):
-    """Schema-derived boundary value; see canonical descriptions."""
-    __schema_pointer__: ClassVar[str] = '#/$defs/NetData'
-    kind: Literal['net']
-    name: Optional[str] = Field(default=None)
-    parent: OpaqueId
-    domain: Literal['electrical', 'optical', 'thermal']
-    endpoints: list[Endpoint]
-    width: int
-
-class WireData(ContractModel):
-    """Schema-derived boundary value; see canonical descriptions."""
-    __schema_pointer__: ClassVar[str] = '#/$defs/WireData'
-    kind: Literal['wire']
-    parent: OpaqueId
-    net: OpaqueId
-    points: list[Point]

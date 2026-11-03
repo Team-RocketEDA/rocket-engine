@@ -7636,6 +7636,84 @@
         "event_cursor"
       ]
     },
+    "IpEntryUpstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "minLength": 1
+        },
+        "rev": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "url",
+        "rev"
+      ],
+      "description": "Provenance of a wrapped nested upstream checkout (entry_repo/): where it came from, which revision, under which license. Mandatory exactly when entry_repo/ is present."
+    },
+    "IpEntryPort": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "description": "One block port (symbol pin or cell terminal). Only the name is contracted today; domain nests standardize later without breaking this shape."
+    },
+    "IpEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S+$"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IpEntryPort"
+          }
+        },
+        "links": {
+          "type": "object"
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "upstream": {
+          "$ref": "#/$defs/IpEntryUpstream"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "description": "Catalogue entry identity plus adapter metadata. Top level is closed (unknown keys fail loudly) so future fields arrive through deliberate schema evolution; port nests stay open until their standard lands. name must equal the entry folder slug; version pins the entry revision a registry block resolves to."
+    },
     "CellData": {
       "type": "object",
       "additionalProperties": false,

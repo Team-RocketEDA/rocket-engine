@@ -5,6 +5,42 @@ from pydantic import Field
 from ..base import ContractModel, ContractRoot
 from ..aliases import *
 
+class MarkerView(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/MarkerView'
+    id: OpaqueId
+    dataset_id: OpaqueId
+    name: Optional[str] = Field(default=None)
+    kind: Literal['markers']
+
+class DigitalView(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/DigitalView'
+    id: OpaqueId
+    dataset_id: OpaqueId
+    name: Optional[str] = Field(default=None)
+    kind: Literal['waveform']
+    signals: Optional[list[OpaqueId]] = Field(default=None)
+    radix: Optional[Literal['binary', 'hex', 'decimal', 'signed_decimal']] = Field(default=None)
+
+class FieldView_slice(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/FieldView/properties/slice'
+    axis: OpaqueId
+    position: Quantity
+
+class FieldView(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/FieldView'
+    id: OpaqueId
+    dataset_id: OpaqueId
+    name: Optional[str] = Field(default=None)
+    kind: Literal['field']
+    field: OpaqueId
+    component: Optional[str] = Field(default=None)
+    transform: Optional[Literal['identity', 'real', 'imag', 'magnitude', 'phase_deg']] = Field(default=None)
+    slice: Optional[FieldView_slice] = Field(default=None)
+
 class DataView(ContractRoot):
     """Canonical discriminated/union boundary value."""
     __schema_pointer__: ClassVar[str] = '#/$defs/DataView'

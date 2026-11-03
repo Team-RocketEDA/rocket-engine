@@ -207,6 +207,12 @@ export type Workspace = { "id": OpaqueId; "project_id": OpaqueId; "generation": 
 export type ScriptResult = (Workspace | RunReceipt | AuthorizationPending);
 export type ExecutionFailure = { "code": string; "message": string; "details": Array<ErrorDetail>; "retryable": boolean; };
 export type CommittedEffect = { "request_id": OpaqueId; "project_id": OpaqueId; "revision": Revision; "entities": Array<OpaqueId>; "event_cursor": string; };
+/** Provenance of a wrapped nested upstream checkout (entry_repo/): where it came from, which revision, under which license. Mandatory exactly when entry_repo/ is present. */
+export type IpEntryUpstream = { "url": string; "rev": string; "license"?: string; };
+/** One block port (symbol pin or cell terminal). Only the name is contracted today; domain nests standardize later without breaking this shape. */
+export type IpEntryPort = { "name": string; };
+/** Catalogue entry identity plus adapter metadata. Top level is closed (unknown keys fail loudly) so future fields arrive through deliberate schema evolution; port nests stay open until their standard lands. name must equal the entry folder slug; version pins the entry revision a registry block resolves to. */
+export type IpEntry = { "name": string; "version": string; "kind"?: string; "ports"?: Array<IpEntryPort>; "links"?: {  }; "license"?: string; "upstream"?: IpEntryUpstream; };
 export type CellData = { "kind": "cell"; "name": string; "owner": OpaqueId; "unit": "um" | "nm"; "grid": Quantity; "technology": Ref; "children"?: Array<OpaqueId>; "authority": "manual" | "generator" | "native_source"; "source_view"?: string; };
 export type ShapeGeometry = ({ "type": "rectangle"; "origin": Point; "size": Point; } | { "type": "polygon"; "points": Array<Point>; "holes"?: Array<Array<Point>>; } | { "type": "path"; "points": Array<Point>; "width": number; } | { "type": "label"; "position": Point; "text": string; });
 /** Physical geometry belongs to a cell; it is not automatically a separate circuit component. */

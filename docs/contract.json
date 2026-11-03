@@ -829,6 +829,88 @@
       "type": "object",
       "wired": true
     },
+    "ip_instantiate": {
+      "description": "Place one registered IP block with linkage intact.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.ip_instantiate"
+      ],
+      "kind": "operation",
+      "name": "ip_instantiate",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "mirror": {
+          "description": "Mirror flag."
+        },
+        "name": {
+          "description": "Block name within the PDK registry."
+        },
+        "pdk": {
+          "description": "Consuming PDK id (must own the block unless the block opted into shared scope)."
+        },
+        "properties": {
+          "description": "Text-to-text instance properties."
+        },
+        "rotation": {
+          "description": "Rotation in degrees (0/90/180/270)."
+        },
+        "sheet": {
+          "description": "Sheet entity id hosting the instance."
+        },
+        "version": {
+          "description": "Revision label, or None for the latest."
+        },
+        "x": {
+          "description": "X position in schematic units."
+        },
+        "y": {
+          "description": "Y position in schematic units."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, unknown_ip, pdk_mismatch, unknown_sheet, invalid_instance.",
+      "required": [
+        "pdk",
+        "name",
+        "sheet",
+        "x",
+        "y"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
+    "ip_promote": {
+      "description": "Promote one block version as the registry's recommended one.",
+      "handlers": [
+        "rocket_engine.project.service.ProjectService.ip_promote"
+      ],
+      "kind": "operation",
+      "name": "ip_promote",
+      "properties": {
+        "expected_revision": {
+          "description": "Revision the writer read."
+        },
+        "name": {
+          "description": "Block name within the PDK registry."
+        },
+        "pdk": {
+          "description": "Owning PDK id scoping the registry."
+        },
+        "version": {
+          "description": "Revision label to promote."
+        }
+      },
+      "raises": "ProjectError: request_conflict, revision_conflict, unknown_ip, invalid_pdk.",
+      "required": [
+        "pdk",
+        "name",
+        "version"
+      ],
+      "returns": "Mutation mapping with receipt, events, and cursor.",
+      "type": "object",
+      "wired": true
+    },
     "ip_register": {
       "description": "Register one prebuilt IP block revision under its PDK.",
       "handlers": [
@@ -6035,7 +6117,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "2c07a1ce8a13ca4dcf666b27e1bea003defb7cb932af79accc5683465c54d246",
+  "schema_sha256": "445a480be714e662ba20fa234b1816290efe3f9ff1a9c0b1018bb8079b6407c8",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

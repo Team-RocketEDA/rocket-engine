@@ -154,6 +154,24 @@ ENGINE_OP_REQUIRED = {
     "cancel_job": ["run_id"],
 }
 
+#: Verbs whose contract docstring moved out of service.py under
+#: REFACTOR-SERVICE slices: op -> (rel, class) owning the text.
+#: Handlers stay bound on ProjectService through the mixin, so
+#: only the docstring/signature address moves.
+_SERVICE_DOC_HOME = {
+    "ip_register": ("project/ip/verbs.py", "_IpMixin"),
+    "ip_instantiate": ("project/ip/verbs.py", "_IpMixin"),
+    "ip_promote": ("project/ip/verbs.py", "_IpMixin"),
+}
+
+
+def _doc_home(name):
+    """(rel, cls, method) owning one service verb's contract text."""
+    if name in _SERVICE_DOC_HOME:
+        rel, cls = _SERVICE_DOC_HOME[name]
+        return rel, cls, name
+    return "project/service.py", "ProjectService", name
+
 
 def solver_map(root=None):
     """{op: [(tool, adapter_class, module_rel)]} from Engine._solvers.
@@ -417,8 +435,9 @@ def endpoint_spec(name, root=None):
         spec["handlers"] = [
             "rocket_engine.project.service.ProjectService." + name
         ]
+        rel, cls, method = _doc_home(name)
         spec["summary"] = parse_docstring(doc_of(
-            "project/service.py", "ProjectService." + name, root=root
+            rel, cls + "." + method, root=root
         ))["summary"]
     elif name == "run_job":
         spec["wired"] = True
@@ -514,6 +533,9 @@ def section_body(name, root=None):
                 name, qengines[name], root, rel="composition.py", cls="Engine"
             )
         method = name if name in crud else qmethods[name]
+        if name in crud and name in _SERVICE_DOC_HOME:
+            rel, cls, method = _doc_home(name)
+            return _method_section(name, method, root, rel=rel, cls=cls)
         return _method_section(name, method, root)
     if name == "run_job":
         parsed = parse_docstring(doc_of(
@@ -719,8 +741,8 @@ def _schema_for(name, kind, solvers, crud, qmethods, qengines, engine_ops,
         elif name in qengines:
             rel, cls, method = "composition.py", "Engine", qengines[name]
         else:
-            rel, cls = "project/service.py", "ProjectService"
-            method = name if name in crud else qmethods[name]
+            rel, cls, method = _doc_home(
+                name if name in crud else qmethods[name])
         parsed = parse_docstring(doc_of(rel, cls + "." + method, root=root))
         required = set(signature_required(
             rel, cls + "." + method, root=root

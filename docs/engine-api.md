@@ -47,6 +47,8 @@ text, identical to the section bodies below.
 | `detach_component` | yes | — | Detach one component from its entity. |
 | `discard_run` | yes | — | Explicitly discard one crash survivor, never executing it. |
 | `generate_views` | yes | `gdsfactory` (default) | generate_views via gdsfactory: registered layout recipes. |
+| `ip_instantiate` | yes | — | Place one registered IP block with linkage intact. |
+| `ip_promote` | yes | — | Promote one block version as the registry's recommended one. |
 | `ip_register` | yes | — | Register one prebuilt IP block revision under its PDK. |
 | `map_pins` | yes | — | Create or remap the pin map for one symbol-cell pair. |
 | `materialize_nets` | yes | — | Extract connectivity, upsert Net entities: gate, run, log. |
@@ -701,11 +703,59 @@ Raises:
 
 Caution: Unknown cells and unreadable GDS synthesize error violations with file/line — the verdict always comes from parsed output, never the exit code. GDS roundtrip readback is a diagnostic, never the verdict.
 
+### ip_instantiate
+
+Place one registered IP block with linkage intact.
+
+Handler: `rocket_engine.project.ip.verbs._IpMixin.ip_instantiate`.
+
+Arguments:
+
+- `pdk` (required): Consuming PDK id (must own the block unless the block opted into shared scope).
+- `name` (required): Block name within the PDK registry.
+- `sheet` (required): Sheet entity id hosting the instance.
+- `x` (required): X position in schematic units.
+- `y` (required): Y position in schematic units.
+- `version`: Revision label, or None for the latest.
+- `rotation`: Rotation in degrees (0/90/180/270).
+- `mirror`: Mirror flag.
+- `properties`: Text-to-text instance properties.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, unknown_ip, pdk_mismatch, unknown_sheet, invalid_instance.
+
+### ip_promote
+
+Promote one block version as the registry's recommended one.
+
+Handler: `rocket_engine.project.ip.verbs._IpMixin.ip_promote`.
+
+Arguments:
+
+- `pdk` (required): Owning PDK id scoping the registry.
+- `name` (required): Block name within the PDK registry.
+- `version` (required): Revision label to promote.
+- `expected_revision`: Revision the writer read.
+
+Returns:
+
+Mutation mapping with receipt, events, and cursor.
+
+Raises:
+
+ProjectError: request_conflict, revision_conflict, unknown_ip, invalid_pdk.
+
 ### ip_register
 
 Register one prebuilt IP block revision under its PDK.
 
-Handler: `rocket_engine.project.service.ProjectService.ip_register`.
+Handler: `rocket_engine.project.ip.verbs._IpMixin.ip_register`.
 
 Arguments:
 

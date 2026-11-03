@@ -5,6 +5,41 @@ from pydantic import Field
 from ..base import ContractModel, ContractRoot
 from ..aliases import *
 
+class PinMapData(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/PinMapData'
+    kind: Literal['pin_map']
+    owner: OpaqueId
+    port_id: OpaqueId
+    symbol_pin: OpaqueId
+    physical_pins: list[OpaqueId]
+    native_paths: Optional[list[str]] = Field(default=None)
+
+class Endpoint(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/Endpoint'
+    instance_path: list[OpaqueId]
+    port_id: OpaqueId
+    bits: Optional[list[int]] = Field(default=None)
+
+class NetData(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/NetData'
+    kind: Literal['net']
+    name: Optional[str] = Field(default=None)
+    parent: OpaqueId
+    domain: Literal['electrical', 'optical', 'thermal']
+    endpoints: list[Endpoint]
+    width: int
+
+class WireData(ContractModel):
+    """Schema-derived boundary value; see canonical descriptions."""
+    __schema_pointer__: ClassVar[str] = '#/$defs/WireData'
+    kind: Literal['wire']
+    parent: OpaqueId
+    net: OpaqueId
+    points: list[Point]
+
 class JunctionData(ContractModel):
     """Schema-derived boundary value; see canonical descriptions."""
     __schema_pointer__: ClassVar[str] = '#/$defs/JunctionData'
@@ -645,39 +680,3 @@ class MatrixView(ContractModel):
     column_axis: OpaqueId
     transform: Literal['identity', 'real', 'imag', 'magnitude', 'phase_deg', 'phase_rad', 'magnitude_db', 'power_db']
     slice: Optional[list[MatrixView_sliceItem]] = Field(default=None)
-
-class MarkerView(ContractModel):
-    """Schema-derived boundary value; see canonical descriptions."""
-    __schema_pointer__: ClassVar[str] = '#/$defs/MarkerView'
-    id: OpaqueId
-    dataset_id: OpaqueId
-    name: Optional[str] = Field(default=None)
-    kind: Literal['markers']
-
-class DigitalView(ContractModel):
-    """Schema-derived boundary value; see canonical descriptions."""
-    __schema_pointer__: ClassVar[str] = '#/$defs/DigitalView'
-    id: OpaqueId
-    dataset_id: OpaqueId
-    name: Optional[str] = Field(default=None)
-    kind: Literal['waveform']
-    signals: Optional[list[OpaqueId]] = Field(default=None)
-    radix: Optional[Literal['binary', 'hex', 'decimal', 'signed_decimal']] = Field(default=None)
-
-class FieldView_slice(ContractModel):
-    """Schema-derived boundary value; see canonical descriptions."""
-    __schema_pointer__: ClassVar[str] = '#/$defs/FieldView/properties/slice'
-    axis: OpaqueId
-    position: Quantity
-
-class FieldView(ContractModel):
-    """Schema-derived boundary value; see canonical descriptions."""
-    __schema_pointer__: ClassVar[str] = '#/$defs/FieldView'
-    id: OpaqueId
-    dataset_id: OpaqueId
-    name: Optional[str] = Field(default=None)
-    kind: Literal['field']
-    field: OpaqueId
-    component: Optional[str] = Field(default=None)
-    transform: Optional[Literal['identity', 'real', 'imag', 'magnitude', 'phase_deg']] = Field(default=None)
-    slice: Optional[FieldView_slice] = Field(default=None)

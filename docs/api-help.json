@@ -311,10 +311,22 @@
     "text": "Read one entity component payload at the current head.\n\nHandler: `rocket_engine.project.service.ProjectService.get_component`.\n\nEntities project over plain documents: the record lives at\nentities/<entity>.json and reads through the same bytes\nread_doc serves. Backfilled doc entities serve their\nprojected doc component here, so every world-snapshot\nentry stays addressable.\n\nArguments:\n\n- `entity` (required): Entity id holding the component.\n- `component` (required): Component name to read.\n\nReturns:\n\nMapping with project id, head revision, entity, component, canonical address, storage path, the component data, and the entity revision.\n\nRaises:\n\nProjectError: invalid_entity or invalid_component for malformed parts; unknown_entity for a missing entity; unknown_component for a missing component; invalid_document for a corrupt entity record.\n",
     "wired": true
   },
+  "ip_instantiate": {
+    "kind": "operation",
+    "summary": "Place one registered IP block with linkage intact.",
+    "text": "Place one registered IP block with linkage intact.\n\nHandler: `rocket_engine.project.ip.verbs._IpMixin.ip_instantiate`.\n\nArguments:\n\n- `pdk` (required): Consuming PDK id (must own the block unless the block opted into shared scope).\n- `name` (required): Block name within the PDK registry.\n- `sheet` (required): Sheet entity id hosting the instance.\n- `x` (required): X position in schematic units.\n- `y` (required): Y position in schematic units.\n- `version`: Revision label, or None for the latest.\n- `rotation`: Rotation in degrees (0/90/180/270).\n- `mirror`: Mirror flag.\n- `properties`: Text-to-text instance properties.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, unknown_ip, pdk_mismatch, unknown_sheet, invalid_instance.\n",
+    "wired": true
+  },
+  "ip_promote": {
+    "kind": "operation",
+    "summary": "Promote one block version as the registry's recommended one.",
+    "text": "Promote one block version as the registry's recommended one.\n\nHandler: `rocket_engine.project.ip.verbs._IpMixin.ip_promote`.\n\nArguments:\n\n- `pdk` (required): Owning PDK id scoping the registry.\n- `name` (required): Block name within the PDK registry.\n- `version` (required): Revision label to promote.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, unknown_ip, invalid_pdk.\n",
+    "wired": true
+  },
   "ip_register": {
     "kind": "operation",
     "summary": "Register one prebuilt IP block revision under its PDK.",
-    "text": "Register one prebuilt IP block revision under its PDK.\n\nHandler: `rocket_engine.project.service.ProjectService.ip_register`.\n\nArguments:\n\n- `pdk` (required): Owning PDK id (the per-PDK invariant key).\n- `name` (required): Block name within the PDK registry.\n- `version` (required): Revision label (\"\" forbidden).\n- `symbol` (required): Linked schematic symbol reference.\n- `cell` (required): Linked footprint cell reference.\n- `pin_map`: Explicit [{symPin, cellPin}] entries.\n- `scope`: \"pdk\" (default) or \"shared\" with a reason.\n- `reason`: Recorded justification for shared scope.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_pdk, ip_exists, invalid_ip, invalid_scope.\n",
+    "text": "Register one prebuilt IP block revision under its PDK.\n\nHandler: `rocket_engine.project.ip.verbs._IpMixin.ip_register`.\n\nArguments:\n\n- `pdk` (required): Owning PDK id (the per-PDK invariant key).\n- `name` (required): Block name within the PDK registry.\n- `version` (required): Revision label (\"\" forbidden).\n- `symbol` (required): Linked schematic symbol reference.\n- `cell` (required): Linked footprint cell reference.\n- `pin_map`: Explicit [{symPin, cellPin}] entries.\n- `scope`: \"pdk\" (default) or \"shared\" with a reason.\n- `reason`: Recorded justification for shared scope.\n- `expected_revision`: Revision the writer read.\n\nReturns:\n\nMutation mapping with receipt, events, and cursor.\n\nRaises:\n\nProjectError: request_conflict, revision_conflict, invalid_pdk, ip_exists, invalid_ip, invalid_scope.\n",
     "wired": true
   },
   "ip_search": {
