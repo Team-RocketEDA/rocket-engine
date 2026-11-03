@@ -885,7 +885,7 @@ install_opensta() {
         return 1
     fi
     local missing_prereq=""
-    for tool in git cmake make g++ swig bison flex \
+    for tool in git cmake make g++ swig bison flex tclsh \
         autoconf automake libtool; do
         if ! command -v "$tool" >/dev/null 2>&1; then
             missing_prereq="$missing_prereq $tool"
@@ -896,10 +896,12 @@ install_opensta() {
         # libtoolize, /usr/bin/libtool lives in libtool-bin, so
         # the remedy must name both (bare "install libtool"
         # leaves `command -v libtool` failing on --no-recommends
-        # hosts, exactly tonight's failure).
+        # hosts, exactly tonight's failure). Likewise the tclsh
+        # binary ships in the tcl package, so map it back.
         local apt_missing
         apt_missing=$(printf '%s' "$missing_prereq" \
-            | sed 's/\blibtool\b/libtool libtool-bin/') || return 1
+            | sed -e 's/\blibtool\b/libtool libtool-bin/' \
+                -e 's/\btclsh\b/tcl/') || return 1
         remedy "opensta" "build prerequisites missing:$missing_prereq" \
             "sudo apt-get install -y$apt_missing tcl-dev libeigen3-dev" \
             "$OPENSTA_URL"
@@ -1124,6 +1126,19 @@ install_xyce() {
     prereqs_or_remedy "xyce" "https://xyce.sandia.gov/" \
         git cmake make gcc g++ gfortran bison flex \
         autoconf automake libtool || return 1
+    # SuiteSparse dev files: Xyce defaults AMD on (KLU support) and
+    # TriBITS only builds EpetraExt_AMD when it finds the AMD TPL at
+    # Trilinos configure time. Runtime libs alone (libamd.so.3)
+    # fail AC_CHECK_LIB; without the headers the later
+    # EpetraExt_AMD_CrsGraph.h check fails too. Check both the
+    # header and the linker symlink before the long builds start.
+    if [ ! -f /usr/include/suitesparse/amd.h ] \
+        || [ ! -f /usr/lib/x86_64-linux-gnu/libamd.so ]; then
+        remedy "xyce" "SuiteSparse dev files absent (need amd.h + libamd.so)" \
+            "sudo apt-get install -y libsuitesparse-dev, then re-run --install" \
+            "https://xyce.sandia.gov/"
+        return 1
+    fi
     ATTEMPTED=1
     local tsrc="$TOOLS_DIR/src/trilinos-$TRILINOS_REF"
     local tpref="$TOOLS_DIR/trilinos-$TRILINOS_REF"
@@ -1153,6 +1168,17 @@ install_xyce() {
     if [ ! -f "$tsrc/build/Makefile" ]; then
         rm -rf "$tsrc/build"
     fi
+    # Fossil guard (2026-11-04): a build dir whose cache claims
+    # Epetra=ON but has no packages/epetra/ is a stale
+    # hand-rolled tree that incremental reconfigure will not
+    # repair — wipe it so the package set configures clean.
+    if [ -f "$tsrc/build/CMakeCache.txt" ] \
+        && grep -q "^Trilinos_ENABLE_Epetra:BOOL=ON" \
+            "$tsrc/build/CMakeCache.txt" \
+        && [ ! -d "$tsrc/build/packages/epetra" ]; then
+        note "install xyce: stale Trilinos build dir (no epetra package dir); wiping for a clean reconfigure"
+        rm -rf "$tsrc/build"
+    fi
     note "install xyce: building Trilinos (long; per the Xyce building guide)"
     (mkdir -p "$tsrc/build" && cd "$tsrc/build" \
         && cmake -DCMAKE_INSTALL_PREFIX="$tpref" \
@@ -1161,6 +1187,7 @@ install_xyce() {
             -DTrilinos_ENABLE_EpetraExt=ON -DTrilinos_ENABLE_Ifpack=ON \
             -DTrilinos_ENABLE_Amesos=ON -DTrilinos_ENABLE_AztecOO=ON \
             -DTrilinos_ENABLE_Belos=ON -DTrilinos_ENABLE_Amesos2=ON \
+            -DTrilinos_ENABLE_Triutils=ON \
             -DTrilinos_ENABLE_Sacado=ON -DTrilinos_ENABLE_Stokhos=ON \
             -DTrilinos_ENABLE_NOX=ON -DTrilinos_ENABLE_Zoltan=ON \
             -DTPL_ENABLE_MPI=OFF \
