@@ -22,7 +22,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 
-- [DIGITAL-FLOW-URANIUM] Rewrite digital_flow on machine files
 ## Doing
 
 
@@ -195,3 +194,4 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [HTTP-LOCALHOST] Loopback trust boundary, loud and enforced
 - [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
+- [DIGITAL-FLOW-URANIUM] Rewrite digital_flow on machine files
