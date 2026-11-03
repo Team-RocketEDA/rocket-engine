@@ -16,6 +16,7 @@ Usage:
 """
 
 import argparse
+import datetime
 import re
 import shutil
 import sys
@@ -77,6 +78,16 @@ def attach_body(tid, src):
         return None
     TICKETS_DIR.mkdir(parents=True, exist_ok=True)
     dest = body_path(tid)
+    if dest.is_file() and dest.stat().st_size > 0:
+        # Never clobber an existing ticket body (it may hold a
+        # hand-written plan predating the board row): append the
+        # new text as a dated section instead.
+        with open(dest, "a", encoding="utf-8") as handle:
+            handle.write(
+                f"\n\n---\n\n*Appended "
+                f"{datetime.date.today().isoformat()}.*\n\n")
+            handle.write(src.read_text(encoding="utf-8"))
+        return dest
     shutil.copy(src, dest)
     return dest
 
