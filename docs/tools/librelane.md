@@ -85,3 +85,35 @@ which `digital_flow` already scans with bounded tails.
    keys (key drift = upstream step change).
 
 Verified at: clone 64ef8080 (2026-10-26) == provision pin 3.0.17.
+
+## 6. Live-run addendum (2026-11-03, pinned 3.0.17 AppImage)
+
+Grounded in a real counter RTL→GDS run (sky130A, PDK from ciel).
+Docs above describe the code; this section records what the tool
+actually prints and writes.
+
+- CLI: the run flag is `--run-tag` (`--tag` is rejected with
+  "No such option"). `--overwrite` and `--pdk-root` exist as
+  documented. `--manual-pdk` skips the Ciel network path against
+  a pre-enabled PDK root; the default volare path auto-enables.
+- Signoff steps write NO metrics.json/metrics.csv. The machine
+  evidence is `state_out.json` → `metrics` (a running
+  accumulation across steps) plus structured JSON reports:
+  `reports/drc.klayout.json` (`{rule: count, ..., "total": N}`)
+  and `reports/lvs.netgen.json` (per-element pin-comparison list).
+- Confirmed live key families (all zero on the clean counter):
+  STA `timing__{setup,hold}__{ws,tns}__corner:<corner>`
+  (bare `timing__setup__ws` also appears from mid-PNR steps —
+  judge the worst across corners); DRC
+  `magic__drc_error__count`, `klayout__drc_error__count`;
+  LVS `design__lvs_unmatched_{device,net,pin}__count`
+  (0 means match). The uranium reader consumes exactly these.
+- The classic flow contains NO formal-equivalence step
+  (equivalence lives in the FORMAL-SBY lane). D27 on a live
+  classic run is force-bypassed loudly, never auto-passed.
+- Small designs need explicit PDN (upstream spm recipe):
+  `PDN_VOFFSET/HOFFSET 5`, `PDN_VWIDTH/HWIDTH 2`,
+  `PDN_VPITCH/HPITCH 30`, `PDN_SKIPTRIM true`, plus roomier
+  sizing (`FP_CORE_UTIL 30` for a ~50-cell counter). The PDK
+  default met4 grid does not fit a ~17 µm core (PDN-0185);
+  without it the flow dies before detailed placement.
