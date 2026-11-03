@@ -6,6 +6,7 @@ Only cataloged operations and read queries are exposed. Anything else
 
 import uuid
 
+from ...clients.runtime import RuntimeClient
 from ...interfaces.vocabulary import OPERATIONS, QUERIES
 from .. import api
 from ..base import enforce_scope, parse_json
@@ -69,3 +70,16 @@ class McpTransport:
             arguments,
             request_id=str(message.get("id", uuid.uuid4().hex)),
         )
+
+    def runtime_client(self):
+        """Serve this transport's engine through the shared client.
+
+        The MCP list/call path is untouched — this binds the same
+        engine's integrated runtime (deferred submit, pump, wait,
+        cancel, watch) so MCP clients share one run identity
+        with every other transport.
+
+        Returns:
+            RuntimeClient bound to this transport's engine.
+        """
+        return RuntimeClient(self._engine)

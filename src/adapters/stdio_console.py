@@ -47,6 +47,7 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
+from ..clients.runtime import RuntimeClient
 from ..composition import Engine
 from ..execution.console.session import ConsoleSession
 from ..execution.console.route import (
@@ -439,6 +440,19 @@ class StdioConsole:
             Bound engine.
         """
         return self._engine
+
+    def runtime_client(self):
+        """Serve this console's engine through the shared client.
+
+        Cell execution is untouched — this binds the same
+        engine's integrated runtime (deferred submit, pump,
+        wait, cancel, watch) so console clients share one run
+        identity with every other transport.
+
+        Returns:
+            RuntimeClient bound to this console's engine.
+        """
+        return RuntimeClient(self._engine)
 
     @property
     def gate(self):

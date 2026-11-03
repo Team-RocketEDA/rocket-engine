@@ -6,6 +6,7 @@ slice speaks bare JSON envelopes with the same command shape.
 
 import uuid
 
+from ...clients.runtime import RuntimeClient
 from .. import api
 from ..base import enforce_scope, parse_json
 from ..errors import AdapterError
@@ -50,6 +51,19 @@ class IpcTransport:
             frame.get("arguments", {}),
             request_id=str(frame.get("request_id") or uuid.uuid4().hex),
         )
+
+    def runtime_client(self):
+        """Serve this transport's engine through the shared client.
+
+        The envelope path is untouched — this binds the same
+        engine's integrated runtime (deferred submit, pump,
+        wait, cancel, watch) so IPC clients share one run
+        identity with every other transport.
+
+        Returns:
+            RuntimeClient bound to this transport's engine.
+        """
+        return RuntimeClient(self._engine)
 
 
 class EventStream:
