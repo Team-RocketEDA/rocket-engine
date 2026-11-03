@@ -23,3 +23,9 @@ An editable layer name or direct GDS layer number is not enough to establish pro
 - A missing contact, rule, grid or output mapping produces a named unsupported/incomplete result and leaves authored geometry intact.
 - Derived-output recipes are deterministic, revision-pinned and round-trip validated against a reference layout; unsupported transformations fail loudly.
 - Source and generated output provenance are included in I28; no adapter may invent process semantics from display names.
+
+## Verdict: GREEN (2026-11-03)
+
+- Implemented `src/project/process/model.py` (versioned `TechProfile` with source-hash/deck pin, capability gates returning supported/unsupported/incomplete, `probe_tool` for binary-gated backends) and `recipes.py` (deterministic derived-output recipes, round-trip validation, unsupported ops raise `unsupported_transformation`).
+- Proved by `tests/project/test_process_model.py`: 3 passed, 1 loud skip — `opensta`/`librelane`/`klayout` absent on PATH probe `BLOCKED-needs-host`, never faked green; no network/docker daemon used.
+- Engine-wiring seam for the surface lane: pin profile label + source hash + deck into I28 ingredients; surface DRC/extraction/export as capability-gated Engine ops that return these verdicts verbatim.

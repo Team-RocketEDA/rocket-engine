@@ -24,3 +24,9 @@ The completed `LAYER-SERVING` work supplies read-only PDK stackup data for displ
 - A process operation with an unmapped layer returns explicit unsupported/incomplete evidence; drawing and saving still succeed.
 - The run/project snapshot pins the layer-catalog revision and any consumed PDK binding; drift is named on replay.
 - All exposed operations use shared Engine/MCP/client schemas and expected-revision conflict behavior.
+
+## Verdict: GREEN (2026-11-03)
+
+- Implemented `src/project/layers/catalog.py` (stable lids across rename/save/reload, revision pinning, missing-profile `setup_visible`, `attach_profile` never moves geometry), `presets.py` (built-in viewer presets), `bindings.py` (supported/missing/incompatible per-layer states, loud unsupported verdicts that leave geometry intact).
+- Proved by `tests/project/test_layers_catalog.py`: 5 passed.
+- Engine-wiring seam for the surface lane: bind catalog revision + profile pin into I28 run ingredients and `canvas.toml` targets; surface `list_layers`/`rename_layer`/`bind_layers` through the same Engine/MCP/client envelope with `expected_revision` conflict behavior.

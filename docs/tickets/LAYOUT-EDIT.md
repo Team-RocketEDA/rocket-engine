@@ -25,3 +25,9 @@ The current engine can place cells and serve a PDK stackup, but has no general o
 - Mapped and unmapped layers both accept geometry; process checks/export report missing mappings explicitly.
 - Cell placement and transforms preserve ports, hierarchy and links to symbol/cell views.
 - A stale expected revision fails without overwriting another edit; rewind/replay restores the geometry and provenance.
+
+## Verdict: GREEN (2026-11-03)
+
+- Implemented `src/project/geometry/ops.py` (kind=shape entities with geom+provenance components; rect/polygon/path/label CRUD, move/rotate/mirror/copy/array, anchors; CAS-gated updates, stale revision fails without overwrite) and `snap.py` (storage vs UI-snap vs manufacturing-grid separation; violations never rewrite authored coordinates).
+- Proved by `tests/project/test_geometry_ops.py`: 4 passed — create/query/edit/reload stable, stale revision conflict, grid separation, copy/move identity chain.
+- Engine-wiring seam for the surface lane: route IDE/MCP/script geometry calls through one Engine op set sharing these verbs and evidence shapes; rewind/replay restores geometry plus provenance via the ledger snapshots this module relies on.
