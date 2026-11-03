@@ -105,3 +105,34 @@ exit evidence, provisioned-env-only consoles, sink-boundary
 unit asserts, named pin capture, PDK+model provenance,
 catalog-resolved layers, escape-hatch console with
 atomicity + `rewind` as the undo story. Details in ADR-016.
+
+
+---
+
+*Appended 2026-11-03.*
+
+## Done evidence (2026-11-03)
+
+GREEN commits (split units, unpushed per policy):
+
+- `feat(pivot)`: `src/execution/pyexec/apply_context.py` (new) +
+  `Engine.apply_batch` in `src/ops/submit.py`. One batch per
+  outermost clean exit; exceptions drop the block; scratch outside
+  commits nothing; retire fences the generation; replays are
+  idempotent (same receipt, head stable); hierarchy gaps ride the
+  receipt as declared-unlanded, never phantom-landed.
+- `refactor(pivot)`: `console/route.py` shim removed; importers
+  (execution package, stdio_console, route/split suites) repointed
+  to canonical `routing/calls`, `routing/namespace`,
+  `routing/tools`. ConsoleSession kept; its migration is
+  CONSOLE-SESSION-MIGRATE.
+
+Verification observed in-session:
+
+- `tests/execution/test_apply_context.py`: 10 passed.
+- Migrated suites (route, split, wiring): 133 passed, 13 skipped.
+- Wide regression (tests/execution + composition/api/service
+  splits + transports): 289 passed, 47 skipped, 0 failed.
+- `scripts/api_spec.py --check`: exit 0. `git diff --check`: clean.
+- Docstring gate: zero hits in slice files (remaining hits are the
+  pre-existing DOCSTRING-GUARD class in untouched files).
