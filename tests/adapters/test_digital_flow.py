@@ -41,9 +41,9 @@ TAG="engine"
 CONFIG=""
 PREV=""
 for _a in "$@"; do
-  if [ "$PREV" = "--tag" ]; then TAG="$_a"; PREV=""; continue; fi
+  if [ "$PREV" = "--tag" ] || [ "$PREV" = "--run-tag" ]; then TAG="$_a"; PREV=""; continue; fi
   case "$_a" in
-    --tag) PREV="--tag" ;;
+    --tag|--run-tag) PREV="$_a" ;;
     *.json) CONFIG="$_a" ;;
   esac
 done
@@ -711,7 +711,7 @@ def test_digital_flow_execute_stub_ok_collects_evidence(tmp_path, monkeypatch):
     assert (design / "src" / "counter.v").is_file()
     argv = (design / "stub_argv.txt").read_text()
     assert "digital_flow_config.json" in argv
-    assert "--tag" in argv
+    assert "--run-tag" in argv
     assert "--pdk" in argv
     result = adapter.parse(native)
     assert _errors(result) == [], result["violations"]
@@ -767,11 +767,24 @@ def test_digital_flow_counter_live_proves_gds(tmp_path):
 
     job = _job(["counter.v"], "counter", tmp_path, pdk_root=_PDK_ROOT)
     job["timeout_s"] = 1800
+    # Small-design recipe (upstream spm example): explicit PDN grid
+    # fits the tiny die; FP_CORE_UTIL 30 rooms the straps.
+    job["config"] = {
+        "PDN_VOFFSET": 5, "PDN_HOFFSET": 5,
+        "PDN_VWIDTH": 2, "PDN_HWIDTH": 2,
+        "PDN_VPITCH": 30, "PDN_HPITCH": 30,
+        "PDN_SKIPTRIM": True, "FP_CORE_UTIL": 30,
+    }
+    # The classic flow proves no formal equivalence (FORMAL-SBY
+    # lane owns that); force-bypass D27 loudly, never silently.
+    job["force"] = ["D27"]
     adapter = LibrelaneFlowAdapter()
     result = adapter.parse(adapter.execute(job))
     assert _errors(result) == [], result["violations"]
     assert Path(result["measurements"]["gds"]).is_file()
     assert result["measurements"]["lvs_match"] is True
+    forced = [s for s in result["stages"] if s["status"] == "forced"]
+    assert [s["id"] for s in forced] == ["D27"]
 
 
 @needs_librelane
@@ -899,12 +912,18 @@ def test_digital_flow_serv_live_proves_gds(tmp_path):
         "pdk_root": _PDK_ROOT,
         "workdir": str(workdir),
         "timeout_s": 3600,
+        # Classic flow proves no formal equivalence (FORMAL-SBY
+        # lane owns that); force-bypass D27 loudly, never silently.
+        "force": ["D27"],
     }
     adapter = LibrelaneFlowAdapter()
     result = adapter.parse(adapter.execute(job))
     assert _errors(result) == [], result["violations"]
     stages = _stages(result)
-    assert all(s["status"] == "pass" for s in stages.values())
+    assert all(
+        s["status"] == "pass" for i, s in stages.items() if i != "D27"
+    )
+    assert stages["D27"]["status"] == "forced"
     assert Path(result["measurements"]["gds"]).is_file()
     assert result["measurements"]["drc_total"] == 0
     assert result["measurements"]["lvs_match"] is True

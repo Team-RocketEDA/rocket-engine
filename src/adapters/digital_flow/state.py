@@ -26,7 +26,15 @@ STA_TNS_KEYS = (
     "tns_hold",
 )
 DRC_KEYS = ("drc__violations", "drc_total", "violations")
+# LibreLane 3.x signoff counts (exact names, no corner suffix).
+DRC_ERROR_KEYS = ("magic__drc_error__count", "klayout__drc_error__count")
 LVS_KEYS = ("lvs__match", "lvs_match", "match")
+# LibreLane 3.x LVS mismatch counts (0 means match).
+LVS_MISMATCH_KEYS = (
+    "design__lvs_unmatched_device__count",
+    "design__lvs_unmatched_net__count",
+    "design__lvs_unmatched_pin__count",
+)
 EQY_KEYS = ("equiv__equivalent", "equivalent", "equiv_pass", "equiv__proven")
 
 
@@ -150,23 +158,48 @@ def boolean(value):
     return None
 
 
+def _prefixed_numerals(metrics, *bases):
+    """Collect numeric values for exact or corner-suffixed keys.
+
+    LibreLane 3.x writes corner-suffixed keys
+    (`timing__setup__ws__corner:nom_tt_025C_1v80`); older steps
+    write the bare base name. Both are machine evidence.
+
+    Args:
+        metrics: Flat metric mapping.
+        bases: Base key names to accept exactly or with a
+            `__corner:*` (or any `__`-suffixed) extension.
+
+    Returns:
+        (key, numeral) pairs for every matching numeric entry.
+    """
+    found = []
+    for key, value in metrics.items():
+        for base in bases:
+            if key == base or key.startswith(base + "__"):
+                numeral = number(value)
+                if numeral is not None:
+                    found.append((str(key), numeral))
+                break
+    return found
+
+
 def sta_verdict(metrics):
     """Judge post-PNR timing from STA machine metrics.
 
+    Worst slack wins across corners: any negative corner slack
+    fails the gate.
+
     Args:
-        metrics: Merged STA step metrics (ws/tns slack keys).
+        metrics: Merged STA step metrics (ws/tns slack keys,
+            bare or corner-suffixed).
 
     Returns:
         (ok, detail): ok True/False, or None when no STA metric key
             is present; detail names the deciding key or the keys
             seen.
     """
-    slacks = []
-    for name in STA_WS_KEYS + STA_TNS_KEYS:
-        key, value = lookup(metrics, name)
-        numeral = number(value) if key is not None else None
-        if numeral is not None:
-            slacks.append((key, numeral))
+    slacks = _prefixed_numerals(metrics, *(STA_WS_KEYS + STA_TNS_KEYS))
     if not slacks:
         return None, f"keys present: {sorted(metrics) or 'none'}"
     worst = min(slacks, key=lambda item: item[1])
@@ -185,14 +218,18 @@ def drc_verdict(metrics):
         (ok, detail, total): total None when no DRC count key is
             present; detail names the deciding key or keys seen.
     """
-    for name in DRC_KEYS:
+    seen = []
+    for name in DRC_KEYS + DRC_ERROR_KEYS:
         key, value = lookup(metrics, name)
         numeral = number(value) if key is not None else None
         if numeral is not None:
-            total = int(numeral)
-            if total > 0:
-                return False, f"{total} DRC violations ({key})", total
-            return True, f"DRC total 0 ({key})", total
+            seen.append((key, int(numeral)))
+    if seen:
+        total = sum(count for _, count in seen)
+        names = "+".join(key for key, _ in seen)
+        if total > 0:
+            return False, f"{total} DRC violations ({names})", total
+        return True, f"DRC total 0 ({names})", total
     return None, f"keys present: {sorted(metrics) or 'none'}", None
 
 
@@ -206,6 +243,17 @@ def lvs_verdict(metrics):
         (ok, detail, match): match None when no LVS match key is
             present; detail names the deciding key or keys seen.
     """
+    seen = []
+    for name in LVS_MISMATCH_KEYS:
+        key, value = lookup(metrics, name)
+        numeral = number(value) if key is not None else None
+        if numeral is not None:
+            mismatched = int(numeral)
+            seen.append((key, mismatched))
+            if mismatched > 0:
+                return False, f"{mismatched} unmatched ({key})", False
+    if seen:
+        return True, f"netlists match ({seen[0][0]}=0)", True
     for name in LVS_KEYS:
         key, value = lookup(metrics, name)
         verdict = boolean(value) if key is not None else None

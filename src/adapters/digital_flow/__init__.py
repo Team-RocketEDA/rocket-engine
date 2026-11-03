@@ -3,7 +3,7 @@
 Protocol (LibreLane 3.0.17 Classic, subprocess): stage the project RTL
 into a design dir (`src/` plus a generated `digital_flow_config.json`
 carrying DESIGN_NAME/VERILOG_FILES/CLOCK_PERIOD/CLOCK_PORT/PDK), run
-`librelane <config> --tag <tag> --pdk <pdk> --overwrite`
+`librelane <config> --run-tag <tag> --pdk <pdk> --overwrite`
 (`--pdk-root`/`--scl` when the job names them) under the job timeout in
 its own process group, then read `design/runs/<tag>/` step dirs for
 per-stage evidence (config, state_out.json/metrics.csv machine files,
@@ -705,7 +705,9 @@ class LibrelaneFlowAdapter(ToolAdapter):
         argv = [
             checked["librelane"],
             str(config_path),
-            "--tag",
+            # 3.x renamed --tag to --run-tag (pinned 3.0.17 rejects
+            # --tag with "No such option").
+            "--run-tag",
             checked["tag"],
             "--pdk",
             checked["pdk"],
