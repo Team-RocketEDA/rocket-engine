@@ -38,6 +38,18 @@ from . import McpTransport
 
 _ENGINE_ERRORS = (AdapterError, ProjectError, ExecutionError)
 
+TRUST_NOTE = (
+    "Local-only trust: this MCP server speaks stdio to the local "
+    "harness under OS identity, with no auth step because there is "
+    "no second party — no tokens, no broker, no listener, no remote "
+    "execution, no multi-user. Human Run on the displayed cell is the "
+    "approval; the harness edge (rocket-fuel client permissions) owns "
+    "ask/deny, never this adapter. localhost-only, no auth, same "
+    "caller-blind API as every other transport (ADR-006 applies to "
+    "the HTTP adapter; stdio needs no boundary because it cannot "
+    "leave the machine)."
+)
+
 
 # Grandfathered override: python_execute keeps its richer hand
 # validation schema (types, bounds, mode oneOf) until API-V1-CLIENTS

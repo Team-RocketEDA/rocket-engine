@@ -24,3 +24,12 @@ auth story for HTTP/MCP callers (stdio_console:34,84).
 
 - I01/I28/I12 pins green with the partials closed.
 - Contract + api_spec regen; full suite + gate green.
+
+## Verdict (2026-11-03) — Done
+
+I01 pinned by test_strict_yaml (alias/merge-key rejection via the
+composition guard). I28 pinned by test_replay_reproduces_verdicts
+(3 green). I12: named TRUST_NOTE in mcp/server.py + README trust
+boundary section + pin test (stdio local-only, harness edge owns
+ask/deny; HTTP side already localhost-only per HTTP-LOCALHOST).
+No surface changes; no regen needed.

@@ -2,6 +2,10 @@
 
 The MCP bridge exposes the engine operation and query vocabulary as tools. `McpTransport` validates and routes calls to the same `Engine.submit` path used by other clients; the server itself owns no agent loop, queue policy, or verdict logic. stdout is reserved for MCP protocol traffic.
 
+## Trust boundary
+
+Local-only trust: this server speaks stdio to the local harness under OS identity — no tokens, no listener, no remote execution, no multi-user, hence no auth step (the named `TRUST_NOTE` in `server.py`). Human Run on the displayed cell is the approval; the harness edge (rocket-fuel client permissions) owns ask/deny. Same caller-blind API as every other transport; localhost-only, no auth.
+
 ## Project binding
 
 `--project` binds the server to one project and fills the project ID and current expected revision for mutation calls. `--project-dir` additionally confines `run_spice` source paths to that project, loads run targets from its `constraints.yaml`, chooses the run work directory, and writes completed run evidence under `results/engine-runs/`.
