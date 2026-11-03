@@ -16,44 +16,24 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCKER-DEPLOY] One-container judging/deployment recipe
 - [CLOUD-AUTH] Secure field for opt-in cloud account data
 - [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
-- [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 - [PROV-DEFERRED] Provision + qualify post/off-MVP packs
 - [API-V1-TOOLS-DEFERRED] Bind deferred FPGA/physics tasks (post-MVP)
 ## Ready
 
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 
-- [DECK-XSCHEM] Schematic to netlist to sim execution deck
-- [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 
-- [LAYER-CATALOG] Technology-resolved editable layer catalog
-- [LAYOUT-EDIT] Shared geometry create/edit operations for the layout editor
-- [SCHEMATIC-EDIT] Hierarchical schematic authoring operations
-- [SYMBOL-CELL-EDIT] Editable symbol and physical-cell libraries
-- [PROCESS-LAYER-MODEL] Versioned technology semantics and export recipes
-- [API-V1-CORE] Implement shared v1 runtime, discovery, references and lossless admission
-- [API-V1-EDITORS] Implement typed project, schematic, symbol, cell and layout edit transactions
 - [TESTBENCH-COMPONENT] Scoped SPICE, HDL and cocotb testbench blocks with editable templates
 - [API-V1-TOOLS] Bind complete v1 task catalog, workflow gates and tool qualification
 - [API-V1-CLIENTS] Generate and migrate MCP, stdio, HTTP and Python clients to v1
 - [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
-- [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
-- [API-V1-ADAPTERS] Migrate every solver adapter to emit v1 ResultBundles
 - [SHAPE-HARDEN] Harden the 7 weak + 2 missing tool output shapes
-- [ADAPT-GROUPC] Staff group-C adapters: meow proof, devsim, meep, elmer
-- [ASYNC-SUBMIT] Async submit: prompt ack + deferred handle + lifecycle events
 - [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
-- [IP-LIFECYCLE] IP lifecycle ops with per-PDK invariant
 - [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
-- [EQY-MCY-ADAPTERS] Staff check.equivalence + check.mutation adapters
-- [ANTENNA-KLAYOUT] Staff check.antenna via KLayout-DB path
 - [DIGITAL-FLOW-URANIUM] Rewrite digital_flow on machine files
 - [ESCAPE-HARDEN] Structured escapes + shape conformance batch
-- [HDL-PROVIDERS] MVP provider coverage batch
 - [DECOMP-CORE] Decompose composition/service, stores behind ports
-- [FRONTEND-13] Frontend section-13 touchpoints batch
-- [CANVAS-CST-COMPILE] Canvas compiler
 ## Doing
 
 
@@ -195,3 +175,23 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [I29-SERVING] Own verbatim PDK serving end to end with PRD-name aliases
 - [CONSOLE-LIFECYCLE] Console lifecycle + envelope convergence
 - [CANVAS-CST-CORE] Canvas TOML core
+- [DECK-XSCHEM] Schematic to netlist to sim execution deck
+- [ANTENNA-KLAYOUT] Staff check.antenna via KLayout-DB path
+- [API-V1-ADAPTERS] Migrate every solver adapter to emit v1 ResultBundles
+- [API-V1-CORE] Implement shared v1 runtime, discovery, references and lossless admission
+- [ASYNC-SUBMIT] Async submit: prompt ack + deferred handle + lifecycle events
+- [API-V1-EDITORS] Implement typed project, schematic, symbol, cell and layout edit transactions
+- [LAYER-CATALOG] Technology-resolved editable layer catalog
+- [LAYOUT-EDIT] Shared geometry create/edit operations for the layout editor
+- [PROCESS-LAYER-MODEL] Versioned technology semantics and export recipes
+- [SCHEMATIC-EDIT] Hierarchical schematic authoring operations
+- [SYMBOL-CELL-EDIT] Editable symbol and physical-cell libraries
+- [IP-LIFECYCLE] IP lifecycle ops with per-PDK invariant
+- [FRONTEND-13] Frontend section-13 touchpoints batch
+- [ADAPT-GROUPC] Staff group-C adapters: meow proof, devsim, meep, elmer
+- [EQY-MCY-ADAPTERS] Staff check.equivalence + check.mutation adapters
+- [HDL-PROVIDERS] MVP provider coverage batch
+- [POSTLAYOUT-REAL] Translate klt PEX to vendor sim before post-layout sim
+- [CANVAS-CST] Canvas TOML design intent, selected authored HDL and tool settings
+- [CANVAS-CST-COMPILE] Canvas compiler
+- [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
