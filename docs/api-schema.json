@@ -1131,6 +1131,44 @@
       "type": "object",
       "wired": true
     },
+    "python_open": {
+      "description": "Open a console, reusing the live one for its workspace.",
+      "handlers": [
+        "rocket_engine.composition.Engine.open_console"
+      ],
+      "kind": "operation",
+      "name": "python_open",
+      "properties": {
+        "workspace_root": {
+          "description": "Panel workspace binding; one live handle per root, unbound when omitted."
+        }
+      },
+      "raises": "",
+      "required": [],
+      "returns": "Opening with console_id, project_id, generation, and the workspace_root binding.",
+      "type": "object",
+      "wired": true
+    },
+    "python_reset": {
+      "description": "Retire a console generation; kill outstanding approvals.",
+      "handlers": [
+        "rocket_engine.composition.Engine.reset_console"
+      ],
+      "kind": "operation",
+      "name": "python_reset",
+      "properties": {
+        "console_id": {
+          "description": "Console from `python_open`."
+        }
+      },
+      "raises": "ProjectError: invalid_command without a console_id. ExecutionError: unknown_console for an id never opened or already closed.",
+      "required": [
+        "console_id"
+      ],
+      "returns": "Mapping with the console_id and the fresh generation.",
+      "type": "object",
+      "wired": true
+    },
     "regenerate_testbench": {
       "description": "Regenerate one block to a candidate without overwriting.",
       "handlers": [

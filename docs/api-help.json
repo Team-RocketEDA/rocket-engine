@@ -473,6 +473,18 @@
     "text": "Request one execution: persist the cell, open an approval.\n\nHandler: `rocket_engine.composition.Engine.submit` (submit opens a pending approval; the human UI route resolves it, then `run_job` executes the admitted run).\n\nArguments:\n\n- `mode` (required): `lines` for inline script text, `path` for a project-contained script file.\n- `lines`: Inline script text (lines mode only).\n- `path`: Project-relative script path (path mode only).\n- `timeout_s`: Worker budget in seconds (default 120).\n- `artifacts`: Scratch-relative paths to harvest.\n- `expected_revision`: Project revision the approval binds.\n\nReturns:\n\nApproval handle with execution_id, approval_id, pending_approval state, code hash, and the run_id only when the caller prescribed one.\n\nRaises:\n\nExecutionError: invalid_command for a bad mode, a mode/field mismatch, oversize input, or a malformed timeout, invalid_cell/empty_cell for bad script text, path_escape/invalid_path/cell_unreadable for bad project files, request_conflict for a reused request id with new code.\n",
     "wired": true
   },
+  "python_open": {
+    "kind": "operation",
+    "summary": "Open a console, reusing the live one for its workspace.",
+    "text": "Open a console, reusing the live one for its workspace.\n\nHandler: `rocket_engine.composition.Engine.open_console`.\n\nConsoles are Engine-memory and workspace-bound: one live\nhandle per workspace root, unbound when omitted. Opening\nnever touches the project ledger, so no expected_revision\nrides along; the registry itself is the idempotency.\n\nArguments:\n\n- `workspace_root`: Panel workspace binding; one live handle per root, unbound when omitted.\n\nReturns:\n\nOpening with console_id, project_id, generation, and the workspace_root binding.\n",
+    "wired": true
+  },
+  "python_reset": {
+    "kind": "operation",
+    "summary": "Retire a console generation; kill outstanding approvals.",
+    "text": "Retire a console generation; kill outstanding approvals.\n\nHandler: `rocket_engine.composition.Engine.reset_console`.\n\nReset is a lifecycle event, never a re-run: the generation\nretires, pending approvals die through the session, and\nlive workers stay cancel territory. Unknown ids fail\nloudly; nothing is admitted on failure.\n\nArguments:\n\n- `console_id` (required): Console from `python_open`.\n\nReturns:\n\nMapping with the console_id and the fresh generation.\n\nRaises:\n\nProjectError: invalid_command without a console_id. ExecutionError: unknown_console for an id never opened or already closed.\n",
+    "wired": true
+  },
   "read_doc": {
     "kind": "query",
     "summary": "Read one document as text at the current head.",

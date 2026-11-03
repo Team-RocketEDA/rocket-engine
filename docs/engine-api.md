@@ -58,6 +58,8 @@ text, identical to the section bodies below.
 | `place_junction` | yes | — | Place one junction dot: gate, transact, advance, log. |
 | `place_wire` | yes | — | Place one wire: gate, transact, advance, log. |
 | `python_execute` | yes | — | Request one execution: persist the cell, open an approval. |
+| `python_open` | yes | — | Open a console, reusing the live one for its workspace. |
+| `python_reset` | yes | — | Retire a console generation; kill outstanding approvals. |
 | `regenerate_testbench` | yes | — | Regenerate one block to a candidate without overwriting. |
 | `resume_all_retryable` | yes | — | Resume every RETRYABLE survivor, oldest first (gated). |
 | `resume_run` | yes | — | Explicitly resume one crash survivor through its solver. |
@@ -954,6 +956,48 @@ Approval handle with execution_id, approval_id, pending_approval state, code has
 Raises:
 
 ExecutionError: invalid_command for a bad mode, a mode/field mismatch, oversize input, or a malformed timeout, invalid_cell/empty_cell for bad script text, path_escape/invalid_path/cell_unreadable for bad project files, request_conflict for a reused request id with new code.
+
+### python_open
+
+Open a console, reusing the live one for its workspace.
+
+Handler: `rocket_engine.composition.Engine.open_console`.
+
+Consoles are Engine-memory and workspace-bound: one live
+handle per workspace root, unbound when omitted. Opening
+never touches the project ledger, so no expected_revision
+rides along; the registry itself is the idempotency.
+
+Arguments:
+
+- `workspace_root`: Panel workspace binding; one live handle per root, unbound when omitted.
+
+Returns:
+
+Opening with console_id, project_id, generation, and the workspace_root binding.
+
+### python_reset
+
+Retire a console generation; kill outstanding approvals.
+
+Handler: `rocket_engine.composition.Engine.reset_console`.
+
+Reset is a lifecycle event, never a re-run: the generation
+retires, pending approvals die through the session, and
+live workers stay cancel territory. Unknown ids fail
+loudly; nothing is admitted on failure.
+
+Arguments:
+
+- `console_id` (required): Console from `python_open`.
+
+Returns:
+
+Mapping with the console_id and the fresh generation.
+
+Raises:
+
+ProjectError: invalid_command without a console_id. ExecutionError: unknown_console for an id never opened or already closed.
 
 ### regenerate_testbench
 
