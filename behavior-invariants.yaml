@@ -39,6 +39,8 @@ invariants:
       trust holds exactly while the loopback-only, single-user,
       on-device deployment holds.
     enforcement:
+      - docs/adr/006-localhost-only-http.md (loopback trust
+        boundary, mechanical bind refusal)
       - src/adapters/http/__init__.py (loopback origins only,
         127.0.0.1 binding, no auth by design)
       - stdio transport (no network surface at all)
