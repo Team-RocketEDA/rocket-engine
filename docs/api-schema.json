@@ -5218,6 +5218,32 @@
       "type": "object",
       "wired": true
     },
+    "get_findings": {
+      "description": "Read a page of findings for a completed run.",
+      "handlers": [
+        "rocket_engine.composition.Engine.findings"
+      ],
+      "kind": "query",
+      "name": "get_findings",
+      "properties": {
+        "cursor": {
+          "description": "Opaque position from a previous page, if any."
+        },
+        "limit": {
+          "description": "Maximum findings in this page."
+        },
+        "run_id": {
+          "description": "Run whose findings to read."
+        }
+      },
+      "raises": "ExecutionError: unknown_run for an id with no completion event.",
+      "required": [
+        "run_id"
+      ],
+      "returns": "Finding page for the run.",
+      "type": "object",
+      "wired": true
+    },
     "get_instance": {
       "description": "Read one entity component payload at the current head.",
       "handlers": [
