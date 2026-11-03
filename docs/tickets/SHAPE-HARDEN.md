@@ -19,3 +19,13 @@ Six owned flow-lane adapters pinned via tests/test_shapes_owned.py
 Remainder (openroad rows, cace pin, openvaf, xschem EBNF,
 yosys_slang, xyce, cocotb+gmsh) carries to the Wave-3 surface
 lane with the sibling slices.
+
+## Verdict (Wave-3, 2026-11-03) — Remainder confirmed out of lane
+
+Verified this wave: every remainder item needs a non-owned
+surface (foundry-deck grammars, submodule pins, upstream tool
+flags, sibling-owned adapters). No owned file — results
+normalizers are pure functions of recorded outputs and must not
+invent grammars — can close them. The 11 landed normalizers map
+only the verified v0 shapes; nothing prose-based was staffed.
+Carrying unchanged.

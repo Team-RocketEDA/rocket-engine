@@ -47,6 +47,7 @@ text, identical to the section bodies below.
 | `resume_all_retryable` | yes | — | Resume every RETRYABLE survivor, oldest first (gated). |
 | `resume_run` | yes | — | Explicitly resume one crash survivor through its solver. |
 | `rewind` | yes | — | Restore managed bytes to a prior revision under a new head. |
+| `run_antenna` | yes | `klayout` (default) | run_antenna via KLayout's layout database (ANTENNA-KLAYOUT). |
 | `run_connectivity` | yes | `connectgraph` (default) | Shared-graph connectivity checks plus netlist emission. |
 | `run_cosim` | yes | `cosim` (default) | run_cosim via ngspice plus icarus: coupled mixed-signal verdicts. |
 | `run_digital_flow` | yes | `librelane` (default) | run_digital_flow via LibreLane: RTL to verified GDS plus evidence. |
@@ -66,6 +67,7 @@ text, identical to the section bodies below.
 | `run_thermal` | no | — | Declared operation `run_thermal`; no handler wired yet. |
 | `run_timing` | yes | `opensta` (default) | run_timing via OpenSTA: top-level STA recheck plus evidence. |
 | `run_view_sync` | yes | `connectgraph` (default) | Intended-vs-extracted connectivity diff for photonic P14. |
+| `run_xschem` | yes | `xschem` (default) | run_xschem via the xschem batch netlister. |
 | `set_component` | yes | — | Upsert one component payload (create or overwrite). |
 | `split_wire` | yes | — | Split one wire at an interior point: gate, run, log. |
 | `write_doc` | yes | — | Write one document: gate, store, advance, log. |
@@ -661,6 +663,49 @@ Raises:
 ProjectError: request_conflict for a reused id with new text; invalid_command for a missing target or a target that equals the live head; unknown_revision for a revision with no snapshot; revision_conflict for a stale head; invalid_ledger when the durable restore fails (best-effort rollback already attempted).
 
 Caution: Rewinding advances — the new head is not the target id, and stale writers fail instead of merging. Caller files outside `.rocket/` are reported, never touched.
+
+### run_antenna
+
+run_antenna via KLayout's layout database (ANTENNA-KLAYOUT).
+
+Tools: `klayout` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.drc.klayout.AntennaKlayoutAdapter`.
+
+#### Tool `klayout`
+
+run_antenna via KLayout's layout database (ANTENNA-KLAYOUT).
+
+Serves the check.antenna surface without a foundry deck or an
+openroad-standalone path (demoted by ticket): per-metal-island
+cumulative metal-to-gate area ratio over the resolved cell,
+computed with the KLayout DB region API. An island with no
+gate overlap cannot discharge and fails as antenna_floating;
+an island over max_ratio fails as antenna_ratio with its
+metric bbox. Openroad-standalone is deliberately not staffed.
+
+Arguments:
+
+- `gds_file` (required): GDS layout under check.
+- `rules` (required): {metal_layer [l, d], gate_layer [l, d], max_ratio} with max_ratio > 0.
+- `cell`: Optional top-cell claim, honored by scoping the island walk (defaults to the single top cell; a multi-top GDS without a cell refuses loudly).
+- `workdir`: Run directory (default ".", unused — the check is in-process and writes no artifacts).
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[]} with rule, message, ratio, and metric bbox_um.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_reference for a missing GDS or an unknown cell, invalid_command for a non-top cell, a multi-top GDS without a cell, or malformed rules.
+
+(execute) AdapterError: plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output carries no violations list.
+
+Caution: a heuristic ratio check, not a signoff antenna rule; it names suspect islands for the foundry deck to confirm. Engine wiring (vocabulary/composition) belongs to the owning surface; this file staffs the solver only.
 
 ### run_connectivity
 
@@ -1521,6 +1566,50 @@ Raises:
 (parse) AdapterError: runner_unavailable when the output has no findings list.
 
 Caution: FAIL-on-diff, PASS-with-coverage — the verdict judges finding severities, never the exit path; read the coverage statement before trusting a clean diff.
+
+### run_xschem
+
+run_xschem via the xschem batch netlister.
+
+Tools: `xschem` (default) — `deck.tool` selects; a missing tool falls back to the default, an unknown tool fails `unsupported_operation` before anything runs.
+
+Handlers: `rocket_engine.adapters.xschem.XschemAdapter`.
+
+#### Tool `xschem`
+
+run_xschem via the xschem batch netlister.
+
+Serves the run_xschem operation with deck.tool `xschem` (the
+only tool). Netlists a schematic to SPICE with a pinned
+rcfile and explicit outputs; optional `-f` flat mode, `-S`
+schematic-owned sim, and `--command`/`--script` seams.
+
+Arguments:
+
+- `sch_file` (required): Schematic file under netlist.
+- `rcfile`: Project rcfile path (wrapped to pin XSCHEM_SHAREDIR; absent means the install default).
+- `output_name`: Netlist file name (default `<stem>.spice`).
+- `flat`: Flat netlist (`-f`) when true.
+- `sim`: Run the schematic-owned sim (`-S`) when true.
+- `command`: Extra `--command` Tcl snippet.
+- `script`: Extra `--script` Tcl file path.
+- `workdir`: Run directory (default ".").
+- `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
+- `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
+
+Returns:
+
+{total, violations[]} with element count and any xschem/sim failures as violations.
+
+Raises:
+
+(preflight) AdapterError: unsupported_operation for another operation, invalid_reference for a missing schematic/rcfile/script, missing_dependency for a missing binary, a non-V3 banner, or an unresolvable sharedir.
+
+(execute) AdapterError: invalid_reference for a missing workdir, invalid_command for a bad command snippet, missing_dependency on silent init failure, runner_unavailable when no netlist output appears, plus the preflight codes (execute re-checks first).
+
+(parse) AdapterError: runner_unavailable when the output has no netlist text.
+
+Caution: xschem exits 0 on silent init failure and on netlist errors alike — the verdict always comes from the output file and the log, never the exit code.
 
 ### set_component
 

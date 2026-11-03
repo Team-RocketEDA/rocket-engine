@@ -53,6 +53,8 @@ _CATALOGUE_PATH = Path(__file__).parent / "setup_catalogue.yaml"
 SOLVER_DEPS = {
     ("run_drc", "magic"): {"binaries": ["magic"]},
     ("run_drc", "klayout"): {"binaries": ["klayout"]},
+    ("run_antenna", "klayout"): {"binaries": ["klayout"]},
+    ("run_xschem", "xschem"): {"binaries": ["xschem"]},
     ("run_hdl_test", "icarus"): {"binaries": ["iverilog", "vvp"]},
     ("run_optical", "sax"): {"python": ["sax"]},
     ("run_optical", "circulax"): {"python": ["circulax"]},

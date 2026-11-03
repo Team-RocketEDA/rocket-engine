@@ -780,6 +780,156 @@
       "type": "object",
       "wired": true
     },
+    "run_antenna": {
+      "description": "run_antenna via KLayout's layout database (ANTENNA-KLAYOUT).",
+      "handlers": [
+        "rocket_engine.adapters.drc.klayout.AntennaKlayoutAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_antenna",
+      "properties": {
+        "cell": {
+          "description": "Optional top-cell claim, honored by scoping the island walk (defaults to the single top cell; a multi-top GDS without a cell refuses loudly)."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "gds_file": {
+          "description": "GDS layout under check."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "rules": {
+          "description": "{metal_layer [l, d], gate_layer [l, d], max_ratio} with max_ratio > 0."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\", unused \u2014 the check is in-process and writes no artifacts)."
+        }
+      },
+      "required": [
+        "gds_file",
+        "rules"
+      ],
+      "returns": "{total, violations[]} with rule, message, ratio, and metric bbox_um.",
+      "tools": {
+        "klayout": {
+          "adapter": "rocket_engine.adapters.drc.klayout.AntennaKlayoutAdapter",
+          "properties": {
+            "cell": {
+              "description": "Optional top-cell claim, honored by scoping the island walk (defaults to the single top cell; a multi-top GDS without a cell refuses loudly)."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "gds_file": {
+              "description": "GDS layout under check."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "rules": {
+              "description": "{metal_layer [l, d], gate_layer [l, d], max_ratio} with max_ratio > 0."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\", unused \u2014 the check is in-process and writes no artifacts)."
+            }
+          },
+          "required": [
+            "gds_file",
+            "rules"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
     "run_connectivity": {
       "description": "Shared-graph connectivity checks plus netlist emission.",
       "handlers": [
@@ -3932,6 +4082,178 @@
       "type": "object",
       "wired": true
     },
+    "run_xschem": {
+      "description": "run_xschem via the xschem batch netlister.",
+      "handlers": [
+        "rocket_engine.adapters.xschem.XschemAdapter"
+      ],
+      "kind": "operation",
+      "name": "run_xschem",
+      "properties": {
+        "command": {
+          "description": "Extra `--command` Tcl snippet."
+        },
+        "expected_revision": {
+          "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+        },
+        "flat": {
+          "description": "Flat netlist (`-f`) when true."
+        },
+        "output_name": {
+          "description": "Netlist file name (default `<stem>.spice`)."
+        },
+        "rcfile": {
+          "description": "Project rcfile path (wrapped to pin XSCHEM_SHAREDIR; absent means the install default)."
+        },
+        "request": {
+          "additionalProperties": false,
+          "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+          "properties": {
+            "deck_opts": {
+              "default": {},
+              "description": "Solver deck options, flat scalar passthrough.",
+              "type": "object"
+            },
+            "flat_netlist": {
+              "default": false,
+              "description": "Flatten the hierarchy (else split per cell).",
+              "type": "boolean"
+            },
+            "lvs_netlist": {
+              "default": false,
+              "description": "Netlist for LVS comparison.",
+              "type": "boolean"
+            },
+            "netlist_type": {
+              "default": "spice",
+              "description": "Netlist dialect the run netlists in.",
+              "enum": [
+                "spice",
+                "spectre",
+                "verilog",
+                "vhdl"
+              ],
+              "type": "string"
+            },
+            "timeout_s": {
+              "default": null,
+              "description": "Solver budget in seconds; null keeps the adapter default.",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "top_is_subckt": {
+              "default": false,
+              "description": "Emit the top cell as a subcircuit.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "sch_file": {
+          "description": "Schematic file under netlist."
+        },
+        "script": {
+          "description": "Extra `--script` Tcl file path."
+        },
+        "sim": {
+          "description": "Run the schematic-owned sim (`-S`) when true."
+        },
+        "workdir": {
+          "description": "Run directory (default \".\")."
+        }
+      },
+      "required": [
+        "sch_file"
+      ],
+      "returns": "{total, violations[]} with element count and any xschem/sim failures as violations.",
+      "tools": {
+        "xschem": {
+          "adapter": "rocket_engine.adapters.xschem.XschemAdapter",
+          "properties": {
+            "command": {
+              "description": "Extra `--command` Tcl snippet."
+            },
+            "expected_revision": {
+              "description": "Revision the writer read; defaults to the command's own expected_revision entry."
+            },
+            "flat": {
+              "description": "Flat netlist (`-f`) when true."
+            },
+            "output_name": {
+              "description": "Netlist file name (default `<stem>.spice`)."
+            },
+            "rcfile": {
+              "description": "Project rcfile path (wrapped to pin XSCHEM_SHAREDIR; absent means the install default)."
+            },
+            "request": {
+              "additionalProperties": false,
+              "description": "Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.",
+              "properties": {
+                "deck_opts": {
+                  "default": {},
+                  "description": "Solver deck options, flat scalar passthrough.",
+                  "type": "object"
+                },
+                "flat_netlist": {
+                  "default": false,
+                  "description": "Flatten the hierarchy (else split per cell).",
+                  "type": "boolean"
+                },
+                "lvs_netlist": {
+                  "default": false,
+                  "description": "Netlist for LVS comparison.",
+                  "type": "boolean"
+                },
+                "netlist_type": {
+                  "default": "spice",
+                  "description": "Netlist dialect the run netlists in.",
+                  "enum": [
+                    "spice",
+                    "spectre",
+                    "verilog",
+                    "vhdl"
+                  ],
+                  "type": "string"
+                },
+                "timeout_s": {
+                  "default": null,
+                  "description": "Solver budget in seconds; null keeps the adapter default.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "top_is_subckt": {
+                  "default": false,
+                  "description": "Emit the top cell as a subcircuit.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "sch_file": {
+              "description": "Schematic file under netlist."
+            },
+            "script": {
+              "description": "Extra `--script` Tcl file path."
+            },
+            "sim": {
+              "description": "Run the schematic-owned sim (`-S`) when true."
+            },
+            "workdir": {
+              "description": "Run directory (default \".\")."
+            }
+          },
+          "required": [
+            "sch_file"
+          ]
+        }
+      },
+      "type": "object",
+      "wired": true
+    },
     "set_component": {
       "description": "Upsert one component payload (create or overwrite).",
       "handlers": [
@@ -4742,7 +5064,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "a8949f82c44a3671690ab71fc194df045cd6a3d8161edc0eb7d8292b5c66155a",
+  "schema_sha256": "453c1cddbd7285e9508a5a06c784ef24928890f181b9d066b1f13e21b3bc7710",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

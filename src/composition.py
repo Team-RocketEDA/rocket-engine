@@ -32,7 +32,7 @@ run_post_layout: ngspice; run_syntax: slang; run_hdl_test: icarus;
 run_synth: yosys; run_connectivity: connectgraph; run_erc: connectgraph;
 run_formal: sby; run_view_sync: connectgraph;
 generate_views: gdsfactory; run_cosim: cosim; run_timing: opensta;
-run_digital_flow: librelane).
+run_digital_flow: librelane; run_xschem: xschem; run_antenna: klayout).
 Unregistered operations and unknown deck tools raise instead of
 faking a verdict.
 """
@@ -46,7 +46,7 @@ from .adapters.connectivity import ConnectivityAdapter
 from .adapters.cosim import CosimAdapter
 from .adapters.digital_flow import LibrelaneFlowAdapter
 from .adapters.drc.magic import MagicDrcAdapter
-from .adapters.drc.klayout import KlayoutDrcAdapter
+from .adapters.drc.klayout import AntennaKlayoutAdapter, KlayoutDrcAdapter
 from .adapters.extract_magic import MagicExtractAdapter
 from .adapters.formal_sby import FormalSbyAdapter
 from .adapters.gdsfactory.adapter import GdsfactoryViewsAdapter
@@ -60,6 +60,7 @@ from .adapters.syntax import SyntaxAdapter
 from .adapters.synth_yosys import YosysSynthAdapter
 from .adapters.timing_sta import OpenStaTimingAdapter
 from .adapters.view_sync import ViewSyncAdapter
+from .adapters.xschem import XschemAdapter
 from .execution.apig.pool import (
     DEFAULT_MAX_WORKERS,
     ApigPool,
@@ -341,6 +342,8 @@ class Engine(_SubmitMixin, _QueryMixin, _RunMixin, _GateMixin):
             "run_cosim": {"cosim": CosimAdapter()},
             "run_digital_flow": {"librelane": LibrelaneFlowAdapter()},
             "run_timing": {"opensta": OpenStaTimingAdapter()},
+            "run_xschem": {"xschem": XschemAdapter()},
+            "run_antenna": {"klayout": AntennaKlayoutAdapter()},
         }
         self._constraints = dict(constraints) if constraints is not None else None
         self._logs = {}

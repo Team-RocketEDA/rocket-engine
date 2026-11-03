@@ -8,3 +8,15 @@ KLayout-DB antenna path complete (run_antenna OPERATION_ANTENNA,
 island metal/gate ratio, 7 hermetic DB tests pinned).
 Engine wiring (vocabulary/composition/MCP + regen) carries to the
 Wave-3 surface lane.
+
+## Verdict (Wave-3, 2026-11-03) — Wired in owned files, 2-line handoff out
+
+`run_antenna` added to vocabulary plus `Engine._solvers`
+(`klayout: AntennaKlayoutAdapter`), verified live: missing GDS
+refuses `invalid_reference`, never fake-green. MCP picked it up
+via regen; docs regenned via scripts. Handoff (non-owned
+files): `SOLVER_DEPS` in `src/interfaces/setup.py` needs
+`("run_antenna", "klayout")`, and `DECKS` in
+`src/workflows/stages.py` needs the matching cite, else
+`report_capabilities` raises `unknown_solver` and the
+decks-equality test stays red.

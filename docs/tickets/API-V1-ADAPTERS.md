@@ -116,3 +116,20 @@ unchanged, 25 RED->GREEN tests. Remaining waves 1-3 normalizers
 (drc, drc_kl, lvs_netgen, connectivity, view_sync, sax, circulax,
 meow, gdsfactory, digital_flow, extract_magic) carry to the
 Wave-3 surface lane as parallel slices.
+
+## Verdict (Wave-3, 2026-11-03) — Done, all 11 normalizers landed
+
+All 11 remaining pure normalizers landed next to their adapters
+(`results.py`; klayout DRC as `results_kl.py` beside the shared
+`run_drc` task), each mapping its verified v0 parse shape to a
+schema-validated ResultBundle with datasets plus bound views,
+findings with capped messages, and PASS measurements keeping
+(value, target, margin, status) where the parse carries them:
+checks as tables (magic area/bbox, klayout rule/message/bbox_um
+with synthetic-mode fallback, LVS mismatch subjects, nets,
+coverage key/values, stage gates, extracted devices), sims with
+series (sax wavelength, circulax transient), counts as targetless
+PASS measurements. v0 `parse()` untouched; 45 RED->GREEN tests
+(11 files, good+bad recorded shapes, determinism, prose caps).
+File digests intentionally not fabricated as bundle artifacts —
+paths ride evidence tables instead.

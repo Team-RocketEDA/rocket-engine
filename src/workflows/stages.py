@@ -138,6 +138,8 @@ DECKS = {
         {"tool": "magic", "needs": ["magic"]},
         {"tool": "klayout", "needs": ["klayout"]},
     ],
+    "run_antenna": [{"tool": "klayout", "needs": ["klayout"]}],
+    "run_xschem": [{"tool": "xschem", "needs": ["xschem"]}],
     "run_lvs": [{"tool": "netgen", "needs": ["netgen"]}],
     "run_spice": [{"tool": "ngspice", "needs": ["ngspice"]}],
     "run_post_layout": [{"tool": "ngspice", "needs": ["ngspice"]}],
