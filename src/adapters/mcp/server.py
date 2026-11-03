@@ -564,3 +564,51 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+#: Lifecycle kinds that ride the progress channel instead of a
+#: plain message notification.
+_PROGRESS_KINDS = frozenset({"job_progress"})
+
+
+def build_lifecycle_notification(event):
+    """Build one MCP push notification for a lifecycle event.
+
+    Append-only PUSH-EVENTS seam: existing list/call handlers
+    are untouched — this only translates the runtime event log
+    into JSON-RPC notifications agents can subscribe to.
+
+    Args:
+        event: Lifecycle event with seq, kind, and run_id.
+
+    Returns:
+        JSON-RPC notification with jsonrpc, method
+            (notifications/progress for progress, else
+            notifications/<kind>), and the event as params.
+    """
+    kind = event.get("kind", "message")
+    if kind in _PROGRESS_KINDS:
+        method = "notifications/progress"
+    else:
+        method = f"notifications/{kind}"
+    return {"jsonrpc": "2.0", "method": method,
+            "params": dict(event)}
+
+
+def subscribe_runtime(runtime, send):
+    """Push every lifecycle event to one subscriber.
+
+    Append-only PUSH-EVENTS seam: registers a listener on the
+    runtime; the list/call path keeps serving polling clients
+    unchanged.
+
+    Args:
+        runtime: EngineRuntime emitting lifecycle events.
+        send: Called synchronously with each built
+            notification mapping.
+
+    Returns:
+        Unsubscribe callable removing the listener.
+    """
+    return runtime.add_listener(
+        lambda event: send(build_lifecycle_notification(event)))

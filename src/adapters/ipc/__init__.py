@@ -50,3 +50,48 @@ class IpcTransport:
             frame.get("arguments", {}),
             request_id=str(frame.get("request_id") or uuid.uuid4().hex),
         )
+
+
+class EventStream:
+    """Push event stream over a runtime (PUSH-EVENTS addition).
+
+    Addition-only seam: IpcTransport is untouched — this wraps
+    the same lifecycle log the MCP notifier pushes, so framed
+    stdio clients can subscribe instead of polling
+    get_events_since.
+
+    Args:
+        runtime: EngineRuntime emitting lifecycle events.
+    """
+
+    def __init__(self, runtime):
+        self._runtime = runtime
+
+    def since(self, cursor):
+        """Read ordered lifecycle events after a cursor.
+
+        Args:
+            cursor: Opaque position from a previous read; 0
+                replays the retained log.
+
+        Returns:
+            Events appended after the cursor, oldest first,
+                plus the current cursor.
+
+        Raises:
+            ExecutionError: cursor_expired when the cursor is
+                behind the retained floor or past the head.
+        """
+        return self._runtime.watch(cursor)
+
+    def subscribe(self, send):
+        """Push every lifecycle event to one subscriber.
+
+        Args:
+            send: Called synchronously with each emitted
+                event mapping.
+
+        Returns:
+            Unsubscribe callable removing the listener.
+        """
+        return self._runtime.add_listener(send)
