@@ -53,6 +53,101 @@ def _budget_or_raise(job):
     return timeout
 
 
+def _load_layout(gds_file):
+    """Read-only layout handle for cell inspection (no binary gate).
+
+    Args:
+        gds_file: GDSII file to open.
+
+    Returns:
+        Opened layout database object.
+
+    Raises:
+        AdapterError: runner_unavailable when no layout API is
+            importable on this host.
+    """
+    try:
+        import pya
+
+        layout = pya.Layout()
+    except ImportError:
+        try:
+            from klayout import db as klayout_db
+
+            layout = klayout_db.Layout()
+        except ImportError as exc:
+            raise AdapterError(
+                "runner_unavailable",
+                "No KLayout layout API (pya/klayout.db) on this host.",
+            ) from exc
+    layout.read(gds_file)
+    return layout
+
+
+def _cell_inventory(gds_file):
+    """Top-cell and all-cell names of a GDS file, read-only.
+
+    Args:
+        gds_file: GDSII file to inspect.
+
+    Returns:
+        (tops, all_names): sorted top-cell names and sorted
+            every-cell names from one read-only load.
+    """
+    layout = _load_layout(gds_file)
+    tops = sorted(cell.name for cell in layout.top_cells())
+    all_names = sorted(cell.name for cell in layout.each_cell())
+    return tops, all_names
+
+
+def _resolve_cell_or_raise(gds_file, cell):
+    """Honor the job cell against the GDS topology, or refuse loudly.
+
+    Deck mode runs the foundry recipe over the whole GDS (the
+    recipe has no top-cell selection) and the synthetic path
+    checks `top_cell()` — so a job cell must name a top cell that
+    exists, and a multi-top GDS needs an explicit cell instead of
+    silently checking whatever `top_cell()` returns (MIXED-TOP
+    F3). A missing cell refuses as invalid_reference; a present
+    but non-top cell, or several tops without a cell, refuse as
+    invalid_command.
+
+    Args:
+        gds_file: GDSII file under check.
+        cell: Job cell name, or None.
+
+    Returns:
+        The honored top-cell name (the job cell, or the single
+            top cell when the job names none).
+
+    Raises:
+        AdapterError: invalid_reference for a cell absent from
+            the GDS; invalid_command for a non-top cell or for
+            several top cells without a cell.
+    """
+    tops, all_names = _cell_inventory(gds_file)
+    if cell is not None:
+        if cell not in all_names:
+            raise AdapterError(
+                "invalid_reference", f"DRC cell not in GDS: {cell}."
+            )
+        if cell not in tops:
+            raise AdapterError(
+                "invalid_command",
+                f"DRC cell {cell!r} is not a top cell "
+                f"(tops: {', '.join(tops)}); deck mode checks the "
+                "whole GDS and cannot scope to an inner cell.",
+            )
+        return cell
+    if len(tops) != 1:
+        raise AdapterError(
+            "invalid_command",
+            f"GDS has {len(tops)} top cells ({', '.join(tops)}); "
+            "pass cell to select one.",
+        )
+    return tops[0]
+
+
 _TOTAL_RE = re.compile(r"^TOTAL (\d+)$", re.M)
 _VIOL_RE = re.compile(
     r"^VIOL rule=(\S+) bbox_um=([0-9.eE+-]+),([0-9.eE+-]+),"
@@ -197,6 +292,9 @@ class KlayoutDrcAdapter(ToolAdapter):
         deck: Optional mapping; deck.tool selects the solver
             (klayout here), deck.path/deck_file/file names the
             deck in deck mode.
+        cell: Optional top-cell claim, honored in both modes:
+            must name an existing top cell (multi-top GDS
+            without a cell refuses loudly).
         workdir: Run directory (default ".").
 
     Args:
@@ -257,18 +355,23 @@ class KlayoutDrcAdapter(ToolAdapter):
             raise AdapterError(
                 "invalid_reference", f"GDS file not found: {gds_file}."
             )
+        top = _resolve_cell_or_raise(gds_file, job.get("cell"))
         deck_file = _deck_file_or_raise(job)
         if deck_file is not None:
-            return {
+            checked = {
                 "gds_file": gds_file,
                 "deck_file": deck_file,
                 "timeout_s": timeout,
             }
-        return {
-            "gds_file": gds_file,
-            "rules": _rules_or_raise(job.get("rules")),
-            "timeout_s": timeout,
-        }
+        else:
+            checked = {
+                "gds_file": gds_file,
+                "rules": _rules_or_raise(job.get("rules")),
+                "timeout_s": timeout,
+            }
+        if job.get("cell") is not None:
+            checked["cell"] = top
+        return checked
 
     def execute(self, job):
         """Run the deck batch or render and run the check script.
@@ -397,3 +500,210 @@ class KlayoutDrcAdapter(ToolAdapter):
             raise AdapterError(
                 "runner_unavailable", f"klayout timed out after {timeout}s."
             ) from exc
+
+
+OPERATION_ANTENNA = "run_antenna"
+
+
+def _antenna_rules_or_raise(rules):
+    """Antenna check rules: metal/gate layers plus the ratio cap.
+
+    Args:
+        rules: Mapping with metal_layer [l, d], gate_layer
+            [l, d], and max_ratio > 0.
+
+    Returns:
+        Cleaned rules mapping with float max_ratio.
+
+    Raises:
+        AdapterError: invalid_command for a non-mapping, a
+            malformed layer, or a non-positive ratio.
+    """
+    if not isinstance(rules, dict):
+        raise AdapterError("invalid_command", "rules must be a mapping.")
+    clean = {}
+    for key in ("metal_layer", "gate_layer"):
+        layer = rules.get(key)
+        if (
+            not isinstance(layer, (list, tuple))
+            or len(layer) != 2
+            or not all(isinstance(v, int) and not isinstance(v, bool) for v in layer)
+        ):
+            raise AdapterError("invalid_command", f"Bad antenna layer {key}: {layer!r}.")
+        clean[key] = [layer[0], layer[1]]
+    ratio = rules.get("max_ratio")
+    if not isinstance(ratio, (int, float)) or isinstance(ratio, bool) or not ratio > 0:
+        raise AdapterError("invalid_command", f"Bad antenna max_ratio: {ratio!r}.")
+    clean["max_ratio"] = float(ratio)
+    return clean
+
+
+class AntennaKlayoutAdapter(ToolAdapter):
+    """run_antenna via KLayout's layout database (ANTENNA-KLAYOUT).
+
+    Serves the check.antenna surface without a foundry deck or an
+    openroad-standalone path (demoted by ticket): per-metal-island
+    cumulative metal-to-gate area ratio over the resolved cell,
+    computed with the KLayout DB region API. An island with no
+    gate overlap cannot discharge and fails as antenna_floating;
+    an island over max_ratio fails as antenna_ratio with its
+    metric bbox. Openroad-standalone is deliberately not staffed.
+
+    Job keys:
+        gds_file (required): GDS layout under check.
+        rules (required): {metal_layer [l, d], gate_layer [l, d],
+            max_ratio} with max_ratio > 0.
+        cell: Optional top-cell claim, honored by scoping the
+            island walk (defaults to the single top cell; a
+            multi-top GDS without a cell refuses loudly).
+        workdir: Run directory (default ".", unused — the check
+            is in-process and writes no artifacts).
+
+    Caution: a heuristic ratio check, not a signoff antenna
+        rule; it names suspect islands for the foundry deck to
+        confirm. Engine wiring (vocabulary/composition) belongs
+        to the owning surface; this file staffs the solver only.
+    """
+
+    def capabilities(self, target):
+        """Report the served operation, tool, and rule kind.
+
+        Args:
+            target: Target the capabilities are reported for
+                (accepted, unused — one GDS per job).
+
+        Returns:
+            Capability mapping with operations, tool, and rules.
+        """
+        return {
+            "operations": [OPERATION_ANTENNA],
+            "tool": "klayout",
+            "rules": ["ratio"],
+        }
+
+    def preflight(self, job):
+        """Check operation, GDS, cell scope, and ratio rules.
+
+        Args:
+            job: Solver job with operation run_antenna plus
+                gds_file, rules, and an optional cell.
+
+        Returns:
+            Checked mapping with gds_file, rules, and cell.
+
+        Raises:
+            AdapterError: unsupported_operation for another
+                operation, invalid_reference for a missing GDS
+                or an unknown cell, invalid_command for a
+                non-top cell, a multi-top GDS without a cell,
+                or malformed rules.
+        """
+        if job.get("operation") != OPERATION_ANTENNA:
+            raise AdapterError(
+                "unsupported_operation",
+                f"KLayout antenna handles {OPERATION_ANTENNA}, got {job.get('operation')}.",
+            )
+        timeout = _budget_or_raise(job)
+        gds_file = job.get("gds_file")
+        if not gds_file or not Path(gds_file).is_file():
+            raise AdapterError(
+                "invalid_reference", f"GDS file not found: {gds_file}."
+            )
+        cell = _resolve_cell_or_raise(gds_file, job.get("cell"))
+        return {
+            "gds_file": gds_file,
+            "rules": _antenna_rules_or_raise(job.get("rules")),
+            "cell": cell,
+            "timeout_s": timeout,
+        }
+
+    def execute(self, job):
+        """Walk metal islands over the cell and ratio them to gate.
+
+        Args:
+            job: Solver job with operation run_antenna plus
+                gds_file, rules, and an optional cell.
+
+        Returns:
+            Native output with cell, gds_file, and violations
+                carrying rule, ratio, and metric bbox_um.
+
+        Raises:
+            AdapterError: plus the preflight codes (execute
+                re-checks first).
+        """
+        checked = self.preflight(job)
+        layout = _load_layout(checked["gds_file"])
+        dbu = layout.dbu
+        top = layout.cell(checked["cell"])
+        if top is None:
+            raise AdapterError(
+                "invalid_reference", f"DRC cell not in GDS: {checked['cell']}."
+            )
+        metal_layer = layout.layer(*checked["rules"]["metal_layer"])
+        gate_layer = layout.layer(*checked["rules"]["gate_layer"])
+        try:
+            from pya import Region as _Region
+        except ImportError:  # pragma: no cover - venv always ships pya here
+            from klayout.db import Region as _Region
+        gate = _Region(top.begin_shapes_rec(gate_layer))
+        violations = []
+        for island in _Region(top.begin_shapes_rec(metal_layer)).merged().each():
+            island_region = _Region(island.to_simple_polygon())
+            overlap = (island_region & gate).area()
+            area = island_region.area()
+            box = island.bbox()
+            bbox_um = [box.left * dbu, box.bottom * dbu, box.right * dbu, box.top * dbu]
+            if overlap <= 0:
+                violations.append(
+                    {
+                        "rule": "antenna_floating",
+                        "message": (
+                            f"Metal island over cell {checked['cell']} has "
+                            "no gate overlap"
+                        ),
+                        "ratio": None,
+                        "bbox_um": bbox_um,
+                    }
+                )
+            else:
+                ratio = area / overlap
+                if ratio > checked["rules"]["max_ratio"]:
+                    violations.append(
+                        {
+                            "rule": "antenna_ratio",
+                            "message": (
+                                f"Metal-to-gate ratio {ratio:.1f} over "
+                                f"{checked['rules']['max_ratio']:.1f}"
+                            ),
+                            "ratio": ratio,
+                            "bbox_um": bbox_um,
+                        }
+                    )
+        return {
+            "cell": checked["cell"],
+            "gds_file": checked["gds_file"],
+            "violations": violations,
+        }
+
+    def parse(self, native_output):
+        """Count the island violations carried by execute.
+
+        Args:
+            native_output: Native output with the violations
+                list from execute.
+
+        Returns:
+            {total, violations[]} with rule, message, ratio,
+                and metric bbox_um.
+
+        Raises:
+            AdapterError: runner_unavailable when the output
+                carries no violations list.
+        """
+        violations = native_output.get("violations")
+        if not isinstance(violations, list):
+            raise AdapterError(
+                "runner_unavailable", "antenna run has no violations."
+            )
+        return {"total": len(violations), "violations": violations}

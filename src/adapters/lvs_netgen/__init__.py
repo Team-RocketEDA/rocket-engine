@@ -64,6 +64,10 @@ _IMPOSTOR_RE = re.compile(
 
 _SUBCKT_RE = re.compile(r"^\s*\.subckt\s+(\S+)", re.IGNORECASE)
 _ENDS_RE = re.compile(r"^\s*\.ends\b", re.IGNORECASE)
+_DEVICE_RE = re.compile(
+    r"^X(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)(.*)$",
+    re.IGNORECASE,
+)
 _MATCH_RE = re.compile(r"(Circuits match uniquely|Netlists match uniquely)\.")
 _MISMATCH_RES = (
     re.compile(r"Netlists do not match\."),
@@ -143,21 +147,41 @@ def flatten_spice(text, cell=None):
     ) + "\n"
 
 
+def _device_nets(tokens):
+    """Net names of one X/M device line's token body.
+
+    Args:
+        tokens: Bare tokens after the device name (nets, class,
+            then `k=v` params).
+
+    Returns:
+        Net names: every bare token except the trailing class.
+    """
+    params_at = next(
+        (i for i, token in enumerate(tokens) if "=" in token), len(tokens)
+    )
+    bare = tokens[:params_at]
+    if params_at < len(tokens):
+        bare = bare[:-1] if bare else []
+    return bare
+
+
 def inventory_nets(text):
-    """Net names of the flattened netlist's X device lines.
+    """Net names of the flattened netlist's X and M device lines.
 
     Netgen's one-shot `lvs` matches by topology, so a rename of a
     singly-connected net escapes it (LVS-ESCAPE). This inventory
     keeps the dropped name evidence: comment, subckt/ends, empty,
-    and non-X lines never contribute; params (`k=v`) never count
-    as nets; the class token is the last bare token before the
-    params start.
+    and non-device lines never contribute; params (`k=v`) never
+    count as nets; the class token is the last bare token before
+    the params start. M-lines cover the klt/reference format both
+    bandgap sides use; X-lines cover ext2spice output.
 
     Args:
         text: Flattened netlist text to inventory.
 
     Returns:
-        Set of net names on X device lines.
+        Set of net names on X and M device lines.
     """
     nets = set()
     for line in text.splitlines():
@@ -165,17 +189,221 @@ def inventory_nets(text):
         if not stripped or stripped.startswith("*") or stripped.startswith("."):
             continue
         tokens = stripped.split()
-        if not tokens or not tokens[0].upper().startswith("X"):
+        if not tokens or not tokens[0][:1].upper() in ("X", "M"):
             continue
-        body = tokens[1:]
-        params_at = next(
-            (i for i, token in enumerate(body) if "=" in token), len(body)
-        )
-        bare = body[:params_at]
-        if params_at < len(body):
-            bare = bare[:-1] if bare else []
-        nets.update(bare)
+        nets.update(_device_nets(tokens[1:]))
     return nets
+
+
+def _split_subckts(text):
+    """Subckt blocks of a netlist in file order.
+
+    Args:
+        text: Netlist text, possibly hierarchical.
+
+    Returns:
+        List of (name, ports, body lines) per `.subckt` block;
+            lines outside any block are dropped.
+    """
+    blocks = []
+    current = None
+    for line in text.splitlines():
+        match = _SUBCKT_RE.match(line)
+        if match is not None:
+            parts = line.strip().split()
+            current = [parts[1], parts[2:], []]
+            blocks.append(current)
+            continue
+        if _ENDS_RE.match(line):
+            current = None
+            continue
+        if current is not None:
+            current[2].append(line)
+    return [(name, ports, body) for name, ports, body in blocks]
+
+
+def _instance_class(line):
+    """Class token of an X instance line, or None.
+
+    Args:
+        line: One netlist line (already stripped).
+
+    Returns:
+        Last bare token before params start, or None when the
+            line is not an X instance line.
+    """
+    tokens = line.split()
+    if not tokens or not tokens[0].upper().startswith("X"):
+        return None
+    body = tokens[1:]
+    params_at = next(
+        (i for i, token in enumerate(body) if "=" in token), len(body)
+    )
+    bare = body[:params_at]
+    if params_at < len(body):
+        bare = bare[:-1] if bare else []
+    if not bare:
+        return None
+    return bare[-1]
+
+
+def flatten_hierarchy(text, top=None):
+    """Inline hierarchical subckt instances to flat top level.
+
+    Magic ext2spice writes one `.subckt` per layout cell, but
+    netgen's one-shot LVS compares TOP-level circuits, so the
+    engine-extracted bandgap netlist needs inlining past the
+    single-wrapper strip of `flatten_spice`. Leaf instances whose
+    class names a known block expand with port nets mapped onto
+    the instance nets and private nets qualified as
+    `INST_net`; X/M device cards map the same way. Cards that are
+    neither X nor M device lines pass through unmapped
+    (documented boundary: engine-extracted leaves are FET-only).
+
+    Args:
+        text: Hierarchical netlist text to flatten.
+        top: Subckt to flatten from, or None to take the single
+            never-instantiated (root) block.
+
+    Returns:
+        Flat netlist text with no `.subckt`/`.ends` lines.
+            Texts without any block pass through unchanged.
+
+    Raises:
+        AdapterError: invalid_command for a missing top, or
+            for zero or several roots without top.
+    """
+    blocks = {
+        name.lower(): (name, ports, body)
+        for name, ports, body in _split_subckts(text)
+    }
+    if not blocks:
+        return text if text.endswith("\n") else text + "\n"
+    referenced = set()
+    for _, _, body in blocks.values():
+        for line in body:
+            cls = _instance_class(line.strip())
+            if cls is not None and cls.lower() in blocks:
+                referenced.add(cls.lower())
+    if top is not None:
+        root_key = top.lower()
+        if root_key not in blocks:
+            raise AdapterError(
+                "invalid_command", f"No .subckt {top} in the netlist."
+            )
+    else:
+        roots = [key for key in blocks if key not in referenced]
+        if len(roots) != 1:
+            raise AdapterError(
+                "invalid_command",
+                "Ambiguous hierarchy: pass top to select the root block.",
+            )
+        root_key = roots[0]
+
+    def emit(block_key, scope, prefix, out):
+        """Inline one block: ports map via scope, privates qualify."""
+        _, ports, body = blocks[block_key]
+        for line in body:
+            stripped = line.strip()
+            cls = _instance_class(stripped)
+            if cls is not None and cls.lower() in blocks:
+                tokens = stripped.split()
+                inst = tokens[0]
+                nets = _device_nets(tokens[1:])
+                _, sub_ports, _ = blocks[cls.lower()]
+                child_scope = {}
+                for port, net in zip(sub_ports, nets):
+                    child_scope[port] = scope.get(net, net)
+                child_prefix = f"{prefix}_{inst}" if prefix else inst
+                emit(cls.lower(), child_scope, child_prefix, out)
+                continue
+            mapped = _map_device_line(stripped, scope, prefix)
+            if mapped is None:
+                out.append(line)
+                continue
+            if prefix:
+                head, _, rest = mapped.partition(" ")
+                mapped = f"{prefix}_{head} {rest}"
+            out.append(mapped)
+
+    _, root_ports, _ = blocks[root_key]
+    out = []
+    emit(root_key, {port: port for port in root_ports}, "", out)
+    return "\n".join(out) + "\n"
+
+
+def _map_device_line(stripped, scope, prefix):
+    """One device line with block-local nets mapped to flat names.
+
+    Args:
+        stripped: One stripped netlist line.
+        scope: Local net to flat name mapping (ports bound).
+        prefix: Instance qualifier for private nets ("" at root).
+
+    Returns:
+        Remapped X/M device line, or None for other cards.
+    """
+    tokens = stripped.split()
+    if not tokens or tokens[0][:1].upper() not in ("X", "M"):
+        return None
+    body = tokens[1:]
+    params_at = next(
+        (i for i, token in enumerate(body) if "=" in token), len(body)
+    )
+    bare = body[:params_at]
+    if not bare:
+        return None
+    cls = bare[-1] if params_at < len(body) else None
+    nets = bare[:-1] if cls is not None else bare
+    flat_nets = [scope.get(net, f"{prefix}_{net}" if prefix else net) for net in nets]
+    tail = body[params_at:]
+    parts = [tokens[0]] + flat_nets
+    if cls is not None:
+        parts.append(cls)
+    parts.extend(tail)
+    return " ".join(parts)
+
+
+def retype_by_bulk(text, n_bulk_nets, p_bulk_nets):
+    """Re-type sky130 X-FET lines by their bulk terminal.
+
+    Wave-1 bulk-grouping evidence (docs/probe-extract-gds.md):
+    magic's uniform-pfet typing is wrong where the bulk says
+    otherwise — 52 devices share one common (p) bulk mirroring the
+    klt pfet split, the rest bulk to VSS. The bulk net
+    adjudicates: a pfet-family line bulked to an n-family net
+    re-types to the nfet flavor with its suffix kept
+    (`pfet_01v8_hvt` -> `nfet_01v8_hvt`), and vice versa. Bulk
+    nets outside both families never re-type (conservative).
+
+    Args:
+        text: Flat netlist text to adjudicate.
+        n_bulk_nets: Net names treated as n-family bulk (VSS...).
+        p_bulk_nets: Net names treated as p-family bulk (VDD...).
+
+    Returns:
+        (New text, number of re-typed lines).
+    """
+    n_bulk = {net for net in n_bulk_nets}
+    p_bulk = {net for net in p_bulk_nets}
+    count = 0
+    out = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        match = _DEVICE_RE.match(stripped)
+        if match is None:
+            out.append(line)
+            continue
+        name, drain, gate, source, bulk, cls, params = match.groups()
+        lowered = cls.lower()
+        if "pfet" in lowered and bulk in n_bulk:
+            cls = cls.replace("pfet", "nfet").replace("PFET", "NFET")
+            count += 1
+        elif "nfet" in lowered and bulk in p_bulk:
+            cls = cls.replace("nfet", "pfet").replace("NFET", "PFET")
+            count += 1
+        out.append(f"X{name} {drain} {gate} {source} {bulk} {cls}{params}")
+    return "\n".join(out) + "\n", count
 
 
 def _inventory_violations(layout_nets, schematic_nets):
@@ -269,6 +497,75 @@ def resolve_netgen():
     return found
 
 
+def _count_subckts(text):
+    """Number of `.subckt` blocks in netlist text.
+
+    Args:
+        text: Netlist text to scan.
+
+    Returns:
+        Count of `.subckt` header lines (case-insensitive).
+    """
+    return sum(1 for line in text.splitlines() if _SUBCKT_RE.match(line))
+
+
+def _prepare_flat(text, cell):
+    """Flatten one netlist side to top level for the one-shot LVS.
+
+    A named cell slices a library; a single wrapper (or none)
+    strips as before; several blocks without a cell inline the
+    hierarchy from its root instead of refusing.
+
+    Args:
+        text: Netlist text to flatten.
+        cell: Subcircuit to select, or None.
+
+    Returns:
+        Flat top-level netlist text.
+    """
+    if cell is not None:
+        if _count_subckts(text) > 1:
+            return flatten_hierarchy(text, top=cell)
+        return flatten_spice(text, cell)
+    if _count_subckts(text) > 1:
+        return flatten_hierarchy(text)
+    return flatten_spice(text)
+
+
+def _bulk_or_raise(job):
+    """Bulk-net families for p/n adjudication, or None.
+
+    Args:
+        job: Solver job, maybe with a `bulk_nets` mapping of
+            `n`/`p` net-name lists.
+
+    Returns:
+        (n_bulk, p_bulk) frozensets, or None when the job names
+            no families (retype skipped, old behavior kept).
+
+    Raises:
+        AdapterError: invalid_command for a malformed mapping.
+    """
+    bulk = job.get("bulk_nets")
+    if bulk is None:
+        return None
+    if not isinstance(bulk, dict):
+        raise AdapterError(
+            "invalid_command", f"Bad bulk_nets (not a mapping): {bulk!r}."
+        )
+    clean = {}
+    for family in ("n", "p"):
+        nets = bulk.get(family, [])
+        if not isinstance(nets, (list, tuple)) or not all(
+            isinstance(net, str) and net for net in nets
+        ):
+            raise AdapterError(
+                "invalid_command", f"Bad bulk_nets[{family!r}]: {nets!r}."
+            )
+        clean[family] = frozenset(nets)
+    return clean
+
+
 def _setup_file_or_raise(job):
     deck = job.get("deck") if isinstance(job.get("deck"), dict) else {}
     for candidate in (
@@ -350,6 +647,9 @@ class NetgenLvsAdapter(ToolAdapter):
             file).
         deck: Optional mapping naming the setup file (see above).
         cell: .subckt block to select from library netlists.
+        bulk_nets: Optional {n: [...], p: [...]} bulk-net
+            families; X-FET lines bulked to the opposite family
+            re-type before compare (bandgap p/n adjudication).
         workdir: Run directory (default ".").
 
     Args:
@@ -416,6 +716,12 @@ class NetgenLvsAdapter(ToolAdapter):
             checked[key] = path
         if job.get("cell") is not None:
             checked["cell"] = str(job["cell"])
+        bulk = _bulk_or_raise(job)
+        if bulk is not None:
+            checked["bulk_nets"] = {
+                "n": sorted(bulk["n"]),
+                "p": sorted(bulk["p"]),
+            }
         checked["timeout_s"] = timeout
         return checked
 
@@ -423,15 +729,18 @@ class NetgenLvsAdapter(ToolAdapter):
         """Flatten both sides, then run the one-shot batch LVS.
 
         Batch runs with DISPLAY scrubbed: netgen's Tk init fails
-        against an unreachable display.
+        against an unreachable display. Hierarchical sides inline
+        from their root; a `bulk_nets` job key re-types uniform
+        ext2spice FETs by bulk before compare (bandgap leg).
 
         Args:
             job: Solver job with operation run_lvs plus netlist,
-                setup, and cell inputs.
+                setup, cell, and bulk_nets inputs.
 
         Returns:
             Native output with exit_code, stdout/stderr, report
-                file/text, and both netlist paths.
+                file/text, both netlist paths, and the per-side
+                retype counts.
 
         Raises:
             AdapterError: invalid_reference for a missing workdir,
@@ -447,18 +756,24 @@ class NetgenLvsAdapter(ToolAdapter):
                 "invalid_reference", f"Workdir not found: {workdir}."
             )
         cell = checked.get("cell")
+        bulk = checked.get("bulk_nets")
         staged = {}
         flats = {}
+        retyped = {}
         for key, name in (
             ("layout_spice", "layout_flat.spice"),
             ("schematic_spice", "schematic_flat.spice"),
         ):
-            flat = flatten_spice(
+            flat = _prepare_flat(
                 Path(checked[key]).read_text(encoding="utf-8"), cell
             )
+            count = 0
+            if bulk is not None:
+                flat, count = retype_by_bulk(flat, bulk["n"], bulk["p"])
             staged[key] = Path(workdir) / name
             staged[key].write_text(flat, encoding="utf-8")
             flats[key] = flat
+            retyped[key] = count
         report_file = Path(workdir) / "lvs_report.out"
         proc = self._run(
             [
@@ -488,6 +803,8 @@ class NetgenLvsAdapter(ToolAdapter):
             "schematic_spice": checked["schematic_spice"],
             "layout_nets": sorted(inventory_nets(flats["layout_spice"])),
             "schematic_nets": sorted(inventory_nets(flats["schematic_spice"])),
+            "layout_retyped": retyped["layout_spice"],
+            "schematic_retyped": retyped["schematic_spice"],
         }
 
     def parse(self, native_output):

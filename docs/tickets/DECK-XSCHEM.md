@@ -35,3 +35,10 @@ on it.
 - Deck mode reachable via submit/MCP like every
   other deck; missing xschem fails loud with the
   PROV remedy, never fake-green.
+
+## Verdict (Wave-2, 2026-11-03) — Ready, Engine wiring to Wave-3
+
+Adapter complete: run_xschem with wrapper-rcfile seam, V3 assert,
+loud failures, normalized byte-compare; ota_top.sch netlists live
+(3260 B). Engine wiring (vocabulary/composition/MCP + regen)
+carries to the Wave-3 surface lane.
