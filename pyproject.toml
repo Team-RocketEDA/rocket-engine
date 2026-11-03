@@ -11,6 +11,7 @@ dependencies = [
   "jsonschema>=4.0",
   "mcp>=1.0,<3",
   "pydantic>=2.0",
+  "pyyaml>=6",
   "ruamel.yaml>=0.18",
   "uvicorn>=0.30",
 ]
