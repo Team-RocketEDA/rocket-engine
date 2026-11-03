@@ -42,3 +42,12 @@ Top-level recheck path verified end to end (M11 entrypoint,
 vocabulary, contract all list run_timing) with loud skips intact;
 no code change needed. Live demonstration waits on sta on a
 networked host (UPSTREAM-RECIPE source build infeasible here).
+
+*Note 2026-11-03: host now has every OpenSTA build prereq
+(git/cmake/make/g++/swig/bison/flex/tcl/eigen all present; only
+the earlier "missing swig" remedy is stale) and the opensta-857316f
++ cudd sources already cloned — re-running
+scripts/provision_toolchain.sh --install on the host should
+complete the build where it stalled before. Sandbox cannot write
+/home/alrida-ismail/tools (read-only) and CUDD is unbuilt there,
+so this step must run on the host, not here.*
