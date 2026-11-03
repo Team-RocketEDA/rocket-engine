@@ -541,3 +541,23 @@ def test_one_shot_optical_run_keeps_its_spectrum(tmp_path, capsys):
     ]
     spectra = json.loads((tmp_path / evidence["datasets"][0]["path"]).read_text())
     assert spectra[0]["wavelength_nm"]
+
+
+def test_a_list_argument_sent_as_a_json_string_still_works():
+    # Models often send lists as JSON text; iterating that string gave "Sources not found: ['[', '"', ...]".
+    from rocket_engine.adapters.mcp.server import _decode_list_arguments
+
+    decoded = _decode_list_arguments({
+        "sources": '["design/a.cir", "tests/b.cir"]',
+        "analyses": "ac dec 50 1 1e10",
+        "measurements": '[{"name": "gain"}]',
+        "corner": "tt",
+    })
+    assert decoded == {
+        "sources": ["design/a.cir", "tests/b.cir"],
+        "analyses": ["ac dec 50 1 1e10"],
+        "measurements": [{"name": "gain"}],
+        "corner": "tt",
+    }
+    assert _decode_list_arguments({"sources": ["a"]}) == {"sources": ["a"]}
+

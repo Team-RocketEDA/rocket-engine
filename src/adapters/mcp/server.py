@@ -66,6 +66,11 @@ _TOOL_SCHEMAS = {
 }
 
 
+#: Arguments that are lists. The generated schemas carry only descriptions, so
+#: a model can't tell, and often sends them as text.
+_LIST_ARGUMENTS = ("sources", "analyses", "measurements")
+
+
 _API_SCHEMAS = None
 
 
@@ -270,6 +275,31 @@ def tool_definitions():
     return tools
 
 
+def _decode_list_arguments(arguments):
+    """Accept a list argument sent as JSON text or as one bare string.
+
+    Models often send lists this way, and iterating the string would read
+    it one character at a time.
+
+    Args:
+        arguments: Tool call arguments.
+
+    Returns:
+        The arguments with each known list argument as a list.
+    """
+    decoded = dict(arguments)
+    for key in _LIST_ARGUMENTS:
+        value = decoded.get(key)
+        if not isinstance(value, str):
+            continue
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            parsed = value
+        decoded[key] = parsed if isinstance(parsed, list) else [parsed]
+    return decoded
+
+
 def _error(code, message, fields=None):
     payload = {"ok": False, "code": code, "message": message}
     if fields:
@@ -447,7 +477,7 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
         return ListToolsResult(tools=tool_definitions())
 
     async def _call_tool(ctx, params):
-        arguments = dict(params.arguments or {})
+        arguments = _decode_list_arguments(params.arguments or {})
         if project_scope is not None:
             arguments.setdefault("project_id", project_scope)
         project_id = arguments.get("project_id")
