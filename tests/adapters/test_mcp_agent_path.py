@@ -420,10 +420,12 @@ def test_bound_server_writes_evidence_into_the_project(tmp_path):
     _, call = make_handlers(lambda project_id: engine, project_scope=PROJECT, project_dir=tmp_path)
     _, ack = _call(call, "run_spice", {"sources": ["design/opamp.cir"], "measurements": [dict(GAIN, min=60)]})
 
+    # Recorded when the run finishes, so a model that never fetches it still leaves a record.
     evidence_path = tmp_path / "results" / "engine-runs" / f"{ack['run_id']}.json"
-    assert not evidence_path.is_file()
+    assert json.loads(evidence_path.read_text())["sources"] == ["design/opamp.cir"]
     _, done = _call(call, "run_job", {"run_id": ack["run_id"]})
     assert done["state"] == "completed"
+    assert json.loads(evidence_path.read_text())["sources"] == ["design/opamp.cir"]
 
     evidence = json.loads(evidence_path.read_text())
     assert evidence["run_id"] == ack["run_id"]

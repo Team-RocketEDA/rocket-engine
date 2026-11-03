@@ -511,16 +511,19 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
                 and "run_id" in result
             ):
                 submitted_arguments[result["run_id"]] = arguments
+            # Recorded as soon as a run finishes: submit runs inline, and a
+            # model that never fetches it must not leave the IDE with no record.
             if (
                 project_dir is not None
-                and params.name == "run_job"
+                and params.name.startswith("run_")
                 and isinstance(result, dict)
                 and result.get("state") == "completed"
+                and "verdict" in result
                 and "run_id" in result
             ):
                 write_evidence(
                     project_dir, engine, [result],
-                    submitted_arguments.pop(result["run_id"], {}),
+                    submitted_arguments.get(result["run_id"], {}),
                 )
         except _ENGINE_ERRORS as exc:
             return _error(exc.code, str(exc),
