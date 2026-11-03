@@ -17,7 +17,10 @@ lifecycle log as Server-Sent Events: replay since `cursor`
 /`data`) with heartbeat comments. New `src/adapters/http/events.py`
 (`format_frame` + `EventSource`, mirroring the IPC `EventStream`
 seam); `create_app`/`create_server`/`serve_http` take an
-optional `runtime` (default None). No-runtime `/events`
+optional `runtime` (default None). Step-7 wire bundle green
+post PR #4 merge (40 passed: async_deferred + http_sse +
+mcp_notify_lifecycle + transports/parity + execution service;
+merged mcp/server.py covered by 53-test MCP sweep). No-runtime `/events`
 refuses loudly (`runner_unavailable`, 503 — polling stays the
 path); foreign Origin refused (403) like POST. POST `/` and
 GET `/health` byte-identical in behavior. Covered by new

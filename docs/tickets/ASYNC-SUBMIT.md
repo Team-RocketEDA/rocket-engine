@@ -30,3 +30,7 @@ the prompt ack, merge the terminal completion with
 `list_survivors`/`resume_run`/`discard_run`/`cancel_job`/
 `get_events_since` from `boot_report`/`resume`/`discard`/
 `cancel`/`watch`.
+
+*Verify 2026-11-03 (Step 7 closeout, post PR #4 merge):
+handle-pre-verdict + `test_async_submit_deferred` green on the
+merged tree; no owned files touched by the merge.*
