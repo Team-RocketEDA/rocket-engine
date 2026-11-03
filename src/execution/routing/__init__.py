@@ -1,1 +1,1 @@
-"""Split package for console_route surfaces (REFACTOR-EXEC)."""
+"""Canonical console routing homes: calls, namespace, tools."""

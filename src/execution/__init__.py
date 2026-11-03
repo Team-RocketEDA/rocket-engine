@@ -30,11 +30,9 @@ from .coalesce import (
     normalize_arguments,
 )
 from .console.session import ConsoleSession, get_help
-from .console.route import (
+from .routing.calls import (
     CONSOLE_TOOL_VERBS,
     TIER_2_OPERATIONS,
-    ConsoleNamespace,
-    ConsoleTools,
     admission_envelope,
     build_effects_report,
     collect_run_ids,
@@ -47,6 +45,8 @@ from .console.route import (
     tier_for,
     tool_call,
 )
+from .routing.namespace import ConsoleNamespace
+from .routing.tools import ConsoleTools
 from .dispatch import OpDispatcher, parse_op_call, parse_op_tokens
 from .errors import ExecutionError, UsageError
 from .python_exec import (

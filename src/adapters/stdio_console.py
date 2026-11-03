@@ -50,7 +50,7 @@ from ruamel.yaml import YAML
 from ..clients.runtime import RuntimeClient
 from ..composition import Engine
 from ..execution.console.session import ConsoleSession
-from ..execution.console.route import (
+from ..execution.routing.calls import (
     collect_run_ids,
     is_tier2,
     stamp_tier2_call,
