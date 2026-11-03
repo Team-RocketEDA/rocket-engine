@@ -8,7 +8,7 @@ Local-only trust: this server speaks stdio to the local harness under OS identit
 
 ## Project binding
 
-`--project` binds the server to one project and fills the project ID and current expected revision for mutation calls. `--project-dir` additionally confines `run_spice` source paths to that project, loads run targets from its `constraints.yaml`, chooses the run work directory, and writes completed run evidence under `results/engine-runs/`.
+`--project` binds the server to one project and fills the project ID and current expected revision for mutation calls. `--project-dir` additionally confines `run_spice` source paths to that project, loads run targets and the PDK pin from its `constraints.yaml` (`pdk: <id>` pins the one registered revision, `pdk: {id, revision}` is taken as written, `none` means generic models, and an unregistered id fails with `unknown_pdk`), chooses the run work directory, and writes completed run evidence under `results/engine-runs/`.
 
 Normal solver operations currently execute inline through `submit` and return their completion. `run_job` remains available for deferred work, pool draining, and idempotent result retrieval. This differs from older Fuel notes that describe every run as a two-call admission/execution sequence; use the [current Engine implementation](../../composition.py) and generated [API reference](../../../docs/engine-api.md) for the live behavior.
 

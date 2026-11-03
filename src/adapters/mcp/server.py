@@ -12,8 +12,9 @@ current expected_revision itself; submit runs inline (same run_id ack
 shape plus the verdict), run_job stays for deferred/batch pumping
 plus idempotent fetch, and run_spice targets come from the
 project's constraints.yaml (`--project-dir`): the agent never sets
-them. Finished runs are recorded under results/engine-runs for IDE
-and agent alike.
+them. The same file names the PDK (`pdk:`); every run_spice the bound
+server admits carries that pin. Finished runs are recorded under
+results/engine-runs for IDE and agent alike.
 """
 
 import argparse
@@ -31,6 +32,9 @@ from ruamel.yaml import YAML
 
 from ...execution.errors import ExecutionError
 from ...execution.python_exec import MCP_INPUT_SCHEMA
+from ...interfaces.errors import ContractError
+from ...interfaces.paths import slugify
+from ...interfaces.pdks import list_pdks, resolve_engine_root
 from ...interfaces.vocabulary import OPERATIONS, QUERIES
 from ...project.errors import ProjectError
 from ..errors import AdapterError
@@ -366,9 +370,9 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
         project_scope: Optional scope enforced on every call; fills
             project_id and the current expected_revision.
         project_dir: Optional project folder; run_spice sources are
-            confined inside it, targets load from its
-            constraints.yaml, and finished runs are recorded under
-            its results/engine-runs.
+            confined inside it, targets and the PDK pin load from
+            its constraints.yaml, and finished runs are recorded
+            under its results/engine-runs.
 
     Returns:
         (list_tools, call_tool) async handler pair. Call failures
@@ -403,6 +407,10 @@ def make_handlers(engine_factory, project_scope=None, project_dir=None):
                 arguments["expected_revision"] = engine.snapshot()["current_revision"]
             if project_dir is not None and params.name == "run_spice":
                 _confine_files(arguments, project_dir)
+                # Read per call so a constraints.yaml edit applies without a restart.
+                pin = load_pdk_pin(project_dir)
+                if pin is not None:
+                    arguments["pdk"] = pin
             result = transport.handle(json.dumps({
                 "method": "tools/call",
                 "params": {"name": params.name, "arguments": arguments},
@@ -485,6 +493,75 @@ def load_constraints(project_dir):
     return targets
 
 
+def load_pdk_pin(project_dir):
+    """Resolve the project's PDK pin from its constraints.yaml.
+
+    `pdk: <id>` pins the one revision registered under that id;
+    `pdk: {id, revision}` is taken as written (the solver checks it
+    against the store when it runs). `none`, an empty value or no
+    `pdk` key means generic models.
+
+    Args:
+        project_dir: Project folder holding constraints.yaml.
+
+    Returns:
+        {"id", "revision"} pin for run_spice, or None when the
+        project names no PDK or has no constraints.yaml.
+
+    Raises:
+        AdapterError: unknown_pdk when the id is not registered on
+            this machine; invalid_command for a malformed value or
+            an id with several revisions; a store error's own code
+            when the store cannot be read.
+
+    Caution:
+        Never falls back to generic models when a named PDK cannot
+        be pinned: a silent fallback would score the design against
+        the wrong devices.
+    """
+    path = Path(project_dir) / "constraints.yaml"
+    if not path.is_file():
+        return None
+    data = YAML(typ="safe").load(path.read_text(encoding="utf-8")) or {}
+    value = data.get("pdk")
+    if value is None or (isinstance(value, str) and value.strip().lower() in ("", "none")):
+        return None
+    if isinstance(value, dict):
+        pin = {key: value.get(key) for key in ("id", "revision")}
+        if not all(isinstance(part, str) and part for part in pin.values()):
+            raise AdapterError(
+                "invalid_command", f"constraints.yaml pdk needs id and revision: {value!r}."
+            )
+        return pin
+    if not isinstance(value, str):
+        raise AdapterError(
+            "invalid_command",
+            f"constraints.yaml pdk must be an id or {{id, revision}}: {value!r}.",
+        )
+    name = value.strip()
+    try:
+        slug = slugify(name)
+        registered = list_pdks() if resolve_engine_root().is_dir() else []
+    except ContractError as exc:
+        raise AdapterError(exc.code, str(exc)) from exc
+    matches = [entry for entry in registered if slugify(entry["id"]) == slug]
+    if len(matches) == 1:
+        return {"id": matches[0]["id"], "revision": matches[0]["revision"]}
+    if matches:
+        revisions = ", ".join(entry["revision"] for entry in matches)
+        raise AdapterError(
+            "invalid_command",
+            f"PDK {name} has several revisions ({revisions}); pin one in "
+            f"constraints.yaml as pdk: {{id: {name}, revision: <revision>}}.",
+        )
+    known = ", ".join(f"{entry['id']} {entry['revision']}" for entry in registered) or "none"
+    raise AdapterError(
+        "unknown_pdk",
+        f"PDK {name} is not registered with Rocket Engine on this machine "
+        f"(registered: {known}). Register it with scripts/install.sh --pdk-only.",
+    )
+
+
 def _call_once(engine_factory, args):
     from mcp.types import CallToolRequestParams
 
@@ -546,7 +623,8 @@ def main(argv=None):
         "--project", help="bind to this project id (fills project_id/expected_revision)"
     )
     parser.add_argument(
-        "--project-dir", help="project folder; run_spice targets come from its constraints.yaml"
+        "--project-dir",
+        help="project folder; run_spice targets and PDK pin come from its constraints.yaml",
     )
     parser.add_argument(
         "--call", help="run one operation through the same handlers, print its job status, exit"
