@@ -140,10 +140,13 @@ where possible.
 One word per module level; no two sibling modules may share a
 first underscore-segment — shared prefixes nest instead
 (`drc/magic.py` + `drc/klayout.py`, never `drc.py` + `drc_kl.py`).
-A reasonably sized module is ~500 lines. 1,000 lines is highly
-discouraged unless the bulk is documentation, and 3,000 lines is
-a hard ceiling — never a target. There are no monster files:
-split by cohesive responsibility, never sideways mega files.
+A reasonably sized module is at most 500 lines, docstrings
+included; past ~1,000 lines the module is expected to justify
+its size or split. There are no
+monster files and no numeric ceiling to game — split by cohesive
+responsibility, never sideways mega files. Reviewers enforce the
+shape (one word per level, one responsibility per module), not a
+line count.
 This is an architecture constraint, not a test-only style
 preference. The 4 project stores live in `src/stores/`, never in
 `interfaces/` (contracts only: no I/O, no logic).

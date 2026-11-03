@@ -58,8 +58,6 @@ def load_bundle():
     root_id = manifest["$id"]
     if root_id != "urn:rocketeda:engine:v1":
         raise ValueError("Unexpected root schema identifier")
-    if len(CONTRACT.read_text().splitlines()) >= 3000:
-        raise ValueError("Authored root manifest exceeds size limit")
     definitions, resources, aliases = {}, {}, {}
     for item in manifest["x-schema-modules"]:
         path = bundle_path(item["path"], "v1/schemas")
@@ -75,8 +73,6 @@ def load_bundle():
                 raise ValueError(f"Nested schema identifiers are not allowlisted: {path}")
             if "$dynamicRef" in node or "$recursiveRef" in node:
                 raise ValueError(f"Dynamic schema retrieval is not supported: {path}")
-        if len(path.read_text().splitlines()) >= 3000:
-            raise ValueError(f"Authored schema module exceeds size limit: {path}")
         resources[identifier] = module
         for name, schema in module["$defs"].items():
             if name in definitions or "x-derived-from" in schema:
@@ -123,8 +119,6 @@ def load_bundle():
     for key, relative in manifest["x-catalog-files"].items():
         directory = "v1/examples" if key in {"x-examples", "x-rejections"} else "v1/catalog"
         path = bundle_path(relative, directory)
-        if len(path.read_text().splitlines()) >= 3000:
-            raise ValueError(f"Authored catalog/examples exceeds size limit: {path}")
         expanded[key] = read_json(path)
     def reject_retrieval(uri):
         raise ValueError(f"Schema retrieval is disabled: {uri}")

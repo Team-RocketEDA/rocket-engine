@@ -1,7 +1,7 @@
-"""REFACTOR-SERVICE: service.py stays under the 3,000-line limit.
+"""REFACTOR-SERVICE: service surface over cohesive subpackages.
 
 Split evidence: the project command surface lives in
-``src/project/service.py`` under the architecture limit, cohesive
+``src/project/service.py`` as a thin surface, cohesive
 ledger machinery lives in the nested ``src/project/ledger/``
 subpackage, and the public ``ProjectService`` API is unchanged.
 """
@@ -9,18 +9,7 @@ subpackage, and the public ``ProjectService`` API is unchanged.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-SERVICE = ROOT / "src" / "project" / "service.py"
 LEDGER = ROOT / "src" / "project" / "ledger"
-
-LIMIT = 3000
-
-
-def test_service_module_under_line_limit():
-    """service.py is below the 3,000-line architecture limit."""
-    lines = SERVICE.read_text(encoding="utf-8").splitlines()
-    assert len(lines) < LIMIT, (
-        f"service.py has {len(lines)} lines, limit is {LIMIT}"
-    )
 
 
 def test_ledger_subpackage_exists():

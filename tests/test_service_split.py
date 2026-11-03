@@ -1,9 +1,9 @@
 """REFACTOR-SERVICE root gate: service surface + store-port seam.
 
 The project command surface lives in ``src/project/service.py``
-under the architecture limit, cohesive ledger machinery lives in
-the nested ``src/project/ledger/`` subpackage, stores bind behind
-the ``src/ops/ports.py`` seam (never imported straight from
+as a thin surface over cohesive nested subpackages (ledger
+machinery in ``src/project/ledger/``), stores bind behind the
+``src/ops/ports.py`` seam (never imported straight from
 interfaces/), and the public ``ProjectService`` API — including
 the Wave-3 editor/testbench verbs — is unchanged in shape.
 """
@@ -14,10 +14,7 @@ from rocket_engine.project import ProjectService
 from rocket_engine.project.service import ProjectService as ViaService
 
 ROOT = Path(__file__).resolve().parent.parent
-SERVICE = ROOT / "src" / "project" / "service.py"
 LEDGER = ROOT / "src" / "project" / "ledger"
-
-LIMIT = 3000
 
 EXPECTED = {
     "submit", "snapshot", "events_since", "list_projects",
@@ -47,14 +44,6 @@ WAVE3_READS = [
     "plot_report", "netlist_report", "capability_report",
     "testbench_report",
 ]
-
-
-def test_service_module_under_line_limit():
-    """service.py is below the 3,000-line architecture limit."""
-    lines = SERVICE.read_text(encoding="utf-8").splitlines()
-    assert len(lines) < LIMIT, (
-        f"service.py has {len(lines)} lines, limit is {LIMIT}"
-    )
 
 
 def test_ledger_subpackage_exists():

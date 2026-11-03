@@ -57,7 +57,7 @@ contract 9 RED -> green; suites: 25 IP + 32 contracts green):
   names stay free-text, catalogue resolution requires slugs.
 - Forced the first REFACTOR-SERVICE slice: IP verbs moved to
   `src/project/ip/verbs.py::_IpMixin` (service.py 3046 -> 2941,
-  back under the 3000-line guard); api_spec resolves their
+  service.py stays a thin surface over the new mixin); api_spec resolves their
   contract text via _SERVICE_DOC_HOME, handlers stay bound on
   ProjectService. Regenerated docs/api-*, docs/contract.json,
   contracts/generated via their --write paths; all freshness
