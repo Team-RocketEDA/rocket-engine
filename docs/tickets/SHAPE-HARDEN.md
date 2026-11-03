@@ -11,3 +11,11 @@ Items (evidence in docs/tools/):
 8. cocotb + gmsh: never dissected. Document results.xml (xUnit) + .msh shapes.
 
 Acceptance: each item leaves a machine-checkable grammar (schema/regex/field table) + good/bad fixtures; audit rows updated; no adapter staffed on prose.
+
+## Verdict (Wave-2, 2026-11-03) — Ready, remainder to Wave-3
+
+Six owned flow-lane adapters pinned via tests/test_shapes_owned.py
+(flat rule/severity/message shapes, escape codes, 6 passed).
+Remainder (openroad rows, cace pin, openvaf, xschem EBNF,
+yosys_slang, xyce, cocotb+gmsh) carries to the Wave-3 surface
+lane with the sibling slices.

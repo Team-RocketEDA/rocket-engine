@@ -5,3 +5,9 @@ Problem batch (adapters bypassing their blessed structured escapes):
 4. drc_kl deck-mode bbox via generic float scraping (:104-110) — pin to lyrdb value grammar. MC-44.
 5. Violation/measurement conformance: drc/drc_kl omit severity/message; extract_magic omits `total`; measurements dict-vs-list split; bare PASS rows in synth/timing/gdsfactory (need value/target/margin/status). MC-36.
 Expected-per: audit KEEP rows :36,38,49; ports.py:54-72 contract; API-V1-ADAPTERS:49-50. Tighten ports.py to "measurements: list, possibly empty" before normalizers.
+
+## Verdict (Wave-2, 2026-11-03) — Ready, remainder to Wave-3
+
+Structured escapes + shape conformance pinned for the six owned
+flow-lane adapters (same shapes suite). drc_kl bbox grammar,
+extract total, and cross-adapter conformance carry to Wave-3.

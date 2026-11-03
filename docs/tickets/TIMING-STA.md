@@ -35,3 +35,10 @@ the vehicle.
 - Contract + api_spec regen; full suite + gate green.
 
 *RULING-03 (T-20): PARKED pending PROV-UPSTREAM-RECIPE — parking ends when provisioning is solved (user building manually meanwhile), not by scope decision. Adapter exists but STA grammar stays residue-only until the tool lands.*
+
+## Verdict (Wave-2, 2026-11-03) — Ready, BLOCKED-needs-host
+
+Top-level recheck path verified end to end (M11 entrypoint,
+vocabulary, contract all list run_timing) with loud skips intact;
+no code change needed. Live demonstration waits on sta on a
+networked host (UPSTREAM-RECIPE source build infeasible here).

@@ -97,3 +97,10 @@ Per tool: note exists with file:line-grounded grammars for every
 consumed shape; golden good+bad fixtures recorded with provenance;
 explicit out-of-scope list. A normalizer author can implement purely
 from the note plus `parse()` source without running the tool.
+
+## Verdict (Wave-2, 2026-11-03) — Done
+
+Waves 1-3 notes landed for the six flow-lane adapters
+(librelane/yosys/icarus new; slang/sby pre-existing) + README wave
+index; opensta stays wave-4 parked per RULING-03. 12 determinism
+tests + wave-1 shape pins green.

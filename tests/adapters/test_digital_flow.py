@@ -11,6 +11,7 @@ Tool placement on PATH plus the LibreLane PDK root are B10/PROV
 integration scope, not test scope.
 """
 
+import json
 import os
 import shutil
 import stat
@@ -101,6 +102,16 @@ mkdir -p "$RUNS/Netgen.LVS"
 printf 'Circuits match uniquely.\n' >"$RUNS/Netgen.LVS/lvs.out"
 mkdir -p "$RUNS/Yosys.EQY"
 printf 'Equivalent: all 42 points proven\n' >"$RUNS/Yosys.EQY/equiv.rpt"
+printf '{"metrics": {"timing__setup__ws": 9.15,\n' >"$RUNS/OpenROAD.STAPostPNR/state_out.json"
+printf ' "timing__hold__ws": 0.05}}\n' >>"$RUNS/OpenROAD.STAPostPNR/state_out.json"
+printf 'Metric,Value\ntiming__setup__ws,9.15\n' >"$RUNS/OpenROAD.STAPostPNR/metrics.csv"
+printf 'timing__hold__ws,0.05\n' >>"$RUNS/OpenROAD.STAPostPNR/metrics.csv"
+printf '{"metrics": {"drc__violations": 0}}\n' >"$RUNS/KLayout.DRC/state_out.json"
+printf 'Metric,Value\ndrc__violations,0\n' >"$RUNS/KLayout.DRC/metrics.csv"
+printf '{"metrics": {"lvs__match": 1}}\n' >"$RUNS/Netgen.LVS/state_out.json"
+printf 'Metric,Value\nlvs__match,1\n' >"$RUNS/Netgen.LVS/metrics.csv"
+printf '{"metrics": {"equiv__equivalent": 1}}\n' >"$RUNS/Yosys.EQY/state_out.json"
+printf 'Metric,Value\nequiv__equivalent,1\n' >"$RUNS/Yosys.EQY/metrics.csv"
 exit 0
 '''
 
@@ -209,7 +220,7 @@ def _write(path, text=""):
     return path
 
 
-def _fake_evidence(design, tag, variant="ok"):
+def _fake_evidence(design, tag, variant="ok", machine=True):
     """Fake design/runs/<tag>/ evidence tree plus the flow config."""
     runs = design / "runs" / tag
     _write(design / "digital_flow_config.json", '{"DESIGN_NAME": "counter"}\n')
@@ -253,6 +264,8 @@ def _fake_evidence(design, tag, variant="ok"):
         lvs_text = "Circuits match uniquely.\n"
     _write(runs / "Netgen.LVS" / "lvs.out", lvs_text)
     _write(runs / "Yosys.EQY" / "equiv.rpt", "Equivalent: all 42 points proven\n")
+    if machine:
+        _write_machine_states(runs, variant=variant)
     return runs
 
 
@@ -775,6 +788,97 @@ def test_digital_flow_broken_rtl_live_dies_at_synth(tmp_path):
     assert native["exit_code"] != 0
     result = adapter.parse(native)
     assert any("D12" in v["message"] for v in _errors(result))
+
+
+def _write_step_state(step_dir, metrics):
+    """Write state_out.json + metrics.csv machine files for one step."""
+    step_dir.mkdir(parents=True, exist_ok=True)
+    (step_dir / "state_out.json").write_text(
+        json.dumps({"metrics": dict(metrics)}) + "\n"
+    )
+    rows = ["Metric,Value"]
+    rows += [f"{key},{value}" for key, value in metrics.items()]
+    (step_dir / "metrics.csv").write_text("\n".join(rows) + "\n")
+    return step_dir
+
+
+def _write_machine_states(runs, variant="ok"):
+    """Machine-file states for the STA/DRC/LVS/EQY steps in a run tree."""
+    sta = {"timing__setup__ws": 9.15, "timing__setup__tns": 0.0,
+           "timing__hold__ws": 0.05, "timing__hold__tns": 0.0}
+    drc = {"drc__violations": 0}
+    lvs = {"lvs__match": 1}
+    eqy = {"equiv__equivalent": 1}
+    if variant == "sta_fail":
+        sta = {"timing__setup__ws": -1.25, "timing__setup__tns": -2.5,
+               "timing__hold__ws": 0.05, "timing__hold__tns": 0.0}
+    if variant == "drc_dirty":
+        drc = {"drc__violations": 5}
+    if variant == "lvs_fail":
+        lvs = {"lvs__match": 0}
+    _write_step_state(runs / "OpenROAD.STAPostPNR", sta)
+    _write_step_state(runs / "KLayout.DRC", drc)
+    _write_step_state(runs / "Netgen.LVS", lvs)
+    _write_step_state(runs / "Yosys.EQY", eqy)
+    return runs
+
+
+def test_digital_flow_uranium_text_without_machine_files_fails_loud(tmp_path):
+    """URANIUM: report text alone never passes a machine-gated stage."""
+    from rocket_engine.adapters.digital_flow import (
+        LibrelaneFlowAdapter,
+    )
+
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    design = workdir / "design"
+    _fake_evidence(design, "engine", variant="ok", machine=False)
+    result = LibrelaneFlowAdapter().parse(_native(workdir, design, "engine"))
+    stages = _stages(result)
+    for gate in ("D22", "D25", "D26"):
+        assert stages[gate]["status"] == "fail"
+        assert "state_out.json" in stages[gate]["reason"]
+    assert stages["D27"]["status"] == "fail"
+    assert "blocked by D22, D25, D26" in stages["D27"]["reason"]
+    assert any(
+        "machine" in v["message"] for v in _errors(result)
+    )
+
+
+def test_digital_flow_uranium_metric_violation_beats_clean_text(tmp_path):
+    """URANIUM: dirty machine metrics fail the gate on clean text."""
+    from rocket_engine.adapters.digital_flow import (
+        LibrelaneFlowAdapter,
+    )
+
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    design = workdir / "design"
+    _fake_evidence(design, "engine", variant="ok")
+    _write_machine_states(design / "runs" / "engine", variant="drc_dirty")
+    # Control: the report text still claims total 0; metrics must win.
+    assert "total: 0" in (
+        design / "runs" / "engine" / "KLayout.DRC" / "drc.rpt"
+    ).read_text()
+    result = LibrelaneFlowAdapter().parse(_native(workdir, design, "engine"))
+    assert _stages(result)["D25"]["status"] == "fail"
+    assert result["measurements"]["drc_total"] == 5
+
+
+def test_digital_flow_uranium_clean_metrics_beat_dirty_text(tmp_path):
+    """URANIUM: clean machine metrics pass the gate on dirty text."""
+    from rocket_engine.adapters.digital_flow import (
+        LibrelaneFlowAdapter,
+    )
+
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    design = workdir / "design"
+    _fake_evidence(design, "engine", variant="drc_dirty")
+    _write_machine_states(design / "runs" / "engine", variant="ok")
+    result = LibrelaneFlowAdapter().parse(_native(workdir, design, "engine"))
+    assert _stages(result)["D25"]["status"] == "pass"
+    assert result["measurements"]["drc_total"] == 0
 
 
 @needs_librelane
