@@ -10,6 +10,20 @@ missing files fail loudly instead of leaking neighboring bytes.
 Transport note: `serve_asset` base64-encodes the verbatim bytes for
 JSON duplex channels; the sha256 is computed over the raw bytes, so
 decoding and re-hashing always reproduces the served identity.
+
+PRD aliases: the PRD names `list_pdk_assets`/`get_pdk_asset` are
+thin wrappers over `list_assets`/`serve_asset` with identical
+payloads — the wire always carries the PDK's own identifiers, and
+humans and agents may query by either spelling. The canonical
+functions stay the transport names until the adapt lane catalogs
+the aliases in the vocabulary and composition wiring (see
+`PRD_ALIASES`); this module pins the alias behavior meanwhile.
+
+Serving guards (MC-43): single-asset serves refuse over
+`max_bytes` with `too_large` instead of encoding unbounded bulk,
+and bulk listings page with `limit`/`cursor` following the v1
+Page convention (`next_cursor`, `has_more`-style termination via
+a null cursor).
 """
 
 import base64
@@ -28,6 +42,22 @@ except ImportError:  # standalone verification before install
 
 ASSET_VERSION = 1
 _HASH_CHUNK_BYTES = 1024 * 1024
+
+#: Largest single asset `serve_asset` will encode; larger files
+#: refuse with `too_large` so a blind read never swallows bulk.
+MAX_SERVE_BYTES = 4 * 1024 * 1024
+
+#: Largest single `list_assets` page; larger limits refuse loudly.
+MAX_LIST_LIMIT = 1000
+
+#: PRD-name alias -> canonical transport name. The adapt lane
+#: catalogs these in the vocabulary and composition wiring; until
+#: then transports serve the canonical names and this table pins
+#: the alias contract at the module layer.
+PRD_ALIASES = {
+    "list_pdk_assets": "list_assets",
+    "get_pdk_asset": "serve_asset",
+}
 
 _yaml = YAML(typ="safe")
 
@@ -111,7 +141,23 @@ def _scan_files(pdk_dir):
     return files, symlinks
 
 
-def serve_asset(pdk_id, revision, path, engine_root=None):
+def _check_max_bytes(max_bytes):
+    if max_bytes is None:
+        return None
+    if (
+        isinstance(max_bytes, bool)
+        or not isinstance(max_bytes, int)
+        or max_bytes <= 0
+    ):
+        raise ContractError(
+            "invalid_command",
+            f"max_bytes must be a positive int, got {max_bytes!r}.",
+        )
+    return max_bytes
+
+
+def serve_asset(pdk_id, revision, path, engine_root=None,
+                max_bytes=MAX_SERVE_BYTES):
     """Serve one PDK file's bytes verbatim with hash-checked identity.
 
     Args:
@@ -120,6 +166,10 @@ def serve_asset(pdk_id, revision, path, engine_root=None):
         path: Store-relative file path (single `.sym` as-is, any
             depth).
         engine_root: Explicit store root; resolved when omitted.
+        max_bytes: Largest encodable size; larger files refuse
+            with too_large instead of encoding bulk. None opts
+            out (bulk reads belong to selective calls, never a
+            blind loop).
 
     Returns:
         Mapping with asset_version, pdk_id, display_id, revision,
@@ -128,8 +178,11 @@ def serve_asset(pdk_id, revision, path, engine_root=None):
 
     Raises:
         ContractError: invalid_reference for an unknown PDK, a
-            missing file, a directory path, or an escaping path.
+            missing file, a directory path, or an escaping path;
+            invalid_command for a malformed max_bytes; too_large
+            when the file exceeds max_bytes.
     """
+    cap = _check_max_bytes(max_bytes)
     pdk_dir = _pdk_dir(engine_root, pdk_id, revision)
     if not pdk_dir.is_dir():
         raise ContractError(
@@ -148,6 +201,14 @@ def serve_asset(pdk_id, revision, path, engine_root=None):
         raise ContractError(
             "invalid_reference", f"No such asset: {path!r}."
         )
+    size = target.stat().st_size
+    if cap is not None and size > cap:
+        raise ContractError(
+            "too_large",
+            f"Asset {canonical!r} is {size} bytes, over "
+            f"max_bytes={cap}; narrow with list_assets prefix "
+            "filtering and serve selectively, never in a blind loop.",
+        )
     raw = target.read_bytes()
     return {
         "asset_version": ASSET_VERSION,
@@ -161,7 +222,68 @@ def serve_asset(pdk_id, revision, path, engine_root=None):
     }
 
 
-def list_assets(pdk_id, revision, prefix=None, engine_root=None):
+def get_pdk_asset(pdk_id, revision, path, engine_root=None,
+                  max_bytes=MAX_SERVE_BYTES):
+    """Serve one PDK file verbatim under its PRD name.
+
+    Alias for `serve_asset`: identical arguments, identical
+    payload — the wire always carries the PDK's own identifiers.
+
+    Args:
+        pdk_id: PDK id (either display spelling resolves).
+        revision: PDK revision pin.
+        path: Store-relative file path.
+        engine_root: Explicit store root; resolved when omitted.
+        max_bytes: Largest encodable size; None opts out.
+
+    Returns:
+        Serve mapping, exactly as `serve_asset` returns.
+
+    Raises:
+        ContractError: Whatever `serve_asset` raises.
+    """
+    return serve_asset(
+        pdk_id, revision, path, engine_root=engine_root,
+        max_bytes=max_bytes,
+    )
+
+
+def _check_limit(limit):
+    if limit is None:
+        return None
+    if (
+        isinstance(limit, bool)
+        or not isinstance(limit, int)
+        or not 1 <= limit <= MAX_LIST_LIMIT
+    ):
+        raise ContractError(
+            "invalid_command",
+            f"limit must be an int 1..{MAX_LIST_LIMIT}, "
+            f"got {limit!r}.",
+        )
+    return limit
+
+
+def _check_cursor(cursor, total):
+    if cursor is None:
+        return 0
+    if not isinstance(cursor, str) or not cursor.isdigit():
+        raise ContractError(
+            "invalid_command",
+            f"cursor must be an opaque page token from a prior "
+            f"listing, got {cursor!r}.",
+        )
+    start = int(cursor)
+    if start > total:
+        raise ContractError(
+            "invalid_command",
+            f"Unknown cursor {cursor!r} for {total} files.",
+        )
+    return start
+
+
+def list_assets(pdk_id, revision, prefix=None, engine_root=None,
+                limit=None, cursor=None):
     """List PDK file metadata with per-file hash identity.
 
     Args:
@@ -170,16 +292,25 @@ def list_assets(pdk_id, revision, prefix=None, engine_root=None):
         prefix: Optional store-relative prefix filter; everything
             when omitted.
         engine_root: Explicit store root; resolved when omitted.
+        limit: Maximum file entries in this page; the whole
+            filtered set when omitted.
+        cursor: Opaque page token from a prior listing; the
+            first page when omitted.
 
     Returns:
         Mapping with asset_version, pdk_id, display_id, revision,
-            sorted file entries (path, size, sha256), symlink
-            entries (path, resolves), and the file count.
+            sorted file entries for this page (path, size,
+            sha256), symlink entries (path, resolves, unpaged),
+            the total file count, and the paging echo (limit,
+            cursor, next_cursor; next_cursor is None on the last
+            page, following the v1 Page convention).
 
     Raises:
         ContractError: invalid_reference for an unknown PDK or an
-            escaping prefix.
+            escaping prefix; invalid_command for a malformed
+            limit or cursor.
     """
+    page_limit = _check_limit(limit)
     pdk_dir = _pdk_dir(engine_root, pdk_id, revision)
     if not pdk_dir.is_dir():
         raise ContractError(
@@ -200,15 +331,53 @@ def list_assets(pdk_id, revision, prefix=None, engine_root=None):
             if entry["path"] == want
             or entry["path"].startswith(want + "/")
         ]
+    start = _check_cursor(cursor, len(files))
+    if page_limit is None:
+        page = files
+        next_cursor = None
+    else:
+        page = files[start:start + page_limit]
+        ahead = start + len(page)
+        next_cursor = str(ahead) if ahead < len(files) else None
     return {
         "asset_version": ASSET_VERSION,
         "pdk_id": slugify(pdk_id),
         "display_id": _display_id(pdk_dir, pdk_id),
         "revision": revision,
-        "files": files,
+        "files": page,
         "symlinks": symlinks,
         "count": len(files),
+        "limit": page_limit,
+        "cursor": cursor,
+        "next_cursor": next_cursor,
     }
+
+
+def list_pdk_assets(pdk_id, revision, prefix=None, engine_root=None,
+                    limit=None, cursor=None):
+    """List PDK file metadata under its PRD name.
+
+    Alias for `list_assets`: identical arguments, identical
+    payload — the wire always carries the PDK's own identifiers.
+
+    Args:
+        pdk_id: PDK id (either display spelling resolves).
+        revision: PDK revision pin.
+        prefix: Optional store-relative prefix filter.
+        engine_root: Explicit store root; resolved when omitted.
+        limit: Maximum file entries in this page.
+        cursor: Opaque page token from a prior listing.
+
+    Returns:
+        Listing mapping, exactly as `list_assets` returns.
+
+    Raises:
+        ContractError: Whatever `list_assets` raises.
+    """
+    return list_assets(
+        pdk_id, revision, prefix=prefix, engine_root=engine_root,
+        limit=limit, cursor=cursor,
+    )
 
 
 def asset_manifest(pdk_id, revision, prefix=None, engine_root=None):
