@@ -22,3 +22,27 @@ invariants:
       - behavior-invariants.yaml (this file; RULING-01)
     rulings:
       - RULING-01
+  - id: LOCAL-SINGLE-USER
+    statement: >-
+      The engine deploys on-device for one local user, reached
+      over stdio or loopback HTTP only. The local caller is
+      trusted: a sudo user opening their own files from the
+      console is normal use, never an attack — folder escaping
+      by the user is a non-issue in this deployment. What stays
+      forbidden is remote reachability and remote-triggered
+      execution: no 0.0.0.0 binds, no webhooks or callbacks that
+      funnel into python execution, no action the local user did
+      not control. Backend endpoints stay caller-blind; safety
+      policy for AI agents lives at the client edge
+      (rocket-fuel permissions), not in engine-side user
+      restrictions. The RCE caution stays highlighted: this
+      trust holds exactly while the loopback-only, single-user,
+      on-device deployment holds.
+    enforcement:
+      - src/adapters/http/__init__.py (loopback origins only,
+        127.0.0.1 binding, no auth by design)
+      - stdio transport (no network surface at all)
+      - SECURITY-AUDIT ticket (standing audit of this boundary)
+    rulings:
+      - RULING-04
+      - I22
