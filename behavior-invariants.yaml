@@ -48,3 +48,27 @@ invariants:
     rulings:
       - RULING-04
       - I22
+  - id: ENGINE-ECS-FLOW
+    statement: >-
+      Every project-entity mutation goes through the entity
+      manager (EntityStore verbs, ProjectService admission over
+      the same verbs): change, modify, then notify. The manager
+      modifies the entity, appends one ledger event
+      (entity_created, component_changed with entity/component/
+      revision, entity_deleted), advances the revision once, and
+      notifies subscribers; no path writes entity docs directly.
+      In-process synchronous fan-out rides the same event: any
+      subscriber registry delivers exactly the appended event,
+      never a second invented shape.
+    enforcement:
+      - src/stores/ecs.py (manager verbs, event append,
+        revision advance)
+      - src/execution/routing/calls.py (tier-2 paths admit
+        through ProjectService, never a side-channel writer)
+      - tests/execution/test_console_route.py
+        (no-private-doc-store-writers scan over routing/)
+      - src/execution/runtime.py (cursor watch over the event
+        log for polling subscribers)
+    rulings:
+      - CONSOLE-APPLY
+      - ADR-016

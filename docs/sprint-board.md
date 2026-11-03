@@ -27,6 +27,7 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 
 
 - [CONSOLE-SESSION-MIGRATE] Migrate ConsoleSession cell path onto ApplySession
+- [ECS-FLOW] Enforce ECS manager flow; evaluate esper, split store, add subscriber fan-out
 ## Doing
 
 
