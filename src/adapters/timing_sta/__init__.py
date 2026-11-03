@@ -8,7 +8,7 @@ command-line assumption for the gate host): write a timing script
 `read_sdc` the constraints), then marker-delimited report sections
 (`report_checks -path_delay min_max` for setup+hold critical paths,
 `report_wns`/`report_tns` per corner for WNS/TNS, bare
-`report_constraint` for slew/load violators, bare `check_setup` for
+`report_check_types` for slew/load violators, `check_setup -verbose`
 unconstrained endpoints) closed by a trailing `exit` so `sta` can
 never linger at its interactive prompt. Parse splits the log on the
 markers: per-path slack records with MET/VIOLATED status, the four
@@ -43,8 +43,17 @@ _VERSION_TIMEOUT_S = 30
 _SCRIPT_NAME = "timing.tcl"
 _LOG_NAME = "timing.log"
 
+_WNS_TNS_RE = re.compile(
+    r"^(?:wns|tns)\s+(?:max|min)\s+"
+    r"([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*$",
+    re.M,
+)
 _TOP_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _VERSION_RE = re.compile(r"OpenSTA", re.IGNORECASE)
+# Real `sta -version` prints a bare number (observed: "2.7.0");
+# the OpenSTA banner only appears on startup. Accept either —
+# the binary path is already the pinned provisioned one.
+_BARE_VERSION_RE = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
 _ERROR_RE = re.compile(r"^(?:Error|ERROR):\s*(.*)$", re.M)
 _WARNING_RE = re.compile(r"^Warning:\s*(.*)$", re.M)
 _MARKER_RE = re.compile(r"^===== TIMING_STA ([A-Z_]+) =====\s*$", re.M)
@@ -164,13 +173,19 @@ def _parse_paths(text):
 def _parse_margin(text):
     """Read the first wns/tns value from one margin section.
 
+    Real `report_wns`/`report_tns` print `wns max <v>` lines
+    (observed); the slack-parenthetical form is kept as a
+    fallback for path-row text.
+
     Args:
         text: One WNS_*/TNS_* section body.
 
     Returns:
         Margin in ns, or None when the section carries no value.
     """
-    match = _MARGIN_RE.search(text)
+    match = _WNS_TNS_RE.search(text)
+    if match is None:
+        match = _MARGIN_RE.search(text)
     return float(match.group(1)) if match is not None else None
 
 
@@ -595,8 +610,13 @@ class OpenStaTimingAdapter(ToolAdapter):
             ("TNS_MAX", "report_tns -max"),
             ("WNS_MIN", "report_wns -min"),
             ("TNS_MIN", "report_tns -min"),
-            ("CONSTRAINTS", "report_constraint"),
-            ("CHECK_SETUP", "check_setup"),
+            # report_check_types (bare): slew/load/width tables whose
+            # violated rows carry the VIOLATED marker the parse keys
+            # on. Pinned OpenSTA has no report_constraint command.
+            ("CONSTRAINTS", "report_check_types"),
+            # -verbose names the offending pins on the lines after
+            # each warning; bare check_setup only counts them.
+            ("CHECK_SETUP", "check_setup -verbose"),
         ]
         for name, command in reports:
             lines.append(f"puts {{===== TIMING_STA {name} =====}}")
@@ -672,7 +692,9 @@ class OpenStaTimingAdapter(ToolAdapter):
                 ) from exc
             banner = (proc.stdout + "\n" + proc.stderr).strip().splitlines()
             versioned = next(
-                (line for line in banner if _VERSION_RE.search(line)), None
+                (line for line in banner
+                 if _VERSION_RE.search(line)
+                 or _BARE_VERSION_RE.search(line.strip())), None
             )
             if proc.returncode == 0 and versioned is not None:
                 return versioned.strip()

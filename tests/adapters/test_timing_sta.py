@@ -115,13 +115,13 @@ Path Type: min
 ---------------------------------------------------------
           -0.15 slack (VIOLATED)
 ===== TIMING_STA WNS_MAX =====
-wns 9.15
+wns max 9.15
 ===== TIMING_STA TNS_MAX =====
-tns 9.15
+tns max 9.15
 ===== TIMING_STA WNS_MIN =====
-wns -0.15
+wns min -0.15
 ===== TIMING_STA TNS_MIN =====
-tns -0.15
+tns min -0.15
 ===== TIMING_STA CONSTRAINTS =====
 Pin                     Limit  Actual  Slack
 ------------------------------------------------
@@ -370,7 +370,7 @@ def test_timing_script_covers_flow_commands(tmp_path):
         "report_checks -path_delay min_max",
         "report_wns",
         "report_tns",
-        "report_constraint",
+        "report_check_types",
         "check_setup",
     ):
         assert command in script, command
@@ -435,7 +435,8 @@ def test_timing_parse_violated_setup_flags_setup_violation(tmp_path):
     )
 
     log = GOLDEN_LOG.replace("9.15 slack (MET)", "-1.25 slack (VIOLATED)")
-    log = log.replace("wns 9.15", "wns -1.25").replace("tns 9.15", "tns -1.25")
+    log = log.replace("wns max 9.15", "wns max -1.25").replace(
+        "tns max 9.15", "tns max -1.25")
     tool_dir = _write_stub(tmp_path / "bin", log=log)
     job = _job(["counter_mapped.v"], "counter", tmp_path, tool_dir=tool_dir)
     result = OpenStaTimingAdapter().parse(OpenStaTimingAdapter().execute(job))
@@ -497,7 +498,9 @@ def test_timing_counter_live_reports_margins(tmp_path):
     assert result["critical_paths"] != []
     for name in ("wns_setup", "tns_setup", "wns_hold", "tns_hold"):
         assert isinstance(_measurement(result, name)["value"], float)
-    assert native["sta_version"].startswith("OpenSTA")
+    # Real `sta -version` answers a bare number (observed "2.7.0");
+    # the OpenSTA banner only prints on startup.
+    assert re.match(r"(OpenSTA|\d+\.\d+)", native["sta_version"])
 
 
 @needs_sta
