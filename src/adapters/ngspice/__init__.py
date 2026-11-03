@@ -1,21 +1,23 @@
 """Ngspice SPICE solver adapter: run_spice behind the ToolAdapter port.
 
-Protocol, mirroring the vendored sky130-bandgap harness
-(sim/bin/corner-run.py): stage a corner deck into the workdir —
-preamble (.param/.option/.temp/.lib) + netlist bodies (bare
-`.end` lines stripped, else ngspice stops before .control) +
-generated .control (save all, analyses, let/print meas_*) — plus
-a .spiceinit (ngbehavior=hsa, required to read sky130 libs),
+Corner-deck protocol (staged into the workdir): preamble
+(.param/.option/.temp/.lib) + netlist bodies (bare `.end` lines
+stripped, else ngspice stops before .control) + generated
+.control (save all, analyses, let/print meas_*) — plus a
+.spiceinit (neutral base lines plus the PDK profile extras),
 then run `ngspice -b -o ngspice.log ngspice_deck.spice` under a
 timeout and parse `meas_* = value` lines. Verdicts always come
 from parsed output, never the exit code: bound misses are FAIL,
 a sim that yields no values synthesizes sim_fail violations, and
 only a missing binary raises missing_dependency.
 
-PDK models resolve through the PDK store (resolve_deck): a wrong
-revision, an unknown model relpath, or a tampered model file
-fails loudly in preflight — the adapter never silently sims
-against substitute models.
+Simulator needs resolve through PDK profile records
+(rocket_engine.adapters.profile, data under docs/pdk/<lane>/):
+model relpaths and .spiceinit lines come from the lane profile,
+never from adapter special-cases. PDK models resolve through the
+PDK store (resolve_deck): a wrong revision, an unknown model
+relpath, or a tampered model file fails loudly in preflight —
+the adapter never silently sims against substitute models.
 
 Tool resolution: an explicit job `tool_dir` containing ngspice
 wins, else PATH. Where the tools live on disk is B10 scope.
@@ -32,13 +34,13 @@ from ...execution.runner import tool_roots
 from ...interfaces import ToolAdapter
 from ...interfaces.pdks import resolve_deck
 from ..errors import AdapterError
+from ..profile import default_model_rel, render_spiceinit, spiceinit_for
 
 OPERATION = "run_spice"
 _TIMEOUT_S = 120
 _DECK_NAME = "ngspice_deck.spice"
 _LOG_NAME = "ngspice.log"
 _SPICEINIT_NAME = ".spiceinit"
-_MODEL_REL = "libs.tech/combined/sky130.lib.spice"
 
 # Mirrors corner-run.py MEAS_RE (leading whitespace tolerated).
 _MEAS_RE = re.compile(
@@ -51,13 +53,9 @@ _CORNER_RE = re.compile(r"^[A-Za-z0-9_]+$")
 _PARAM_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _ERROR_RE = re.compile(r"error", re.IGNORECASE)
 
-_SPICEINIT = """* rocket_engine ngspice init (mirrors sky130-bandgap sim/spiceinit).
-set ngbehavior=hsa     ; HSPICE-ish compatibility, required to read PDK libs
-set skywaterpdk        ; skip some checks for faster lib loading
-set ng_nomodcheck      ; do not check model parameters
-option noinit          ; do not dump operating point data into the log
-option klu             ; KLU direct linear solver
-"""
+#: .spiceinit staging honors the PDK profile: neutral base lines plus
+#: the lane extras (rocket_engine.adapters.profile). Model-free runs
+#: (no pdk pin) stage the base only.
 
 
 def _is_number(value):
@@ -385,7 +383,12 @@ class NgspiceAdapter(ToolAdapter):
             checked["measurements"],
         )
         (workdir_path / _DECK_NAME).write_text(deck, encoding="utf-8")
-        (workdir_path / _SPICEINIT_NAME).write_text(_SPICEINIT, encoding="utf-8")
+        pdk_pin = job.get("pdk")
+        pdk_id = pdk_pin.get("id") if isinstance(pdk_pin, dict) else None
+        spiceinit = render_spiceinit(spiceinit_for(pdk_id))
+        (workdir_path / _SPICEINIT_NAME).write_text(
+            spiceinit, encoding="utf-8"
+        )
         roots = tool_roots([checked["ngspice"]])
         proc = self._run(
             [checked["ngspice"], "-b", "-o", _LOG_NAME, _DECK_NAME],
@@ -419,8 +422,10 @@ class NgspiceAdapter(ToolAdapter):
                 sources, and the expected measurements.
 
         Returns:
-            {total, violations[], measurements[]} with value, unit,
-                target, margin, and status per measurement.
+            {total, violations[], measurements[], source} with
+                value, unit, target, margin, and status per
+                measurement; source names the channel read
+                (`log` for the -o file, `stdio_fallback` else).
 
         Raises:
             AdapterError: runner_unavailable when ngspice produced
@@ -428,16 +433,22 @@ class NgspiceAdapter(ToolAdapter):
         """
         sources = native_output.get("sources") or []
         first_source = sources[0] if sources else ""
-        chunks = [
-            native_output.get("stdout") or "",
-            native_output.get("stderr") or "",
-            native_output.get("log") or "",
-        ]
-        if not any(chunks):
-            raise AdapterError(
-                "runner_unavailable", "ngspice produced no output at all."
+        # MIGRATE-STDIO-FILE tier 1: the `-o ngspice.log` file is the
+        # parse channel; stdio survives only as a loud fallback for
+        # natives recorded before the file channel existed.
+        log = native_output.get("log") or ""
+        if log.strip():
+            combined, source = log, "log"
+        else:
+            stdio = "\n".join(
+                [native_output.get("stdout") or "",
+                 native_output.get("stderr") or ""]
             )
-        combined = "\n".join(chunks)
+            if not stdio.strip():
+                raise AdapterError(
+                    "runner_unavailable", "ngspice produced no output at all."
+                )
+            combined, source = stdio, "stdio_fallback"
         values = {}
         for match in _MEAS_RE.finditer(combined):
             try:
@@ -468,7 +479,11 @@ class NgspiceAdapter(ToolAdapter):
                 }
                 for name in missing
             ]
-            return {"total": len(violations), "violations": violations}
+            return {
+                "total": len(violations),
+                "violations": violations,
+                "source": source,
+            }
         violations = []
         measurements = []
         for item in expected:
@@ -519,6 +534,7 @@ class NgspiceAdapter(ToolAdapter):
             "total": len(violations),
             "violations": violations,
             "measurements": measurements,
+            "source": source,
         }
 
     @staticmethod
@@ -536,7 +552,13 @@ class NgspiceAdapter(ToolAdapter):
                 "invalid_command",
                 f"PDK pin needs id and revision: {pdk!r}.",
             )
-        rel = pdk.get("model_rel", _MODEL_REL)
+        rel = pdk.get("model_rel") or default_model_rel(pdk.get("id"))
+        if rel is None:
+            raise AdapterError(
+                "invalid_command",
+                f"PDK {pdk.get('id')!r} declares no sim profile: pass an "
+                "explicit model_rel (see docs/pdk/<lane>/profile.yaml).",
+            )
         try:
             hit = resolve_deck(
                 pdk_id, revision, rel, engine_root=pdk.get("engine_root")

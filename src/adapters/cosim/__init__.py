@@ -29,6 +29,7 @@ iverilog, and vvp wins, else PATH. Where the tools live on disk is
 B10 scope.
 """
 
+# TODO: This whole thing might not even be needed. a COSIM workflow just happens by running a full digital workflow, generating gds, using magic ext2spice given a PDK and other vodoo magic scripts to get a spice netlist, then run LVS. the end goal of an analog/digital cosim is to check the PEX model vs the schematic model to see if they match, that is the end goal. 
 import bisect
 import hashlib
 import math
@@ -861,10 +862,11 @@ class CosimAdapter(ToolAdapter):
                 echoes, and gates.
 
         Returns:
-            {total, violations[], measurements[]} with rule
-                measurement for quantitative misses, digital
-                native rules passed through, and sim_fail for
-                valueless halves.
+            {total, violations[], measurements[], source} with
+                rule measurement for quantitative misses, digital
+                native rules passed through, sim_fail for
+                valueless halves, and the COSIM_* channel read
+                (`log` or `stdio_fallback`).
 
         Raises:
             AdapterError: runner_unavailable when sampled bits
@@ -1141,7 +1143,15 @@ def _parse_joint(native_output):
             "measurements": measurements,
         }
     run_block = digital.get("run") or {}
-    text = run_block.get("stdout", "") + "\n" + run_block.get("stderr", "")
+    # MIGRATE-STDIO-FILE: the `vvp -l` log (written by the shared
+    # HdlSimAdapter.execute digital half) is the reports channel;
+    # stdio survives only as a loud fallback for older natives.
+    run_log = run_block.get("log") or ""
+    if run_log.strip():
+        text, report_source = run_log, "log"
+    else:
+        text = run_block.get("stdout", "") + "\n" + run_block.get("stderr", "")
+        report_source = "stdio_fallback"
     reports = _parse_cosim_reports(text)
     if reports is None:
         violations.append(
@@ -1156,6 +1166,7 @@ def _parse_joint(native_output):
             "total": len(violations),
             "violations": violations,
             "measurements": measurements,
+            "source": report_source,
         }
     report_bits, counts, data = reports
     nbits = native_output.get("nbits", len(bits))
@@ -1212,6 +1223,7 @@ def _parse_joint(native_output):
         "total": len(violations),
         "violations": violations,
         "measurements": measurements,
+        "source": report_source,
     }
 
 

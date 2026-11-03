@@ -1021,7 +1021,7 @@
         "digital_sources",
         "analog"
       ],
-      "returns": "{total, violations[], measurements[]} with rule measurement for quantitative misses, digital native rules passed through, and sim_fail for valueless halves.",
+      "returns": "{total, violations[], measurements[], source} with rule measurement for quantitative misses, digital native rules passed through, sim_fail for valueless halves, and the COSIM_* channel read (`log` or `stdio_fallback`).",
       "tools": {
         "cosim": {
           "adapter": "rocket_engine.adapters.cosim.CosimAdapter",
@@ -1418,6 +1418,9 @@
         "klayout": {
           "adapter": "rocket_engine.adapters.drc.klayout.KlayoutDrcAdapter",
           "properties": {
+            "cell": {
+              "description": "Optional top-cell claim, honored in both modes: must name an existing top cell (multi-top GDS without a cell refuses loudly)."
+            },
             "deck": {
               "description": "Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode."
             },
@@ -2126,7 +2129,7 @@
         "sources",
         "top"
       ],
-      "returns": "{total, violations[], measurements} with scope, sby_status, assumptions, properties, failures, counterexamples, and cover witnesses.",
+      "returns": "{total, violations[], measurements, source} with scope, sby_status, assumptions, properties, failures, counterexamples, and cover witnesses; source names the channel read (`logfile` for formal/logfile.txt, `stdout` else).",
       "tools": {
         "sby": {
           "adapter": "rocket_engine.adapters.formal_sby.FormalSbyAdapter",
@@ -2296,7 +2299,7 @@
       "required": [
         "sources"
       ],
-      "returns": "{total, violations[]} with file/line locations and sim_time where the sim reports it.",
+      "returns": "{total, violations[], source} with file/line locations and sim_time where the sim reports it; source is `log` or `stdio_fallback`.",
       "tools": {
         "icarus": {
           "adapter": "rocket_engine.adapters.hdl_sim.HdlSimAdapter",
@@ -2413,6 +2416,9 @@
       "kind": "operation",
       "name": "run_lvs",
       "properties": {
+        "bulk_nets": {
+          "description": "Optional {n: [...], p: [...]} bulk-net families; X-FET lines bulked to the opposite family re-type before compare (bandgap p/n adjudication)."
+        },
         "cell": {
           "description": ".subckt block to select from library netlists."
         },
@@ -2491,6 +2497,9 @@
         "netgen": {
           "adapter": "rocket_engine.adapters.lvs_netgen.NetgenLvsAdapter",
           "properties": {
+            "bulk_nets": {
+              "description": "Optional {n: [...], p: [...]} bulk-net families; X-FET lines bulked to the opposite family re-type before compare (bandgap p/n adjudication)."
+            },
             "cell": {
               "description": ".subckt block to select from library netlists."
             },
@@ -2914,7 +2923,7 @@
         "measurements",
         "schematic_run_id"
       ],
-      "returns": "{total, violations[], measurements[], comparison[], waveforms[], provenance} with value, unit, target, margin, and status per measurement plus pre, post, delta, and rel per comparison row.",
+      "returns": "{total, violations[], measurements[], comparison[], waveforms[], provenance, source} with value, unit, target, margin, and status per measurement plus pre, post, delta, and rel per comparison row; source names the channel read (`log` for the -o file, `stdio_fallback` else).",
       "tools": {
         "ngspice": {
           "adapter": "rocket_engine.adapters.postlayout.adapter.PostLayoutAdapter",
@@ -3135,7 +3144,7 @@
         "sources",
         "measurements"
       ],
-      "returns": "{total, violations[], measurements[]} with value, unit, target, margin, and status per measurement.",
+      "returns": "{total, violations[], measurements[], source} with value, unit, target, margin, and status per measurement; source names the channel read (`log` for the -o file, `stdio_fallback` else).",
       "tools": {
         "ngspice": {
           "adapter": "rocket_engine.adapters.ngspice.NgspiceAdapter",
@@ -3317,7 +3326,7 @@
       "required": [
         "sources"
       ],
-      "returns": "{total, violations[]} with rule, severity, message, and file/line/col locations.",
+      "returns": "{total, violations[], source} with rule, severity, message, and file/line/col locations; source is `diag_json` or `stdio_fallback`.",
       "tools": {
         "slang": {
           "adapter": "rocket_engine.adapters.syntax.SyntaxAdapter",
@@ -3484,7 +3493,7 @@
         "sources",
         "top"
       ],
-      "returns": "{total, violations[], measurements[]} plus cells, cell_count, wire_count, area, mapped, netlist, top, and yosys_version evidence.",
+      "returns": "{total, violations[], measurements[], source} plus cells, cell_count, wire_count, area, mapped, netlist, top, and yosys_version evidence; source is `log` or `stdio_fallback`.",
       "tools": {
         "yosys": {
           "adapter": "rocket_engine.adapters.synth_yosys.YosysSynthAdapter",
@@ -4467,15 +4476,18 @@
       "wired": true
     },
     "list_artifacts": {
-      "description": "Declared query `list_artifacts`; no handler wired yet.",
-      "handlers": [],
+      "description": "List recorded run-evidence files, newest first.",
+      "handlers": [
+        "rocket_engine.composition.Engine.list_artifacts"
+      ],
       "kind": "query",
       "name": "list_artifacts",
       "properties": {},
+      "raises": "",
       "required": [],
-      "returns": "",
+      "returns": "Mapping with the artifact count plus entries sorted by path (each with run_id, operation, verdict, finished_at, and path). Empty when the engine is unbound or no run has been recorded yet.",
       "type": "object",
-      "wired": false
+      "wired": true
     },
     "list_assets": {
       "description": "List PDK file metadata with per-file hash identity.",
@@ -4730,7 +4742,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "22381ab915e24857b5bf5d9235c9e5e62c1072c7822835372cb125653f587b45",
+  "schema_sha256": "a8949f82c44a3671690ab71fc194df045cd6a3d8161edc0eb7d8292b5c66155a",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

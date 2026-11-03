@@ -784,25 +784,33 @@ class PostLayoutAdapter(ToolAdapter):
 
         Returns:
             {total, violations[], measurements[], comparison[],
-                waveforms[], provenance} with value, unit, target,
-                margin, and status per measurement plus pre, post,
-                delta, and rel per comparison row.
+                waveforms[], provenance, source} with value, unit,
+                target, margin, and status per measurement plus
+                pre, post, delta, and rel per comparison row;
+                source names the channel read (`log` for the -o
+                file, `stdio_fallback` else).
 
         Raises:
             AdapterError: runner_unavailable when ngspice produced
                 no output at all or the native carries no
                 schematic sidecar.
         """
-        chunks = [
-            native_output.get("stdout") or "",
-            native_output.get("stderr") or "",
-            native_output.get("log") or "",
-        ]
-        if not any(chunks):
-            raise AdapterError(
-                "runner_unavailable", "ngspice produced no output at all."
+        # MIGRATE-STDIO-FILE tier 1: the `-o postlayout.log` file
+        # is the parse channel; stdio survives only as a loud
+        # fallback for natives recorded before the file existed.
+        log = native_output.get("log") or ""
+        if log.strip():
+            combined, source = log, "log"
+        else:
+            stdio = "\n".join(
+                [native_output.get("stdout") or "",
+                 native_output.get("stderr") or ""]
             )
-        combined = "\n".join(chunks)
+            if not stdio.strip():
+                raise AdapterError(
+                    "runner_unavailable", "ngspice produced no output at all."
+                )
+            combined, source = stdio, "stdio_fallback"
         values = {}
         for match in _MEAS_RE.finditer(combined):
             try:
@@ -845,6 +853,7 @@ class PostLayoutAdapter(ToolAdapter):
                 "comparison": [],
                 "waveforms": waveforms,
                 "provenance": provenance,
+                "source": source,
             }
         schematic = native_output.get("schematic") or {}
         pre_values = schematic.get("values") or {}
@@ -921,6 +930,7 @@ class PostLayoutAdapter(ToolAdapter):
             "comparison": comparison,
             "waveforms": waveforms,
             "provenance": provenance,
+            "source": source,
         }
 
     def _schematic_values(self, job, measurements):

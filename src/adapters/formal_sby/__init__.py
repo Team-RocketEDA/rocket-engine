@@ -108,6 +108,32 @@ def _read_status(workdir):
     return None, None
 
 
+def _summary_text(native_output):
+    """(text, source) for the sby summary regexes.
+
+    MIGRATE-STDIO-FILE: `<task>/logfile.txt` carries the complete
+    sby log including the summary lines, so it is the parse
+    channel; bare stdout survives only as a loud fallback for
+    natives recorded before the file channel existed (e.g. the
+    timeout path, where sby never flushes a logfile).
+
+    Args:
+        native_output: Native output with stdout plus the sby
+            workdir locating `<task>/logfile.txt`.
+
+    Returns:
+        (text, source) with source `logfile` or `stdout`.
+    """
+    candidate = Path(native_output.get("workdir") or ".") / _SBY_JOB / "logfile.txt"
+    try:
+        text = candidate.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        text = ""
+    if text.strip():
+        return text, "logfile"
+    return native_output.get("stdout", ""), "stdout"
+
+
 def _engine_status(stdout):
     """Per-engine `returned ...` notes plus no-status notes."""
     notes = []
@@ -458,9 +484,11 @@ class FormalSbyAdapter(ToolAdapter):
                 sby streams, workdir, proof inputs, and timed_out.
 
         Returns:
-            {total, violations[], measurements} with scope,
-                sby_status, assumptions, properties, failures,
-                counterexamples, and cover witnesses.
+            {total, violations[], measurements, source} with
+                scope, sby_status, assumptions, properties,
+                failures, counterexamples, and cover witnesses;
+                source names the channel read (`logfile` for
+                formal/logfile.txt, `stdout` else).
 
         Raises:
             AdapterError: runner_unavailable when the output has
@@ -469,6 +497,7 @@ class FormalSbyAdapter(ToolAdapter):
         sources = native_output.get("sources") or []
         assumptions, properties = _property_sites(sources)
         by_basename = {Path(s).name: str(s) for s in sources}
+        _logtext, text_source = _summary_text(native_output)
         measures = {
             "mode": native_output.get("mode"),
             "depth": native_output.get("depth"),
@@ -497,9 +526,9 @@ class FormalSbyAdapter(ToolAdapter):
                 "message": f"sby timed out after {timeout_s}s.",
             }
             return {"total": 1, "violations": [violation],
-                    "measurements": measures}
+                    "measurements": measures, "source": text_source}
         workdir = native_output.get("workdir", ".")
-        stdout = native_output.get("stdout", "")
+        stdout = _logtext
         status, rc = _read_status(workdir)
         if status is None:
             done = _DONE_RE.search(stdout)
@@ -544,10 +573,12 @@ class FormalSbyAdapter(ToolAdapter):
                     "total": 1,
                     "violations": [vacuous["violation"]],
                     "measurements": measures,
+                    "source": text_source,
                 }
             scope = "proven" if native_output.get("mode") == "prove" else "bounded"
             measures["scope"] = scope
-            return {"total": 0, "violations": [], "measurements": measures}
+            return {"total": 0, "violations": [], "measurements": measures,
+                    "source": text_source}
         if status == "FAIL":
             measures["scope"] = "bounded"
             violations = []
@@ -581,6 +612,7 @@ class FormalSbyAdapter(ToolAdapter):
                 "total": len(violations),
                 "violations": violations,
                 "measurements": measures,
+                "source": text_source,
             }
         if status == "UNKNOWN":
             measures["scope"] = "unknown"
@@ -608,12 +640,13 @@ class FormalSbyAdapter(ToolAdapter):
                 "total": len(violations),
                 "violations": violations,
                 "measurements": measures,
+                "source": text_source,
             }
         measures["scope"] = "unknown"
         violation = self._error_violation(stdout, rc, by_basename)
         measures["error"] = violation["message"]
         return {"total": 1, "violations": [violation],
-                "measurements": measures}
+                "measurements": measures, "source": text_source}
 
     @staticmethod
     def _sby_text(sources, top, mode, depth, engines):

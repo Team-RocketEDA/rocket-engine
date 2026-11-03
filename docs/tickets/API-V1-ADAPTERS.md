@@ -106,3 +106,13 @@ vlsir (schema), yosys_slang (plugin), openroad (LibreLane-internal —
 standalone ruled out, closure only), openrcx (dead), kfactory +
 gmsh (internal per RULING-07). These need adapter-build tickets
 (with tools) before any v1 migration applies to them.
+
+## Verdict (Wave-2, 2026-11-03) — Ready, 7 normalizers done
+
+7 v1 normalizers landed for the stdio-owned adapters
+(ngspice/postlayout/hdl_sim/cosim/synth_yosys/syntax/formal_sby):
+pure normalize() to schema-validated ResultBundles, v0 parse()
+unchanged, 25 RED->GREEN tests. Remaining waves 1-3 normalizers
+(drc, drc_kl, lvs_netgen, connectivity, view_sync, sax, circulax,
+meow, gdsfactory, digital_flow, extract_magic) carry to the
+Wave-3 surface lane as parallel slices.

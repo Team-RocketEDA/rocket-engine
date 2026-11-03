@@ -23,6 +23,7 @@ from ..errors import AdapterError
 
 OPERATION = "run_hdl_test"
 _TIMEOUT_S = 120
+_LOG_NAME = "sim.log"
 
 _COMPILE_RE = re.compile(r"^([^:\s][^:]*):(\d+):\s*(.+)$", re.M)
 _SIM_RE = re.compile(r"^(FATAL|ERROR):\s*(\S+):(\d+):\s*(.*)$")
@@ -47,6 +48,29 @@ def _parse_compile(text):
             }
         )
     return violations
+
+
+def _block_text(block):
+    """(text, source) for one compile/run block, log-first.
+
+    MIGRATE-STDIO-FILE: the `vvp -l sim.log` file is the parse
+    channel; stdio survives only as a loud fallback for natives
+    recorded before the file channel existed.
+
+    Args:
+        block: Native block with optional `log` plus
+            stdout/stderr.
+
+    Returns:
+        (text, source) with source `log` or `stdio_fallback`.
+    """
+    log = (block or {}).get("log") or ""
+    if log.strip():
+        return log, "log"
+    return (
+        (block or {}).get("stdout", "") + "\n" + (block or {}).get("stderr", ""),
+        "stdio_fallback",
+    )
 
 
 def _parse_sim(text):
@@ -174,7 +198,10 @@ class HdlSimAdapter(ToolAdapter):
         """Compile with iverilog, then run the sim under vvp.
 
         A failed compile returns its block with no run; the verdict
-        still comes from parse, never the exit code alone.
+        still comes from parse, never the exit code alone. The sim
+        runs with `vvp -l sim.log` so assertion lines land in a
+        file first (MIGRATE-STDIO-FILE; live-verified
+        byte-identical to stdio on vvp 14.0).
 
         Args:
             job: Solver job with operation run_hdl_test plus
@@ -182,7 +209,8 @@ class HdlSimAdapter(ToolAdapter):
 
         Returns:
             Native output with exit_code plus compile and run
-                blocks (run is None when the build failed).
+                blocks (run is None when the build failed; the
+                run block carries the vvp log text under `log`).
 
         Raises:
             AdapterError: invalid_reference for a missing workdir,
@@ -215,35 +243,47 @@ class HdlSimAdapter(ToolAdapter):
                 "run": None,
             }
         run = self._run(
-            [checked["vvp"], "sim.vvp"], workdir, checked["timeout_s"], roots
+            [checked["vvp"], "-l", _LOG_NAME, "sim.vvp"],
+            workdir,
+            checked["timeout_s"],
+            roots,
+        )
+        log_path = Path(workdir) / _LOG_NAME
+        run_block = _block(run)
+        run_block["log"] = (
+            log_path.read_text(encoding="utf-8", errors="replace")
+            if log_path.is_file()
+            else ""
         )
         return {
             "exit_code": run.returncode,
             "compile": _block(build),
-            "run": _block(run),
+            "run": run_block,
         }
 
     def parse(self, native_output):
         """Parse compile diagnostics plus sim assertion lines.
 
         Failed compiles and crashed sims with nothing parseable
-        synthesize error violations rather than going clean.
+        synthesize error violations rather than going clean. The
+        decisive block reads from the vvp log file, falling back
+        to stdio only for older natives (loudly marked).
 
         Args:
             native_output: Native output with compile and run blocks.
 
         Returns:
-            {total, violations[]} with file/line locations and
-                sim_time where the sim reports it.
+            {total, violations[], source} with file/line
+                locations and sim_time where the sim reports it;
+                source is `log` or `stdio_fallback`.
 
         Raises:
             AdapterError: runner_unavailable when a compiled run
                 has no run block.
         """
         compile_block = native_output.get("compile") or {}
-        diags = _parse_compile(
-            compile_block.get("stdout", "") + "\n" + compile_block.get("stderr", "")
-        )
+        compile_text, compile_source = _block_text(compile_block)
+        diags = _parse_compile(compile_text)
         if compile_block.get("exit_code", 0) != 0:
             if not diags:
                 # Defensive: a failed compile must never parse as clean.
@@ -254,13 +294,18 @@ class HdlSimAdapter(ToolAdapter):
                         "message": f"iverilog exited {compile_block.get('exit_code')}",
                     }
                 ]
-            return {"total": len(diags), "violations": diags}
+            return {
+                "total": len(diags),
+                "violations": diags,
+                "source": compile_source,
+            }
         run_block = native_output.get("run")
         if run_block is None:
             raise AdapterError(
                 "runner_unavailable", "Native output has no run block."
             )
-        sim = _parse_sim(run_block.get("stdout", "") + "\n" + run_block.get("stderr", ""))
+        run_text, run_source = _block_text(run_block)
+        sim = _parse_sim(run_text)
         if run_block.get("exit_code", 0) != 0 and not sim:
             # Defensive: crashes print nothing parseable; the nonzero
             # exit is the only signal, and it must fail loudly.
@@ -272,7 +317,11 @@ class HdlSimAdapter(ToolAdapter):
                 }
             ]
         violations = diags + sim
-        return {"total": len(violations), "violations": violations}
+        return {
+            "total": len(violations),
+            "violations": violations,
+            "source": run_source,
+        }
 
     @staticmethod
     def _resolve(job, binary):

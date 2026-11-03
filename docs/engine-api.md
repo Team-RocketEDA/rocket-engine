@@ -95,7 +95,7 @@ text, identical to the section bodies below.
 | `get_python_console` | yes | `rocket_engine.composition.Engine.python_console` | Read the python_execute console view. |
 | `get_resolved_config` | yes | `rocket_engine.project.service.ProjectService.resolved_config` | Bundle the resolved config for one session/run fetch. |
 | `get_world_snapshot` | yes | `rocket_engine.project.service.ProjectService.world_snapshot` | Bundle the miniplex-shaped world snapshot for mirrors. |
-| `list_artifacts` | no | — | Declared query `list_artifacts`; no handler wired yet. |
+| `list_artifacts` | yes | `rocket_engine.composition.Engine.list_artifacts` | List recorded run-evidence files, newest first. |
 | `list_assets` | yes | `rocket_engine.composition.Engine.list_assets` | List PDK file metadata with per-file hash identity. |
 | `list_cells` | yes | `rocket_engine.composition.Engine.catalog_cells` | List versioned component cells, optionally for one PDK. |
 | `list_docs` | yes | `rocket_engine.project.service.ProjectService.list_docs` | List documents, optionally filtered by a path prefix. |
@@ -736,7 +736,7 @@ Arguments:
 
 Returns:
 
-{total, violations[], measurements[]} with rule measurement for quantitative misses, digital native rules passed through, and sim_fail for valueless halves.
+{total, violations[], measurements[], source} with rule measurement for quantitative misses, digital native rules passed through, sim_fail for valueless halves, and the COSIM_* channel read (`log` or `stdio_fallback`).
 
 Raises:
 
@@ -860,6 +860,7 @@ Arguments:
 - `rules`: Synthetic check {layer [l, d], width_um, space_um, name?} — one check form is required (rules or a deck file).
 - `deck_file`: Foundry .lydrc deck path (deck mode).
 - `deck`: Optional mapping; deck.tool selects the solver (klayout here), deck.path/deck_file/file names the deck in deck mode.
+- `cell`: Optional top-cell claim, honored in both modes: must name an existing top cell (multi-top GDS without a cell refuses loudly).
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
 - `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
@@ -1039,7 +1040,7 @@ Arguments:
 
 Returns:
 
-{total, violations[], measurements} with scope, sby_status, assumptions, properties, failures, counterexamples, and cover witnesses.
+{total, violations[], measurements, source} with scope, sby_status, assumptions, properties, failures, counterexamples, and cover witnesses; source names the channel read (`logfile` for formal/logfile.txt, `stdout` else).
 
 Raises:
 
@@ -1081,7 +1082,7 @@ Arguments:
 
 Returns:
 
-{total, violations[]} with file/line locations and sim_time where the sim reports it.
+{total, violations[], source} with file/line locations and sim_time where the sim reports it; source is `log` or `stdio_fallback`.
 
 Raises:
 
@@ -1139,6 +1140,7 @@ Arguments:
 - `setup_file` (required): Netgen setup path — one setup form is required (setup_file or deck.path/setup_file/setup/ file).
 - `deck`: Optional mapping naming the setup file (see above).
 - `cell`: .subckt block to select from library netlists.
+- `bulk_nets`: Optional {n: [...], p: [...]} bulk-net families; X-FET lines bulked to the opposite family re-type before compare (bandgap p/n adjudication).
 - `workdir`: Run directory (default ".").
 - `expected_revision`: Revision the writer read; defaults to the command's own expected_revision entry.
 - `request`: Explicit run knobs (xschem live-var equivalents), frozen into the run snapshot. Unknown fields are rejected.
@@ -1277,7 +1279,7 @@ Arguments:
 
 Returns:
 
-{total, violations[], measurements[], comparison[], waveforms[], provenance} with value, unit, target, margin, and status per measurement plus pre, post, delta, and rel per comparison row.
+{total, violations[], measurements[], comparison[], waveforms[], provenance, source} with value, unit, target, margin, and status per measurement plus pre, post, delta, and rel per comparison row; source names the channel read (`log` for the -o file, `stdio_fallback` else).
 
 Raises:
 
@@ -1327,7 +1329,7 @@ Arguments:
 
 Returns:
 
-{total, violations[], measurements[]} with value, unit, target, margin, and status per measurement.
+{total, violations[], measurements[], source} with value, unit, target, margin, and status per measurement; source names the channel read (`log` for the -o file, `stdio_fallback` else).
 
 Raises:
 
@@ -1368,7 +1370,7 @@ Arguments:
 
 Returns:
 
-{total, violations[]} with rule, severity, message, and file/line/col locations.
+{total, violations[], source} with rule, severity, message, and file/line/col locations; source is `diag_json` or `stdio_fallback`.
 
 Raises:
 
@@ -1376,7 +1378,7 @@ Raises:
 
 (execute) AdapterError: invalid_reference for a missing workdir, runner_unavailable on a slang timeout, plus the preflight codes (execute re-checks first).
 
-(parse) AdapterError: runner_unavailable when the output has no Build summary line.
+(parse) AdapterError: runner_unavailable when the output has no diag entries and no Build summary line.
 
 Caution: A failed build with no parsed diagnostics reports a synthesized error rather than going clean.
 
@@ -1414,7 +1416,7 @@ Arguments:
 
 Returns:
 
-{total, violations[], measurements[]} plus cells, cell_count, wire_count, area, mapped, netlist, top, and yosys_version evidence.
+{total, violations[], measurements[], source} plus cells, cell_count, wire_count, area, mapped, netlist, top, and yosys_version evidence; source is `log` or `stdio_fallback`.
 
 Raises:
 
@@ -2062,9 +2064,27 @@ ProjectError: invalid_command for a non-bool flag; invalid_document for a corrup
 
 ### list_artifacts
 
-Declared query `list_artifacts`; no handler wired yet.
+List recorded run-evidence files, newest first.
 
-`Engine.submit` raises `unsupported_operation` for this name; it becomes callable when a solver registers or a query path wires it.
+Handler: `rocket_engine.composition.Engine.list_artifacts`.
+
+The WIRE-DECLARED-OPS wiring for the declared
+`list_artifacts` query: every transport shares the one
+`results/engine-runs` evidence trail the engine records
+itself, so this lists run ids with their operation,
+verdict, finish time, and evidence path. Unreadable
+files are skipped, never fatal — the trail is evidence,
+not a ledger.
+
+Arguments:
+
+- _(none)_
+
+Returns:
+
+Mapping with the artifact count plus entries sorted by path (each with run_id, operation, verdict, finished_at, and path). Empty when the engine is unbound or no run has been recorded yet.
+
+Caution: Read-only: reports recorded evidence, never executes anything and never replays the backlog.
 
 ### list_assets
 

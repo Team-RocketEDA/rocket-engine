@@ -260,7 +260,24 @@ class _SubmitMixin:
         )
 
     def _submit_place_cell(self, arguments, command):
-        """Place a catalogue cell immediately (no queue, no solver)."""
+        """Place a catalogue cell immediately (no queue, no solver).
+
+        Args:
+            arguments: place_cell arguments (cell plus the
+                optional pdk, instance_id, params, connections,
+                path_prefix, and expected_revision).
+            command: Envelope carrying request_id.
+
+        Returns:
+            Mutation mapping for the placed instance.
+
+        Raises:
+            ProjectError: invalid_command for a missing cell, or
+                the catalogue codes (unknown_cell,
+                ambiguous_cell, unknown_param,
+                incompatible_port, instance_exists) for a bad
+                placement.
+        """
         if "cell" not in arguments:
             raise ProjectError(
                 "invalid_command", "place_cell needs a cell argument."
@@ -276,6 +293,7 @@ class _SubmitMixin:
                 instance_id=arguments.get("instance_id"),
                 params=arguments.get("params"),
                 connections=arguments.get("connections"),
+                path_prefix=arguments.get("path_prefix", "components"),
             )
         except LibraryError as exc:
             raise ProjectError(exc.code, str(exc)) from exc

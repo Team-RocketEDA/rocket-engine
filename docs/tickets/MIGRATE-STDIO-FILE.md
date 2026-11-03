@@ -8,3 +8,12 @@ Moves:
 5. syntax: add slang --diag-json, derive counts from JSON (fixture-pin the schema).
 
 Acceptance per move (tdd-workflow RED->GREEN): existing golden fixtures still pass byte-identical; new test pins the file channel; stdio parse path removed or kept only as fallback with a loud marker. Residue stays: magic DRC (no file channel), ngspice error quotes (from persisted logs), iverilog compile diags.
+
+## Verdict (Wave-2, 2026-11-03) — Done
+
+All 5 moves landed: ngspice/postlayout parse -o log only;
+formal reads formal/logfile.txt; hdl_sim/cosim vvp -l
+(live-verified byte-identical on vvp 14.0); synth_yosys parses
+synth.log only; syntax --diag-json with live-pinned schema.
+9 new tests + 213 existing adapter tests green; golden fixtures
+byte-identical.

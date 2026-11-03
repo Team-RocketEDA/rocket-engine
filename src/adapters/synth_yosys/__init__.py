@@ -378,9 +378,10 @@ class YosysSynthAdapter(ToolAdapter):
                 stat text, and the netlist path.
 
         Returns:
-            {total, violations[], measurements[]} plus cells,
-                cell_count, wire_count, area, mapped, netlist, top,
-                and yosys_version evidence.
+            {total, violations[], measurements[], source} plus
+                cells, cell_count, wire_count, area, mapped,
+                netlist, top, and yosys_version evidence; source
+                is `log` or `stdio_fallback`.
 
         Raises:
             AdapterError: runner_unavailable when the output has no
@@ -392,10 +393,20 @@ class YosysSynthAdapter(ToolAdapter):
             raise AdapterError(
                 "runner_unavailable", "Native output has no exit code."
             )
-        text = "\n".join(
-            native_output.get(key, "") or ""
-            for key in ("log", "stdout", "stderr")
-        )
+        # MIGRATE-STDIO-FILE: synth.log (via -l) is the parse
+        # channel; with -q the stdout join could double-report
+        # lines present in both streams, so stdio survives only
+        # as a loud fallback for natives recorded before the
+        # file channel existed.
+        log = native_output.get("log") or ""
+        if log.strip():
+            text, source = log, "log"
+        else:
+            text = "\n".join(
+                native_output.get(key, "") or ""
+                for key in ("stdout", "stderr")
+            )
+            source = "stdio_fallback"
         errors = _parse_errors(text)
         warnings = _parse_warnings(text)
         stat = _parse_stat(native_output.get("stat") or "")
@@ -423,6 +434,7 @@ class YosysSynthAdapter(ToolAdapter):
                 "netlist": netlist,
                 "top": native_output.get("top"),
                 "yosys_version": native_output.get("yosys_version"),
+                "source": source,
             }
         if not stat["saw_cells"]:
             raise AdapterError(
@@ -453,6 +465,7 @@ class YosysSynthAdapter(ToolAdapter):
             "netlist": netlist,
             "top": native_output.get("top"),
             "yosys_version": native_output.get("yosys_version"),
+            "source": source,
         }
 
     @staticmethod
