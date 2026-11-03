@@ -49,3 +49,11 @@ engine nobody can run scores zero.
   note in the repo). No bare tracebacks to the judging audience.
 - Rebuild reproducible from lockfile + pinned digest; image size
   and PDK strategy recorded in the runbook.
+
+## Verdict (Wave-2, 2026-11-03) — Ready, BLOCKED-needs-host (daemon)
+
+Recipe complete: multi-stage Dockerfile (pinned-qual base + digest
+transcription procedure, non-root, PDK/store volumes, provisioner
+layer, demo-gate CMD), .dockerignore, one-command runbook section;
+13/13 recipe-review checks green. Carry: fresh-machine docker
+build+run acceptance needs a networked host with daemon.

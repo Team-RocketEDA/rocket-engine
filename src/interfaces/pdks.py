@@ -52,8 +52,44 @@ class PdkError(ContractError):
     """
 
 
+def _checkout_root():
+    """Engine checkout root, or None outside a source tree.
+
+    Returns:
+        Checkout root when this file sits inside one (a
+        pyproject marker beside src/), else None (installed
+        wheels fall back to the legacy home default).
+    """
+    root = Path(__file__).resolve().parents[2]
+    if (root / "pyproject.toml").is_file():
+        return root
+    return None
+
+
+def default_engine_root():
+    """Default engine store root (BUILD-LOCAL stage 2).
+
+    Args:
+        None: Reads no arguments; honors no env (callers layer
+            explicit roots, ROCKETEDA_HOME, and XDG over this).
+
+    Returns:
+        Repo-local `.stores/rocketeda` under the checkout, or the
+        legacy `~/.local/share/rocketeda` outside a source tree.
+    """
+    root = _checkout_root()
+    if root is not None:
+        return root / ".stores" / "rocketeda"
+    return Path.home() / ".local" / "share" / "rocketeda"
+
+
 def resolve_engine_root(explicit=None):
-    """Resolve ENGINE_ROOT: explicit arg -> $ROCKETEDA_HOME -> XDG default.
+    """Resolve ENGINE_ROOT: explicit -> $ROCKETEDA_HOME -> XDG -> default.
+
+    The default is BUILD-LOCAL stage 2: the repo-local
+    `.stores/rocketeda` inside a checkout (explicit env still
+    wins; existing `~/.local/share/rocketeda` stores keep working
+    via `ROCKETEDA_HOME=~/.local/share/rocketeda`).
 
     Args:
         explicit: Explicit root path; env/default when omitted.
@@ -69,7 +105,7 @@ def resolve_engine_root(explicit=None):
     xdg_data = os.environ.get("XDG_DATA_HOME")
     if xdg_data:
         return Path(xdg_data) / "rocketeda"
-    return Path.home() / ".local" / "share" / "rocketeda"
+    return default_engine_root()
 
 
 def _dump_yaml(data):

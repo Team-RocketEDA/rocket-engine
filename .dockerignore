@@ -1,0 +1,29 @@
+# DOCKER-DEPLOY: keep fixtures, stores, and secrets out of layers.
+.venv/
+.uv-cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+results/
+.rocket/
+*.gds
+*.oas
+.env
+# Vendored upstream fixtures (FIXTURE-FETCH): fetched trees stay local.
+fixtures/upstream/*/
+# Mutation scratch: staging copies, never committed.
+tmp/
+# Repo-local provision roots (BUILD-LOCAL): baked at build time
+# from pins, never copied from a developer checkout.
+.tools/
+.stores/
+# Engine store + PDK sources ride named volumes, never layers.
+pdks/
+*.key
+*.pem
+*secret*

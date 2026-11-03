@@ -171,6 +171,37 @@ def _resolve_netgen():
     return resolve_netgen()
 
 
+def _checkout_root():
+    """Engine checkout root, or None outside a source tree.
+
+    Returns:
+        Checkout root when this file sits inside one (a
+        pyproject marker beside src/), else None (installed
+        wheels fall back to the legacy home defaults).
+    """
+    root = Path(__file__).resolve().parents[2]
+    if (root / "pyproject.toml").is_file():
+        return root
+    return None
+
+
+def default_tools_dir():
+    """Default provisioned tools root (BUILD-LOCAL stage 2).
+
+    Args:
+        None: Reads no arguments; honors no env (callers layer
+            explicit tools_dir and TOOLS_DIR over this).
+
+    Returns:
+        Repo-local `.tools` under the checkout, or the legacy
+        `~/tools` outside a source tree.
+    """
+    root = _checkout_root()
+    if root is not None:
+        return root / ".tools"
+    return Path(os.path.expanduser("~/tools"))
+
+
 def prov_bin_dirs(tools_dir=None):
     """bin/ dirs from the provisioned tools root (prov-phase1.env).
 
@@ -178,10 +209,21 @@ def prov_bin_dirs(tools_dir=None):
     and *_DIR entries contribute their bin/ subdir, executable
     paths (AppImage, venv pythons) contribute their dirname.
     Missing or unreadable env file -> [] (ambient PATH decides).
+
+    Default root is BUILD-LOCAL stage 2: the repo-local `.tools`
+    (explicit tools_dir, then TOOLS_DIR, still win; existing
+    `~/tools` bundles keep working via `TOOLS_DIR=~/tools`).
+
+    Args:
+        tools_dir: Explicit tools root; TOOLS_DIR/default when omitted.
+
+    Returns:
+        bin/ dirs from prov-phase1.env under the root ([] when the
+        env file is missing or unreadable).
     """
-    root = tools_dir or os.environ.get(
-        "TOOLS_DIR", os.path.expanduser("~/tools")
-    )
+    root = tools_dir or os.environ.get("TOOLS_DIR")
+    if root is None:
+        root = default_tools_dir()
     try:
         with open(os.path.join(root, "prov-phase1.env")) as handle:
             lines = handle.read().splitlines()

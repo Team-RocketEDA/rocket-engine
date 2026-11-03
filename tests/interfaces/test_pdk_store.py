@@ -16,6 +16,8 @@ user tree (/home/alrida-ismail/.local/share/pdk/sky130A) is proven
 once by hand, never copied in the suite.
 """
 
+from pathlib import Path
+
 import pytest
 
 TINY_PDK_FILES = {
@@ -225,6 +227,19 @@ def test_list_pdks_sorted_and_empty_ok(tmp_path):
         ("a-pdk", "v1"),
         ("b-pdk", "v2"),
     ]
+
+
+def test_default_engine_root_repo_local_in_checkout(monkeypatch):
+    from rocket_engine.interfaces import pdks
+
+    checkout = Path(__file__).resolve().parents[2]
+    if not (checkout / "pyproject.toml").is_file():
+        pytest.skip("not a source checkout")
+    monkeypatch.setattr(
+        pdks, "__file__",
+        str(checkout / "src" / "interfaces" / "pdks.py"),
+    )
+    assert pdks.default_engine_root() == checkout / ".stores" / "rocketeda"
 
 
 def test_engine_root_resolution_chain(tmp_path, monkeypatch):

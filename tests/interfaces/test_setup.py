@@ -394,3 +394,42 @@ def test_solver_without_detection_spec_fails_loudly(tmp_path, monkeypatch):
         assert "emx" in str(exc)
     else:
         raise AssertionError("expected unknown_solver for spec-less tool")
+
+
+# PROV-DEFERRED per-pack qualify on the setup surface: every deferred
+# catalogue row carries a remedy + recipe, palace stays
+# non-provisionable, and the qualify verdict names each pack.
+def test_deferred_catalogue_rows_carry_remedy_and_recipe():
+    from rocket_engine.interfaces.setup import load_catalogue
+
+    by_id = {entry["id"]: entry for entry in load_catalogue()["entries"]}
+    for pack in ("pymeep", "openems", "elmer", "devsim"):
+        entry = by_id[pack]
+        assert entry["remedy"].strip(), pack
+        assert entry["recipe"].strip(), pack
+    assert by_id["palace"]["provisionable"] is False
+    assert "unsourced" in by_id["palace"]["remedy"].lower(), "palace record"
+
+
+def test_deferred_setup_rows_report_honest_state(tmp_path, monkeypatch):
+    from rocket_engine.interfaces.setup import catalogue_state
+
+    _bare_path(monkeypatch, tmp_path)
+    _no_python_solvers(monkeypatch)
+    by_id = {
+        entry["id"]: entry
+        for entry in catalogue_state(
+            engine_root=tmp_path / "nostore")["entries"]
+    }
+    for pack in ("pymeep", "openems", "elmer", "devsim"):
+        entry = by_id[pack]
+        assert entry["state"] in ("installed", "missing"), pack
+        if entry["state"] == "missing":
+            assert entry["remedy"].strip(), pack
+    assert by_id["palace"]["provisionable"] is False
+
+
+def test_deferred_qualify_verdict_names_setup_rows():
+    verdict = (ROOT / "docs" / "tickets" / "PROV-DEFERRED.md").read_text()
+    for pack in ("pymeep", "openems", "elmer", "devsim", "palace"):
+        assert pack in verdict.lower(), (pack, "verdict must qualify it")

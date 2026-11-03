@@ -747,3 +747,68 @@ def test_no_color_disables_tty_color(tmp_path):
     proc = _run_prov_pty(["--check-only"], env)
 
     assert "\x1b[" not in proc.stdout, "NO_COLOR must win on tty"
+
+
+# PROV-DEFERRED per-pack qualify (recipe-review + pin-record; live
+# --install is loud-skipped off-host — it needs a networked host).
+# Each deferred pack carries either a pinned installer plus its
+# upstream source, or an exactly-named unsourced/no-recipe record —
+# never a faked green.
+_DEFERRED_PINNED = {
+    "pymeep": {
+        "pin": 'PYMEEP_PIN="1.35.0"',
+        "installer": "install_pymeep",
+        "source": "meep.readthedocs.io",
+    },
+    "openems": {
+        "pin": 'OPENEMS_REF="v0.37.0"',
+        "installer": "install_openems",
+        "source": "openEMS.de",
+    },
+    "devsim": {
+        "pin": 'DEVSIM_PIN="2.11.2"',
+        "installer": "install_devsim",
+        "source": "pypi.org/project/devsim",
+    },
+    "elmer": {
+        "pin": 'ELMER_PPA="ppa:elmer-csc-ubuntu/elmer-csc-ppa"',
+        "installer": "install_elmer",
+        "source": "csc.fi/web/elmer",
+    },
+}
+
+_DEFERRED_NO_RECIPE = ("nextpnr", "openvaf", "gmsh")
+
+
+def test_deferred_packs_have_pins_recipes_and_sources():
+    """Recipe-review per deferred pack: pin + installer + upstream."""
+    text = PROV.read_text()
+    for pack, want in _DEFERRED_PINNED.items():
+        assert want["pin"] in text, (pack, "pin")
+        assert want["installer"] in text, (pack, "installer")
+        assert want["source"] in text, (pack, "source")
+
+
+def test_deferred_palace_stays_unsourced():
+    """Palace keeps its unsourced record: remedy, never a green path."""
+    text = PROV.read_text()
+    assert "install_palace" in text, "palace row action"
+    assert "UNSOURCED" in text, "palace unsourced marker"
+
+
+def test_deferred_no_recipe_packs_recorded_not_faked():
+    """nextpnr/openvaf/gmsh have no recipe: recorded, never faked green."""
+    text = PROV.read_text()
+    for pack in _DEFERRED_NO_RECIPE:
+        assert pack not in text.lower(), (pack, "must have no recipe")
+    verdict = (ROOT / "docs" / "tickets" / "PROV-DEFERRED.md").read_text()
+    for pack in _DEFERRED_NO_RECIPE:
+        assert pack in verdict, (pack, "verdict must name the no-recipe pack")
+
+
+def test_deferred_qualify_verdict_recorded_per_pack():
+    """Per-pack qualify record: recipe-review + pin-record + loud-skip."""
+    verdict = (ROOT / "docs" / "tickets" / "PROV-DEFERRED.md").read_text()
+    for pack in (*_DEFERRED_PINNED, "palace", *_DEFERRED_NO_RECIPE):
+        assert pack in verdict.lower(), (pack, "verdict must qualify it")
+    assert "loud-skip" in verdict.lower(), "live --install loud-skip"

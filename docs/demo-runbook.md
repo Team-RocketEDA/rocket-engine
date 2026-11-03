@@ -233,3 +233,50 @@ command: `--install` re-registers the PDK from the (persistent)
 `$HOME/.local/share/pdk/sky130A` source, then proves as above.
 Expect the PDK adoption (12 GB copy + hash) to take several minutes
 on the first run only; later runs re-verify instead of copying.
+
+## Docker flow (DOCKER-DEPLOY, one-command judging recipe)
+
+Build once on a networked host, then every judging run is a
+single `docker run` plus a browser tab. The PDK rides named
+volumes, never image layers; the plain-HTTP adapter stays
+NO-AUTH on `127.0.0.1:8000` only, and `--network=host` keeps
+that loopback bind the trust boundary (never publish the port
+to untrusted networks — auth'd HTTPS is the later path).
+
+```sh
+# One-time: bake the locked engine + pinned toolchain.
+docker build -t rocketeda:judging .
+docker images --digests rocketeda:judging  # record the digest, repin BASE_IMAGE
+
+# One-time: stage the PDK source where the first run adopts it.
+docker volume create edata-pdk
+docker volume create edata-store
+docker run --rm -v edata-pdk:/pdk \
+  -v "$HOME/.local/share/pdk/sky130A:/src:ro" \
+  docker.io/library/python:3.12-slim-bookworm \
+  cp -a /src/. /pdk/sky130A/
+
+# The single command: adopt (first run) + prove (every run).
+docker run --rm --network=host \
+  -v edata-pdk:/pdk:ro -v edata-store:/stores/rocketeda \
+  -e PDK_SOURCE=/pdk/sky130A \
+  rocketeda:judging
+
+# Then open http://127.0.0.1:8000 in a browser (GET /health
+# is the liveness probe) and read the demo gate verdict from
+# the container log: `demo: 4 passed, 0 failed`.
+```
+
+Image-size and digest notes: record `docker images` SIZE plus
+the `repo@sha256:<digest>` here at judging-build time (this
+checkout host has no daemon route, so the fresh-machine
+build + run stays BLOCKED-needs-host, qualified by
+recipe-review only). Rebuilds are reproducible from `uv.lock`
+plus the provisioner pins plus the repinned base digest.
+
+Known Docker failure modes: `permission denied on the socket`
+means the Docker daemon is unreachable (start it, retry);
+`PDK source is not a directory` means `PDK_SOURCE` misses the
+volume path (check the `-v` flags); `offline` from the
+provisioner layer means the build host has no registry route
+(retry networked — the layer is never faked green).
