@@ -885,14 +885,23 @@ install_opensta() {
         return 1
     fi
     local missing_prereq=""
-    for tool in git cmake make g++ swig bison flex; do
+    for tool in git cmake make g++ swig bison flex \
+        autoconf automake libtool; do
         if ! command -v "$tool" >/dev/null 2>&1; then
             missing_prereq="$missing_prereq $tool"
         fi
     done
     if [ -n "$missing_prereq" ]; then
+        # apt splits the pair: the libtool .deb ships
+        # libtoolize, /usr/bin/libtool lives in libtool-bin, so
+        # the remedy must name both (bare "install libtool"
+        # leaves `command -v libtool` failing on --no-recommends
+        # hosts, exactly tonight's failure).
+        local apt_missing
+        apt_missing=$(printf '%s' "$missing_prereq" \
+            | sed 's/\blibtool\b/libtool libtool-bin/') || return 1
         remedy "opensta" "build prerequisites missing:$missing_prereq" \
-            "sudo apt-get install -y$missing_prereq tcl-dev libeigen3-dev" \
+            "sudo apt-get install -y$apt_missing tcl-dev libeigen3-dev" \
             "$OPENSTA_URL"
         return 1
     fi
@@ -915,12 +924,28 @@ install_opensta() {
                 "retry with network, then re-run --install" "$OPENSTA_URL"
             return 1
         }
-        (cd "$src/cudd" && ./configure --prefix="$src/cudd-install" \
+    fi
+    # Gate on the installed lib, not the source dir: a failed
+    # build leaves $src/cudd behind, and skipping it poisons the
+    # cmake step with a missing CUDD library on the rerun.
+    if [ ! -f "$src/cudd-install/lib/libcudd.a" ] \
+        && [ ! -f "$src/cudd-install/lib/libcudd.so" ]; then
+        note "install opensta: building CUDD"
+        # Git clones ship 1.14-era autotools output; regenerate
+        # with the host toolchain first (cuddorg/cudd README),
+        # else make chases a missing aclocal-1.14.
+        (cd "$src/cudd" && autoreconf -fi \
+            && ./configure --prefix="$src/cudd-install" \
             && make -j"$(nproc)" && make install) || {
             remedy "opensta" "CUDD build failed" \
                 "see $OPENSTA_URL README prerequisites" "$OPENSTA_URL"
             return 1
         }
+    fi
+    # A stale dir from a failed cmake configure has no Makefile;
+    # clear it so retries reconfigure clean (same rule as xyce).
+    if [ ! -f "$src/build/Makefile" ]; then
+        rm -rf "$src/build"
     fi
     note "install opensta: cmake build"
     (mkdir -p "$src/build" && cd "$src/build" \
@@ -1164,7 +1189,7 @@ install_xyce() {
         note "install xyce: bootstrapping autotools (upstream: ./bootstrap)"
         (cd "$xsrc" && ./bootstrap) || {
             remedy "xyce" "Xyce bootstrap failed" \
-                "sudo apt-get install -y autoconf automake libtool, then re-run --install" \
+                "sudo apt-get install -y autoconf automake libtool-bin, then re-run --install" \
                 "https://xyce.sandia.gov/"
             return 1
         }
