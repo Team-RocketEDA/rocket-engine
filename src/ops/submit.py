@@ -1,6 +1,7 @@
 """Engine ops mixin: Submit-immediate admission paths (CRUD, editors, place-cell, pyexec)."""
 
 import uuid
+from ..execution.console.lifecycle import console_envelope
 from ..interfaces.yaml_dump import dump_yaml_text
 from ..library.errors import LibraryError
 from ..project.errors import ProjectError
@@ -513,3 +514,43 @@ class _SubmitMixin:
             },
         )
         return {**ack, **handle, "state": "pending_approval"}
+
+    def _submit_console(self, name, arguments, command):
+        """Admit one console lifecycle op on the shared envelope.
+
+        Identity comes from the rendered console envelope, so
+        console history replays as command scripts by
+        construction. Consoles are Engine-memory and
+        workspace-bound — no ledger admission, no revision gate.
+        ExecutionError from the lifecycle (unknown_console)
+        passes through unwrapped, like python_execute refusals.
+
+        Args:
+            name: python_open or python_reset.
+            arguments: Lifecycle arguments (workspace_root for
+                open, console_id for reset).
+            command: Envelope carrying request_id.
+
+        Returns:
+            Opening (open) or fresh generation (reset) plus
+            the request_id.
+
+        Raises:
+            ProjectError: invalid_command for an unknown console
+                operation name.
+        """
+        if name not in ("python_open", "python_reset"):
+            raise ProjectError(
+                "invalid_command",
+                f"Not a console lifecycle operation: {name!r}.",
+            )
+        command_text = console_envelope(name, dict(arguments))
+        request_id = str(command.get("request_id") or uuid.uuid4().hex)
+        if name == "python_open":
+            out = self.open_console(
+                workspace_root=arguments.get("workspace_root"))
+        else:
+            out = self.reset_console(
+                console_id=arguments.get("console_id"))
+        return {**out, "request_id": request_id,
+                "command_text": command_text}

@@ -158,16 +158,18 @@ def test_mcp_description_matches_docs_summary():
 def test_engine_job_control_ops_render_wired():
     """APISPEC-DISCOVERY RED: submit-branch job-control ops render wired.
 
-    resume_run, discard_run, resume_all_retryable, and cancel_job are
-    served by Engine methods through submit, so the generated spec
-    must render them wired with handler docstring text — never the
-    "no handler wired yet" template.
+    resume_run, discard_run, resume_all_retryable, cancel_job, and the
+    console lifecycle ops are served by Engine methods through
+    submit, so the generated spec must render them wired with
+    handler docstring text — never the "no handler wired yet"
+    template.
     """
     from rocket_engine.composition import ENGINE_OP_METHODS
 
     api_spec = _load_spec()
     assert set(ENGINE_OP_METHODS) == {
         "resume_run", "discard_run", "resume_all_retryable", "cancel_job",
+        "python_open", "python_reset",
     }
     schemas = api_spec.build_schemas()
     help_texts = api_spec.build_help()
@@ -179,6 +181,10 @@ def test_engine_job_control_ops_render_wired():
         # raises invalid_command without it — the schema pins the
         # behavioral contract, not the default.
         "cancel_job": ["run_id"],
+        "python_open": [],
+        # reset_console defaults console_id to None, but submit
+        # raises invalid_command without it — same pinning.
+        "python_reset": ["console_id"],
     }
     for name, method in ENGINE_OP_METHODS.items():
         spec = api_spec.endpoint_spec(name)

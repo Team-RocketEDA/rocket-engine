@@ -152,6 +152,8 @@ ENGINE_OP_REQUIRED = {
     "discard_run": ["run_id"],
     "resume_all_retryable": [],
     "cancel_job": ["run_id"],
+    "python_open": [],
+    "python_reset": ["console_id"],
 }
 
 #: Verbs whose contract docstring moved out of service.py under

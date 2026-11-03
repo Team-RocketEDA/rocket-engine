@@ -61,6 +61,7 @@ from .adapters.synth_yosys import YosysSynthAdapter
 from .adapters.timing_sta import OpenStaTimingAdapter
 from .adapters.view_sync import ViewSyncAdapter
 from .adapters.xschem import XschemAdapter
+from .execution.console.lifecycle import ConsoleLifecycle
 from .execution.apig.pool import (
     DEFAULT_MAX_WORKERS,
     ApigPool,
@@ -255,6 +256,8 @@ ENGINE_OP_METHODS = {
     "discard_run": "discard_survivor",
     "resume_all_retryable": "resume_all_retryable",
     "cancel_job": "cancel_job",
+    "python_open": "open_console",
+    "python_reset": "reset_console",
 }
 
 # CRUD mutations + rewind execute immediately inside submit()
@@ -441,6 +444,7 @@ class Engine(
             dispatcher=OpDispatcher(
                 self, project_id=project_id, actor=actor),
         )
+        self._consoles = ConsoleLifecycle()
         self._deferred_receipts = {}
         self._deferred = EngineRuntime(
             project_id, runner=self._deferred_runner,
@@ -759,6 +763,8 @@ class Engine(
             out = self._submit_pyexec(arguments, command)
             self._deferred.apply_edit()
             return out
+        if name in ("python_open", "python_reset"):
+            return self._submit_console(name, arguments, command)
         if not self._solvers.get(name):
             raise ProjectError(
                 "unsupported_operation", f"No solver registered: {name}."
@@ -1125,6 +1131,52 @@ class Engine(
             resolves anything.
         """
         return self._pyexec.console_view()
+
+    def open_console(self, workspace_root=None):
+        """Open a console, reusing the live one for its workspace.
+
+        Consoles are Engine-memory and workspace-bound: one live
+        handle per workspace root, unbound when omitted. Opening
+        never touches the project ledger, so no expected_revision
+        rides along; the registry itself is the idempotency.
+
+        Args:
+            workspace_root: Panel workspace binding; one live
+                handle per root, unbound when omitted.
+
+        Returns:
+            Opening with console_id, project_id, generation,
+                and the workspace_root binding.
+        """
+        return self._consoles.open_console(
+            self._project_id, self._actor,
+            workspace_root=workspace_root)
+
+    def reset_console(self, console_id=None):
+        """Retire a console generation; kill outstanding approvals.
+
+        Reset is a lifecycle event, never a re-run: the generation
+        retires, pending approvals die through the session, and
+        live workers stay cancel territory. Unknown ids fail
+        loudly; nothing is admitted on failure.
+
+        Args:
+            console_id: Console from `python_open`.
+
+        Returns:
+            Mapping with the console_id and the fresh generation.
+
+        Raises:
+            ProjectError: invalid_command without a console_id.
+            ExecutionError: unknown_console for an id never
+                opened or already closed.
+        """
+        if console_id is None:
+            raise ProjectError(
+                "invalid_command",
+                "python_reset needs a console_id argument.",
+            )
+        return self._consoles.reset_console(console_id)
 
     def api_search(self, query=None):
         """Search cataloged operations and queries by name or summary.

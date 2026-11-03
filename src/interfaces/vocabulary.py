@@ -12,6 +12,7 @@ OPERATIONS = frozenset(
         "run_optical", "run_digital_flow", "run_timing", "run_extraction",
         "run_post_layout", "run_em", "run_thermal", "python_execute",
         "run_view_sync", "run_cosim", "run_xschem", "run_antenna",
+        "python_open", "python_reset",
         "run_job",
         "resume_run", "discard_run", "resume_all_retryable", "cancel_job",
         "create_project", "write_doc", "delete_doc", "apply_mutations",
