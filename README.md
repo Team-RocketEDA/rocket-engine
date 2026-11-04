@@ -10,6 +10,32 @@
 
 The product serves digital, analog, photonic, and mixed-domain work. The engine coordinates existing EDA tools through adapters; it does not implement an agent loop or physics solvers. Product direction lives in the sibling [PRD](../PRD/README.md). The agent harness is in [rocket_fuel](../rocket_fuel/README.md), the current workbench is in [UIUX](../UIUX/README.md), and [RocketIDE](../RocketIDE/README.md) is the planned packaging layer.
 
+## Install (SDK)
+
+[![PyPI](https://img.shields.io/pypi/v/rocket-engine.svg)](https://pypi.org/project/rocket-engine/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+The engine ships as a versioned Python package — the **engine SDK**.
+Current release: [`rocket-engine 0.0.2b1` (beta)](https://pypi.org/project/rocket-engine/)
+on real PyPI. No final release exists yet, so this beta is what a plain
+install resolves today.
+
+```bash
+pip install rocket-engine==0.0.2b1
+rocket-engine --help
+python -c "import rocket_engine; print('ok')"
+```
+
+`pip` ships the engine, not the tools: native binaries, PDK trees, and
+cloud keys arrive via provision recipes, your own `PATH`, or explicit
+opt-in — see [Requirements](#requirements) below, generated from the
+setup catalogue. The engine resolves provisioned roots first, then
+ambient `PATH`, then per-job `tool_dir`; `report_capabilities` tells
+you exactly what resolved and the remedy for what did not. Requires
+Python ≥ 3.12. The wheel is MIT-licensed and pure first-party code;
+it depends on PyPI packages including GPL components (PySpice, klayout
+via gdsfactory) — the combination is GPL-governed downstream, the
+engine files stay MIT (see [LICENSE](LICENSE)).
+
 ## Requirements
 
 <!-- REQUIREMENTS:START -->
