@@ -3,6 +3,7 @@ name = "rocket-engine"
 version = "0.0.1"
 description = "Shared tooling engine used by the RocketEDA IDE (manual actions and MCP invoke the same operations)."
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = "==3.12.*"
 # Core is a full library: every solver ships with the project.
 # Plain `uv sync` installs everything. No profiles, no groups.
