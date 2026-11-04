@@ -33,6 +33,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 from pathlib import Path
 
 from ...execution.errors import ExecutionError
@@ -1050,15 +1051,53 @@ class LibrelaneFlowAdapter(ToolAdapter):
                     return True, None
                 raise AdapterError(exc.code, str(exc)) from exc
             return False, proc
+        # Tee: stream the flow to the terminal live while keeping
+        # bounded tails for verdicts (never swallow long builds).
+        import collections
+        import threading
+
         proc = subprocess.Popen(
             argv,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=workdir,
             start_new_session=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
         )
+        tails = {
+            "out": collections.deque(maxlen=500),
+            "err": collections.deque(maxlen=500),
+        }
+
+        def _pump(stream, key, sink):
+            try:
+                for line in iter(stream.readline, ""):
+                    sink.write(line)
+                    sink.flush()
+                    tails[key].append(line)
+            except (OSError, ValueError):
+                pass
+            finally:
+                try:
+                    stream.close()
+                except (OSError, ValueError):
+                    pass
+
+        threads = [
+            threading.Thread(
+                target=_pump, args=(proc.stdout, "out", sys.stdout), daemon=True
+            ),
+            threading.Thread(
+                target=_pump, args=(proc.stderr, "err", sys.stderr), daemon=True
+            ),
+        ]
+        for thread in threads:
+            thread.start()
         try:
-            out_bytes, err_bytes = proc.communicate(timeout=timeout_s)
+            proc.wait(timeout=timeout_s)
         except subprocess.TimeoutExpired:
             try:
                 os.killpg(proc.pid, signal.SIGKILL)
@@ -1069,10 +1108,14 @@ class LibrelaneFlowAdapter(ToolAdapter):
             except (ProcessLookupError, OSError):
                 pass
             proc.wait()
+            for thread in threads:
+                thread.join(timeout=5)
             return True, None
+        for thread in threads:
+            thread.join(timeout=30)
         return False, subprocess.CompletedProcess(
             proc.args,
             proc.returncode,
-            out_bytes.decode("utf-8", "replace"),
-            err_bytes.decode("utf-8", "replace"),
+            "".join(tails["out"]),
+            "".join(tails["err"]),
         )
