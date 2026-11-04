@@ -1249,7 +1249,15 @@ install_xyce() {
         }
     fi
     note "install xyce: autotools build against $tpref"
-    (cd "$xsrc" && ./configure --prefix="$XYCE_PREFIX" \
+    # Trilinos 14.x builds C++17 by default but Xyce configure
+    # defaults to -std=gnu++11, which cannot parse Trilinos
+    # headers (Kokkos needs C++14/17): configure dies in its
+    # Trilinos check with no Makefile. Match the standard to the
+    # just-built Trilinos (CMAKE_CXX_STANDARD from its cache).
+    TRILINOS_STD="$(grep '^CMAKE_CXX_STANDARD:' "$tsrc/build/CMakeCache.txt" \
+        2>/dev/null | cut -d= -f2)"
+    (cd "$xsrc" && CXX="c++ -std=c++${TRILINOS_STD:-17}" ./configure \
+        --prefix="$XYCE_PREFIX" \
         --with-trilinosdir="$tpref" ARCHDIR="$tpref" \
         && make -j"$(nproc)" && make install) || {
         remedy "xyce" "Xyce configure/make/install failed" \

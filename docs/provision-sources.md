@@ -180,7 +180,11 @@ deps.
   prefix. TriBITS' AMD finder does not search Debian's
   `/usr/include/suitesparse` subdir, so the recipe passes
   `AMD_INCLUDE_DIRS`/`AMD_LIBRARY_DIRS` explicitly
-  (TriBITS' own documented TPL escape).
+  (TriBITS' own documented TPL escape). Xyce configure
+  defaults to `-std=gnu++11`, which cannot parse Trilinos
+  14.x headers (Kokkos needs C++14/17), so the recipe sets
+  `CXX` to the standard recorded in the just-built
+  Trilinos `CMakeCache.txt` (17 for the 14-4 pin).
 
 ## 9. Xschem + CACE (schematic, characterization)
 
