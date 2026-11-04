@@ -10,6 +10,62 @@
 
 The product serves digital, analog, photonic, and mixed-domain work. The engine coordinates existing EDA tools through adapters; it does not implement an agent loop or physics solvers. Product direction lives in the sibling [PRD](../PRD/README.md). The agent harness is in [rocket_fuel](../rocket_fuel/README.md), the current workbench is in [UIUX](../UIUX/README.md), and [RocketIDE](../RocketIDE/README.md) is the planned packaging layer.
 
+## Requirements
+
+<!-- REQUIREMENTS:START -->
+pip ships the engine, not the tools. Native binaries, PDK trees,
+and cloud keys arrive via provision recipes, your own PATH, or
+explicit opt-in. The engine resolves provisioned roots first, then
+ambient PATH, then per-job `tool_dir`; `report_capabilities` tells
+you exactly what resolved and the remedy for what did not.
+
+### Native tools (provision or PATH)
+
+| Capability | Provides | How to get it |
+|---|---|---|
+| Digital bundle (oss-cad-suite) | `iverilog`, `vvp`, `verilator`, `slang`, `yosys`, `ghdl`, `sby` | scripts/provision_toolchain.sh: pinned tarball 20261025 + asserts (PROV phase 1). |
+| LibreLane (RTL-to-GDS flow) | `librelane` | scripts/provision_toolchain.sh (PROV phase 1; upstream AppImage/Nix install docs). |
+| OpenSTA (static timing) | `sta` | scripts/provision_toolchain.sh (PROV phase 1; upstream OpenSTA README source build). |
+| ngspice (SPICE) | `ngspice` | docs/provision-plan.md: apt pin or source build (B10). |
+| Netgen (LVS) | `netgen` | docs/tickets/NGSPICE-LIVE.md: opencircuitdesign source build (B10). |
+| Magic (DRC + extraction) | `magic` | docs/provision-plan.md: source build with --prefix into the app-owned tools dir (B10). |
+| KLayout (batch DRC) | `klayout` | docs/provision-plan.md: ambient install kept and version-asserted (B10). |
+| Xyce (parallel SPICE) | `Xyce` | scripts/provision_toolchain.sh (PROV phase 2; Xyce building guide recipe). |
+| Xschem (schematic) | `xschem` | scripts/provision_toolchain.sh (PROV phase 2; upstream xschem source build). |
+| Bubblewrap (isolation) | `bwrap` | docs/probe-bwrap-isolation.md (B10). |
+| cvc (SMT solvers) | `cvc4`, `cvc5` | scripts/provision_toolchain.sh: pinned tarball 20261025 ships cvc4/cvc5 (PROV phase 1). |
+| OpenROAD | `openroad` | scripts/provision_toolchain.sh (PROV phase 1; LibreLane closure ships openroad). |
+| openEMS (EC-FDTD) | `openEMS` | scripts/provision_toolchain.sh (PROV-DEFERRED; docs.openEMS.de recipe). |
+| Elmer (thermal/FEM) | `ElmerSolver` | scripts/provision_toolchain.sh (PROV-DEFERRED; CSC PPA apt route). |
+| Palace (full-wave FEM) | `palace` | docs/provision-sources.md §12 (unsourced — no recipe yet). |
+
+### Python libraries (ride the wheel)
+
+| Capability | Provides | How to get it |
+|---|---|---|
+| CACE (characterization) | `cace` | scripts/provision_toolchain.sh (PROV phase 2; pip into the engine venv). |
+| SAX (photonic sim) | `sax` | pyproject.toml [project] dependencies: plain `uv sync` installs everything (core library). |
+| Circulax (time-domain circuit sim) | `circulax` | pyproject.toml [project] dependencies: plain `uv sync` installs everything (core library). |
+| Meow (EME mode/field solver) | `meow` | pyproject.toml [project] dependencies: plain `uv sync` installs everything (core library). |
+| gdsfactory (layout views) | `gdsfactory` | pyproject.toml [project] dependencies: plain `uv sync` installs everything (core library). |
+| pymeep (FDTD) | `meep` | scripts/provision_toolchain.sh (PROV-DEFERRED; conda-forge pymeep env). |
+| DEVSIM (TCAD) | `devsim` | scripts/provision_toolchain.sh (PROV-DEFERRED; pip into the engine venv). |
+
+### PDKs (registered trees, never in the wheel)
+
+| Capability | Provides | How to get it |
+|---|---|---|
+| PDK sky130A | `sky130A` + 4 decks | scripts/install.sh --pdk-only (PDK_SOURCE/PDK_ID/PDK_REVISION; see docs/demo-runbook.md). |
+| PDK ihp (IHP SG13G2 BiCMOS + RF) | `ihp` + 1 decks | docs/pdk/ihp/recipe.md (PDK-IHP lane). |
+
+### Cloud (opt-in only, never default)
+
+| Capability | Provides | How to get it |
+|---|---|---|
+| Tidy3D web (cloud) | BYOC: tidy3d web | CLOUD-AUTH (Backlog): OS keyring preferred, encrypted file fallback. |
+| GDSFactory+ (cloud) | BYOC: gdsfactory+ | CLOUD-AUTH (Backlog): OS keyring preferred, encrypted file fallback. |
+<!-- REQUIREMENTS:END -->
+
 ## Current shape
 
 - `src/` is the package root and installs as `rocket_engine`.
