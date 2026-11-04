@@ -25,7 +25,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "meow"
 meow_present = importlib.util.find_spec("meow") is not None
 needs_meow = pytest.mark.skipif(
     not meow_present,
-    reason="meow not installed (uv sync --group photonic)",
+    reason="meow not installed (uv sync)",
 )
 
 

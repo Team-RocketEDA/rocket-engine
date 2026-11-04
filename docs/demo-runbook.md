@@ -187,9 +187,9 @@ FAIL ngspice sd_top pass on PEX integrator DC
 PASS picorv32 live fail on truncation mutant
 PASS picorv32 live pass on vendor test_ez
 FAIL sax mzi fail on geometry mutant
-  - step 2 (run_live): sax not installed, uv sync --group photonic (B10-owned tooling)
+  - step 2 (run_live): sax not installed, uv sync (B10-owned tooling)
 FAIL sax mzi pass on balanced circuit
-  - step 2 (run_live): sax not installed, uv sync --group photonic (B10-owned tooling)
+  - step 2 (run_live): sax not installed, uv sync (B10-owned tooling)
 PASS serv live fail on truncation mutant
 PASS serv live pass on hello firmware
 PASS stale revision rejected without effects
@@ -222,7 +222,7 @@ demo: FAIL — see docs/demo-runbook.md for the expected transcript
 | `not vendored under` | fixture tree missing | run `scripts/fetch_fixtures.py` (needs network) |
 | `ngspice not on PATH` | no ngspice binary | NGSPICE-LIVE (provision + rerun) |
 | `netgen not on PATH` | no netgen binary | NGSPICE-LIVE (provision + rerun) |
-| `sax not installed` | photonic group unsynced | `uv sync --group photonic` (needs network) |
+| `sax not installed` | core venv missing solver deps | `uv sync` (needs network) |
 | `sky130 PDK not registered` | store empty/wrong HOME | run `scripts/install.sh --pdk-only`, check ROCKETEDA_HOME |
 | `quarantined ... blocked-env` | tool/store absent for that case | per-case ref (NGSPICE-LIVE / B10-owned tooling) |
 

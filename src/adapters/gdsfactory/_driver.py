@@ -381,7 +381,7 @@ def main(argv):
         _fail(
             "missing_dependency",
             f"gdsfactory is not importable: {exc} "
-            "(uv sync --group layout).",
+            "(uv sync).",
             None,
             None,
         )

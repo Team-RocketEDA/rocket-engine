@@ -21,7 +21,10 @@ RENAMED_PKG = "honesty_renamed_pkg"
 # must cover all of them or a fresh-machine simulation lies about
 # whichever solver the simulation forgot (circulax alongside sax,
 # meow for run_em, gdsfactory for generate_views).
-PYTHON_SOLVERS = frozenset({"sax", "circulax", "meow", "gdsfactory"})
+# Must match test_setup.py's six-solver rule: a fresh-machine simulation
+# masks every Python-module solver, including cace (installed in this
+# venv) and devsim, or the catalogue honestly reports them installed.
+PYTHON_SOLVERS = frozenset({"sax", "circulax", "meow", "gdsfactory", "cace", "devsim"})
 
 
 def _path_prepend(monkeypatch, path):
@@ -64,6 +67,12 @@ def _bare_path(monkeypatch, tmp_path):
     empty = tmp_path / "empty"
     empty.mkdir(exist_ok=True)
     monkeypatch.setenv("PATH", str(empty))
+    # Fresh machine also means no provisioned tools root: detection
+    # consults prov-phase1.env BEFORE ambient PATH, so an ambient
+    # ~/tools would leak real tools into the simulation.
+    tools = tmp_path / "tools"
+    tools.mkdir(exist_ok=True)
+    monkeypatch.setenv("TOOLS_DIR", str(tools))
 
 
 def _submit(engine, arguments):
@@ -197,7 +206,7 @@ def test_wired_report_honest_under_shadow(tmp_path, monkeypatch):
     assert views["readiness"] == "blocked"
     assert views["tools"]["gdsfactory"]["available"] is False
     assert views["tools"]["gdsfactory"]["missing"] == ["gdsfactory"]
-    assert "uv sync --group layout" in views["tools"]["gdsfactory"]["remedy"]
+    assert "uv sync" in views["tools"]["gdsfactory"]["remedy"]
 
 
 def test_fresh_machine_honest_with_solvers_masked(tmp_path, monkeypatch):
@@ -243,4 +252,4 @@ def test_optical_blocked_when_sax_and_circulax_masked(tmp_path, monkeypatch):
     assert optical["readiness"] == "blocked"
     assert optical["tools"]["sax"]["available"] is False
     assert optical["tools"]["circulax"]["available"] is False
-    assert "uv sync --group photonic" in optical["tools"]["sax"]["remedy"]
+    assert "uv sync" in optical["tools"]["sax"]["remedy"]

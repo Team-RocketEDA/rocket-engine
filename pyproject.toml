@@ -4,6 +4,8 @@ version = "0.0.1"
 description = "Shared tooling engine used by the RocketEDA IDE (manual actions and MCP invoke the same operations)."
 readme = "README.md"
 requires-python = "==3.12.*"
+# Core is a full library: every solver ships with the project.
+# Plain `uv sync` installs everything. No profiles, no groups.
 dependencies = [
   "anyio>=4.0",
   "fastapi>=0.115",
@@ -13,38 +15,36 @@ dependencies = [
   "pydantic>=2.0",
   "ruamel.yaml>=0.18",
   "uvicorn>=0.30",
+  # HDL (was: hdl group).
+  "amaranth>=0.5.10",
+  "cocotb>=1.9",
+  "pyslang>=12.1.0",
+  "pywellen>=0.25.7",
+  "vlsirtools>=7.0.0",
+  # Analog (was: analog group).
+  "PySpice>=1.5",
+  "cace==2.13.0",
+  "devsim==2.11.2",
+  "matplotlib>=3.8",
+  "scikit-rf>=1.0",
+  # Photonic (was: photonic group).
+  "sax>=0.18",
+  "circulax",
+  "meow-sim>=0.15",
+  # Layout (was: layout group).
+  # <10: stay on stable 9.x; 10.x needs its own qualification (PDK pins differ).
+  # gdsfactory parents kfactory~=3.0.4 (its layout backend) + kfnetlist transitively.
+  "gdsfactory>=9.51,<10",
+  # Plugins (was: undeclared entirely). Reference models, verification
+  # helpers and sim adapters the engine leans on (VLSIR export, klayout
+  # DRC notebooks, meep/tidy3d/palace adapters).
+  "gplugins>=2.1,<3",
 ]
 
 [dependency-groups]
 dev = [
   "pytest>=8.0",
   "pytest-cov>=6.0",
-]
-# Optional solver profiles (see README "Tool & dependency decisions").
-# Base `uv sync` stays lean; add per profile, e.g. `uv sync --group photonic`.
-hdl = [
-  "amaranth>=0.5.10",
-  "cocotb>=1.9",
-  "pyslang>=12.1.0",
-  "pywellen>=0.25.7",
-  "vlsirtools>=7.0.0",
-]
-analog = [
-  "PySpice>=1.5",
-  "cace==2.13.0",
-  "devsim==2.11.2",
-  "matplotlib>=3.8",
-  "scikit-rf>=1.0",
-]
-photonic = [
-  "sax>=0.18",
-  "circulax",
-  "meow-sim>=0.15",
-]
-layout = [
-  # <10: stay on stable 9.x; 10.x needs its own qualification (PDK pins differ).
-  # gdsfactory parents kfactory~=3.0.4 (its layout backend) + kfnetlist transitively.
-  "gdsfactory>=9.51,<10",
 ]
 
 [build-system]

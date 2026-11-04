@@ -34,7 +34,7 @@ ubc_present = (
 )
 needs_lane = pytest.mark.skipif(
     not (gf_present and ubc_present),
-    reason="ubc lane live: need gdsfactory (uv sync --group layout) + "
+    reason="ubc lane live: need gdsfactory (uv sync) + "
     'ubcpdk 3.3.5 (pip) or a source tree '
     "(fixtures/upstream/ubc, scripts/fetch_fixtures.py --only ubc)",
 )

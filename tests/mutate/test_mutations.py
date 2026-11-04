@@ -145,7 +145,7 @@ needs_netgen = pytest.mark.skipif(
 needs_sax = pytest.mark.skipif(
     importlib.util.find_spec("sax") is None,
     reason="MUTATE-HARNESS photonic live: sax not installed, "
-    "uv sync --group photonic (B10-owned tooling)",
+    "uv sync (B10-owned tooling)",
 )
 
 

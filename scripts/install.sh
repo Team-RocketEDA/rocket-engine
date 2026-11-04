@@ -151,8 +151,8 @@ fi
 
 if [ "$MODE" = "--install" ]; then
     command -v uv >/dev/null 2>&1 || { echo "install.sh: uv not on PATH" >&2; echo "next: install uv (https://docs.astral.sh/uv/), then retry" >&2; exit 1; }
-    step "venv + locked sync (deps only: the editable project install is broken for the src-as-root layout)"
-    (cd "$ROOT" && uv venv --clear --python 3.12 && uv sync --locked --group dev --no-install-project) || exit 1
+    step "venv + locked sync (core library ships all solvers: plain uv sync installs everything)"
+    (cd "$ROOT" && uv venv --clear --python 3.12 && uv sync --locked --no-install-project) || exit 1
     step "engine package install (sealed copy)"
     (cd "$ROOT" && uv pip install --python .venv/bin/python --no-deps .) || exit 1
     step "engine import check"

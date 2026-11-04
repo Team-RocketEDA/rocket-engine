@@ -31,12 +31,12 @@ import pytest
 circulax_present = importlib.util.find_spec("circulax") is not None
 needs_circulax = pytest.mark.skipif(
     not circulax_present,
-    reason="circulax not installed (uv sync --group photonic)",
+    reason="circulax not installed (uv sync)",
 )
 meow_present = importlib.util.find_spec("meow") is not None
 needs_meow = pytest.mark.skipif(
     not meow_present,
-    reason="meow not installed (uv sync --group photonic)",
+    reason="meow not installed (uv sync)",
 )
 
 

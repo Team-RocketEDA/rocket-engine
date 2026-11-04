@@ -117,7 +117,7 @@ def main(argv):
         _fail(
             "missing_dependency",
             f"meow is not importable: {exc} "
-            "(uv sync --group photonic).",
+            "(uv sync).",
             None,
             None,
         )

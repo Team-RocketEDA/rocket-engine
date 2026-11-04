@@ -111,26 +111,26 @@ entries:
     kind: python
     label: SAX (photonic sim)
     python: [sax]
-    remedy: "sax not installed, uv sync --group photonic (B10-owned tooling)"
-    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+    remedy: "sax not installed, uv sync (B10-owned tooling)"
+    recipe: "pyproject.toml [project] dependencies: plain `uv sync` installs everything (core library)."
   - id: circulax
     kind: python
     label: Circulax (time-domain circuit sim)
     python: [circulax]
-    remedy: "circulax not installed, uv sync --group photonic (B10-owned tooling)"
-    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+    remedy: "circulax not installed, uv sync (B10-owned tooling)"
+    recipe: "pyproject.toml [project] dependencies: plain `uv sync` installs everything (core library)."
   - id: meow
     kind: python
     label: Meow (EME mode/field solver)
     python: [meow]
-    remedy: "meow not installed, uv sync --group photonic (B10-owned tooling)"
-    recipe: "pyproject.toml [dependency-groups] photonic: uv sync --group photonic (B10)."
+    remedy: "meow not installed, uv sync (B10-owned tooling)"
+    recipe: "pyproject.toml [project] dependencies: plain `uv sync` installs everything (core library)."
   - id: gdsfactory
     kind: python
     label: gdsfactory (layout views)
     python: [gdsfactory]
-    remedy: "gdsfactory not installed, uv sync --group layout (B10-owned tooling)"
-    recipe: "pyproject.toml [dependency-groups] layout: uv sync --group layout (B10)."
+    remedy: "gdsfactory not installed, uv sync (B10-owned tooling)"
+    recipe: "pyproject.toml [project] dependencies: plain `uv sync` installs everything (core library)."
   - id: cvc
     kind: tool
     label: cvc (SMT solvers)

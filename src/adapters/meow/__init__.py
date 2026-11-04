@@ -48,7 +48,7 @@ def meow_version():
         raise AdapterError(
             "missing_dependency",
             f"meow is not importable: {exc} "
-            "(uv sync --group photonic).",
+            "(uv sync).",
         ) from exc
     return getattr(meow, "__version__", "unknown")
 
@@ -69,7 +69,7 @@ def tidy3d_version():
         raise AdapterError(
             "missing_dependency",
             f"tidy3d is not installed: {exc} "
-            "(uv sync --group photonic).",
+            "(uv sync).",
         ) from exc
 
 
@@ -130,7 +130,7 @@ def run_eme_smoke(*, widths_um=(0.5,), wl_um=WL_UM, cell_length_um=CELL_UM,
         raise AdapterError(
             "missing_dependency",
             f"meow is not importable: {exc} "
-            "(uv sync --group photonic).",
+            "(uv sync).",
         ) from exc
     env = Environment(wl=wl_um)
     mesh = Mesh2D(

@@ -105,7 +105,7 @@ def main(argv):
         _fail(
             "missing_dependency",
             f"circulax is not importable: {exc} "
-            "(uv sync --group photonic).",
+            "(uv sync).",
             None,
             None,
         )

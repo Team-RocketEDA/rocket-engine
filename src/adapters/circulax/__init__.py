@@ -32,7 +32,7 @@ def circulax_version():
         raise AdapterError(
             "missing_dependency",
             f"circulax is not importable: {exc} "
-            "(uv sync --group photonic).",
+            "(uv sync).",
         ) from exc
     return getattr(circulax, "__version__", "unknown")
 
@@ -79,7 +79,7 @@ def run_rc_step(*, R=1e3, C=1e-9, V=1.0, t1=5e-6, points=11, dt0=1e-8):
         raise AdapterError(
             "missing_dependency",
             f"circulax is not importable: {exc} "
-            "(uv sync --group photonic).",
+            "(uv sync).",
         ) from exc
     netlist = kfnl.Netlist()
     netlist.create_inst(name="V1", kcl="", component="vsource", settings={"V": V})

@@ -114,7 +114,7 @@ def _require_sax():
     if importlib.util.find_spec("sax") is None:
         pytest.skip(
             "VALIDATE-P optical live: sax not installed, "
-            "uv sync --group photonic (B10-owned tooling)"
+            "uv sync (B10-owned tooling)"
         )
 
 

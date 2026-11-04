@@ -34,7 +34,7 @@ SI340_GDS = (
 gf_present = importlib.util.find_spec("gdsfactory") is not None
 needs_gf = pytest.mark.skipif(
     not gf_present,
-    reason="gdsfactory not installed (uv sync --group layout)",
+    reason="gdsfactory not installed (uv sync)",
 )
 needs_gds = pytest.mark.skipif(
     not SI340_GDS.is_file(),
