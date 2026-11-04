@@ -1,4 +1,10 @@
-# rocket-engine
+<p align="center">
+  <img src=".github/assets/rocketide-logo.svg" width="72" height="72" alt="RocketIDE logo">
+</p>
+
+<h1 align="center">rocket-engine</h1>
+
+<p align="center"><sub>Part of <a href="https://github.com/Team-RocketEDA/RocketIDE"><b>RocketIDE</b></a> · the engine</sub></p>
 
 `rocket-engine` is RocketEDA's headless Python engine for chip-design projects. It owns the shared operation surface, project revisions and events, tool dispatch, capability reporting, and verification evidence used by manual clients and the agent harness.
 
