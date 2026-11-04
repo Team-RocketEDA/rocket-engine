@@ -1,0 +1,1 @@
+{"exit_code": 0, "matches": false, "mismatches": ["M1: layout w=1.0u vs schematic w=2.0u"], "report_xml": "<report><mismatch>M1</mismatch></report>"}

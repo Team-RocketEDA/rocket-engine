@@ -29,7 +29,7 @@ from .coalesce import (
     deck_hash,
     normalize_arguments,
 )
-from .console.session import ConsoleSession, get_help
+from .console.apply_session import ConsoleSession, get_help
 from .routing.calls import (
     CONSOLE_TOOL_VERBS,
     TIER_2_OPERATIONS,

@@ -1,0 +1,1 @@
+{"dump": {"currents": {"drain": 1.2e-06, "gate": 3.4e-15}, "potentials": [0.0, 0.825, 1.65], "solve": {"converged": true, "iterations": 12}}, "dump_file": "devsim_dump.json", "exit_code": 0, "stderr": "", "stdout": "devsim driver complete"}

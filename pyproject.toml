@@ -1,6 +1,6 @@
 [project]
 name = "rocket-engine"
-version = "0.0.1"
+version = "0.0.2"
 description = "Shared tooling engine used by the RocketEDA IDE (manual actions and MCP invoke the same operations)."
 readme = "README.md"
 license = { text = "MIT" }

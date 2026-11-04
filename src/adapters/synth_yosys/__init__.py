@@ -20,6 +20,7 @@ version-asserted, never reinstalled. Where the tools live on disk is
 B10 integration scope.
 """
 
+import json
 import re
 import shutil
 import subprocess
@@ -39,6 +40,7 @@ _SCRIPT_NAME = "synth.ys"
 _LOG_NAME = "synth.log"
 _STAT_NAME = "synth_stat.txt"
 _NETLIST_NAME = "synth_netlist.v"
+_NETLIST_JSON_NAME = "synth_netlist.json"
 
 _TOP_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 # Verilog `define names, with an optional =value (no whitespace or
@@ -182,6 +184,56 @@ def _parse_stat(text):
     }
 
 
+def _parse_netlist_json(payload):
+    """Aggregate cell counts and wires over a write_json netlist.
+
+    Blessed structured escape (ESCAPE-HARDEN): yosys `write_json`
+    carries the same design the scraped `stat` text summarizes.
+    Per-module netnames count as wires; per-module cells count
+    except cells whose type names another module (submodule
+    instances, never leaf cells) — this reproduces the stat text
+    local-count sums byte-identically (live-verified on yosys
+    0.70+219, including a hierarchical design). The JSON carries
+    no mapped area, so area still comes from the stat text.
+
+    Args:
+        payload: Parsed `write_json` mapping, or None when yosys
+            wrote no JSON report.
+
+    Returns:
+        Mapping with cells (type -> count), cell_count,
+            wire_count, and saw_cells, or None when the payload
+            carries no module table.
+    """
+    if not isinstance(payload, dict):
+        return None
+    modules = payload.get("modules")
+    if not isinstance(modules, dict) or not modules:
+        return None
+    names = set(modules)
+    cells = {}
+    cell_count = 0
+    wire_count = 0
+    for module in modules.values():
+        if not isinstance(module, dict):
+            continue
+        netnames = module.get("netnames")
+        if isinstance(netnames, dict):
+            wire_count += len(netnames)
+        for cell in (module.get("cells") or {}).values():
+            cell_type = cell.get("type") if isinstance(cell, dict) else None
+            if not isinstance(cell_type, str) or cell_type in names:
+                continue
+            cells[cell_type] = cells.get(cell_type, 0) + 1
+            cell_count += 1
+    return {
+        "cells": cells,
+        "cell_count": cell_count,
+        "wire_count": wire_count,
+        "saw_cells": True,
+    }
+
+
 def _quote(path):
     """Quote one path for the yosys script language.
 
@@ -318,9 +370,9 @@ class YosysSynthAdapter(ToolAdapter):
         """Synthesize the sources for the top with yosys.
 
         Writes the synth script into the workdir, runs it under the
-        timeout, and returns the log, stat report, and netlist path.
-        A failed run still returns its log — the verdict comes from
-        parse, never the exit code alone.
+        timeout, and returns the log, stat report, JSON netlist, and
+        netlist path. A failed run still returns its log — the
+        verdict comes from parse, never the exit code alone.
 
         Args:
             job: Solver job with operation run_synth plus sources,
@@ -328,8 +380,9 @@ class YosysSynthAdapter(ToolAdapter):
 
         Returns:
             Native output with exit_code, stdout/stderr, log and
-                stat text, netlist path, top, mapped flag, and the
-                yosys version.
+                stat text, the parsed `write_json` netlist under
+                `netlist_json` (None when yosys wrote none), netlist
+                path, top, mapped flag, and the yosys version.
 
         Raises:
             AdapterError: invalid_reference for a missing workdir,
@@ -353,12 +406,22 @@ class YosysSynthAdapter(ToolAdapter):
         )
         log_path = Path(workdir) / _LOG_NAME
         stat_path = Path(workdir) / _STAT_NAME
+        netlist_json_path = Path(workdir) / _NETLIST_JSON_NAME
+        netlist_json = None
+        if netlist_json_path.is_file():
+            try:
+                parsed_json = json.loads(netlist_json_path.read_text())
+                if isinstance(parsed_json, dict):
+                    netlist_json = parsed_json
+            except (OSError, ValueError):
+                netlist_json = None
         return {
             "exit_code": proc.returncode,
             "stdout": proc.stdout,
             "stderr": proc.stderr,
             "log": log_path.read_text() if log_path.is_file() else "",
             "stat": stat_path.read_text() if stat_path.is_file() else "",
+            "netlist_json": netlist_json,
             "netlist": str(Path(workdir) / _NETLIST_NAME),
             "top": checked["top"],
             "mapped": checked["liberty"] is not None,
@@ -368,6 +431,10 @@ class YosysSynthAdapter(ToolAdapter):
     def parse(self, native_output):
         """Parse errors, warnings, stat counts, and area evidence.
 
+        Cell counts come from the `write_json` netlist first
+        (byte-identical to the stat text; the mapped area still
+        comes from the stat text since JSON carries no area key),
+        falling back to the scraped stat text for older natives.
         Failed runs surface their ERROR lines (synthesizing one when
         the log carries none, so failure never parses as clean);
         warnings become findings that never fail alone; a clean run
@@ -375,7 +442,8 @@ class YosysSynthAdapter(ToolAdapter):
 
         Args:
             native_output: Native output with exit_code, log and
-                stat text, and the netlist path.
+                stat text, the optional parsed `netlist_json`, and
+                the netlist path.
 
         Returns:
             {total, violations[], measurements[], source} plus
@@ -409,7 +477,14 @@ class YosysSynthAdapter(ToolAdapter):
             source = "stdio_fallback"
         errors = _parse_errors(text)
         warnings = _parse_warnings(text)
-        stat = _parse_stat(native_output.get("stat") or "")
+        stat_text = _parse_stat(native_output.get("stat") or "")
+        stat_json = _parse_netlist_json(native_output.get("netlist_json"))
+        if stat_json is not None:
+            # Structured counts win; the mapped area has no JSON
+            # key, so it still comes from the stat text.
+            stat = {**stat_json, "area": stat_text["area"]}
+        else:
+            stat = stat_text
         netlist = native_output.get("netlist")
         if exit_code != 0:
             if not errors:
@@ -477,7 +552,8 @@ class YosysSynthAdapter(ToolAdapter):
                 and the optional liberty path.
 
         Returns:
-            Yosys script text (read, check, synth, map, stat, dump).
+            Yosys script text (read, check, synth, map, stat, dump
+                plus the `write_json` structured netlist).
         """
         lines = [
             "read_verilog"
@@ -499,6 +575,7 @@ class YosysSynthAdapter(ToolAdapter):
         else:
             lines.append(f"tee -o {_STAT_NAME} stat")
         lines.append(f"write_verilog {_NETLIST_NAME}")
+        lines.append(f"write_json {_NETLIST_JSON_NAME}")
         return "\n".join(lines) + "\n"
 
     @staticmethod

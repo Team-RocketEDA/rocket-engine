@@ -30,7 +30,7 @@ from ruamel.yaml import YAML
 
 from ..errors import ExecutionError
 from ..routing.calls import admission_envelope
-from .session import ConsoleSession
+from .apply_session import ConsoleSession
 
 #: Lifecycle operations converging on the shared envelope. The
 #: Engine does not wire them yet (adapt lane); the envelope shape

@@ -1,0 +1,1 @@
+{"exit_code": 2, "run_dir": "runs/RUN_dup_top", "stderr": "", "stdout": "CACE 2.13.0 characterization complete with violations.", "summary_md": "# CACE summary for dup_top\n\n| Parameter | Spec | Result | Status |\n| gain_db | > 40 | 31.7 | Fail |\n| bw_hz | > 1e6 | 2.3e6 | Pass |\n"}

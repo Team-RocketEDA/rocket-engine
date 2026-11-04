@@ -351,6 +351,7 @@ def _parse_lyrdb(xml_text):
         joined = "; ".join(texts)
         violation = {
             "rule": rule,
+            "severity": "error",
             "message": descriptions.get(rule, rule),
         }
         if joined:
@@ -561,8 +562,9 @@ class KlayoutDrcAdapter(ToolAdapter):
                 plus optional waive_rules.
 
         Returns:
-            {total, violations[], waived} with rule, message, and
-                metric bbox_um where the deck reports geometry.
+            {total, violations[], waived} with rule, severity,
+                message, and metric bbox_um where the deck reports
+                geometry.
 
         Raises:
             AdapterError: runner_unavailable when the deck run has
@@ -586,10 +588,18 @@ class KlayoutDrcAdapter(ToolAdapter):
             raise AdapterError(
                 "runner_unavailable", "klayout output has no TOTAL line."
             )
-        violations = [
-            {"rule": rule, "bbox_um": [float(c) for c in coords]}
-            for rule, *coords in _VIOL_RE.findall(stdout)
-        ]
+        violations = []
+        for rule, *coords in _VIOL_RE.findall(stdout):
+            bbox_um = [float(c) for c in coords]
+            bbox_text = ",".join(str(c) for c in bbox_um)
+            violations.append(
+                {
+                    "rule": rule,
+                    "severity": "error",
+                    "message": f"{rule} at [{bbox_text}] um",
+                    "bbox_um": bbox_um,
+                }
+            )
         return apply_waivers(
             {"total": int(match.group(1)), "violations": violations},
             native_output.get("waive_rules"))

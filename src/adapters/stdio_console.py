@@ -28,7 +28,8 @@ cell in one step (identical binding). Runs are serial and each
 worker run already revokes its credential and confirms its tree-kill
 before its terminal record, so `reset` retires the generation and
 kills every outstanding approval; interrupting a live run is cancel
-territory, not reset.
+territory, not reset. Worker-staged apply intents land through
+`Engine.apply_batch` as one atomic batch per cell.
 
 Local-only trust: this console speaks stdio to the local IDE panel
 under OS identity. There is no token check, login, network listener,
@@ -49,7 +50,8 @@ from ruamel.yaml import YAML
 
 from ..clients.runtime import RuntimeClient
 from ..composition import Engine
-from ..execution.console.session import ConsoleSession
+from ..execution.console.apply_session import ConsoleSession
+from ..execution.pyexec.apply_context import session_prelude
 from ..execution.routing.calls import (
     collect_run_ids,
     is_tier2,
@@ -265,23 +267,43 @@ def _render_preamble(project_id):
     )
 
 
-def build_cell_source(code, project_id="default"):
+def build_cell_source(code, project_id="default", console_id=None,
+                      generation=None):
     """Render the worker source: pinned preamble plus the display cell.
 
     The project binding renders into the preamble template first, so
     display text is concatenated verbatim afterwards — cell bytes that
     happen to look like the slot stay data. The result ends with the
-    exact displayed cell (trailing newline normalized).
+    exact displayed cell (trailing newline normalized). When a console
+    binding is supplied, the apply-context prelude binds between
+    preamble and display, so worker cells may stage intents
+    (`session.cell(...)`, `session.rect(...)`) that the host lands
+    through `Engine.apply_batch`; without it the source is
+    byte-identical to preamble plus display.
 
     Args:
         code: Display cell text to wrap.
         project_id: Project id rendered into the preamble binding.
+        console_id: Console id bound into the apply-context prelude;
+            no prelude binds when console_id and generation are both
+            omitted.
+        generation: Session generation bound into the apply-context
+            prelude for replay fencing.
 
     Returns:
-        Worker source: pinned preamble plus the display cell.
+        Worker source: pinned preamble, optional apply binding, plus
+            the display cell.
     """
     display = code if code.endswith("\n") else code + "\n"
-    return _render_preamble(project_id) + "\n" + display
+    source = _render_preamble(project_id) + "\n"
+    if console_id is not None or generation is not None:
+        source += (
+            "__PYEXEC_OPS_LOG__ = __CONSOLE_OPS_LOG__\n"
+            + session_prelude(project_id, console_id or "local",
+                              generation or "local")
+            + "\n"
+        )
+    return source + display
 
 
 def format_op_call(operation, arguments):
@@ -356,7 +378,6 @@ class StdioConsole:
             self._dispatch = OpDispatcher(
                 self._engine, project_id=project_id, actor=actor
             )
-            self._session = ConsoleSession(project_id, actor)
             self._runner = (
                 cell_runner if cell_runner is not None
                 else CellRunner(artifacts_root=str(self._root / "harvest"))
@@ -377,7 +398,9 @@ class StdioConsole:
             self._generation = data.get("generation") or uuid.uuid4().hex
         else:
             self._console_id = uuid.uuid4().hex
-            self._generation = self._session.generation
+            self._generation = uuid.uuid4().hex
+        self._session = ConsoleSession(
+            self._project_id, self._actor, console_id=self._console_id)
         self._session.generation = self._generation
         self._cursor = len(list((self._root / "executions").glob("*.yaml")))
         self._write_console_yaml()
@@ -472,6 +495,21 @@ class StdioConsole:
         """
         return dict(self._runner.admission)
 
+    def _cell_source(self, display):
+        """Render the worker source bound to this console generation.
+
+        Args:
+            display: Normalized display cell text.
+
+        Returns:
+            Full worker source with preamble plus the apply-context
+                binding for this console and generation.
+        """
+        return build_cell_source(
+            display, project_id=self._project_id,
+            console_id=self._console_id, generation=self._generation,
+        )
+
     @staticmethod
     def _normalize(code):
         if not isinstance(code, str):
@@ -496,7 +534,7 @@ class StdioConsole:
                 empty_cell for a blank cell.
         """
         display = self._normalize(code)
-        full = build_cell_source(display, project_id=self._project_id)
+        full = self._cell_source(display)
         return self._session.request_cell_approval(
             code=full, history_cursor=self._cursor,
             env_digest=self._env_digest,
@@ -525,7 +563,7 @@ class StdioConsole:
                 code.
         """
         display = self._normalize(code)
-        full = build_cell_source(display, project_id=self._project_id)
+        full = self._cell_source(display)
         return self._run_full(approval_id, full, display,
                               {"source_file": None}, artifacts, timeout_s,
                               on_live)
@@ -549,7 +587,7 @@ class StdioConsole:
                 empty_cell for a blank cell.
         """
         display = self._normalize(code)
-        full = build_cell_source(display, project_id=self._project_id)
+        full = self._cell_source(display)
         approval = self._session.request_cell_approval(
             code=full, history_cursor=self._cursor,
             env_digest=self._env_digest,
@@ -584,7 +622,7 @@ class StdioConsole:
                 "cell_unreadable", f"Cannot read cell file {path}: {exc}."
             ) from exc
         display = self._normalize(text)
-        full = build_cell_source(display, project_id=self._project_id)
+        full = self._cell_source(display)
         approval = self._session.request_cell_approval(
             code=full, history_cursor=self._cursor,
             env_digest=self._env_digest,
@@ -632,6 +670,7 @@ class StdioConsole:
                 "op_results": [],
                 "ops_ok": True,
                 "ops_skipped": 0,
+                "apply": None,
                 "effects": {"run_ids": [], "replayed": True},
                 "cli_script": [],
                 "artifacts": [],
@@ -645,6 +684,7 @@ class StdioConsole:
             return record
         ops, skipped = self._load_harvested_ops(result)
         op_results = self._replay(ops)
+        apply_entry = self._land_apply_intents(result, execution_id)
         record = {
             **base,
             "state": result["state"],
@@ -658,6 +698,7 @@ class StdioConsole:
             "op_results": op_results,
             "ops_ok": all(item["ok"] for item in op_results),
             "ops_skipped": skipped,
+            "apply": apply_entry,
             "effects": {"run_ids": collect_run_ids(op_results),
                         "replayed": True},
             "cli_script": [
@@ -755,6 +796,51 @@ class StdioConsole:
                 "result": json.loads(json.dumps(payload, default=str)),
             })
         return replayed
+
+    def _land_apply_intents(self, result, execution_id):
+        """Land worker-staged apply intents as one atomic batch.
+
+        The harvested ops log may carry ``{"apply_intent": ...}``
+        lines (staged by the apply-context prelude when the cell
+        calls `session.cell(...)` or `session.rect(...)`); they
+        land through `Engine.apply_batch` exactly like editor
+        writes. Op-call replay is untouched — this covers only
+        the intent lines. Landing never breaks the cell record:
+        a conflict records truthfully beside the completed run.
+
+        Args:
+            result: Terminal worker record with harvested artifacts.
+            execution_id: Execution id carried on the batch label.
+
+        Returns:
+            Landing with ok True, the engine receipt, and the
+                intent count — or None when nothing was staged or
+                the engine cannot land.
+        """
+        if getattr(self._engine, "apply_batch", None) is None:
+            return None
+        for entry in result.get("artifacts", []):
+            if entry.get("name") != OPS_LOG_NAME:
+                continue
+            if not entry.get("path"):
+                continue
+            try:
+                landed = self._session.land_worker_intents(
+                    self._engine, entry["path"],
+                    "cell %s" % execution_id,
+                )
+            except Exception as exc:  # landing truth, never a raise
+                return {
+                    "ok": False,
+                    "error": {
+                        "code": getattr(exc, "code", None)
+                        or "internal_error",
+                        "message": str(exc),
+                    },
+                }
+            if landed is not None:
+                return landed
+        return None
 
     def history(self):
         """Persisted executions, oldest first (survives restarts).

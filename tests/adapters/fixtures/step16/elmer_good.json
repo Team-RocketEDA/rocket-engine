@@ -1,0 +1,1 @@
+{"dump": {"converged": true, "scalars": {"max_temperature": 342.5, "heat_flux": 12.3}}, "dump_file": "savescalars.json", "exit_code": 0, "stderr": "", "stdout": "ElmerSolver complete"}

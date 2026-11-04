@@ -1,0 +1,1 @@
+{"violations": [{"bbox_um": [0.0, 0.0, 100.0, 100.0], "message": "Metal-to-gate ratio 10000.0 over 100.0", "ratio": 10000.0, "rule": "antenna_ratio"}, {"bbox_um": [100.0, 100.0, 200.0, 200.0], "message": "Metal island over cell TOP has no gate overlap", "ratio": null, "rule": "antenna_floating"}]}

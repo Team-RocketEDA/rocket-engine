@@ -1078,7 +1078,13 @@ def _parse_joint(native_output):
                 "file": first_source,
             }
         ]
-        return {"total": 1, "violations": violations}
+        analog_log = (analog.get("log") or "").strip()
+        return {
+            "total": 1,
+            "violations": violations,
+            "measurements": [],
+            "source": "log" if analog_log else "stdio_fallback",
+        }
     gates = native_output.get("gates") or {}
     gate_db = gates.get("gate_db", _GATE_DB)
     ones_min = gates.get("ones_min", _ONES_MIN)
@@ -1133,15 +1139,6 @@ def _parse_joint(native_output):
         )
     fres = HdlSimAdapter().parse(digital)
     violations.extend(fres["violations"])
-    if any(v.get("severity") == "error" for v in fres["violations"]):
-        # The bench already failed: its reports are untrustworthy, so
-        # the Python-side handoff/count/golden checks stay silent and
-        # the native rule stands alone (no pile-on after $fatal).
-        return {
-            "total": len(violations),
-            "violations": violations,
-            "measurements": measurements,
-        }
     run_block = digital.get("run") or {}
     # MIGRATE-STDIO-FILE: the `vvp -l` log (written by the shared
     # HdlSimAdapter.execute digital half) is the reports channel;
@@ -1152,6 +1149,16 @@ def _parse_joint(native_output):
     else:
         text = run_block.get("stdout", "") + "\n" + run_block.get("stderr", "")
         report_source = "stdio_fallback"
+    if any(v.get("severity") == "error" for v in fres["violations"]):
+        # The bench already failed: its reports are untrustworthy, so
+        # the Python-side handoff/count/golden checks stay silent and
+        # the native rule stands alone (no pile-on after $fatal).
+        return {
+            "total": len(violations),
+            "violations": violations,
+            "measurements": measurements,
+            "source": report_source,
+        }
     reports = _parse_cosim_reports(text)
     if reports is None:
         violations.append(

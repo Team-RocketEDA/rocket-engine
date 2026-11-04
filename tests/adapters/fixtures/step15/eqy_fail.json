@@ -1,0 +1,1 @@
+{"exit_code": 2, "partitions": [{"name": "top.0", "status": "FAIL"}], "stdout": "EQY 00:00:02 [w] DONE (FAIL, rc=2)", "verdict_file": "FAIL"}

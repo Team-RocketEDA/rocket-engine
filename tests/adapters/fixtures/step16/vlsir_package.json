@@ -1,0 +1,1 @@
+{"instances": [{"cell": "sky130_fd_pr__nfet_01v8", "conns": ["d", "g", "s", "b"], "name": "m1"}], "name": "dup_top", "params": {"w": "1e-06"}, "ports": ["d", "g", "s", "b"]}
