@@ -22,12 +22,23 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [DOCSTRING-GUARD] Fix 15 pre-existing docstring guard hits
 - [THERMAL-GATE] Triage thermal gate-ordering failure
 - [SECURITY-AUDIT] Standing local-trust boundary audit
+- [TRILINOS-LOG] Capture the Trilinos make-phase failure log
+- [DEFERRED-LANE-INTENT] Confirm deferred tools never install under full --install
+- [REVIEW-PROOF-RUN] Execute the suite live to confirm review verdicts
+- [DUMP-PROOFS-FOLLOWUP] Close the Step 13 determinism-test gap
+- [DEMOPATH-VERDICT] Fresh-shell runbook run plus verdict paragraph
+- [SPLIT-LOCK-HARDEN] Assert thin surfaces on split mega-modules
+- [PALACE-SOURCE] Read Palace install docs into provision-sources
+- [SETUP-PAGE] Vivado-style installer page in the IDE (UIUX-owned, engine-contract-driven)
+- [PYTHON-PROVISION-GUARANTEE] Python wheels and libs always provision or fail loudly
+- [EXTERNAL-TOOLS-OPTIONAL] Engine runs degraded and loud without any external tool
 ## Ready
 
 
 
 - [CONSOLE-SESSION-MIGRATE] Migrate ConsoleSession cell path onto ApplySession
 - [ECS-FLOW] Enforce ECS manager flow; evaluate esper, split store, add subscriber fan-out
+- [DISPATCH-PORTS-FIX] Remove execution-side adapter import (ports-only regression)
 ## Doing
 
 
