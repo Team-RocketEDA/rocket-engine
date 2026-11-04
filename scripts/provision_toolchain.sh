@@ -93,7 +93,7 @@ NGSPICE_TGZ="https://sourceforge.net/projects/ngspice/files/ng-spice-rework/47/n
 NGSPICE_EXPECT="ngspice-4"
 XYCE_REF="Release-7.10.0"
 XYCE_REPO="https://github.com/Xyce/Xyce"
-TRILINOS_REF="trilinos-release-17-2-1"
+TRILINOS_REF="trilinos-release-14-4-0"
 TRILINOS_REPO="https://github.com/trilinos/Trilinos"
 XYCE_EXPECT="Xyce"
 XSCHEM_REPO="https://github.com/StefanSchippers/xschem"
@@ -885,7 +885,7 @@ install_opensta() {
         return 1
     fi
     local missing_prereq=""
-    for tool in git cmake make g++ swig bison flex \
+    for tool in git cmake make g++ swig bison flex tclsh \
         autoconf automake libtool; do
         if ! command -v "$tool" >/dev/null 2>&1; then
             missing_prereq="$missing_prereq $tool"
@@ -896,10 +896,12 @@ install_opensta() {
         # libtoolize, /usr/bin/libtool lives in libtool-bin, so
         # the remedy must name both (bare "install libtool"
         # leaves `command -v libtool` failing on --no-recommends
-        # hosts, exactly tonight's failure).
+        # hosts, exactly tonight's failure). Likewise the tclsh
+        # binary ships in the tcl package, so map it back.
         local apt_missing
         apt_missing=$(printf '%s' "$missing_prereq" \
-            | sed 's/\blibtool\b/libtool libtool-bin/') || return 1
+            | sed -e 's/\blibtool\b/libtool libtool-bin/' \
+                -e 's/\btclsh\b/tcl/') || return 1
         remedy "opensta" "build prerequisites missing:$missing_prereq" \
             "sudo apt-get install -y$apt_missing tcl-dev libeigen3-dev" \
             "$OPENSTA_URL"
@@ -1124,6 +1126,26 @@ install_xyce() {
     prereqs_or_remedy "xyce" "https://xyce.sandia.gov/" \
         git cmake make gcc g++ gfortran bison flex \
         autoconf automake libtool || return 1
+    # SuiteSparse dev files: Xyce defaults AMD on (KLU support) and
+    # TriBITS only builds EpetraExt_AMD when it finds the AMD TPL at
+    # Trilinos configure time. Runtime libs alone (libamd.so.3)
+    # fail AC_CHECK_LIB; without the headers the later
+    # EpetraExt_AMD_CrsGraph.h check fails too. Check both the
+    # header and the linker symlink before the long builds start.
+    if [ ! -f /usr/include/suitesparse/amd.h ] \
+        || [ ! -f /usr/lib/x86_64-linux-gnu/libamd.so ]; then
+        remedy "xyce" "SuiteSparse dev files absent (need amd.h + libamd.so)" \
+            "sudo apt-get install -y libsuitesparse-dev, then re-run --install" \
+            "https://xyce.sandia.gov/"
+        return 1
+    fi
+    # TriBITS' FindTPLAMD does not search Debian's
+    # /usr/include/suitesparse subdir, so pass the distro
+    # locations explicitly (TriBITS' own documented escape:
+    # "-DTPL_<name>_LIBRARIES=..."). Same paths the gate
+    # above just verified; Ubuntu 24.04 layout.
+    AMD_INC="/usr/include/suitesparse"
+    AMD_LIB="/usr/lib/x86_64-linux-gnu"
     ATTEMPTED=1
     local tsrc="$TOOLS_DIR/src/trilinos-$TRILINOS_REF"
     local tpref="$TOOLS_DIR/trilinos-$TRILINOS_REF"
@@ -1138,10 +1160,8 @@ install_xyce() {
         }
     fi
     # ShyLU deliberately NOT enabled: the Xyce building guide
-    # requires it only for Parallel Xyce, this build is serial
-    # (MPI OFF), and forcing ShyLU=ON against Trilinos 17
-    # breaks configure — ShyLU requires the disabled
-    # ShyLU_DD chain (trilinos/trilinos#6255, same error).
+    # requires it only for Parallel Xyce, and this build is
+    # serial (MPI OFF).
     # gtest TPL likewise OFF: pulled in by ShyLU_NodeTacho
     # tests, and Xyce needs no Trilinos test infra. TriBITS
     # itself names this flag as the escape when gtest is
@@ -1153,18 +1173,52 @@ install_xyce() {
     if [ ! -f "$tsrc/build/Makefile" ]; then
         rm -rf "$tsrc/build"
     fi
+    # Fossil guard (2026-11-04): a build dir whose cache claims
+    # Epetra=ON but has no packages/epetra/ is a stale
+    # hand-rolled tree that incremental reconfigure will not
+    # repair — wipe it so the package set configures clean.
+    if [ -f "$tsrc/build/CMakeCache.txt" ] \
+        && grep -q "^Trilinos_ENABLE_Epetra:BOOL=ON" \
+            "$tsrc/build/CMakeCache.txt" \
+        && [ ! -d "$tsrc/build/packages/epetra" ]; then
+        note "install xyce: stale Trilinos build dir (no epetra package dir); wiping for a clean reconfigure"
+        rm -rf "$tsrc/build"
+    fi
+    # Package set mirrors Xyce's own cmake/trilinos/trilinos-base.cmake
+    # (Xyce 7.10 INSTALL.md: Trilinos 14.4 minimum; later versions
+    # "not rigorously tested and may not work" — 17.x deleted the
+    # Epetra stack outright). Epetra + Triutils stay explicit:
+    # EpetraExt pulls Epetra as a required dep, but Xyce configure
+    # hard-requires both EpetraExt headers and libtriutils, so pin
+    # them loudly instead of trusting auto-enable.
     note "install xyce: building Trilinos (long; per the Xyce building guide)"
     (mkdir -p "$tsrc/build" && cd "$tsrc/build" \
         && cmake -DCMAKE_INSTALL_PREFIX="$tpref" \
             -DTrilinos_ENABLE_ALL_PACKAGES=OFF \
+            -DTrilinos_ENABLE_ALL_OPTIONAL_PACKAGES=OFF \
             -DTrilinos_ENABLE_Teuchos=ON -DTrilinos_ENABLE_Epetra=ON \
             -DTrilinos_ENABLE_EpetraExt=ON -DTrilinos_ENABLE_Ifpack=ON \
             -DTrilinos_ENABLE_Amesos=ON -DTrilinos_ENABLE_AztecOO=ON \
             -DTrilinos_ENABLE_Belos=ON -DTrilinos_ENABLE_Amesos2=ON \
+            -DTrilinos_ENABLE_Triutils=ON \
             -DTrilinos_ENABLE_Sacado=ON -DTrilinos_ENABLE_Stokhos=ON \
             -DTrilinos_ENABLE_NOX=ON -DTrilinos_ENABLE_Zoltan=ON \
+            -DTrilinos_ENABLE_ROL=ON \
+            -DTrilinos_ENABLE_TrilinosCouplings=ON \
+            -DTrilinos_ENABLE_COMPLEX_DOUBLE=ON \
+            -DNOX_ENABLE_LOCA=ON \
+            -DEpetraExt_BUILD_BTF=ON \
+            -DEpetraExt_BUILD_EXPERIMENTAL=ON \
+            -DEpetraExt_BUILD_GRAPH_REORDERINGS=ON \
+            -DAmesos_ENABLE_KLU=ON \
+            -DAmesos2_ENABLE_KLU2=ON -DAmesos2_ENABLE_Basker=ON \
+            -DTPL_ENABLE_AMD=ON \
+            -DAMD_INCLUDE_DIRS="$AMD_INC" \
+            -DAMD_LIBRARY_DIRS="$AMD_LIB" \
+            -DTPL_ENABLE_BLAS=ON -DTPL_ENABLE_LAPACK=ON \
             -DTPL_ENABLE_MPI=OFF \
             -DTPL_ENABLE_gtest=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
             -DCMAKE_BUILD_TYPE=Release .. \
         && make -j"$(nproc)" && make install) || {
         remedy "xyce" "Trilinos build failed" \
@@ -1195,7 +1249,15 @@ install_xyce() {
         }
     fi
     note "install xyce: autotools build against $tpref"
-    (cd "$xsrc" && ./configure --prefix="$XYCE_PREFIX" \
+    # Trilinos 14.x builds C++17 by default but Xyce configure
+    # defaults to -std=gnu++11, which cannot parse Trilinos
+    # headers (Kokkos needs C++14/17): configure dies in its
+    # Trilinos check with no Makefile. Match the standard to the
+    # just-built Trilinos (CMAKE_CXX_STANDARD from its cache).
+    TRILINOS_STD="$(grep '^CMAKE_CXX_STANDARD:' "$tsrc/build/CMakeCache.txt" \
+        2>/dev/null | cut -d= -f2)"
+    (cd "$xsrc" && CXX="c++ -std=c++${TRILINOS_STD:-17}" ./configure \
+        --prefix="$XYCE_PREFIX" \
         --with-trilinosdir="$tpref" ARCHDIR="$tpref" \
         && make -j"$(nproc)" && make install) || {
         remedy "xyce" "Xyce configure/make/install failed" \

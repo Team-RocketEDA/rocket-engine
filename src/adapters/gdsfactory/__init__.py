@@ -41,7 +41,7 @@ def gdsfactory_version():
         raise AdapterError(
             "missing_dependency",
             f"gdsfactory is not importable: {exc} "
-            "(uv sync --group layout).",
+            "(uv sync).",
         ) from exc
     return getattr(gf, "__version__", "unknown")
 
@@ -138,7 +138,7 @@ def run_layout_smoke(*, cell="mzi", pdk=CSPDK_PDK, cspdk_path=None,
         raise AdapterError(
             "missing_dependency",
             f"gdsfactory is not importable: {exc} "
-            "(uv sync --group layout).",
+            "(uv sync).",
         ) from exc
     if pdk == "generic":
         gf.gpdk.PDK.activate()

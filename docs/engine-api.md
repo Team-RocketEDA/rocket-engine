@@ -111,6 +111,7 @@ text, identical to the section bodies below.
 | `get_component` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
 | `get_design_completion` | yes | `rocket_engine.composition.Engine.design_completion` | Judge one flow's completion; refuse while blockers stand. |
 | `get_events_since` | yes | `rocket_engine.project.service.ProjectService.events_since` | Read retained events after a cursor, oldest first. |
+| `get_findings` | yes | `rocket_engine.composition.Engine.findings` | Read a page of findings for a completed run. |
 | `get_instance` | yes | `rocket_engine.project.service.ProjectService.get_component` | Read one entity component payload at the current head. |
 | `get_job_status` | yes | `rocket_engine.composition.Engine.job_status` | Read one run's state, verdict, and evidence links. |
 | `get_layer_rows` | yes | `rocket_engine.composition.Engine.layer_rows` | Render viewer rows for one PDK's stackup. |
@@ -2516,6 +2517,29 @@ Raises:
 ProjectError: resync_required when the contiguity demand cannot be met — the reader must re-read the snapshot plus the full retained log and reset its cursor.
 
 Caution: The log is retention-bounded, not infinite — a reader gone longer than the bound must resync, never assume the gap is empty.
+
+### get_findings
+
+Read a page of findings for a completed run.
+
+Handler: `rocket_engine.composition.Engine.findings`.
+
+In-memory verdicts answer first; across a reboot the
+completion event answers instead.
+
+Arguments:
+
+- `run_id` (required): Run whose findings to read.
+- `limit`: Maximum findings in this page.
+- `cursor`: Opaque position from a previous page, if any.
+
+Returns:
+
+Finding page for the run.
+
+Raises:
+
+ExecutionError: unknown_run for an id with no completion event.
 
 ### get_instance
 

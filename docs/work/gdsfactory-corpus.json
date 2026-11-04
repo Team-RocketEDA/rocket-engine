@@ -1,0 +1,22 @@
+{
+ "packages": {
+  "gdsfactory": null,
+  "kfactory": null,
+  "gplugins": null
+ },
+ "symbols": [],
+ "errors": [
+  {
+   "module": "gdsfactory",
+   "error": "import: ModuleNotFoundError(\"No module named 'gdsfactory'\")"
+  },
+  {
+   "module": "kfactory",
+   "error": "import: ModuleNotFoundError(\"No module named 'kfactory'\")"
+  },
+  {
+   "module": "gplugins",
+   "error": "import: ModuleNotFoundError(\"No module named 'gplugins'\")"
+  }
+ ]
+}

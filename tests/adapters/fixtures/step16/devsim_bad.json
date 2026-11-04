@@ -1,0 +1,1 @@
+{"dump": {"currents": {}, "potentials": [], "solve": {"converged": false, "iterations": 50}}, "dump_file": "devsim_dump.json", "exit_code": 0, "stderr": "", "stdout": "devsim driver complete"}

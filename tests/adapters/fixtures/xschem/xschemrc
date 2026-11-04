@@ -1,0 +1,3 @@
+# Step16 deck fixture rc: library path derives from the adapter-pinned
+# XSCHEM_SHAREDIR, so no absolute host path is recorded in the fixture.
+append XSCHEM_LIBRARY_PATH :${XSCHEM_SHAREDIR}/xschem_library

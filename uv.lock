@@ -610,6 +610,30 @@ wheels = [
 ]
 
 [[package]]
+name = "flexcache"
+version = "0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/b0/8a21e330561c65653d010ef112bf38f60890051d244ede197ddaa08e50c1/flexcache-0.3.tar.gz", hash = "sha256:18743bd5a0621bfe2cf8d519e4c3bfdf57a269c15d1ced3fb4b64e0ff4600656", size = 15816, upload-time = "2024-03-09T03:21:07.555Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/cd/c883e1a7c447479d6e13985565080e3fea88ab5a107c21684c813dba1875/flexcache-0.3-py3-none-any.whl", hash = "sha256:d43c9fea82336af6e0115e308d9d33a185390b8346a017564611f1466dcd2e32", size = 13263, upload-time = "2024-03-09T03:21:05.635Z" },
+]
+
+[[package]]
+name = "flexparser"
+version = "0.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/99/b4de7e39e8eaf8207ba1a8fa2241dd98b2ba72ae6e16960d8351736d8702/flexparser-0.4.tar.gz", hash = "sha256:266d98905595be2ccc5da964fe0a2c3526fbbffdc45b65b3146d75db992ef6b2", size = 31799, upload-time = "2024-11-07T02:00:56.249Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/5e/3be305568fe5f34448807976dc82fc151d76c3e0e03958f34770286278c1/flexparser-0.4-py3-none-any.whl", hash = "sha256:3738b456192dcb3e15620f324c447721023c0293f6af9955b481e91d00179846", size = 27625, upload-time = "2024-11-07T02:00:54.523Z" },
+]
+
+[[package]]
 name = "fonttools"
 version = "4.68.0"
 source = { registry = "https://pypi.org/simple" }
@@ -691,6 +715,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4d/78/027292ff7cb69aba33fe7f4d7d0e3acd5662044dea934354ec11bacaf9fc/gdsfactory-9.51.0.tar.gz", hash = "sha256:623348e72343db56f3416e3ba321938266a888016d9e17bc0939369609ef5b57", size = 589053, upload-time = "2026-09-14T09:54:24.316Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/b2/016f89e37ca21bdcd8756f617589b07a423c8bd44b2dd137bd7e74a1adce/gdsfactory-9.51.0-py3-none-any.whl", hash = "sha256:48a694163f125746666030cba854095c1cb3b9da45c93a0e83f7416539dd1fd9", size = 842753, upload-time = "2026-09-14T09:54:22.333Z" },
+]
+
+[[package]]
+name = "gplugins"
+version = "2.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "gdsfactory" },
+    { name = "numpy" },
+    { name = "pint" },
+    { name = "tqdm" },
+    { name = "xarray" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/b0/4de07aebd6518699e3586b3cdd33569c7d1b8509a895f504dd356905b889/gplugins-2.1.5.tar.gz", hash = "sha256:0f725c2e1158fba1bca52ec274afff2ed84f2d20928b34881da9d77917572f74", size = 538002, upload-time = "2026-09-01T14:48:53.67Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4c/d9/2cab9f64a319b11691123223c0971b78d82a98a75742a947a8625eb63566/gplugins-2.1.5-py3-none-any.whl", hash = "sha256:f30710c500c7d3c134da578dd7c467ff2a62cf4165aac919b216aa166c1805eb", size = 661819, upload-time = "2026-09-01T14:48:52.117Z" },
 ]
 
 [[package]]
@@ -1772,6 +1812,21 @@ wheels = [
 ]
 
 [[package]]
+name = "pint"
+version = "0.26.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flexcache" },
+    { name = "flexparser" },
+    { name = "platformdirs" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d3/b0/cef9c8913ebe959d97b2d57b1fc2a77a4291c4f2bd4dc3fe4d3313c938ea/pint-0.26.2.tar.gz", hash = "sha256:391e5d2fc01fdb121c113b8eb47386688575542c1f5144c465ff318bf5133573", size = 295834, upload-time = "2026-10-19T19:49:31.845Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/d5/01ea71591a29e88926582e3ca7ed32f8b933e9ebc99187a7ab100587242d/pint-0.26.2-py3-none-any.whl", hash = "sha256:c94124cdb19baa1a84bb65c8bb9a620a9636b9b9cd80f32f30ad7ff795ea2eb8", size = 351853, upload-time = "2026-10-19T19:49:29.966Z" },
+]
+
+[[package]]
 name = "platformdirs"
 version = "4.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2318,82 +2373,70 @@ name = "rocket-engine"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "amaranth" },
     { name = "anyio" },
+    { name = "cace" },
+    { name = "circulax" },
+    { name = "cocotb" },
+    { name = "devsim" },
     { name = "fastapi" },
+    { name = "gdsfactory" },
+    { name = "gplugins" },
     { name = "httpx" },
     { name = "jsonschema" },
+    { name = "matplotlib" },
     { name = "mcp" },
+    { name = "meow-sim" },
     { name = "pydantic" },
+    { name = "pyslang" },
+    { name = "pyspice" },
+    { name = "pywellen" },
     { name = "pyyaml" },
     { name = "ruamel-yaml" },
+    { name = "sax" },
+    { name = "scikit-rf" },
     { name = "uvicorn" },
+    { name = "vlsirtools" },
 ]
 
 [package.dev-dependencies]
-analog = [
-    { name = "cace" },
-    { name = "devsim" },
-    { name = "matplotlib" },
-    { name = "pyspice" },
-    { name = "scikit-rf" },
-]
 dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
-hdl = [
-    { name = "amaranth" },
-    { name = "cocotb" },
-    { name = "pyslang" },
-    { name = "pywellen" },
-    { name = "vlsirtools" },
-]
-layout = [
-    { name = "gdsfactory" },
-]
-photonic = [
-    { name = "circulax" },
-    { name = "meow-sim" },
-    { name = "sax" },
-]
 
 [package.metadata]
 requires-dist = [
+    { name = "amaranth", specifier = ">=0.5.10" },
     { name = "anyio", specifier = ">=4.0" },
+    { name = "cace", specifier = "==2.13.0" },
+    { name = "circulax" },
+    { name = "cocotb", specifier = ">=1.9" },
+    { name = "devsim", specifier = "==2.11.2" },
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "gdsfactory", specifier = ">=9.51,<10" },
+    { name = "gplugins", specifier = ">=2.1,<3" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "jsonschema", specifier = ">=4.0" },
+    { name = "matplotlib", specifier = ">=3.8" },
     { name = "mcp", specifier = ">=1.0,<3" },
+    { name = "meow-sim", specifier = ">=0.15" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyslang", specifier = ">=12.1.0" },
+    { name = "pyspice", specifier = ">=1.5" },
+    { name = "pywellen", specifier = ">=0.25.7" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "ruamel-yaml", specifier = ">=0.18" },
+    { name = "sax", specifier = ">=0.18" },
+    { name = "scikit-rf", specifier = ">=1.0" },
     { name = "uvicorn", specifier = ">=0.30" },
+    { name = "vlsirtools", specifier = ">=7.0.0" },
 ]
 
 [package.metadata.requires-dev]
-analog = [
-    { name = "cace", specifier = "==2.13.0" },
-    { name = "devsim", specifier = "==2.11.2" },
-    { name = "matplotlib", specifier = ">=3.8" },
-    { name = "pyspice", specifier = ">=1.5" },
-    { name = "scikit-rf", specifier = ">=1.0" },
-]
 dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=6.0" },
-]
-hdl = [
-    { name = "amaranth", specifier = ">=0.5.10" },
-    { name = "cocotb", specifier = ">=1.9" },
-    { name = "pyslang", specifier = ">=12.1.0" },
-    { name = "pywellen", specifier = ">=0.25.7" },
-    { name = "vlsirtools", specifier = ">=7.0.0" },
-]
-layout = [{ name = "gdsfactory", specifier = ">=9.51,<10" }]
-photonic = [
-    { name = "circulax" },
-    { name = "meow-sim", specifier = ">=0.15" },
-    { name = "sax", specifier = ">=0.18" },
 ]
 
 [[package]]
@@ -3036,16 +3079,16 @@ wheels = [
 
 [[package]]
 name = "xarray"
-version = "2026.9.0"
+version = "2026.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "packaging" },
     { name = "pandas" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/f5/781c70b234f54e0401f4f7c4427a7486da38d50dbb138c7d7c55144b3d86/xarray-2026.9.0.tar.gz", hash = "sha256:6abc69694c22fa1f0fb2f357ff4e41d88beb4477ed71091f944b7dbf67ed54fe", size = 3176922, upload-time = "2026-09-29T23:06:25.807Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/a6/6fe936a798a3a38a79c7422d1a31afd2e9a14690fcb0ccff96bc01f04bf2/xarray-2026.4.0.tar.gz", hash = "sha256:c4ac9a01a945d90d5b1628e2af045099a9d4943536d4f2ee3ae963c3b222d15b", size = 3132311, upload-time = "2026-04-13T19:45:36.688Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/44/3159af4fb3c868970a412e294320ed6bb1a9fbdfa6431050eda8e0b34b6e/xarray-2026.9.0-py3-none-any.whl", hash = "sha256:fe349fa871628b1a0a5217af3fe1283a2862d5485156e6eda354fffb81c3bb7c", size = 1445445, upload-time = "2026-09-29T23:06:23.686Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/83/6d810a8a9ebc9c307989b418840c20e46907c74d707beb67ab566773e6fc/xarray-2026.4.0-py3-none-any.whl", hash = "sha256:d43751d9fb4a90f9249c30431684f00c41bc874f1edccd862631a40cbc0edf08", size = 1414326, upload-time = "2026-04-13T19:45:34.659Z" },
 ]
 
 [[package]]

@@ -67,6 +67,12 @@ def _bare_path(monkeypatch, tmp_path):
     empty = tmp_path / "empty"
     empty.mkdir(exist_ok=True)
     monkeypatch.setenv("PATH", str(empty))
+    # Fresh machine also means no provisioned tools root: detection
+    # consults prov-phase1.env BEFORE ambient PATH, so an ambient
+    # ~/tools would leak real tools into the simulation.
+    tools = tmp_path / "tools"
+    tools.mkdir(exist_ok=True)
+    monkeypatch.setenv("TOOLS_DIR", str(tools))
     return empty
 
 
@@ -295,7 +301,7 @@ def test_sax_absent_reports_photonic_remedy(tmp_path, monkeypatch):
     assert optical["readiness"] == "blocked"
     assert optical["tools"]["sax"]["available"] is False
     assert "sax not installed" in optical["tools"]["sax"]["remedy"]
-    assert "uv sync --group photonic" in optical["tools"]["sax"]["remedy"]
+    assert "uv sync" in optical["tools"]["sax"]["remedy"]
 
 
 def test_cloud_entries_gated_without_keys_and_no_network(tmp_path, monkeypatch):

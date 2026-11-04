@@ -50,3 +50,16 @@ v1 contract bundle (ADR-014); no handwritten fuel/IDE copies. `run_job` is not a
 mandatory second start. Use run controls and watch/query for lifecycle evidence.
 
 *RULING-05 (T-25): harness-only ops (get_constraints, propose/apply_revision, propose_constraint_change) ruled FUEL-SIDE — no engine work. Closest engine surface is edit/query + canvas.toml. I22 closed by RULING-04 (trusted-local, no auth).*
+
+
+---
+
+*Appended 2026-11-04.*
+
+## D7 pull-model amendment (ADR-017, 2026-11-03)
+
+The MCP port is pull-by-default over the cursor event log, never
+push; push is a per-port opt-in. Wake-up hooks or observers live
+fuel-side, not engine-side. Contract the pull path (poll from
+cursor, position-check-then-apply dedupe) rather than server push;
+redelivery of a fact re-renders the same state.

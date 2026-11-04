@@ -22,3 +22,53 @@ invariants:
       - behavior-invariants.yaml (this file; RULING-01)
     rulings:
       - RULING-01
+  - id: LOCAL-SINGLE-USER
+    statement: >-
+      The engine deploys on-device for one local user, reached
+      over stdio or loopback HTTP only. The local caller is
+      trusted: a sudo user opening their own files from the
+      console is normal use, never an attack — folder escaping
+      by the user is a non-issue in this deployment. What stays
+      forbidden is remote reachability and remote-triggered
+      execution: no 0.0.0.0 binds, no webhooks or callbacks that
+      funnel into python execution, no action the local user did
+      not control. Backend endpoints stay caller-blind; safety
+      policy for AI agents lives at the client edge
+      (rocket-fuel permissions), not in engine-side user
+      restrictions. The RCE caution stays highlighted: this
+      trust holds exactly while the loopback-only, single-user,
+      on-device deployment holds.
+    enforcement:
+      - docs/adr/006-localhost-only-http.md (loopback trust
+        boundary, mechanical bind refusal)
+      - src/adapters/http/__init__.py (loopback origins only,
+        127.0.0.1 binding, no auth by design)
+      - stdio transport (no network surface at all)
+      - SECURITY-AUDIT ticket (standing audit of this boundary)
+    rulings:
+      - RULING-04
+      - I22
+  - id: ENGINE-ECS-FLOW
+    statement: >-
+      Every project-entity mutation goes through the entity
+      manager (EntityStore verbs, ProjectService admission over
+      the same verbs): change, modify, then notify. The manager
+      modifies the entity, appends one ledger event
+      (entity_created, component_changed with entity/component/
+      revision, entity_deleted), advances the revision once, and
+      notifies subscribers; no path writes entity docs directly.
+      In-process synchronous fan-out rides the same event: any
+      subscriber registry delivers exactly the appended event,
+      never a second invented shape.
+    enforcement:
+      - src/stores/ecs.py (manager verbs, event append,
+        revision advance)
+      - src/execution/routing/calls.py (tier-2 paths admit
+        through ProjectService, never a side-channel writer)
+      - tests/execution/test_console_route.py
+        (no-private-doc-store-writers scan over routing/)
+      - src/execution/runtime.py (cursor watch over the event
+        log for polling subscribers)
+    rulings:
+      - CONSOLE-APPLY
+      - ADR-016

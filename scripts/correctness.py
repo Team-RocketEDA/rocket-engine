@@ -49,7 +49,7 @@ VALIDATE_REF = {
 
 NGSPICE_REF = "docs/tickets/NGSPICE-LIVE.md"
 B10_REF = "B10-owned tooling"
-SAX_REF = "B10-owned tooling (uv sync --group photonic)"
+SAX_REF = "B10-owned tooling (uv sync)"
 
 FIXTURE_MARKERS = {
     "serv": ("fixtures/upstream/serv", "rtl/serv_top.v"),
@@ -91,7 +91,7 @@ def _need_klayout():
 
 def _need_sax():
     if importlib.util.find_spec("sax") is None:
-        return ("sax not installed, uv sync --group photonic", SAX_REF)
+        return ("sax not installed, uv sync", SAX_REF)
     return None
 
 

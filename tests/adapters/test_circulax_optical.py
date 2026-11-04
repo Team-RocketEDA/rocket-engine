@@ -24,7 +24,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "circulax"
 circulax_present = importlib.util.find_spec("circulax") is not None
 needs_circulax = pytest.mark.skipif(
     not circulax_present,
-    reason="circulax not installed (uv sync --group photonic)",
+    reason="circulax not installed (uv sync)",
 )
 
 

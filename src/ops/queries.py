@@ -217,6 +217,11 @@ class _QueryMixin:
             )
         if name == "list_job_kinds":
             return self.job_kinds()
+        if name == "get_findings":
+            return self.findings(
+                arguments.get("run_id"),
+                limit=arguments.get("limit", 50),
+                cursor=arguments.get("cursor"))
         raise ProjectError("unsupported_operation", f"Operation not wired yet: {name}.")
 
     def _query_completion(self, name, arguments):

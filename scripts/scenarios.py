@@ -491,7 +491,7 @@ def _run_live_sax_mzi(ctx, label, sub):
     if importlib.util.find_spec("sax") is None:
         raise AssertionError(
             f"{label}: sax not installed, "
-            "uv sync --group photonic (B10-owned tooling)"
+            "uv sync (B10-owned tooling)"
         )
     if not CSPDK_REF_GDS.is_file():
         raise AssertionError(f"{label}: cspdk fixture not fetched")

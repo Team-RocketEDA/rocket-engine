@@ -38,7 +38,7 @@ QUARANTINE_REF = {
     "netgen": "docs/tickets/NGSPICE-LIVE.md",
     "icarus": "B10-owned tooling",
     "magic": "B10-owned tooling",
-    "sax": "B10-owned tooling (uv sync --group photonic)",
+    "sax": "B10-owned tooling (uv sync)",
 }
 
 _MEASUREMENTS = [

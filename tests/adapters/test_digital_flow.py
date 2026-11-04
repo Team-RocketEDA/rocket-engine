@@ -102,6 +102,12 @@ mkdir -p "$RUNS/Netgen.LVS"
 printf 'Circuits match uniquely.\n' >"$RUNS/Netgen.LVS/lvs.out"
 mkdir -p "$RUNS/Yosys.EQY"
 printf 'Equivalent: all 42 points proven\n' >"$RUNS/Yosys.EQY/equiv.rpt"
+for _d in "$RUNS"/*/; do
+  if [ ! -f "$_d/state_out.json" ]; then
+    printf '{"metrics": {"step__done": 1}}\n' >"$_d/state_out.json"
+    printf 'Metric,Value\nstep__done,1\n' >"$_d/metrics.csv"
+  fi
+done
 printf '{"metrics": {"timing__setup__ws": 9.15,\n' >"$RUNS/OpenROAD.STAPostPNR/state_out.json"
 printf ' "timing__hold__ws": 0.05}}\n' >>"$RUNS/OpenROAD.STAPostPNR/state_out.json"
 printf 'Metric,Value\ntiming__setup__ws,9.15\n' >"$RUNS/OpenROAD.STAPostPNR/metrics.csv"
@@ -237,6 +243,7 @@ def _fake_evidence(design, tag, variant="ok", machine=True):
     _write(synth / "synth_stat.txt", "cells: 42\n")
     _write(synth / "synth.log", "Synthesis finished\n")
     if variant == "partial":
+        _ensure_step_states(runs)
         return runs
     _write(runs / "OpenROAD.CheckSDC" / "check.rpt", "SDC clean\n")
     _write(runs / "OpenROAD.Floorplan" / "floorplan.odb")
@@ -266,6 +273,7 @@ def _fake_evidence(design, tag, variant="ok", machine=True):
     _write(runs / "Yosys.EQY" / "equiv.rpt", "Equivalent: all 42 points proven\n")
     if machine:
         _write_machine_states(runs, variant=variant)
+        _ensure_step_states(runs)
     return runs
 
 
@@ -629,7 +637,7 @@ def test_digital_flow_parse_broken_rtl_dies_at_synth(tmp_path):
     assert stages["D27"]["status"] == "not_run"
     synth_errors = [v for v in _errors(result) if "D12" in v["message"]]
     assert synth_errors != []
-    assert any("parse error" in v["message"] for v in synth_errors)
+    assert any("state_out.json" in v["message"] for v in synth_errors)
 
 
 def test_digital_flow_parse_failed_run_without_cause_synthesizes_error(tmp_path):
@@ -815,6 +823,37 @@ def _write_step_state(step_dir, metrics):
     return step_dir
 
 
+def _ensure_step_states(runs):
+    """Minimal state_out.json for every step dir missing one.
+
+    Real LibreLane steps always finish by writing state_out.json
+    (docs/tools/librelane.md section 1, R2); the hermetic trees mirror
+    that so middle gates judge machine files. Deliverable views ride
+    on the synth/RCX/WriteGDS states.
+
+    Args:
+        runs: runs/<tag>/ dir path holding the fake step dirs.
+
+    Returns:
+        The runs dir path, unchanged.
+    """
+    views = {
+        "Yosys.Synthesis": {"NETLIST": "synth_netlist.v"},
+        "OpenROAD.RCX": {"SPEF": "design.spef"},
+        "Odb.WriteGDS": {"GDS": "design.gds"},
+    }
+    if not runs.is_dir():
+        return runs
+    for step in sorted(runs.iterdir()):
+        if not step.is_dir() or (step / "state_out.json").is_file():
+            continue
+        payload = {"metrics": {"step__done": 1}}
+        payload.update(views.get(step.name, {}))
+        (step / "state_out.json").write_text(json.dumps(payload) + "\n")
+        (step / "metrics.csv").write_text("Metric,Value\nstep__done,1\n")
+    return runs
+
+
 def _write_machine_states(runs, variant="ok"):
     """Machine-file states for the STA/DRC/LVS/EQY steps in a run tree."""
     sta = {"timing__setup__ws": 9.15, "timing__setup__tns": 0.0,
@@ -852,7 +891,7 @@ def test_digital_flow_uranium_text_without_machine_files_fails_loud(tmp_path):
         assert stages[gate]["status"] == "fail"
         assert "state_out.json" in stages[gate]["reason"]
     assert stages["D27"]["status"] == "fail"
-    assert "blocked by D22, D25, D26" in stages["D27"]["reason"]
+    assert "blocked by D12" in stages["D27"]["reason"]
     assert any(
         "machine" in v["message"] for v in _errors(result)
     )

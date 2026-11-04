@@ -35,6 +35,7 @@ import uuid
 
 from .coalesce import Coalescer, content_key
 from .errors import ExecutionError
+from .ports import PortBus
 from .queue import DeferredQueue
 
 #: Operations that never coalesce: mutating scripts and editor
@@ -175,6 +176,7 @@ class EngineRuntime:
         self._lock = threading.RLock()
         self._queue = DeferredQueue(max_depth=max_inflight)
         self._coalescer = Coalescer()
+        self._ports = PortBus()
         self._requests = {}
         self._runs = {}
         self._events = []
@@ -597,6 +599,177 @@ class EngineRuntime:
         with self._lock:
             return self._paused
 
+    def attach_port(self, name, push=True, max_depth=None):
+        """Attach one notify port to the lifecycle event log.
+
+        Every appended lifecycle event fans out to the port's
+        async queue; the writer's path never waits for it.
+
+        Args:
+            name: Port name (stdio, mcp, ide, loopback-http).
+            push: True for async push delivery; False leaves
+                the port pull-only over watch.
+            max_depth: Per-port queue ceiling; the bus default
+                when omitted.
+
+        Returns:
+            Attached port descriptor.
+
+        Raises:
+            ExecutionError: invalid_command for a bad name,
+                port_exists for an attached name.
+        """
+        return self._ports.attach(name, push=push,
+                                 max_depth=max_depth)
+
+    def detach_port(self, name):
+        """Detach one notify port; its backlog is dropped.
+
+        Args:
+            name: Attached port name to remove.
+
+        Returns:
+            Detached port descriptor.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name.
+        """
+        return self._ports.detach(name)
+
+    def port_state(self, name):
+        """Read one port's engine-side bookkeeping.
+
+        Args:
+            name: Attached port name.
+
+        Returns:
+            Descriptor with name, push, enabled, state,
+                resync_required, backlog, cursor, acked, and
+                max_depth.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name.
+        """
+        return self._ports.port_state(name)
+
+    def port_pending(self, name):
+        """Read one port's queued lifecycle events.
+
+        Args:
+            name: Attached port name.
+
+        Returns:
+            Queued event copies, oldest first.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name.
+        """
+        return self._ports.pending(name)
+
+    def port_ack(self, name, seq):
+        """Acknowledge delivery through one ledger position.
+
+        Args:
+            name: Attached port name.
+            seq: Lifecycle position acknowledged.
+
+        Returns:
+            Ack record with port, acked position, and backlog.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name,
+                invalid_command for a non-integer position.
+        """
+        return self._ports.ack(name, seq)
+
+    def port_drain(self, name, handler, limit=None,
+                   guarded=True):
+        """Deliver one port's backlog through a handler.
+
+        Args:
+            name: Attached port name.
+            handler: Callable taking one event mapping.
+            limit: Maximum events to deliver; the whole
+                backlog when omitted.
+            guarded: True applies each position once through
+                the port's bound guard.
+
+        Returns:
+            Drain record with delivered and applied counts,
+                the acked position, and handler errors.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name.
+        """
+        return self._ports.drain(name, handler, limit=limit,
+                                guarded=guarded)
+
+    def port_evaluate(self):
+        """Run the staged no-ack ladder over every port.
+
+        Args:
+            None.
+
+        Returns:
+            Directive mappings in attach order.
+        """
+        return self._ports.port_evaluate()
+
+    def port_resync(self, name, head=None):
+        """Converge one port onto the current lifecycle head.
+
+        Args:
+            name: Attached port name.
+            head: Position to converge on; the bus head when
+                omitted.
+
+        Returns:
+            Resync receipt with port, cursor, and state.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name,
+                invalid_command for a non-integer head.
+        """
+        return self._ports.port_resync(name, head=head)
+
+    def set_port_enabled(self, name, enabled, local=False):
+        """Enable or disable one port live (local-only).
+
+        Args:
+            name: Attached port name.
+            enabled: True for live delivery, False to park
+                the port (backlog dropped, resync flagged).
+            local: Caller asserts a local caller; anything
+                else is refused loudly.
+
+        Returns:
+            Updated port descriptor.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name,
+                remote_toggle_denied for a non-local caller.
+        """
+        return self._ports.set_enabled(name, enabled,
+                                      local=local)
+
+    def set_port_profile(self, names, local=False):
+        """Swap the live port profile (local-only toggle).
+
+        Args:
+            names: Port names forming the live profile.
+            local: Caller asserts a local caller; anything
+                else is refused loudly.
+
+        Returns:
+            Profile mapping with the enabled names sorted.
+
+        Raises:
+            ExecutionError: remote_toggle_denied for a
+                non-local caller, invalid_command for a bad
+                profile.
+        """
+        return self._ports.set_profile(names, local=local)
+
     def apply_edit(self):
         """Advance the revision cursor for one editor commit.
 
@@ -844,6 +1017,10 @@ class EngineRuntime:
                 callback(dict(event))
             except Exception:  # noqa: BLE001 — contained
                 continue
+        # Port fan-out rides the same appended event: ingest is
+        # non-blocking and quarantines slow ports instead of
+        # stalling the writer, so emission never fails here.
+        self._ports.ingest([event])
         return dict(event)
 
     def _completion_locked(self, run_id):

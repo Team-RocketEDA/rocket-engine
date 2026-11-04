@@ -18,10 +18,27 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [PDK-QPDK] Quantum RF PDK (STRETCH, off MVP track)
 - [PROV-DEFERRED] Provision + qualify post/off-MVP packs
 - [API-V1-TOOLS-DEFERRED] Bind deferred FPGA/physics tasks (post-MVP)
+- [BLOCKS-ADOPT] Catalogue READMEs adopt the entry contract
+- [DOCSTRING-GUARD] Fix 15 pre-existing docstring guard hits
+- [THERMAL-GATE] Triage thermal gate-ordering failure
+- [SECURITY-AUDIT] Standing local-trust boundary audit
+- [TRILINOS-LOG] Capture the Trilinos make-phase failure log
+- [DEFERRED-LANE-INTENT] Confirm deferred tools never install under full --install
+- [REVIEW-PROOF-RUN] Execute the suite live to confirm review verdicts
+- [DUMP-PROOFS-FOLLOWUP] Close the Step 13 determinism-test gap
+- [DEMOPATH-VERDICT] Fresh-shell runbook run plus verdict paragraph
+- [SPLIT-LOCK-HARDEN] Assert thin surfaces on split mega-modules
+- [PALACE-SOURCE] Read Palace install docs into provision-sources
+- [SETUP-PAGE] Vivado-style installer page in the IDE (UIUX-owned, engine-contract-driven)
+- [PYTHON-PROVISION-GUARANTEE] Python wheels and libs always provision or fail loudly
+- [EXTERNAL-TOOLS-OPTIONAL] Engine runs degraded and loud without any external tool
 ## Ready
 
 
 
+- [CONSOLE-SESSION-MIGRATE] Migrate ConsoleSession cell path onto ApplySession
+- [ECS-FLOW] Enforce ECS manager flow; evaluate esper, split store, add subscriber fan-out
+- [DISPATCH-PORTS-FIX] Remove execution-side adapter import (ports-only regression)
 ## Doing
 
 
@@ -151,7 +168,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [REVIEW-TAILS] Doc + surface cleanups from E2E-REREVIEW
 - [CANVAS-PHOTONIC-NO-HDL] Canvas v1 requires hdl even for photonic-only projects
 - [VIEWS-IMPORT-NO-PDK] generate_views import_gds never activates a PDK
-- [BWRAP-STUDY] Comparative console sandbox study
 - [TEMPLATE-RUNTIME] Backlog: runtime-modifiable project templates
 - [TOOL-OUTPUTS] Research pinned tool output shapes for v1 normalization
 - [LVS-BANDGAP-TRIAGE] Netgen 185 mismatch vs fixture match
@@ -159,7 +175,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [MIGRATE-STDIO-FILE] Migrate top-5 stdio parses to file channels
 - [I29-OWNER] Own verbatim PDK serving end-to-end
 - [I29-SERVING] Own verbatim PDK serving end to end with PRD-name aliases
-- [CONSOLE-LIFECYCLE] Console lifecycle + envelope convergence
 - [CANVAS-CST-CORE] Canvas TOML core
 - [DECK-XSCHEM] Schematic to netlist to sim execution deck
 - [ANTENNA-KLAYOUT] Staff check.antenna via KLayout-DB path
@@ -167,13 +182,6 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [API-V1-CORE] Implement shared v1 runtime, discovery, references and lossless admission
 - [ASYNC-SUBMIT] Async submit: prompt ack + deferred handle + lifecycle events
 - [API-V1-EDITORS] Implement typed project, schematic, symbol, cell and layout edit transactions
-- [LAYER-CATALOG] Technology-resolved editable layer catalog
-- [LAYOUT-EDIT] Shared geometry create/edit operations for the layout editor
-- [PROCESS-LAYER-MODEL] Versioned technology semantics and export recipes
-- [SCHEMATIC-EDIT] Hierarchical schematic authoring operations
-- [SYMBOL-CELL-EDIT] Editable symbol and physical-cell libraries
-- [IP-LIFECYCLE] IP lifecycle ops with per-PDK invariant
-- [FRONTEND-13] Frontend section-13 touchpoints batch
 - [ADAPT-GROUPC] Staff group-C adapters: meow proof, devsim, meep, elmer
 - [EQY-MCY-ADAPTERS] Staff check.equivalence + check.mutation adapters
 - [HDL-PROVIDERS] MVP provider coverage batch
@@ -182,12 +190,10 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [CANVAS-CST-COMPILE] Canvas compiler
 - [PDK-PROFILE] Hexagonal PDK organization (refactor after proofs)
 - [DECOMP-CORE] Decompose composition/service, stores behind ports
-- [TESTBENCH-COMPONENT] Scoped SPICE, HDL and cocotb testbench blocks with editable templates
 - [DRC-BANDGAP-TRIAGE] Foundry deck 740x li.5 vs fixture-clean
 - [SHAPE-HARDEN] Harden the 7 weak + 2 missing tool output shapes
 - [ESCAPE-HARDEN] Structured escapes + shape conformance batch
 - [PUSH-EVENTS] True push: MCP notifications + SSE + IPC stream
-- [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
 - [API-V1-TOOLS] Bind complete v1 task catalog, workflow gates and tool qualification
 - [API-V1-CLIENTS] Generate and migrate MCP, stdio, HTTP and Python clients to v1
 - [API-V1-CONFORMANCE] Prove v1 consumers/providers and installed workflows before deployment
@@ -195,3 +201,15 @@ humans may edit this file directly; keep the `- [ID] Title` format.
 - [INVARIANT-PARTIALS] Close I01-guard, I28-replay, I12-auth gaps
 - [TIMING-STA] Standalone run_timing via OpenSTA (top-level recheck)
 - [DIGITAL-FLOW-URANIUM] Rewrite digital_flow on machine files
+- [IP-LIFECYCLE] IP lifecycle ops with per-PDK invariant
+- [BWRAP-STUDY] Comparative console sandbox study
+- [CONSOLE-LIFECYCLE] Console lifecycle + envelope convergence
+- [WIRE-DECLARED-OPS] Wire or delist declared-but-unwired ops batch
+- [FRONTEND-13] Frontend section-13 touchpoints batch
+- [LAYER-CATALOG] Technology-resolved editable layer catalog
+- [LAYOUT-EDIT] Shared geometry create/edit operations for the layout editor
+- [SCHEMATIC-EDIT] Hierarchical schematic authoring operations
+- [SYMBOL-CELL-EDIT] Editable symbol and physical-cell libraries
+- [PROCESS-LAYER-MODEL] Versioned technology semantics and export recipes
+- [TESTBENCH-COMPONENT] Scoped SPICE, HDL and cocotb testbench blocks with editable templates
+- [CONSOLE-APPLY] Atomic session apply-context (strategic pivot)

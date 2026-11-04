@@ -59,14 +59,31 @@ Tickets: CANVAS-CST, I29-OWNER, WORKFLOW-COVERAGE. Acceptance:
 constraint violation fails loudly naming the rule; serving tests;
 coverage map committed.
 
-## Step 7 — Async submit + push events
+## Step 7 — Async notify bus + port push (rescoped by ADR-017)
 
-Intent: prompt-ack/deferred-handle submit mode with lifecycle events;
-true push on MCP notifications + HTTP SSE + IPC stream; docstrings
-honest until push lands.
-Tickets: ASYNC-SUBMIT, PUSH-EVENTS. Depends on step 5. Acceptance:
-submit returns handle pre-verdict; queued/started/progress/finished
-observed on the wire.
+Intent: async notification fan-out with client acks (QoS-1) over the
+appended ledger event; per-port queues with cursors; MCP
+pull-by-default over the cursor log (push opt-in only); SSE /
+IPC-stream push for IDE ports. Submit/admission itself stays
+synchronous on the writer's path — only notification goes async.
+Docstrings honest until the bus lands.
+Tickets: ASYNC-SUBMIT, PUSH-EVENTS (rescoped; names kept to avoid
+board churn). Depends on step 5. Acceptance: change via one port
+observed on the other ports' queues; same-position redelivery
+applies once; MCP polls from a stale cursor and converges; port
+handlers honor position-check-then-apply.
+
+## Step 7A — Shared-engine port bus (new, ADR-017)
+
+Intent: one shared Engine per process with ports attached (stdio
+default, MCP / loopback-HTTP runtime toggle); async per-port queues
+with acks; staged 10/15/20s quarantine ladder (flag-not-kill,
+engine-side bookkeeping); quarantine + resync-flag directives.
+Tickets: ECS-FLOW (slices 1–4, 6; store split first only if the
+bus touches stores/ecs.py). Depends on steps 2, 5 (done).
+Acceptance: cross-port delivery test; quarantine fires with flag
++ resync convergence; toggle mid-run; a slow port never stalls
+writers.
 
 ## Step 8 — IP lifecycle + rocket-blocks
 
@@ -101,6 +118,15 @@ Tickets: WIRE-DECLARED-OPS, FRONTEND-13, LAYER-CATALOG, LAYOUT-EDIT,
 SCHEMATIC-EDIT, SYMBOL-CELL-EDIT, PROCESS-LAYER-MODEL,
 TESTBENCH-COMPONENT. Acceptance: zero advertised-but-failing tools;
 editor roundtrips green.
+
+## Step 11A — Console session migration (new, ADR-016 follow-up)
+
+Intent: migrate the ConsoleSession approval-bound cell path onto
+ApplySession with its own RED, then remove session.py. Behavioral
+slice: worker replay, approvals binding, lifecycle status.
+Tickets: CONSOLE-SESSION-MIGRATE. Parallel with step 12+.
+Acceptance: session cell path lands through apply_batch; old
+surface removed; console suites green.
 
 ## Step 12 — File channels + blessed escapes
 
@@ -171,13 +197,18 @@ proofs; DRC/LVS/bandgap/mixed triage tickets; demo-path hardening;
 ngspice live re-proof.
 Tickets: TIMING-STA, POSTLAYOUT-REAL, DRC-TRIAGE, LVS-ESCAPE,
 MIXED-TOP-TRIAGE, BANDGAP-DRC-LVS, DEMO-PATH, NGSPICE-LIVE.
-Depends on steps 13, 18. Acceptance: proofs green on fixtures;
-demo path runs end to end.
+Depends on steps 13, 18 (ngspice re-proof and demo hardening are
+deliberate re-proofs: provision changes invalidate old proofs).
+Acceptance: proofs green on fixtures; demo path runs end to end
+against the step 7A port profile (stdio default, MCP pull).
 
 ## Step 20 — Conformance gate
 
 Intent: verify the v1 conformance gate passes (every normalizer
 against recorded fixtures for all MVP tasks, every bundle validates).
 Gate only; failures file new tickets, never waived here.
-Tickets: API-V1-CONFORMANCE. Depends on all above. Manual run: the
-conformance suite has no scoped slash command; run it directly.
+Tickets: API-V1-CONFORMANCE. Depends on all above (incl. 7A,
+11A); conformance covers the v1 consumer set over the bus (MCP
+pull, SSE, stdio). This step declares the engine closed.
+Manual run: the conformance suite has no scoped slash command;
+run it directly.

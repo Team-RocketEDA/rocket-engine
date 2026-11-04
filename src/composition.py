@@ -108,6 +108,7 @@ from .library.apig_catalog import (
 )
 from .library.catalog import Catalog
 from .library.errors import LibraryError
+from .execution.ports import BOOT_PROFILE, PortBus
 from .execution.runtime import EngineRuntime
 from .project.errors import ProjectError
 from .project.service import ProjectService
@@ -196,6 +197,7 @@ QUERY_ENGINE_METHODS = {
     "get_job_status": "job_status",
     "get_check_results": "check_results",
     "get_logs": "run_logs",
+    "get_findings": "findings",
     "list_job_kinds": "job_kinds",
     "get_python_console": "python_console",
     "list_cells": "catalog_cells",
@@ -215,7 +217,8 @@ QUERY_ENGINE_METHODS = {
 
 # Job-result queries served from execution state (plus the captured run log).
 _JOB_QUERIES = frozenset(
-    {"get_job_status", "get_check_results", "get_logs", "list_job_kinds"}
+    {"get_job_status", "get_check_results", "get_logs", "get_findings",
+     "list_job_kinds"}
 )
 
 # Catalogue + raw-asset queries served from engine state (the cell
@@ -452,6 +455,13 @@ class Engine(
             project_id, runner=self._deferred_runner,
             auto_dispatch=False,
         )
+        # Step 7A: one shared Engine per process with many
+        # attached ports. Boot profile is stdio alone; the
+        # runtime toggle attaches MCP / loopback-HTTP live.
+        self._port_bus = PortBus()
+        for boot_port in BOOT_PROFILE:
+            self._port_bus.attach(boot_port, push=True)
+        self._port_cursor = 0
 
     def snapshot(self):
         """Read the current project snapshot.
@@ -480,6 +490,215 @@ class Engine(
         return self._project.events_since(
             cursor, require_contiguous_from=require_contiguous_from
         )
+
+    def sync_ports(self):
+        """Fan newly appended ledger events out to the ports.
+
+        Pulls the project ledger since the last synced cursor
+        and ingests the batch into the shared port bus. Every
+        successful Engine.submit mutation path syncs
+        automatically; direct ProjectService or batch callers
+        sync explicitly through this call.
+
+        Returns:
+            Sync record with the ingested count, per-port
+                enqueue counts, and the bus cursor.
+
+        Caution: Sync is pull-and-fan-out, never a merge — a
+            quarantined port converges only through
+            port_resync, never through this call.
+        """
+        events = self._project.events_since(self._port_cursor)
+        counts = self._port_bus.ingest(events)
+        if events:
+            self._port_cursor = max(
+                event["seq"] for event in events)
+        return {"ingested": len(events), "per_port": counts,
+                "cursor": self._port_bus.cursor}
+
+    def attach_port(self, name, push=True, max_depth=None):
+        """Attach one port to the shared world.
+
+        Args:
+            name: Port name (stdio, mcp, ide, loopback-http).
+            push: True for async push delivery; False leaves
+                the port pull-only over get_events_since.
+            max_depth: Per-port queue ceiling; the bus default
+                when omitted.
+
+        Returns:
+            Attached port descriptor.
+
+        Raises:
+            ExecutionError: invalid_command for a bad name,
+                port_exists for an attached name.
+        """
+        return self._port_bus.attach(name, push=push,
+                                    max_depth=max_depth)
+
+    def detach_port(self, name):
+        """Detach one port; its backlog is dropped with it.
+
+        Args:
+            name: Attached port name to remove.
+
+        Returns:
+            Detached port descriptor.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name.
+        """
+        return self._port_bus.detach(name)
+
+    def port_state(self, name):
+        """Read one port's engine-side bookkeeping.
+
+        Args:
+            name: Attached port name.
+
+        Returns:
+            Descriptor with name, push, enabled, state,
+                resync_required, backlog, cursor, acked, and
+                max_depth.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name.
+        """
+        return self._port_bus.port_state(name)
+
+    def port_pending(self, name):
+        """Read one port's queued ledger events.
+
+        Args:
+            name: Attached port name.
+
+        Returns:
+            Queued event copies, oldest first.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name.
+        """
+        return self._port_bus.pending(name)
+
+    def port_ack(self, name, seq):
+        """Acknowledge delivery through one ledger position.
+
+        Args:
+            name: Attached port name.
+            seq: Ledger position acknowledged.
+
+        Returns:
+            Ack record with port, acked position, and backlog.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name,
+                invalid_command for a non-integer position.
+        """
+        return self._port_bus.ack(name, seq)
+
+    def port_drain(self, name, handler, limit=None,
+                   guarded=True):
+        """Deliver one port's backlog through a handler.
+
+        Every position routes through the port's bound
+        position guard, so redelivery applies once while
+        every delivery still advances the ack.
+
+        Args:
+            name: Attached port name.
+            handler: Callable taking one event mapping.
+            limit: Maximum events to deliver; the whole
+                backlog when omitted.
+            guarded: True applies each position once through
+                the port's bound guard.
+
+        Returns:
+            Drain record with delivered and applied counts,
+                the acked position, and handler errors.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name.
+        """
+        return self._port_bus.drain(name, handler, limit=limit,
+                                   guarded=guarded)
+
+    def port_evaluate(self):
+        """Run the staged no-ack ladder over every port.
+
+        Past 10s a silent port warns, past 15s its backlog is
+        dropped and it quarantines, past 20s the engine-side
+        resync directive fires. The engine flags, never kills.
+
+        Returns:
+            Directive mappings in attach order.
+        """
+        return self._port_bus.port_evaluate()
+
+    def port_resync(self, name, head=None):
+        """Converge one port onto the current ledger head.
+
+        The client re-runs its idempotent onboarding ritual
+        from this position; flags clear and delivery resumes.
+
+        Args:
+            name: Attached port name.
+            head: Position to converge on; the bus head when
+                omitted.
+
+        Returns:
+            Resync receipt with port, cursor, and state.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name,
+                invalid_command for a non-integer head.
+        """
+        return self._port_bus.port_resync(name, head=head)
+
+    def set_port_enabled(self, name, enabled, local=False):
+        """Enable or disable one port live (local-only toggle).
+
+        Disabling quarantines like a dead ship: the backlog is
+        dropped and the resync flag is set.
+
+        Args:
+            name: Attached port name.
+            enabled: True for live delivery, False to park
+                the port.
+            local: Caller asserts a local (loopback/stdio)
+                caller; anything else is refused loudly per
+                LOCAL-SINGLE-USER.
+
+        Returns:
+            Updated port descriptor.
+
+        Raises:
+            ExecutionError: unknown_port for a detached name,
+                remote_toggle_denied for a non-local caller.
+        """
+        return self._port_bus.set_enabled(name, enabled,
+                                         local=local)
+
+    def set_port_profile(self, names, local=False):
+        """Swap the live port profile (local-only toggle).
+
+        Missing names attach as push ports; every other port
+        disables like a dead ship. The boot profile is stdio
+        alone.
+
+        Args:
+            names: Port names forming the live profile.
+            local: Caller asserts a local caller; anything
+                else is refused loudly per LOCAL-SINGLE-USER.
+
+        Returns:
+            Profile mapping with the enabled names sorted.
+
+        Raises:
+            ExecutionError: remote_toggle_denied for a
+                non-local caller, invalid_command for a bad
+                profile.
+        """
+        return self._port_bus.set_profile(names, local=local)
 
     def capabilities(self, target=None, engine_root=None):
         """Report per-solver availability, store state, and the provision menu.
@@ -756,14 +975,17 @@ class Engine(
         if name in _CRUD_OPERATIONS:
             out = self._submit_crud(name, arguments, command)
             self._deferred.apply_edit()
+            self.sync_ports()
             return out
         if name == "place_cell":
             out = self._submit_place_cell(arguments, command)
             self._deferred.apply_edit()
+            self.sync_ports()
             return out
         if name == "python_execute":
             out = self._submit_pyexec(arguments, command)
             self._deferred.apply_edit()
+            self.sync_ports()
             return out
         if name in ("python_open", "python_reset"):
             return self._submit_console(name, arguments, command)
@@ -846,7 +1068,9 @@ class Engine(
                         ack["run_id"], ack["snapshot_id"],
                     )
         if hit is not None:
-            return self._await_shared(ack, hit["run_id"], waiter)
+            out = self._await_shared(ack, hit["run_id"], waiter)
+            self.sync_ports()
+            return out
         try:
             completion = self._pool.drain_ids([ack["run_id"]])[0]
         except BaseException:
@@ -857,6 +1081,7 @@ class Engine(
             self._coalescer.complete(ack["run_id"], completion)
         self._deferred.apply_edit()
         self._maybe_record_evidence(name, completion, arguments)
+        self.sync_ports()
         return merge_ack_completion(ack, completion)
 
 

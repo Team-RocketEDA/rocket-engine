@@ -13,6 +13,11 @@ from pathlib import Path
 
 STATE_FILES = ("state_out.json", "metrics.json", "metrics.csv")
 
+# Signoff JSON reports the live 3.0.17 run writes under step dirs
+# (docs/tools/librelane.md section 6): exact filenames, never globs.
+SIGNOFF_DRC_NAME = "drc.klayout.json"
+SIGNOFF_LVS_NAME = "lvs.netgen.json"
+
 STA_WS_KEYS = (
     "timing__setup__ws",
     "timing__hold__ws",
@@ -72,14 +77,15 @@ def read_metrics(step_dir):
 
 
 def read_run_states(run_dir):
-    """Read machine metrics for every step dir under one run root.
+    """Read machine metrics plus state views for every step dir.
 
     Args:
         run_dir: runs/<tag>/ dir path, or None when the flow never
             created it.
 
     Returns:
-        Step-dir name to {"metrics": mapping, "files": paths}.
+        Step-dir name to {"metrics": mapping, "files": paths,
+            "views": paths}.
     """
     states = {}
     if run_dir is None or not Path(run_dir).is_dir():
@@ -87,8 +93,114 @@ def read_run_states(run_dir):
     for child in sorted(Path(run_dir).iterdir()):
         if child.is_dir():
             metrics, files = read_metrics(child)
-            states[child.name] = {"metrics": metrics, "files": files}
+            states[child.name] = {
+                "metrics": metrics,
+                "files": files,
+                "views": read_views(child),
+            }
     return states
+
+
+def read_views(step_dir):
+    """Read state view paths from one step dir's state_out.json.
+
+    LibreLane State dumps its DesignFormat views as path-valued
+    entries alongside the ``metrics`` mapping (docs/tools/librelane.md
+    section 2): a top-level string is one view path, a list holds
+    several, a mapping holds named ones. Only paths resolving to real
+    files count — dangling entries are dropped, never failed on.
+
+    Args:
+        step_dir: Step directory path holding state_out.json.
+
+    Returns:
+        Sorted existing view file paths (strings).
+    """
+    raw = _read_json(Path(step_dir) / "state_out.json")
+    if not isinstance(raw, dict):
+        return []
+    candidates = []
+    for key, value in raw.items():
+        if key == "metrics":
+            continue
+        if isinstance(value, str):
+            candidates.append(value)
+        elif isinstance(value, list):
+            candidates.extend(item for item in value if isinstance(item, str))
+        elif isinstance(value, dict):
+            candidates.extend(
+                item for item in value.values() if isinstance(item, str)
+            )
+    found = []
+    for candidate in candidates:
+        path = Path(candidate)
+        if not path.is_absolute():
+            path = Path(step_dir) / candidate
+        if path.is_file():
+            found.append(str(path))
+    return sorted(set(found))
+
+
+def _signoff_file(run_dir, name):
+    """First exact-name signoff report under a run root, or None.
+
+    Args:
+        run_dir: runs/<tag>/ dir path, or None when the flow never
+            created it.
+        name: Exact report filename (no globs, no substrings).
+
+    Returns:
+        Sorted-first matching path, or None.
+    """
+    if run_dir is None or not Path(run_dir).is_dir():
+        return None
+    matches = sorted(
+        path
+        for path in Path(run_dir).rglob(name)
+        if path.is_file() and path.name == name
+    )
+    return str(matches[0]) if matches else None
+
+
+def signoff_drc_total(run_dir):
+    """Read the signoff DRC total from drc.klayout.json.
+
+    The live 3.0.17 run writes ``{rule: count, ..., "total": N}``
+    (docs/tools/librelane.md section 6); only that exact ``total``
+    key judges — per-rule counts are evidence, never the verdict.
+
+    Args:
+        run_dir: runs/<tag>/ dir path, or None when the flow never
+            created it.
+
+    Returns:
+        (total, path): integer total plus the report path, or
+            (None, None) when the report or its total is absent.
+    """
+    path = _signoff_file(run_dir, SIGNOFF_DRC_NAME)
+    raw = _read_json(path) if path is not None else None
+    if not isinstance(raw, dict):
+        return None, None
+    total = number(raw.get("total"))
+    if total is None:
+        return None, None
+    return int(total), path
+
+
+def signoff_lvs_report(run_dir):
+    """Locate the signoff lvs.netgen.json report under a run root.
+
+    The per-element pin-comparison list has no pinned pass shape, so
+    the report rides as evidence only — it never judges the gate.
+
+    Args:
+        run_dir: runs/<tag>/ dir path, or None when the flow never
+            created it.
+
+    Returns:
+        Report path, or None when absent.
+    """
+    return _signoff_file(run_dir, SIGNOFF_LVS_NAME)
 
 
 def lookup(metrics, *names):

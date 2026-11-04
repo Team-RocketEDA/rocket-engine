@@ -233,6 +233,12 @@
     "text": "Read retained events after a cursor, oldest first.\n\nHandler: `rocket_engine.project.service.ProjectService.events_since`.\n\nArguments:\n\n- `cursor`: Only events with a higher seq are returned.\n- `require_contiguous_from`: Assert the reader holds contiguous history from this seq; fails when the history aged out of retention or runs ahead of the live cursor.\n\nReturns:\n\nRetained events after the cursor, seq-ordered.\n\nRaises:\n\nProjectError: resync_required when the contiguity demand cannot be met \u2014 the reader must re-read the snapshot plus the full retained log and reset its cursor.\n\nCaution: The log is retention-bounded, not infinite \u2014 a reader gone longer than the bound must resync, never assume the gap is empty.\n",
     "wired": true
   },
+  "get_findings": {
+    "kind": "query",
+    "summary": "Read a page of findings for a completed run.",
+    "text": "Read a page of findings for a completed run.\n\nHandler: `rocket_engine.composition.Engine.findings`.\n\nIn-memory verdicts answer first; across a reboot the\ncompletion event answers instead.\n\nArguments:\n\n- `run_id` (required): Run whose findings to read.\n- `limit`: Maximum findings in this page.\n- `cursor`: Opaque position from a previous page, if any.\n\nReturns:\n\nFinding page for the run.\n\nRaises:\n\nExecutionError: unknown_run for an id with no completion event.\n",
+    "wired": true
+  },
   "get_instance": {
     "kind": "query",
     "summary": "Read one entity component payload at the current head.",

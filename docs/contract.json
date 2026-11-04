@@ -5295,6 +5295,32 @@
       "type": "object",
       "wired": true
     },
+    "get_findings": {
+      "description": "Read a page of findings for a completed run.",
+      "handlers": [
+        "rocket_engine.composition.Engine.findings"
+      ],
+      "kind": "query",
+      "name": "get_findings",
+      "properties": {
+        "cursor": {
+          "description": "Opaque position from a previous page, if any."
+        },
+        "limit": {
+          "description": "Maximum findings in this page."
+        },
+        "run_id": {
+          "description": "Run whose findings to read."
+        }
+      },
+      "raises": "ExecutionError: unknown_run for an id with no completion event.",
+      "required": [
+        "run_id"
+      ],
+      "returns": "Finding page for the run.",
+      "type": "object",
+      "wired": true
+    },
     "get_instance": {
       "description": "Read one entity component payload at the current head.",
       "handlers": [
@@ -6155,7 +6181,7 @@
       "wired": true
     }
   },
-  "schema_sha256": "02275960c7e532cc5add6ede9c2241aaf68ef0b854b3cc6d285e9481953ff756",
+  "schema_sha256": "a4fd9371bbf945b2a8b0736f27e92b30cb74f1c1e481654ef3ee3a69c7a4457a",
   "stub_overlap": {
     "fuel_owned": [
       "apply_revision",

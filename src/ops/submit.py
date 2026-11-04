@@ -1,5 +1,6 @@
 """Engine ops mixin: Submit-immediate admission paths (CRUD, editors, place-cell, pyexec)."""
 
+import hashlib
 import uuid
 from ..execution.console.lifecycle import console_envelope
 from ..interfaces.yaml_dump import dump_yaml_text
@@ -451,6 +452,63 @@ class _SubmitMixin:
             )
         except LibraryError as exc:
             raise ProjectError(exc.code, str(exc)) from exc
+
+    def apply_batch(self, batch):
+        """Land one apply-context batch as a single transaction.
+
+        The session compiler turns staged sink intents into entity
+        changes; they submit through one ``apply_transaction`` on
+        the live head, so a console batch is atomic exactly like an
+        editor batch. The request id derives from the batch
+        envelope, so replaying the same batch is idempotent
+        (same receipt, no new revision) while a reused id with
+        different arguments conflicts loudly instead of landing
+        twice.
+
+        Args:
+            batch: Emitted batch with label and intents.
+
+        Returns:
+            Receipt with the batch label, the new head revision,
+            landed kinds, declared-unlanded entries, and the
+            request id.
+
+        Raises:
+            ProjectError: invalid_command for a malformed batch
+                or an unknown sink kind, revision_conflict for a
+                head that moved under the batch, request_conflict
+                for a reused id with different arguments.
+        """
+        from ..execution.pyexec.apply_context import compile_batch
+
+        label = batch.get("label", "")
+        intents = batch.get("intents", ())
+        envelope = batch.get("envelope") or dump_yaml_text(
+            {"operation": "apply_batch", "arguments": batch}
+        )
+        compiled = compile_batch(batch)
+        request_id = "apply-" + hashlib.sha256(
+            envelope.encode("utf-8")).hexdigest()[:32]
+        command_text = dump_yaml_text(
+            {"operation": "apply_batch",
+             "arguments": {"label": label, "intents": intents}}
+        )
+        head = self._project.snapshot()["current_revision"]
+        landed = self._project.apply_transaction(
+            compiled["changes"], request_id, command_text,
+            expected_revision=head)
+        return {
+            "ok": True,
+            "operation": "apply_batch",
+            "project_id": self._project_id,
+            "label": label,
+            "revision": landed["current_revision"],
+            "previous_revision": landed.get("previous_revision"),
+            "landed": compiled["landed"],
+            "unlanded": compiled["unlanded"],
+            "applied": len(compiled["changes"]),
+            "request_id": request_id,
+        }
 
     def _submit_pyexec(self, arguments, command):
         """Admit a python_execute request: gate, then open an approval.

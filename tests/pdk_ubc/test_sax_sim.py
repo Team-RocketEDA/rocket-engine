@@ -23,8 +23,8 @@ ubc_present = (
 )
 needs_lane = pytest.mark.skipif(
     not (sax_present and gf_present and ubc_present),
-    reason="ubc lane optical live: need sax (uv sync --group photonic) + "
-    "gdsfactory (uv sync --group layout) + ubcpdk 3.3.5 (pip) or a "
+    reason="ubc lane optical live: need sax (uv sync) + "
+    "gdsfactory (uv sync) + ubcpdk 3.3.5 (pip) or a "
     "source tree (fixtures/upstream/ubc, "
     "scripts/fetch_fixtures.py --only ubc)",
 )

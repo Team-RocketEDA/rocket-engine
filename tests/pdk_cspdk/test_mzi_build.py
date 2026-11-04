@@ -15,7 +15,7 @@ from ._profile import FIXTURES, ensure_cspdk, load_profile
 
 gf_present = importlib.util.find_spec("gdsfactory") is not None
 needs_gf = pytest.mark.skipif(
-    not gf_present, reason="gdsfactory not installed (uv sync --group layout)"
+    not gf_present, reason="gdsfactory not installed (uv sync)"
 )
 
 MZI_PORTS = ["o1", "o2", "o3"]

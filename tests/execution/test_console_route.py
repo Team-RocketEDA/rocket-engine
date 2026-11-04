@@ -1,8 +1,9 @@
 """CONSOLE-ROUTE — console tier-2 mutations route through admission.
 
-This suite imports `rocket_engine.execution.console.route` (one
-word per module level). Valid GREEN = every test below passes with
-the module in place.
+This suite imports the canonical routing homes (one word per
+module level) directly: the old `console.route` re-export shim is
+gone, and the contract below pins the canonical paths. Valid GREEN
+= every test below passes against the canonical modules.
 
 The contract under test: console tier-2 effectful mutations (cell
 add/place, wire ops, doc writes, plus the sibling project
@@ -21,7 +22,7 @@ from pathlib import Path
 import pytest
 from ruamel.yaml import YAML
 
-from rocket_engine.execution.console.route import (
+from rocket_engine.execution.routing.calls import (
     CELL_VERBS,
     CONSOLE_TOOL_VERBS,
     DOC_VERBS,
@@ -29,8 +30,6 @@ from rocket_engine.execution.console.route import (
     PROJECT_VERBS,
     TIER_2_OPERATIONS,
     WIRE_VERBS,
-    ConsoleNamespace,
-    ConsoleTools,
     admission_envelope,
     build_effects_report,
     collect_run_ids,
@@ -43,6 +42,8 @@ from rocket_engine.execution.console.route import (
     tier_for,
     tool_call,
 )
+from rocket_engine.execution.routing.namespace import ConsoleNamespace
+from rocket_engine.execution.routing.tools import ConsoleTools
 from rocket_engine.execution.errors import ExecutionError
 from rocket_engine.stores import ecs
 from rocket_engine.library.apig_catalog import ApigCatalog, static_provider
@@ -436,10 +437,10 @@ def test_place_cell_without_catalog_refuses():
 
 
 def test_tier2_module_names_no_private_doc_store_writers():
-    import rocket_engine.execution.console.route as module
+    from rocket_engine.execution.routing import calls as module
 
-    files = [Path(module.__file__)] + sorted(
-        (Path(module.__file__).parent.parent / "routing").glob("*.py")
+    files = sorted(
+        (Path(module.__file__).parent).glob("*.py")
     )
     source = "\n".join(
         path.read_text(encoding="utf-8") for path in files

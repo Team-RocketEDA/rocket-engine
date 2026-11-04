@@ -21,7 +21,7 @@ import pytest
 meow_present = importlib.util.find_spec("meow") is not None
 needs_meow = pytest.mark.skipif(
     not meow_present,
-    reason="meow not installed (uv sync --group photonic)",
+    reason="meow not installed (uv sync)",
 )
 
 MEOW_PIN = "0.15.0"

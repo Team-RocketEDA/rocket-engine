@@ -6,15 +6,20 @@ carrying DESIGN_NAME/VERILOG_FILES/CLOCK_PERIOD/CLOCK_PORT/PDK), run
 `librelane <config> --run-tag <tag> --pdk <pdk> --overwrite`
 (`--pdk-root`/`--scl` when the job names them) under the job timeout in
 its own process group, then read `design/runs/<tag>/` step dirs for
-per-stage evidence (config, state_out.json/metrics.csv machine files,
-DB checkpoints). Each D11-D27 gate passes on its step's evidence,
-fails loudly naming the stage plus the report, or is force-bypassed
-via the job `force` list (a warning, never silent). The D22/D25/D26/D27
-verdicts come from machine metrics only — report text is evidence,
-never the verdict, and steps without machine files fail loudly. A
-nonzero exit marks the first failing gate failed and everything
-downstream not_run; a timeout SIGKILLs the whole tree and reports
-digital_flow_timeout with whatever partial evidence survived.
+per-stage machine files (state_out.json metrics plus state views,
+metrics.csv, the signoff drc.klayout.json/lvs.netgen.json reports).
+Every gate verdict comes from those machine files only: D11 passes on
+the staged config plus the versioned binary, D12 on synthesis state
+files, D22/D25/D26/D27 on merged step metrics (plus the signoff DRC
+total when step metrics carry no DRC keys), D24 on a non-empty state
+view GDS, the rest on per-step state files. Each gate otherwise fails
+loudly naming the stage plus the report, or is force-bypassed via the
+job `force` list (a warning, never silent). Report text and file names
+ride as evidence pointers only and never decide; steps without machine
+files fail loudly. A nonzero exit marks the first failing gate failed
+and everything downstream not_run; a timeout SIGKILLs the whole tree
+and reports digital_flow_timeout with whatever partial evidence
+survived.
 
 Tool resolution: an explicit job `tool_dir` wins, else PATH, and the
 resolved binary must answer `librelane --version` with the pinned
@@ -28,6 +33,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 from pathlib import Path
 
 from ...execution.errors import ExecutionError
@@ -40,6 +46,8 @@ from .state import (
     lvs_verdict,
     missing_reason,
     read_run_states,
+    signoff_drc_total,
+    signoff_lvs_report,
     sta_verdict,
 )
 
@@ -67,13 +75,15 @@ _MISSING_REMEDY = (
 _TOP_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _TAG_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
 _PDK_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
-_ERROR_RE = re.compile(r"ERROR: (.*)")
 
 # PRD D11-D27 projected onto LibreLane Classic step dirs: lowercase
 # substrings matched against the step-dir name (first path part under
-# runs/<tag>/), plus filename substrings for that stage's artifacts.
-# Step IDs drift across LibreLane versions; the match stays substring
-# on purpose, and a gate with no match fails loudly (never skipped).
+# runs/<tag>/). The table locates steps only — verdicts never come
+# from it. Step IDs drift across LibreLane versions; the locator stays
+# substring on purpose, and a gate whose steps wrote no machine files
+# fails loudly (never skipped). The artifact tuples select evidence
+# pointers (plus filename fallbacks behind state views), never
+# verdicts.
 _STAGES = (
     {"id": "D11", "label": "Start the LibreLane flow", "steps": (), "artifacts": ()},
     {"id": "D12", "label": "Synthesize to standard cells",
@@ -114,7 +124,6 @@ _STAGES = (
 _STAGE_IDS = tuple(stage["id"] for stage in _STAGES)
 
 _EVIDENCE_CAP = 25
-_REPORT_READ_BYTES = 65536
 _STREAM_KEEP_BYTES = 131072
 
 
@@ -178,27 +187,6 @@ def _evidence_files(scan, step_names, artifacts):
     return sorted(out)[:_EVIDENCE_CAP]
 
 
-def _first_error(paths):
-    """First `ERROR:` line across one stage's files, with its file.
-
-    Args:
-        paths: File paths to search.
-
-    Returns:
-        (line, path) for the first ERROR line, else (None, None).
-    """
-    for path in sorted(paths):
-        try:
-            data = Path(path).read_bytes()[:_REPORT_READ_BYTES]
-        except OSError:
-            continue
-        for line in data.decode("utf-8", "replace").splitlines():
-            match = _ERROR_RE.search(line)
-            if match is not None:
-                return match.group(1).strip(), str(path)
-    return None, None
-
-
 def _tail_kept(text):
     """Bound one captured stream to its tail with a marker.
 
@@ -219,8 +207,8 @@ def _step_metrics(states, step_names):
     """Merge machine metrics across one gate's matched step dirs.
 
     Args:
-        states: Step-dir to {metrics, files} mapping from the run
-            states readout.
+        states: Step-dir to {metrics, files, views} mapping from the
+            run states readout.
         step_names: Matched step-dir names for one stage.
 
     Returns:
@@ -235,6 +223,27 @@ def _step_metrics(states, step_names):
             metrics.setdefault(key, value)
         files.extend(entry.get("files", []))
     return metrics, sorted(set(files))
+
+
+def _step_views(states, step_names, suffixes):
+    """State view paths under one gate's matched step dirs, filtered.
+
+    Args:
+        states: Step-dir to {metrics, files, views} mapping from the
+            run states readout.
+        step_names: Matched step-dir names for one stage.
+        suffixes: Filename suffixes a view must end with (lowercase
+            compared, so pass tuples like (".gds", ".gds.gz")).
+
+    Returns:
+        Sorted view paths ending with one of the suffixes.
+    """
+    found = []
+    for name in step_names:
+        for view in states.get(name, {}).get("views", []):
+            if view.lower().endswith(suffixes):
+                found.append(view)
+    return sorted(set(found))
 
 
 def _machine_gate(stage_id, kind, steps, metrics, files, run_dir):
@@ -281,20 +290,22 @@ def _machine_gate(stage_id, kind, steps, metrics, files, run_dir):
 
 
 def _stage_gate(stage, scan, native, states):
-    """Judge one stage gate from the run scan plus machine states.
+    """Judge one stage gate from machine files only (D11 excepted).
 
     D11 passes on the staged config plus the versioned binary (no run
-    dirs needed); D12 fails on any synthesis ERROR line with the first
-    line as the cause; D22/D25/D26/D27 judge their state_out.json /
-    metrics.csv machine metrics (report text never decides, missing
-    machine files fail loudly); D24 requires a non-empty GDS; the
-    rest pass on matched step plus artifact evidence.
+    dirs needed); every other gate judges its matched steps' machine
+    files — D12 on synthesis state files, D22/D25/D26/D27 on merged
+    state_out.json / metrics.csv metrics (plus the signoff DRC total
+    when step metrics carry no DRC keys), D24 on a non-empty state
+    view GDS, the rest on per-step state files. Report text and file
+    names ride as evidence pointers only and never decide; steps
+    without machine files fail loudly.
 
     Args:
         stage: Stage row (id, label, steps, artifacts).
         scan: Step-dir to file-list mapping from the run scan.
         native: Native output with config, version, and run context.
-        states: Step-dir to {metrics, files} machine readout.
+        states: Step-dir to {metrics, files, views} machine readout.
 
     Returns:
         (ok, reason, steps, evidence, reports) for the gate.
@@ -313,13 +324,29 @@ def _stage_gate(stage, scan, native, states):
     evidence = _evidence_files(scan, steps, stage["artifacts"])
     reports = [str(p) for p in evidence]
     if stage_id == "D12":
-        synth_files = [p for name in steps for p in scan.get(name, [])]
-        cause, cause_file = _first_error(synth_files)
-        if cause is not None:
-            return False, f"synthesis error: {cause}", steps, evidence, [cause_file]
-        if not evidence:
-            return False, f"no synthesis evidence in {run_dir}", steps, [], []
-        return True, f"{len(evidence)} netlist/stat artifacts", steps, evidence, reports
+        _, files = _step_metrics(states, steps)
+        if not files:
+            logs = sorted(
+                str(path)
+                for name in steps
+                for path in scan.get(name, [])
+                if path.suffix == ".log"
+            )
+            return (
+                False,
+                "no synthesis machine-file metrics "
+                f"(state_out.json/metrics.csv) in {run_dir}",
+                steps,
+                [],
+                logs,
+            )
+        return (
+            True,
+            f"synthesis complete ({len(files)} state files)",
+            steps,
+            evidence,
+            reports,
+        )
     if stage_id == "D22":
         metrics, files = _step_metrics(states, steps)
         ok, reason, shown, shown_reports = _machine_gate(
@@ -327,7 +354,14 @@ def _stage_gate(stage, scan, native, states):
         )
         return ok, reason, steps, shown, shown_reports
     if stage_id == "D24":
-        gds = [p for p in evidence if p.name.lower().endswith((".gds", ".gds.gz"))]
+        viewed = _step_views(states, steps, (".gds", ".gds.gz"))
+        gds = [Path(p) for p in viewed]
+        if not gds:
+            gds = [
+                p
+                for p in evidence
+                if p.name.lower().endswith((".gds", ".gds.gz"))
+            ]
         if not gds:
             return False, f"no GDS evidence in {run_dir}", steps, evidence, reports
         sized = [p for p in gds if p.is_file() and p.stat().st_size > 0]
@@ -336,6 +370,25 @@ def _stage_gate(stage, scan, native, states):
         return True, f"GDS {sized[0].name}", steps, evidence, [str(p) for p in sized]
     if stage_id == "D25":
         metrics, files = _step_metrics(states, steps)
+        _, _, total = drc_verdict(metrics)
+        if total is None:
+            signoff_total, signoff_path = signoff_drc_total(native.get("run_dir"))
+            if signoff_total is not None:
+                if signoff_total > 0:
+                    return (
+                        False,
+                        f"{signoff_total} DRC violations (drc.klayout.json)",
+                        steps,
+                        [signoff_path],
+                        [signoff_path],
+                    )
+                return (
+                    True,
+                    "DRC total 0 (drc.klayout.json)",
+                    steps,
+                    [signoff_path],
+                    [signoff_path],
+                )
         ok, reason, shown, shown_reports = _machine_gate(
             stage_id, "DRC", steps, metrics, files, run_dir
         )
@@ -345,6 +398,9 @@ def _stage_gate(stage, scan, native, states):
         ok, reason, shown, shown_reports = _machine_gate(
             stage_id, "LVS", steps, metrics, files, run_dir
         )
+        lvs_report = signoff_lvs_report(native.get("run_dir"))
+        if lvs_report is not None and lvs_report not in shown_reports:
+            shown_reports = [*shown_reports, lvs_report]
         return ok, reason, steps, shown, shown_reports
     if stage_id == "D27":
         metrics, files = _step_metrics(states, steps)
@@ -352,11 +408,32 @@ def _stage_gate(stage, scan, native, states):
             stage_id, "equivalence", steps, metrics, files, run_dir
         )
         return ok, reason, steps, shown, shown_reports
-    if not steps and not evidence:
-        return False, f"no {stage['label'].lower()} evidence in {run_dir}", steps, [], []
-    if not evidence:
-        return False, f"no {stage['label'].lower()} artifacts in {', '.join(steps)}", steps, [], []
-    return True, f"{len(evidence)} artifacts", steps, evidence, reports
+    _, files = _step_metrics(states, steps)
+    if not files:
+        if not steps:
+            return (
+                False,
+                f"no {stage['label'].lower()} machine-file metrics "
+                f"(state_out.json/metrics.csv) in {run_dir}",
+                steps,
+                [],
+                [],
+            )
+        return (
+            False,
+            f"no {stage['label'].lower()} machine-file metrics "
+            f"(state_out.json/metrics.csv) in {', '.join(steps)}",
+            steps,
+            [],
+            [],
+        )
+    return (
+        True,
+        f"{stage['label'].lower()} complete ({len(files)} state files)",
+        steps,
+        evidence,
+        reports,
+    )
 
 
 def _evaluate_stages(native):
@@ -471,10 +548,11 @@ class LibrelaneFlowAdapter(ToolAdapter):
     Serves the run_digital_flow operation with deck.tool `librelane`
     (the only tool). Stages the project RTL into a LibreLane design
     dir, runs the Classic flow as a subprocess under the job timeout,
-    and judges the D11-D27 stage gates from the run's step dirs:
-    per-stage evidence is the config, reports, and DB checkpoints
-    found there, failures name the stage plus the report, and the job
-    `force` list bypasses named gates as warnings.
+    and judges the D11-D27 stage gates from the run's machine files
+    (state_out.json metrics plus state views, metrics.csv, signoff
+    JSON reports): report text never decides, failures name the stage
+    plus the report, and the job `force` list bypasses named gates as
+    warnings.
 
     Job keys:
         sources (required): Verilog source paths staged to design/.
@@ -483,6 +561,8 @@ class LibrelaneFlowAdapter(ToolAdapter):
         clock_period: Clock period in ns (default 10.0).
         pdk: PDK name for --pdk (default sky130A).
         pdk_root: PDK root dir for --pdk-root; omitted when None.
+        manual_pdk: Pass --manual-pdk (use PDK root as-is, no ciel
+            download; required for read-only provisioned PDKs).
         scl: Standard-cell library for --scl; omitted when None.
         flow: Flow name; only Classic is supported.
         tag: Run tag for runs/<tag>/ (default engine).
@@ -626,6 +706,9 @@ class LibrelaneFlowAdapter(ToolAdapter):
         scl = job.get("scl")
         if scl is not None and (not isinstance(scl, str) or not scl.strip()):
             raise AdapterError("invalid_command", f"Bad scl: {scl!r}.")
+        manual_pdk = job.get("manual_pdk", False)
+        if not isinstance(manual_pdk, bool):
+            raise AdapterError("invalid_command", f"Bad manual_pdk: {manual_pdk!r}.")
         librelane = self._resolve(job)
         checked = {
             "librelane": librelane,
@@ -636,6 +719,7 @@ class LibrelaneFlowAdapter(ToolAdapter):
             "clock_period": period,
             "pdk": pdk,
             "pdk_root": pdk_root,
+            "manual_pdk": manual_pdk,
             "scl": scl,
             "flow": flow,
             "tag": tag,
@@ -715,6 +799,11 @@ class LibrelaneFlowAdapter(ToolAdapter):
         ]
         if checked["pdk_root"] is not None:
             argv += ["--pdk-root", checked["pdk_root"]]
+        if checked.get("manual_pdk"):
+            # --manual-pdk: use the PDK root as-is (proven recipe in
+            # waveform-generator). No ciel download, no writes into the
+            # PDK tree, so read-only provisioned PDKs work.
+            argv += ["--manual-pdk"]
         if checked["scl"] is not None:
             argv += ["--scl", checked["scl"]]
         binds = tool_roots([checked["librelane"]])
@@ -748,11 +837,11 @@ class LibrelaneFlowAdapter(ToolAdapter):
         }
 
     def parse(self, native_output):
-        """Judge the D11-D27 gates from the run's step evidence.
+        """Judge the D11-D27 gates from the run's machine files.
 
         Timeouts report digital_flow_timeout plus the partial gates;
         failed runs fail the first gate and mark evidence-free
-        downstream gates not_run; clean exits fail every gateless
+        downstream gates not_run; clean exits fail every stateless
         stage. Forced failures warn instead of erroring, and a flow
         failure always names its stage plus report.
 
@@ -779,35 +868,55 @@ class LibrelaneFlowAdapter(ToolAdapter):
             )
         stages, violations = _evaluate_stages(native_output)
         by_id = {stage["id"]: stage for stage in stages}
+        states = read_run_states(native_output.get("run_dir"))
         gds = next(
             (
                 path
-                for path in by_id.get("D24", {}).get("reports", [])
-                if path.lower().endswith((".gds", ".gds.gz"))
+                for path in _step_views(
+                    states, by_id.get("D24", {}).get("steps", []), (".gds", ".gds.gz")
+                )
+                + [
+                    path
+                    for path in by_id.get("D24", {}).get("reports", [])
+                    if path.lower().endswith((".gds", ".gds.gz"))
+                ]
             ),
             None,
         )
         netlist = next(
             (
                 path
-                for path in by_id.get("D12", {}).get("evidence", [])
-                if path.lower().endswith(".v")
+                for path in _step_views(
+                    states, by_id.get("D12", {}).get("steps", []), (".v",)
+                )
+                + [
+                    path
+                    for path in by_id.get("D12", {}).get("evidence", [])
+                    if path.lower().endswith(".v")
+                ]
             ),
             None,
         )
         spef = next(
             (
                 path
-                for path in by_id.get("D21", {}).get("evidence", [])
-                if path.lower().endswith(".spef")
+                for path in _step_views(
+                    states, by_id.get("D21", {}).get("steps", []), (".spef",)
+                )
+                + [
+                    path
+                    for path in by_id.get("D21", {}).get("evidence", [])
+                    if path.lower().endswith(".spef")
+                ]
             ),
             None,
         )
-        states = read_run_states(native_output.get("run_dir"))
         drc_metrics, _ = _step_metrics(
             states, by_id.get("D25", {}).get("steps", [])
         )
         _, _, drc_total = drc_verdict(drc_metrics)
+        if drc_total is None:
+            drc_total, _ = signoff_drc_total(native_output.get("run_dir"))
         lvs_metrics, _ = _step_metrics(
             states, by_id.get("D26", {}).get("steps", [])
         )
@@ -942,15 +1051,53 @@ class LibrelaneFlowAdapter(ToolAdapter):
                     return True, None
                 raise AdapterError(exc.code, str(exc)) from exc
             return False, proc
+        # Tee: stream the flow to the terminal live while keeping
+        # bounded tails for verdicts (never swallow long builds).
+        import collections
+        import threading
+
         proc = subprocess.Popen(
             argv,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=workdir,
             start_new_session=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
         )
+        tails = {
+            "out": collections.deque(maxlen=500),
+            "err": collections.deque(maxlen=500),
+        }
+
+        def _pump(stream, key, sink):
+            try:
+                for line in iter(stream.readline, ""):
+                    sink.write(line)
+                    sink.flush()
+                    tails[key].append(line)
+            except (OSError, ValueError):
+                pass
+            finally:
+                try:
+                    stream.close()
+                except (OSError, ValueError):
+                    pass
+
+        threads = [
+            threading.Thread(
+                target=_pump, args=(proc.stdout, "out", sys.stdout), daemon=True
+            ),
+            threading.Thread(
+                target=_pump, args=(proc.stderr, "err", sys.stderr), daemon=True
+            ),
+        ]
+        for thread in threads:
+            thread.start()
         try:
-            out_bytes, err_bytes = proc.communicate(timeout=timeout_s)
+            proc.wait(timeout=timeout_s)
         except subprocess.TimeoutExpired:
             try:
                 os.killpg(proc.pid, signal.SIGKILL)
@@ -961,10 +1108,14 @@ class LibrelaneFlowAdapter(ToolAdapter):
             except (ProcessLookupError, OSError):
                 pass
             proc.wait()
+            for thread in threads:
+                thread.join(timeout=5)
             return True, None
+        for thread in threads:
+            thread.join(timeout=30)
         return False, subprocess.CompletedProcess(
             proc.args,
             proc.returncode,
-            out_bytes.decode("utf-8", "replace"),
-            err_bytes.decode("utf-8", "replace"),
+            "".join(tails["out"]),
+            "".join(tails["err"]),
         )

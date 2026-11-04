@@ -37,6 +37,7 @@ QUERIES = frozenset(
         "plan_checks", "get_design_completion",
         "get_job_status", "get_check_results",
         "get_events_since", "list_artifacts", "get_logs",
+        "get_findings",
         "list_projects", "list_docs", "read_doc",
         "get_component", "components_of", "entities_with",
         "get_world_snapshot",
