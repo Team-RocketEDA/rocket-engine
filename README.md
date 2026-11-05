@@ -38,6 +38,7 @@ engine files stay MIT (see [LICENSE](LICENSE)).
 
 ## Requirements
 
+<!-- REQUIREMENTS:START -->
 pip ships the engine, not the tools. Native binaries, PDK trees,
 and cloud keys arrive via provision recipes, your own PATH, or
 explicit opt-in. The engine resolves provisioned roots first, then
@@ -96,6 +97,8 @@ you exactly what resolved and the remedy for what did not.
 |---|---|---|
 | Tidy3D web (cloud) | BYOC: tidy3d web | CLOUD-AUTH (Backlog): OS keyring preferred, encrypted file fallback. |
 | GDSFactory+ (cloud) | BYOC: gdsfactory+ | CLOUD-AUTH (Backlog): OS keyring preferred, encrypted file fallback. |
+<!-- REQUIREMENTS:END -->
+
 ## Current shape
 
 - `src/` is the package root and installs as `rocket_engine`.
