@@ -221,6 +221,115 @@ entries:
       The PDK deck needs KLayout newer than 0.30.7 (euclidean
       metric; recipe §4).
     recipe: "docs/pdk/ihp/recipe.md (PDK-IHP lane)."
+  - id: pdk-sky130gf
+    kind: pdk
+    label: PDK sky130gf (pip layout cells + KLayout tech only; drc/lvs/extract/sim stay on the sky130A tree)
+    pdk_id: sky130gf
+    source_default: ~/.local/share/pdk/sky130gf
+    decks:
+      - sky130/klayout/sky130.lyt
+      - sky130/klayout/layers.lyp
+      - sky130/klayout/layers.yaml
+    remedy: >-
+      Install sky130==1.0.0 with --no-deps (a plain install
+      downgrades gdsfactory to 9.40.2) and link the KLayout tech
+      per docs/pdk/sky130gf/recipe.md, then register the pip
+      package dir via scripts/install.sh --pdk-only with
+      PDK_ID=sky130gf.
+    recipe: "docs/pdk/sky130gf/recipe.md (PDK-SKY130GF lane; dual-scoped: cells here, decks on sky130A)."
+  - id: pdk-cspdk
+    kind: pdk
+    label: PDK cspdk (CORNERSTONE photonics; si340 proven, 7 variants inventoried; DRC via engine stand-in rules, no local deck)
+    pdk_id: cspdk
+    source_default: ~/.local/share/pdk/cspdk
+    decks:
+      - cspdk/si340/klayout/tech.lyt
+      - cspdk/si340/klayout/layers.lyp
+      - cspdk/si340/layers.yaml
+    remedy: >-
+      Install cspdk==2.1.0 (gdsfactory 9.51.0 + sax 0.18.2),
+      add the manual si340 KLayout tech symlink per
+      docs/pdk/cspdk/recipe.md, then register the package dir
+      via scripts/install.sh --pdk-only with PDK_ID=cspdk.
+    recipe: "docs/pdk/cspdk/recipe.md (PDK-CSPDK lane; si340 proven)."
+  - id: pdk-gf180
+    kind: pdk
+    label: PDK gf180 (GF 180nm MCU; layout + typical sim proven; DRC is the engine stand-in floor, foundry decks are user-supplied)
+    pdk_id: gf180
+    source_default: ~/.local/share/pdk/gf180
+    decks:
+      - klayout/tech/gf180mcu.lyt
+      - klayout/tech/gf180mcu.lyp
+      - klayout/tech/gf180mcu.map
+    remedy: >-
+      Provision gf180mcu per docs/pdk/gf180/recipe.md (PyPI
+      1.0.0 needs gdsfactory 9.40.2; the source tree needs
+      9.51.0), then register the tree via scripts/install.sh
+      --pdk-only with PDK_ID=gf180.
+    recipe: "docs/pdk/gf180/recipe.md (PDK-GF180 lane)."
+  - id: pdk-ubc
+    kind: pdk
+    label: PDK ubc (SiEPIC EBeam; MZI build + PDK DRC deck + SAX sim proven)
+    pdk_id: ubc
+    source_default: ~/.local/share/pdk/ubc
+    decks:
+      - ubcpdk/klayout/tech/drc/SiEPIC_EBeam_DRC.lyp
+      - ubcpdk/klayout/tech/tech.lyt
+      - ubcpdk/klayout/tech/layers.lyp
+    remedy: >-
+      Provision ubcpdk per docs/pdk/ubc/recipe.md, then register
+      the tree via scripts/install.sh --pdk-only with PDK_ID=ubc.
+    recipe: "docs/pdk/ubc/recipe.md (PDK-UBC lane; ebeam proven)."
+  - id: pdk-lxt
+    kind: pdk
+    label: PDK lxt (Luxelligence GF photonics; ltoi300 + lnoi400 layout + SAX proven; DRC gated behind an access grant)
+    pdk_id: lxt
+    source_default: ~/.local/share/pdk/lxt
+    decks:
+      - ltoi300/klayout/ltoi300.lyp
+      - ltoi300/layers.yaml
+      - lnoi400/klayout/tech.lyt
+      - lnoi400/klayout/lnoi400.lyp
+    remedy: >-
+      Clone the pinned rev and run install_tech.py (lnoi400)
+      plus the manual ltoi300 symlink per docs/pdk/lxt/recipe.md,
+      then register the tree via scripts/install.sh --pdk-only
+      with PDK_ID=lxt. DRC stays gated until a granted .lydrc is
+      registered (never green on the stand-in sanity check).
+    recipe: "docs/pdk/lxt/recipe.md (PDK-LXT lane; DRC gated)."
+  - id: pdk-asap7
+    kind: pdk
+    label: PDK asap7 (predictive 7nm FinFET; file-census + GDS-read only, never manufacturable; no open DRC/LVS/sim decks)
+    pdk_id: asap7
+    source_default: ~/.local/share/pdk/asap7
+    decks:
+      - techlef_misc/asap7_tech_1x_201209.lef
+      - Verilog/IO_cell/ASAP7_IOCELLBUFANTENNA.v
+      - LEF/IO_cell/ASAP7_IOCELLBUFANTENNAIN_5um.lef
+    remedy: >-
+      Clone the wrapper + library trees per
+      docs/pdk/asap7/recipe.md, then register the 7.5-track
+      library tree via scripts/install.sh --pdk-only with
+      PDK_ID=asap7. Predictive-only: census anchors, not
+      runnable decks; never present above measured silicon.
+    recipe: "docs/pdk/asap7/recipe.md (PDK-ASAP7 lane; predictive-only)."
+  - id: pdk-vtt
+    kind: pdk
+    label: PDK vtt (VTT 3um SOI; BLOCKED — upstream gvtt 0.1.0 broken as-shipped, no decks or models)
+    pdk_id: vtt
+    source_default: ~/.local/share/pdk/vtt
+    provisionable: false
+    decks:
+      - gvtt/klayout/tech.lyt
+      - gvtt/klayout/layers.lyp
+      - gvtt/layers.yaml
+    remedy: >-
+      Blocked upstream: gvtt 0.1.0 raises ImportError on
+      gdsfactory.pdk.constants and ships no decks or models.
+      Unblock conditions in docs/pdk/vtt/report.md (drop the
+      constants import, raise the <9.46.0 ceiling). No provision
+      action.
+    recipe: "docs/pdk/vtt/report.md (PDK-VTT lane; BLOCKED, inventory only)."
   - id: cloud-tidy3d
     kind: cloud
     label: Tidy3D web (cloud)

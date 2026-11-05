@@ -83,6 +83,13 @@ you exactly what resolved and the remedy for what did not.
 |---|---|---|
 | PDK sky130A | `sky130A` + 4 decks | scripts/install.sh --pdk-only (PDK_SOURCE/PDK_ID/PDK_REVISION; see docs/demo-runbook.md). |
 | PDK ihp (IHP SG13G2 BiCMOS + RF) | `ihp` + 1 decks | docs/pdk/ihp/recipe.md (PDK-IHP lane). |
+| PDK sky130gf (pip layout cells + KLayout tech only; drc/lvs/extract/sim stay on the sky130A tree) | `sky130gf` + 3 decks | docs/pdk/sky130gf/recipe.md (PDK-SKY130GF lane; dual-scoped: cells here, decks on sky130A). |
+| PDK cspdk (CORNERSTONE photonics; si340 proven, 7 variants inventoried; DRC via engine stand-in rules, no local deck) | `cspdk` + 3 decks | docs/pdk/cspdk/recipe.md (PDK-CSPDK lane; si340 proven). |
+| PDK gf180 (GF 180nm MCU; layout + typical sim proven; DRC is the engine stand-in floor, foundry decks are user-supplied) | `gf180` + 3 decks | docs/pdk/gf180/recipe.md (PDK-GF180 lane). |
+| PDK ubc (SiEPIC EBeam; MZI build + PDK DRC deck + SAX sim proven) | `ubc` + 3 decks | docs/pdk/ubc/recipe.md (PDK-UBC lane; ebeam proven). |
+| PDK lxt (Luxelligence GF photonics; ltoi300 + lnoi400 layout + SAX proven; DRC gated behind an access grant) | `lxt` + 4 decks | docs/pdk/lxt/recipe.md (PDK-LXT lane; DRC gated). |
+| PDK asap7 (predictive 7nm FinFET; file-census + GDS-read only, never manufacturable; no open DRC/LVS/sim decks) | `asap7` + 3 decks | docs/pdk/asap7/recipe.md (PDK-ASAP7 lane; predictive-only). |
+| PDK vtt (VTT 3um SOI; BLOCKED — upstream gvtt 0.1.0 broken as-shipped, no decks or models) | `vtt` + 3 decks | docs/pdk/vtt/report.md (PDK-VTT lane; BLOCKED, inventory only). |
 
 ### Cloud (opt-in only, never default)
 
