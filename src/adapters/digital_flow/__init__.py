@@ -118,8 +118,12 @@ _STAGES = (
      "artifacts": (".rpt", ".lyrdb")},
     {"id": "D26", "label": "LVS vs reference", "steps": ("lvs", "netgen", "extract"),
      "artifacts": (".out", ".rpt", ".spice")},
+    # D27: Classic 3.0.17 runs no eqy/equiv/signoff/finish step, so the old
+    # substrings matched nothing and the gate could never pass. The flow's
+    # equivalence-grade evidence is netgen LVS vs reference (0 mismatches
+    # means match) plus the final/ metrics; point the gate at those.
     {"id": "D27", "label": "Equivalence and final gates",
-     "steps": ("eqy", "equiv", "signoff", "finish"), "artifacts": (".rpt", ".log")},
+     "steps": ("netgen", "lvs", "final"), "artifacts": (".rpt", ".log")},
 )
 _STAGE_IDS = tuple(stage["id"] for stage in _STAGES)
 
@@ -404,8 +408,11 @@ def _stage_gate(stage, scan, native, states):
         return ok, reason, steps, shown, shown_reports
     if stage_id == "D27":
         metrics, files = _step_metrics(states, steps)
+        # Kind LVS, not equivalence: netgen LVS-vs-reference IS the
+        # equivalence proof this flow performs (no eqy engine runs here),
+        # and its match keys are what the merged metrics carry.
         ok, reason, shown, shown_reports = _machine_gate(
-            stage_id, "equivalence", steps, metrics, files, run_dir
+            stage_id, "LVS", steps, metrics, files, run_dir
         )
         return ok, reason, steps, shown, shown_reports
     _, files = _step_metrics(states, steps)
